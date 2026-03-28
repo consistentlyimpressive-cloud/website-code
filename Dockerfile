@@ -37,8 +37,8 @@ COPY --from=frontend-build /app/frontend/dist /dist
 
 ENV PYTHON_PATH=/opt/venv/bin/python3
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=10000
 
-EXPOSE 3001
+EXPOSE 10000
 
 CMD ["node", "server.js"]
