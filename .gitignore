@@ -16,6 +16,12 @@ backend/venv/
 backend/uploads/
 backend/admin-data.json
 backend/loading_scan.mp4
+backend/__pycache__/
+backend/*.pyc
+backend/debug_*.jpg
+backend/temp_analysis.jpg
+backend/test.jpg
+backend/mog_report.txt
 debug-cb256d.log
 build_error.txt
 build_error_utf8.txt
