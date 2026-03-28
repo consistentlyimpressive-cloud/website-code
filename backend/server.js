@@ -411,7 +411,6 @@ async function verifyUltraAccess(req, res, next) {
 
 app.post(
   '/api/analyze',
-  analyzeLimiter,
   (req, res, next) => {
     analyzeUpload(req, res, (err) => {
       if (err) {
@@ -421,8 +420,10 @@ app.post(
       next();
     });
   },
+  analyzeLimiter,
   verifyUltraAccess,
   (req, res) => {
+    // Check files immediately after upload parsing
     const frontFile = req.files && req.files['image'] && req.files['image'][0];
     if (!frontFile) {
       return res.status(400).json({ error: 'No image provided' });
@@ -662,12 +663,12 @@ if (fs.existsSync(distDir)) {
   });
 }
 
-const PORT = Number(process.env.PORT || 3001);
+const PORT = Number(process.env.PORT || 10000);
 
 async function start() {
   await adminStore.init();
-  app.listen(PORT, () => {
-    console.log(`Backend Bridge running on http://localhost:${PORT}`);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Backend Bridge running on http://0.0.0.0:${PORT}`);
     console.log(
       'Tip: Python AI engine (final_engine.py) logs to THIS same terminal when /api/analyze runs — keep this window visible while scanning.'
     );
