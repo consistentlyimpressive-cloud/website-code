@@ -1,0 +1,8 @@
+google-genai
+openai
+opencv-python
+numpy
+mediapipe
+fastapi
+uvicorn
+python-multipart

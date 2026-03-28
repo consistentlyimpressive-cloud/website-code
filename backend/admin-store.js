@@ -1,0 +1,153 @@
+const fs = require('fs');
+const path = require('path');
+
+const STORE_FILE = path.join(__dirname, 'admin-data.json');
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'ascend-admin';
+
+const defaults = () => ({
+  analyses: [],
+  keyEvents: [],
+  serverStartedAt: Date.now()
+});
+
+let store = defaults();
+
+function load() {
+  try {
+    if (fs.existsSync(STORE_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(STORE_FILE, 'utf8'));
+      store = { ...defaults(), ...raw, serverStartedAt: Date.now() };
+    }
+  } catch (e) {
+    console.error('[admin-store] Load error:', e.message);
+  }
+}
+
+function save() {
+  try {
+    fs.writeFileSync(STORE_FILE, JSON.stringify(store, null, 2));
+  } catch (e) {
+    console.error('[admin-store] Save error:', e.message);
+  }
+}
+
+function logAnalysis({ model, durationMs, success, rating, sideRating, error }) {
+  store.analyses.unshift({
+    id: Date.now(),
+    ts: new Date().toISOString(),
+    model: String(model),
+    durationMs: durationMs || null,
+    success: !!success,
+    rating: rating ?? null,
+    sideRating: sideRating ?? null,
+    error: error || null
+  });
+  if (store.analyses.length > 500) store.analyses.length = 500;
+  save();
+}
+
+function parseKeyEventsFromStdout(stdout) {
+  const events = [];
+  const now = new Date().toISOString();
+
+  for (const m of stdout.matchAll(/\[.+?\] Consulting .+? \(Using Key (\d+)\)/g)) {
+    events.push({ ts: now, key: +m[1], type: 'attempt' });
+  }
+  for (const m of stdout.matchAll(/Key (\d+) failed: 429/g)) {
+    events.push({ ts: now, key: +m[1], type: 'exhausted' });
+  }
+  for (const m of stdout.matchAll(/Key (\d+) failed: (?!429)(.+)/g)) {
+    events.push({ ts: now, key: +m[1], type: 'error', detail: m[2].slice(0, 120) });
+  }
+
+  if (events.length) {
+    store.keyEvents.push(...events);
+    if (store.keyEvents.length > 2000) store.keyEvents = store.keyEvents.slice(-2000);
+    save();
+  }
+  return events;
+}
+
+function getKeyHealth() {
+  const keys = {};
+  const todayStr = new Date().toDateString();
+  const todayEvents = store.keyEvents.filter(e => new Date(e.ts).toDateString() === todayStr);
+
+  for (const ev of todayEvents) {
+    if (!keys[ev.key]) keys[ev.key] = { attempts: 0, exhausted: false, errors: 0, lastExhaustedAt: null };
+    if (ev.type === 'attempt') keys[ev.key].attempts++;
+    if (ev.type === 'exhausted') {
+      keys[ev.key].exhausted = true;
+      keys[ev.key].lastExhaustedAt = ev.ts;
+    }
+    if (ev.type === 'error') keys[ev.key].errors++;
+  }
+
+  const result = [];
+  for (let i = 1; i <= 5; i++) {
+    const k = keys[i] || { attempts: 0, exhausted: false, errors: 0, lastExhaustedAt: null };
+    result.push({ key: i, ...k });
+  }
+  return result;
+}
+
+function getStats() {
+  const now = Date.now();
+  const todayStr = new Date().toDateString();
+  const todayAnalyses = store.analyses.filter(a => new Date(a.ts).toDateString() === todayStr);
+  const weekAnalyses = store.analyses.filter(a => (now - new Date(a.ts).getTime()) < 7 * 86400000);
+
+  const successToday = todayAnalyses.filter(a => a.success);
+  const failToday = todayAnalyses.filter(a => !a.success);
+  const durations = successToday.filter(a => a.durationMs).map(a => a.durationMs);
+
+  const hours = Array(24).fill(0);
+  todayAnalyses.forEach(a => { hours[new Date(a.ts).getHours()]++; });
+
+  const modelCounts = { ultra: 0, free: 0 };
+  store.analyses.forEach(a => {
+    if (['1', '2'].includes(a.model)) modelCounts.ultra++;
+    else modelCounts.free++;
+  });
+
+  const uploadsDir = path.join(__dirname, 'uploads');
+  let diskUsageMB = 0;
+  try {
+    if (fs.existsSync(uploadsDir)) {
+      for (const f of fs.readdirSync(uploadsDir)) {
+        diskUsageMB += fs.statSync(path.join(uploadsDir, f)).size;
+      }
+    }
+  } catch (_) {}
+  diskUsageMB = +(diskUsageMB / 1048576).toFixed(2);
+
+  return {
+    overview: {
+      totalAll: store.analyses.length,
+      totalToday: todayAnalyses.length,
+      totalWeek: weekAnalyses.length,
+      successToday: successToday.length,
+      failToday: failToday.length,
+      successRate: todayAnalyses.length > 0
+        ? Math.round((successToday.length / todayAnalyses.length) * 100)
+        : 100,
+      avgDurationMs: durations.length > 0
+        ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+        : 0,
+      uptimeMs: now - store.serverStartedAt,
+      diskUsageMB
+    },
+    keyHealth: getKeyHealth(),
+    modelBreakdown: modelCounts,
+    hourlyUsage: hours,
+    recentAnalyses: store.analyses.slice(0, 50)
+  };
+}
+
+function checkPassword(pw) {
+  return pw === ADMIN_PASSWORD;
+}
+
+load();
+
+module.exports = { logAnalysis, parseKeyEventsFromStdout, getStats, checkPassword };
