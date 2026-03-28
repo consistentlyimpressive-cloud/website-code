@@ -40,9 +40,13 @@ function initFirebaseAdmin() {
   console.log('[firebase] Initialized with projectId (use ADC or service account in production)');
 }
 
-initFirebaseAdmin();
-const firestore = admin.firestore();
-adminStore.setFirestore(firestore);
+try {
+  initFirebaseAdmin();
+  const firestore = admin.firestore();
+  adminStore.setFirestore(firestore);
+} catch (e) {
+  console.error('[firebase] Failed to initialize admin SDK, continuing without it:', e.message);
+}
 
 /** Process start time for /api/health uptime */
 const SERVER_BOOT_AT = Date.now();
@@ -517,15 +521,15 @@ app.post(
     finalRating,
     sideRating,
     technicalSummary: parsed.technicalSummary,
-    bestFeatures: parsed.bestFeatures,
-    primaryFlaws: parsed.primaryFlaws,
-    sideBestFeatures: parsed.sideBestFeatures,
-    sidePrimaryFlaws: parsed.sidePrimaryFlaws,
-    categories: parsed.categories,
-    sideCategories: parsed.sideCategories,
-    biometrics: parsed.biometrics.length ? parsed.biometrics : undefined,
-    sideBiometrics: parsed.sideBiometrics.length ? parsed.sideBiometrics : undefined,
-    protocols: parsed.protocols.length ? parsed.protocols : undefined,
+    bestFeatures: parsed.bestFeatures || [],
+    primaryFlaws: parsed.primaryFlaws || [],
+    sideBestFeatures: parsed.sideBestFeatures || [],
+    sidePrimaryFlaws: parsed.sidePrimaryFlaws || [],
+    categories: parsed.categories || [],
+    sideCategories: parsed.sideCategories || [],
+    biometrics: parsed.biometrics?.length ? parsed.biometrics : undefined,
+    sideBiometrics: parsed.sideBiometrics?.length ? parsed.sideBiometrics : undefined,
+    protocols: parsed.protocols?.length ? parsed.protocols : undefined,
     videoUrl: getLoadingVideoUrl(),
     rawOutput:
       pythonStderr.trim().length > 0
