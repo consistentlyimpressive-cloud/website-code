@@ -4,31 +4,113 @@ const path = require('path');
 const STORE_FILE = path.join(__dirname, 'admin-data.json');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'ascend-admin';
 
+/** Firestore doc: system/adminStore — persists analyses + keyEvents across deploys */
+const FIRESTORE_COLLECTION = 'system';
+const FIRESTORE_DOC = 'adminStore';
+
 const defaults = () => ({
   analyses: [],
   keyEvents: [],
-  serverStartedAt: Date.now()
+  serverStartedAt: Date.now(),
 });
 
 let store = defaults();
+let firestore = null;
+let firestoreReady = false;
 
-function load() {
+function setFirestore(db) {
+  firestore = db;
+}
+
+async function loadFromFirestore() {
+  if (!firestore) return false;
+  const snap = await firestore.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).get();
+  if (!snap.exists) return false;
+  const raw = snap.data() || {};
+  store = {
+    ...defaults(),
+    analyses: Array.isArray(raw.analyses) ? raw.analyses : [],
+    keyEvents: Array.isArray(raw.keyEvents) ? raw.keyEvents : [],
+    serverStartedAt: Date.now(),
+  };
+  return true;
+}
+
+function loadFromFile() {
   try {
     if (fs.existsSync(STORE_FILE)) {
       const raw = JSON.parse(fs.readFileSync(STORE_FILE, 'utf8'));
       store = { ...defaults(), ...raw, serverStartedAt: Date.now() };
+      return true;
     }
   } catch (e) {
-    console.error('[admin-store] Load error:', e.message);
+    console.error('[admin-store] Load file error:', e.message);
+  }
+  return false;
+}
+
+/**
+ * Call once at startup after Firebase Admin is ready.
+ * Order: try Firestore (if configured), else local JSON.
+ */
+async function init() {
+  const preferFile = process.env.ADMIN_DATA_SOURCE === 'file';
+  if (preferFile) {
+    loadFromFile();
+    firestoreReady = true;
+    console.log('[admin-store] Using local file only (ADMIN_DATA_SOURCE=file)');
+    return;
+  }
+
+  if (firestore) {
+    try {
+      const ok = await loadFromFirestore();
+      if (ok) {
+        console.log('[admin-store] Loaded from Firestore');
+        firestoreReady = true;
+        return;
+      }
+    } catch (e) {
+      console.warn('[admin-store] Firestore load failed, falling back to file:', e.message);
+    }
+  }
+
+  loadFromFile();
+  firestoreReady = true;
+  if (!firestore) {
+    console.log('[admin-store] Using local file (no Firestore)');
+  } else {
+    console.log('[admin-store] Firestore empty; seeded from file or defaults');
+  }
+}
+
+async function saveToFirestore() {
+  if (!firestore) return;
+  try {
+    await firestore.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).set(
+      {
+        analyses: store.analyses,
+        keyEvents: store.keyEvents,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (e) {
+    console.error('[admin-store] Firestore save error:', e.message);
+  }
+}
+
+function saveFile() {
+  try {
+    fs.writeFileSync(STORE_FILE, JSON.stringify(store, null, 2));
+  } catch (e) {
+    console.error('[admin-store] File save error:', e.message);
   }
 }
 
 function save() {
-  try {
-    fs.writeFileSync(STORE_FILE, JSON.stringify(store, null, 2));
-  } catch (e) {
-    console.error('[admin-store] Save error:', e.message);
-  }
+  saveFile();
+  saveToFirestore().catch(() => {});
 }
 
 function logAnalysis({ model, durationMs, success, rating, sideRating, error }) {
@@ -40,7 +122,7 @@ function logAnalysis({ model, durationMs, success, rating, sideRating, error }) 
     success: !!success,
     rating: rating ?? null,
     sideRating: sideRating ?? null,
-    error: error || null
+    error: error || null,
   });
   if (store.analyses.length > 500) store.analyses.length = 500;
   save();
@@ -71,7 +153,7 @@ function parseKeyEventsFromStdout(stdout) {
 function getKeyHealth() {
   const keys = {};
   const todayStr = new Date().toDateString();
-  const todayEvents = store.keyEvents.filter(e => new Date(e.ts).toDateString() === todayStr);
+  const todayEvents = store.keyEvents.filter((e) => new Date(e.ts).toDateString() === todayStr);
 
   for (const ev of todayEvents) {
     if (!keys[ev.key]) keys[ev.key] = { attempts: 0, exhausted: false, errors: 0, lastExhaustedAt: null };
@@ -94,18 +176,20 @@ function getKeyHealth() {
 function getStats() {
   const now = Date.now();
   const todayStr = new Date().toDateString();
-  const todayAnalyses = store.analyses.filter(a => new Date(a.ts).toDateString() === todayStr);
-  const weekAnalyses = store.analyses.filter(a => (now - new Date(a.ts).getTime()) < 7 * 86400000);
+  const todayAnalyses = store.analyses.filter((a) => new Date(a.ts).toDateString() === todayStr);
+  const weekAnalyses = store.analyses.filter((a) => now - new Date(a.ts).getTime() < 7 * 86400000);
 
-  const successToday = todayAnalyses.filter(a => a.success);
-  const failToday = todayAnalyses.filter(a => !a.success);
-  const durations = successToday.filter(a => a.durationMs).map(a => a.durationMs);
+  const successToday = todayAnalyses.filter((a) => a.success);
+  const failToday = todayAnalyses.filter((a) => !a.success);
+  const durations = successToday.filter((a) => a.durationMs).map((a) => a.durationMs);
 
   const hours = Array(24).fill(0);
-  todayAnalyses.forEach(a => { hours[new Date(a.ts).getHours()]++; });
+  todayAnalyses.forEach((a) => {
+    hours[new Date(a.ts).getHours()]++;
+  });
 
   const modelCounts = { ultra: 0, free: 0 };
-  store.analyses.forEach(a => {
+  store.analyses.forEach((a) => {
     if (['1', '2'].includes(a.model)) modelCounts.ultra++;
     else modelCounts.free++;
   });
@@ -128,19 +212,17 @@ function getStats() {
       totalWeek: weekAnalyses.length,
       successToday: successToday.length,
       failToday: failToday.length,
-      successRate: todayAnalyses.length > 0
-        ? Math.round((successToday.length / todayAnalyses.length) * 100)
-        : 100,
-      avgDurationMs: durations.length > 0
-        ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
-        : 0,
+      successRate:
+        todayAnalyses.length > 0 ? Math.round((successToday.length / todayAnalyses.length) * 100) : 100,
+      avgDurationMs:
+        durations.length > 0 ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0,
       uptimeMs: now - store.serverStartedAt,
-      diskUsageMB
+      diskUsageMB,
     },
     keyHealth: getKeyHealth(),
     modelBreakdown: modelCounts,
     hourlyUsage: hours,
-    recentAnalyses: store.analyses.slice(0, 50)
+    recentAnalyses: store.analyses.slice(0, 50),
   };
 }
 
@@ -148,6 +230,19 @@ function checkPassword(pw) {
   return pw === ADMIN_PASSWORD;
 }
 
-load();
+const PUBLIC_ANALYSIS_BASE = 74;
 
-module.exports = { logAnalysis, parseKeyEventsFromStdout, getStats, checkPassword };
+function getPublicAnalysisDisplayNumber() {
+  const successCount = store.analyses.filter((a) => a.success).length;
+  return PUBLIC_ANALYSIS_BASE + successCount;
+}
+
+module.exports = {
+  init,
+  setFirestore,
+  logAnalysis,
+  parseKeyEventsFromStdout,
+  getStats,
+  checkPassword,
+  getPublicAnalysisDisplayNumber,
+};

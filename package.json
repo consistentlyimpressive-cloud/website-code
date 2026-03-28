@@ -3,8 +3,20 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "description": "Ascend — React frontend + Express API",
+  "homepage": "https://www.example.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/consistentlyimpressive-cloud/website-code.git"
+  },
+  "bugs": {
+    "url": "https://github.com/consistentlyimpressive-cloud/website-code/issues"
+  },
   "scripts": {
     "dev": "vite",
+    "dev:api": "npm --prefix backend run dev",
+    "dev:stack": "concurrently -k -n api,web -c cyan,magenta \"npm --prefix backend run dev\" \"vite\"",
+    "setup:local": "node scripts/setup-local.mjs",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -24,6 +36,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.27",
+    "concurrently": "^9.2.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",

@@ -1,0 +1,18 @@
+rules_version = '2';
+
+// Deploy with: firebase deploy --only firestore:rules
+// Client apps read users/{uid} for plan UI; only the Admin SDK (backend + webhooks) should write users and system data.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    match /system/{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

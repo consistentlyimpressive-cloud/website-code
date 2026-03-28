@@ -274,6 +274,30 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     }
   }
 
+  const protocols = [];
+  const protoMatch = rawOutput.match(/###\s*ACTIONABLE PROTOCOLS\s*\r?\n([\s\S]*?)(?=###\s*MOG_REPORT_REVISION|$)/i);
+  if (protoMatch) {
+    for (const line of protoMatch[1].trim().split('\n')) {
+      const m2 = line.match(/^\s*(\d+)\.\s*(.+?):\s*(.+)/);
+      if (!m2) continue;
+
+      const rest = m2[3];
+      const impMatch = rest.match(/\(([^)]*Impact[^)]*)\)/i);
+      const resMatch = rest.match(/\[RESEARCH:\s*(.+?)\]\s*$/i);
+
+      protocols.push({
+        id: parseInt(m2[1]),
+        name: m2[2].trim(),
+        description: rest
+          .replace(/\([^)]*Impact[^)]*\)/i, '')
+          .replace(/\[RESEARCH:\s*.+?\]\s*$/i, '')
+          .trim().replace(/\.$/, ''),
+        impact: impMatch ? impMatch[1].trim() : 'Medium Impact',
+        research: resMatch ? resMatch[1].trim() : null
+      });
+    }
+  }
+
   const summaryIsReal = technicalSummary !== DEFAULT_SUMMARY && technicalSummary.trim().length >= 12;
   const hasSubstantiveParse =
     summaryIsReal ||
@@ -296,6 +320,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     sideCategories,
     biometrics,
     sideBiometrics,
+    protocols,
     hasSubstantiveParse
   };
 }

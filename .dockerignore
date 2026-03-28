@@ -1,0 +1,11 @@
+node_modules
+backend/node_modules
+backend/venv
+backend/uploads
+backend/__pycache__
+backend/.env
+backend/admin-data.json
+backend/*.pyc
+.git
+*.log
+debug-cb256d.log

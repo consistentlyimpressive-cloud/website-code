@@ -1,4 +1,36 @@
-# React + Vite
+# Ascend (React + Vite)
+
+## Run locally
+
+1. **Install dependencies** (once), from this folder (`website-code`):
+
+   ```bash
+   npm install
+   npm --prefix backend install
+   ```
+
+2. **Env files** (once): copy examples and adjust if needed.
+
+   ```bash
+   npm run setup:local
+   ```
+
+   This creates `.env.local` (frontend → `VITE_API_URL=http://localhost:3001`) and `backend/.env` from the examples when those files are missing. Set `ADMIN_PASSWORD` and Firebase in `backend/.env` when you use auth or the API beyond defaults.
+
+3. **Start API + frontend together**:
+
+   ```bash
+   npm run dev:stack
+   ```
+
+   - Site: **http://localhost:5173** (Vite)
+   - API: **http://localhost:3001** (Express)
+
+   Or run them in two terminals: `npm run dev:api` and `npm run dev`.
+
+4. **Production** (you already have GitHub + a domain): **[.github/WEBSITE.md](.github/WEBSITE.md)** — full reference **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
+
+---
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

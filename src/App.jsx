@@ -1,8 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Diamond, ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3 } from 'lucide-react';
+import { Diamond, ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus } from 'lucide-react';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+import CyanFaceMesh from './components/CyanFaceMesh';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import {
+  getAuth,
+  signInWithPopup,
+  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
+} from 'firebase/auth';
+import { getFirestore, doc, onSnapshot } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDg9bES9zvmfvsjS6FLjCOKzBb9b6Mm0Ts",
@@ -16,7 +29,24 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
+
+const CHECKOUT_URLS = {
+  single_scan: 'https://mogcheck.lemonsqueezy.com/checkout/buy/b61ebcdf-48c1-4a08-b04d-6a1184df0211',
+  pro: 'https://mogcheck.lemonsqueezy.com/checkout/buy/79dc90c2-1197-415a-ab3d-896c27ac6962',
+};
+
+const getCheckoutUrl = (plan, user) => {
+  const base = CHECKOUT_URLS[plan];
+  if (!base) return '#';
+  const params = new URLSearchParams();
+  if (user?.uid) params.set('checkout[custom][user_id]', user.uid);
+  if (user?.email) params.set('checkout[email]', user.email);
+  return `${base}?${params.toString()}`;
+};
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // --- Shared Components ---
 const FadeUp = ({ children, delay = 0 }) => {
@@ -35,11 +65,40 @@ const FadeUp = ({ children, delay = 0 }) => {
   );
 };
 
+/** Label + styles for the signed-in plan chip (synced with Firestore `users/{uid}`). */
+const getNavbarPlanChip = (userPlan) => {
+  const p = userPlan?.plan || 'free';
+  if (p === 'pro') {
+    return { label: 'Pro', className: 'text-yellow-300 border-yellow-500/40 bg-yellow-500/10' };
+  }
+  if (p === 'single_scan') {
+    const c = userPlan?.scanCredits ?? 0;
+    return {
+      label: c > 0 ? `Scan · ${c}` : 'Pay per scan',
+      className: 'text-cyan-300 border-cyan-500/40 bg-cyan-500/10',
+    };
+  }
+  return { label: 'Free', className: 'text-zinc-400 border-zinc-600/70 bg-zinc-800/90' };
+};
+
 // --- Navbar ---
-const Navbar = ({ currentPage, setCurrentPage }) => {
+const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const menuRef = useRef(null);
+  const username = user?.email?.split('@')[0] || '';
+  const planChip = user ? getNavbarPlanChip(userPlan) : null;
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setShowUserMenu(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
-    <nav className="fixed top-0 w-full z-50 bg-[#0c0d0e]/80 backdrop-blur-md border-b border-zinc-900 flex justify-between items-center px-6 py-4">
+    <nav className="fixed top-0 w-full z-50 overflow-visible bg-[#0c0d0e]/80 backdrop-blur-md border-b border-zinc-900 flex justify-between items-center px-6 py-4">
       <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setCurrentPage('home')}>
         <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center group-hover:rotate-12 transition-transform">
           <Diamond className="text-black" size={18} fill="currentColor" />
@@ -48,23 +107,77 @@ const Navbar = ({ currentPage, setCurrentPage }) => {
       </div>
       <div className="hidden md:flex items-center gap-8 text-xs font-bold">
         <button onClick={() => setCurrentPage('home')} className={`${currentPage === 'home' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Home</button>
-        <button onClick={() => setCurrentPage('morph')} className={`${currentPage === 'morph' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Morph Lab</button>
-        <button onClick={() => setCurrentPage('mog-battles')} className={`${currentPage === 'mog-battles' ? 'text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]' : 'text-zinc-400'} hover:text-cyan-300 transition-all uppercase tracking-widest flex items-center gap-1`}><Swords size={14} /> Battles</button>
+        <button onClick={() => setCurrentPage('morph')} className={`${currentPage === 'morph' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>News</button>
         <button onClick={() => setCurrentPage('dashboard')} className={`${currentPage === 'dashboard' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}><Activity size={14} /> Dashboard</button>
-        <button onClick={() => setCurrentPage('celebrity')} className={`${currentPage === 'celebrity' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Celebrity</button>
+        <button onClick={() => setCurrentPage('celebrity')} className={`${currentPage === 'celebrity' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Celebrity Ratings</button>
+        <button onClick={() => setCurrentPage('plans')} className={`${currentPage === 'plans' ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'text-yellow-500/70'} hover:text-yellow-400 transition-all uppercase tracking-widest flex items-center gap-1`}><Crown size={13} /> Plans</button>
       </div>
       <div className="hidden md:block">
-        <button onClick={() => setCurrentPage('login')} className="px-6 py-2 rounded-full bg-white text-black font-bold text-xs uppercase tracking-widest hover:bg-zinc-200 transition-colors">Login</button>
+        {user ? (
+          <div className="relative flex items-center gap-2" ref={menuRef}>
+            {planChip && (
+              <span
+                className={`hidden sm:inline-flex items-center px-2.5 py-1 rounded-full border text-[9px] font-bold uppercase tracking-widest shrink-0 ${planChip.className}`}
+                title="Current plan"
+              >
+                {planChip.label}
+              </span>
+            )}
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center gap-2 px-5 py-2 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all text-xs font-bold uppercase tracking-widest"
+            >
+              {username}
+              <ChevronDown size={12} className={`transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+            </button>
+            {showUserMenu && (
+              <div className="absolute right-0 top-full z-[100] mt-2 w-52 bg-[#0c0d0e] border border-zinc-800 rounded-xl shadow-2xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-zinc-800">
+                  <p className="text-[10px] text-zinc-500 font-mono truncate">{user.email}</p>
+                  {planChip && (
+                    <p className={`mt-2 inline-flex items-center px-2 py-0.5 rounded-md border text-[9px] font-bold uppercase tracking-widest ${planChip.className}`}>
+                      Plan: {planChip.label}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => { onSignOut(); setShowUserMenu(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold"
+                >
+                  <LogOut size={14} /> Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <button onClick={() => setCurrentPage('login')} className="px-6 py-2 rounded-full bg-white text-black font-bold text-xs uppercase tracking-widest hover:bg-zinc-200 transition-colors">Login</button>
+        )}
       </div>
       <button className="md:hidden text-white" onClick={() => setIsOpen(!isOpen)}>{isOpen ? <X /> : <Menu />}</button>
       {isOpen && (
         <div className="absolute top-full left-0 w-full bg-[#0c0d0e] border-b border-zinc-900 flex flex-col items-center py-6 gap-6 md:hidden">
           <button onClick={() => { setCurrentPage('home'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Home</button>
-          <button onClick={() => { setCurrentPage('morph'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Morph Lab</button>
-          <button onClick={() => { setCurrentPage('mog-battles'); setIsOpen(false); }} className="text-cyan-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Swords size={14} /> Battles</button>
+          <button onClick={() => { setCurrentPage('morph'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">News</button>
           <button onClick={() => { setCurrentPage('dashboard'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Activity size={14} /> Dashboard</button>
           <button onClick={() => { setCurrentPage('celebrity'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Celebrity Rating</button>
-          <button onClick={() => { setCurrentPage('login'); setIsOpen(false); }} className="px-8 py-2 rounded-full bg-white text-black font-bold text-xs uppercase tracking-widest mt-2">Login</button>
+          <button onClick={() => { setCurrentPage('plans'); setIsOpen(false); }} className="text-yellow-500/70 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Crown size={13} /> Plans</button>
+          {user ? (
+            <>
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-zinc-300 font-mono text-xs">{username}</span>
+                {planChip && (
+                  <span className={`px-2.5 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-widest ${planChip.className}`}>
+                    {planChip.label}
+                  </span>
+                )}
+              </div>
+              <button onClick={() => { onSignOut(); setIsOpen(false); }} className="flex items-center gap-2 px-8 py-2 rounded-full border border-zinc-800 text-red-400 hover:text-red-300 font-bold text-xs uppercase tracking-widest">
+                <LogOut size={14} /> Sign Out
+              </button>
+            </>
+          ) : (
+            <button onClick={() => { setCurrentPage('login'); setIsOpen(false); }} className="px-8 py-2 rounded-full bg-white text-black font-bold text-xs uppercase tracking-widest mt-2">Login</button>
+          )}
         </div>
       )}
     </nav>
@@ -862,13 +975,32 @@ const CelebrityStatsPage = ({ celeb, setCurrentPage }) => {
 
 // --- Home Page ---
 const HomePage = ({ setCurrentPage }) => {
+  const [analysisHeroCount, setAnalysisHeroCount] = useState(74);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/public-stats`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && typeof data.analysisCount === 'number' && data.analysisCount >= 74) {
+          setAnalysisHeroCount(data.analysisCount);
+        }
+      } catch {
+        /* keep default */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   return (
-  <div className="w-full flex flex-col items-center relative overflow-hidden">
+  <div className="w-full flex flex-col items-center relative overflow-x-hidden">
     {/* Animated gradient sweep - page level, behind all content */}
     <div className="absolute inset-0 h-full pointer-events-none overflow-hidden -z-10">
       <div className="absolute top-0 left-0 w-[30%] h-full bg-gradient-to-r from-transparent via-white/[0.03] to-transparent" style={{ animation: 'sweepGlow 8s ease-in-out infinite' }} />
     </div>
-    <header className="relative w-full flex flex-col items-center pt-[25vh] pb-32 text-center px-6 overflow-hidden">
+    <header className="relative w-full flex flex-col items-center pt-[25vh] pb-32 text-center px-6 overflow-x-hidden overflow-y-visible">
       <div className="absolute inset-0 bg-radial-gradient from-white/5 to-transparent -z-10 opacity-30" />
       {/* Animated gradient sweep */}
       <style>{`
@@ -882,223 +1014,40 @@ const HomePage = ({ setCurrentPage }) => {
         }
       `}</style>
 
-      {/* Circuit-board face graphic - right side */}
-      <div className="absolute right-0 top-0 bottom-0 w-[60%] overflow-hidden pointer-events-none opacity-[0.35]">
-        <style>{`
-          @keyframes nodePulse { 0%, 100% { opacity: 0.6; r: 3; } 50% { opacity: 1; r: 5; } }
-          @keyframes traceGlow { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
-        `}</style>
-        <svg viewBox="0 0 500 650" className="absolute left-1/2 top-1/2 -translate-x-[38%] -translate-y-[42%] h-[115%]" fill="none" preserveAspectRatio="xMidYMid meet" style={{ filter: 'drop-shadow(0 0 15px rgba(255,255,255,0.3))' }}>
-          <defs>
-            <filter id="nodeGlow"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-            <filter id="traceGlowF"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          </defs>
-          
-          {/* === FACE OUTLINE - angular === */}
-          <path d="M 250 50 L 190 55 L 150 80 L 120 120 L 105 170 L 100 220 L 98 270 L 100 310 L 108 350 L 120 380 L 135 410 L 155 440 L 180 468 L 205 490 L 230 505 L 250 512 L 270 505 L 295 490 L 320 468 L 345 440 L 365 410 L 380 380 L 392 350 L 400 310 L 402 270 L 400 220 L 395 170 L 380 120 L 350 80 L 310 55 Z" stroke="#888" strokeWidth="1" />
-
-          {/* === FOREHEAD CIRCUIT TRACES === */}
-          <g stroke="#777" strokeWidth="0.6">
-            {/* Center V trace */}
-            <polyline points="250,55 250,80 240,95 250,110 260,95 250,80" />
-            {/* Left forehead branches */}
-            <polyline points="250,80 230,80 210,90 200,90 190,95 180,95" />
-            <polyline points="210,90 210,75 195,75 195,65" />
-            <polyline points="200,90 200,110 185,110 175,120 175,130" />
-            <polyline points="180,95 170,95 160,105 160,120" />
-            <polyline points="230,80 220,70 200,70 190,60" />
-            <polyline points="175,120 165,120 155,130 145,130 135,140" />
-            {/* Right forehead branches - mirrored */}
-            <polyline points="250,80 270,80 290,90 300,90 310,95 320,95" />
-            <polyline points="290,90 290,75 305,75 305,65" />
-            <polyline points="300,90 300,110 315,110 325,120 325,130" />
-            <polyline points="320,95 330,95 340,105 340,120" />
-            <polyline points="270,80 280,70 300,70 310,60" />
-            <polyline points="325,120 335,120 345,130 355,130 365,140" />
-            {/* Inner forehead detail */}
-            <polyline points="250,110 250,130 240,140 240,160" />
-            <polyline points="250,130 260,140 260,160" />
-            <polyline points="240,140 225,140 215,150 215,170" />
-            <polyline points="260,140 275,140 285,150 285,170" />
-          </g>
-          
-          {/* === BROW TRACES === */}
-          <g stroke="#888" strokeWidth="0.7">
-            {/* Left brow */}
-            <polyline points="140,195 155,190 170,192 185,190 200,195 215,200 225,210" />
-            <polyline points="155,190 155,180 145,170 135,170 125,175" />
-            <polyline points="185,190 185,180 175,175" />
-            {/* Right brow */}
-            <polyline points="360,195 345,190 330,192 315,190 300,195 285,200 275,210" />
-            <polyline points="345,190 345,180 355,170 365,170 375,175" />
-            <polyline points="315,190 315,180 325,175" />
-          </g>
-          
-          {/* === EYES - angular/geometric === */}
-          <g stroke="#aaa" strokeWidth="0.8">
-            {/* Left eye */}
-            <polyline points="155,230 165,222 180,218 195,220 208,225 218,232" />
-            <polyline points="155,230 165,238 180,242 195,240 208,235 218,232" />
-            {/* Left iris - hexagonal */}
-            <polygon points="185,224 192,220 199,224 199,232 192,236 185,232" strokeWidth="0.5" />
-            <circle cx="192" cy="228" r="4" strokeWidth="0.4" />
-            {/* Left eye inner circuit */}
-            <polyline points="155,230 148,230 140,225 130,225 125,230" />
-            <polyline points="218,232 225,232 230,228 230,220" />
-            
-            {/* Right eye */}
-            <polyline points="282,232 292,225 305,220 320,218 335,222 345,230" />
-            <polyline points="282,232 292,235 305,240 320,242 335,238 345,230" />
-            {/* Right iris - hexagonal */}
-            <polygon points="301,224 308,220 315,224 315,232 308,236 301,232" strokeWidth="0.5" />
-            <circle cx="308" cy="228" r="4" strokeWidth="0.4" />
-            {/* Right eye inner circuit */}
-            <polyline points="345,230 352,230 360,225 370,225 375,230" />
-            <polyline points="282,232 275,232 270,228 270,220" />
-          </g>
-          
-          {/* === NOSE CIRCUIT === */}
-          <g stroke="#888" strokeWidth="0.6">
-            {/* Bridge traces */}
-            <polyline points="240,215 238,240 235,260 232,280 228,300 225,320" />
-            <polyline points="260,215 262,240 265,260 268,280 272,300 275,320" />
-            {/* Nose tip angular */}
-            <polyline points="225,320 220,335 218,345 225,352 240,358 250,360 260,358 275,352 282,345 280,335 275,320" />
-            {/* Bridge cross-traces */}
-            <polyline points="235,260 242,260 250,255 258,260 265,260" />
-            <polyline points="232,280 240,280 250,275 260,280 268,280" />
-            <polyline points="228,300 238,300 250,295 262,300 272,300" />
-            {/* Nostril detail */}
-            <polyline points="218,345 210,342 208,348 215,355 225,352" />
-            <polyline points="282,345 290,342 292,348 285,355 275,352" />
-          </g>
-          
-          {/* === CHEEK TRACES === */}
-          <g stroke="#666" strokeWidth="0.5">
-            {/* Left cheek */}
-            <polyline points="125,230 118,250 112,270 108,290 105,310 108,330" />
-            <polyline points="130,225 125,245 120,260 118,280" />
-            <polyline points="120,260 130,260 140,265 150,270 155,280" />
-            <polyline points="110,290 120,290 135,295 150,300 160,310" />
-            <polyline points="108,330 118,330 130,335 145,340 160,345" />
-            <polyline points="155,280 155,295 160,310 165,325 170,340" />
-            {/* Right cheek */}
-            <polyline points="375,230 382,250 388,270 392,290 395,310 392,330" />
-            <polyline points="370,225 375,245 380,260 382,280" />
-            <polyline points="380,260 370,260 360,265 350,270 345,280" />
-            <polyline points="390,290 380,290 365,295 350,300 340,310" />
-            <polyline points="392,330 382,330 370,335 355,340 340,345" />
-            <polyline points="345,280 345,295 340,310 335,325 330,340" />
-          </g>
-          
-          {/* === MOUTH TRACES === */}
-          <g stroke="#999" strokeWidth="0.6">
-            {/* Upper lip angular */}
-            <polyline points="200,388 210,382 225,380 238,383 250,375 262,383 275,380 290,382 300,388" />
-            {/* Lower lip */}
-            <polyline points="200,388 210,392 225,396 240,398 250,400 260,398 275,396 290,392 300,388" />
-            {/* Mouth corners */}
-            <polyline points="200,388 195,385 188,385 182,390" />
-            <polyline points="300,388 305,385 312,385 318,390" />
-            {/* Lip detail traces */}
-            <polyline points="225,380 225,375 220,370 215,370" />
-            <polyline points="275,380 275,375 280,370 285,370" />
-          </g>
-          
-          {/* === CHIN / JAW TRACES === */}
-          <g stroke="#777" strokeWidth="0.5">
-            {/* Chin */}
-            <polyline points="210,400 220,410 235,418 250,420 265,418 280,410 290,400" />
-            <polyline points="220,410 225,425 240,435 250,440 260,435 275,425 280,410" />
-            <polyline points="250,440 250,460 248,475 250,490 250,512" />
-            {/* Jaw angle traces */}
-            <polyline points="108,350 115,370 125,390 140,410 155,425 170,440" />
-            <polyline points="392,350 385,370 375,390 360,410 345,425 330,440" />
-            <polyline points="170,440 185,455 200,470 220,485 250,500" />
-            <polyline points="330,440 315,455 300,470 280,485 250,500" />
-            {/* Jaw detail */}
-            <polyline points="125,390 135,390 145,395 155,400" />
-            <polyline points="375,390 365,390 355,395 345,400" />
-          </g>
-          
-          {/* === EAR TRACES === */}
-          <g stroke="#666" strokeWidth="0.4">
-            <polyline points="98,220 88,225 82,240 80,260 82,278 88,290 95,298 98,290 96,270 95,250 98,235" />
-            <polyline points="402,220 412,225 418,240 420,260 418,278 412,290 405,298 402,290 404,270 405,250 402,235" />
-          </g>
-          
-          {/* === BRANCHING OUTER TRACES (scattered circuit effect) === */}
-          <g stroke="#555" strokeWidth="0.35" opacity="0.5" style={{animation: 'traceGlow 4s ease-in-out infinite'}}>
-            {/* Top scatter */}
-            <polyline points="195,65 195,50 185,40 170,40 170,30" />
-            <polyline points="305,65 305,50 315,40 330,40 330,30" />
-            <polyline points="190,60 180,50 170,50 160,42" />
-            <polyline points="310,60 320,50 330,50 340,42" />
-            {/* Side scatter - left */}
-            <polyline points="135,140 125,140 115,135 105,135 95,130" />
-            <polyline points="125,175 115,175 105,180 95,180 85,185" />
-            <polyline points="82,240 72,240 65,235 55,235" />
-            {/* Side scatter - right */}
-            <polyline points="365,140 375,140 385,135 395,135 405,130" />
-            <polyline points="375,175 385,175 395,180 405,180 415,185" />
-            <polyline points="418,240 428,240 435,235 445,235" />
-            {/* Bottom scatter */}
-            <polyline points="170,440 165,450 158,450 150,455 140,455" />
-            <polyline points="330,440 335,450 342,450 350,455 360,455" />
-          </g>
-
-          {/* === CIRCUIT NODES (glowing dots at junctions) === */}
-          <g fill="#ccc" filter="url(#nodeGlow)">
-            {[
-              // Forehead
-              [250,55],[250,80],[250,110],[250,130],[190,60],[310,60],
-              [210,90],[290,90],[200,90],[300,90],[180,95],[320,95],
-              [175,120],[325,120],[135,140],[365,140],[240,140],[260,140],
-              [215,150],[285,150],
-              // Brows
-              [140,195],[360,195],[155,190],[345,190],[185,190],[315,190],
-              [125,175],[375,175],
-              // Eyes
-              [155,230],[218,232],[282,232],[345,230],[192,228],[308,228],
-              [125,230],[375,230],
-              // Nose
-              [250,255],[250,275],[250,295],[250,360],[218,345],[282,345],
-              [225,320],[275,320],
-              // Cheeks
-              [120,260],[380,260],[110,290],[390,290],[108,330],[392,330],
-              [155,280],[345,280],[160,310],[340,310],
-              // Mouth
-              [200,388],[300,388],[250,375],[250,400],[182,390],[318,390],
-              // Chin/Jaw
-              [250,420],[250,440],[250,490],[250,512],
-              [125,390],[375,390],[155,425],[345,425],[170,440],[330,440],
-              // Ears
-              [80,260],[420,260],
-              // Scattered
-              [170,30],[330,30],[95,130],[405,130],[55,235],[445,235],
-              [140,455],[360,455],
-            ].map(([cx,cy], i) => (
-              <circle key={i} cx={cx} cy={cy} r="2" style={{animation: `nodePulse ${2 + (i%7)*0.4}s ease-in-out infinite ${i*0.15}s`}} />
-            ))}
-          </g>
-        </svg>
-      </div>
       <FadeUp>
-        <div className="relative flex flex-col items-center">
-          {/* Giant 74 background number */}
-          <div className="absolute -top-[40%] left-[10%] -translate-x-1/2 pointer-events-none select-none z-0 flex flex-col items-center">
-            <span className="text-[14rem] md:text-[20rem] font-black italic tracking-tighter text-zinc-800 opacity-60 leading-none">74</span>
-            <span className="text-4xl md:text-6xl font-mono uppercase tracking-[0.5em] text-zinc-800 opacity-60 -mt-6">Analysis</span>
+        <div className="relative flex flex-col items-center w-full max-w-6xl mx-auto">
+          {/* Wireframe only behind the headline — flow continues at divider / CTA */}
+          <div className="relative w-full flex justify-center px-4 mb-6 md:mb-10">
+            {/* Mesh: absolute overlay only — height comes from headline text, not from the SVG */}
+            <div className="relative w-fit max-w-full isolate py-2 md:py-4">
+              <div
+                className="pointer-events-none absolute left-1/2 top-0 -z-10 w-[min(112vw,980px)] h-[min(74vh,680px)] origin-center -translate-x-1/2 -translate-y-[24%] sm:-translate-y-[28%] md:-translate-y-[32%] overflow-visible scale-90"
+                aria-hidden
+              >
+                <CyanFaceMesh mode="hero" />
+              </div>
+              <div className="relative z-10">
+                <p
+                  className="mb-1 md:mb-2 pointer-events-none select-none flex items-center gap-2 text-base md:text-lg font-mono uppercase tracking-[0.18em] text-white"
+                  aria-label={`${analysisHeroCount} analyses completed`}
+                >
+                  <span className="font-black italic tabular-nums">{analysisHeroCount}</span>
+                  <span className="font-bold">Analysis</span>
+                </p>
+                <h1 className="text-6xl md:text-[140px] font-black italic tracking-tighter uppercase leading-[0.85] bg-gradient-to-t from-zinc-500 to-white bg-clip-text text-transparent overflow-visible px-0">
+                  <span className="block text-left">YOUR LOOKS</span>
+                  <span className="block text-center w-full mt-1 md:mt-2">MATTER</span>
+                </h1>
+              </div>
+            </div>
           </div>
-          <div className="relative z-10 flex flex-col items-center">
-            <h1 className="text-6xl md:text-[140px] font-black italic tracking-tighter uppercase leading-[0.85] mb-10 bg-gradient-to-t from-zinc-500 to-white bg-clip-text text-transparent overflow-visible px-4">YOUR LOOKS <br /> MATTER</h1>
-            <div className="w-16 h-[1px] bg-gradient-to-r from-transparent via-zinc-500 to-transparent mb-5" />
-            <p className="text-zinc-300 font-mono text-sm md:text-base uppercase tracking-[0.3em] mb-14 font-bold">Powered by AI, Track Progress and Ascend</p>
-            <button onClick={() => setCurrentPage('login')} className="mx-auto group relative px-12 py-5 bg-white text-black font-black uppercase tracking-tighter text-lg flex items-center gap-5 hover:scale-110 transition-all duration-300 rounded-sm" style={{ animation: 'ctaPulse 3s ease-in-out infinite' }}>
-              <span className="tracking-widest">TRY FOR FREE</span>
-              <div className="flex items-center"><div className="h-[2px] w-10 bg-black" /><div className="rotate-45 w-4 h-4 bg-black -ml-2" /></div>
-            </button>
-          </div>
+
+          <div className="w-16 h-[1px] bg-gradient-to-r from-transparent via-zinc-500 to-transparent mb-5" />
+          <p className="text-zinc-300 font-mono text-sm md:text-base uppercase tracking-[0.3em] mb-14 font-bold">Powered by AI, Track Progress and Ascend</p>
+          <button onClick={() => setCurrentPage('login')} className="mx-auto group relative px-12 py-5 bg-white text-black font-black uppercase tracking-tighter text-lg flex items-center gap-5 hover:scale-110 transition-all duration-300 rounded-sm" style={{ animation: 'ctaPulse 3s ease-in-out infinite' }}>
+            <span className="tracking-widest">TRY FOR FREE</span>
+            <div className="flex items-center"><div className="h-[2px] w-10 bg-black" /><div className="rotate-45 w-4 h-4 bg-black -ml-2" /></div>
+          </button>
         </div>
       </FadeUp>
     </header>
@@ -1108,7 +1057,7 @@ const HomePage = ({ setCurrentPage }) => {
         <div className="text-center mb-20">
           <span className="text-blue-500 font-mono text-[10px] uppercase tracking-[0.3em] block mb-4 font-bold drop-shadow-[0_0_10px_rgba(59,130,246,0.6)]">REAL RESULTS</span>
           <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4 uppercase italic">Make The Impossible, Possible.</h2>
-          <p className="text-zinc-400 font-mono text-sm max-w-2xl mx-auto uppercase tracking-widest">Join the thousands who cracked the aesthetic code</p>
+          <p className="text-zinc-400 font-mono text-sm max-w-2xl mx-auto uppercase tracking-widest">Join the many who cracked the aesthetic code</p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
           <ComparisonCard beforeImgSrc={compBefore1} afterImgSrc={compAfter1} beforeScore="4.8" afterScore="7.4" review={reviewsData[0]} />
@@ -1176,24 +1125,76 @@ const SpotlightFormWrapper = ({ children }) => {
 const GoogleIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" /><path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg>);
 
 
-const LoginPage = ({ setCurrentPage }) => {
+const LoginPage = ({ setCurrentPage, user }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const handleGoogleLogin = async () => {
+  const [error, setError] = useState('');
+
+  useEffect(() => { if (user) setCurrentPage('photo-guide'); }, [user, setCurrentPage]);
+
+  const friendlyError = (code) => ({
+    'auth/user-not-found': 'No account found with this email.',
+    'auth/wrong-password': 'Incorrect password. Try again.',
+    'auth/invalid-email': 'Please enter a valid email address.',
+    'auth/too-many-requests': 'Too many attempts. Please try again later.',
+    'auth/invalid-credential': 'Invalid email or password.',
+  }[code] || 'Something went wrong. Please try again.');
+
+  const handleEmailLogin = async (e) => {
+    e.preventDefault();
+    setError('');
     setLoading(true);
-    try { await signInWithPopup(auth, googleProvider); setCurrentPage('photo-guide'); } catch (e) { console.error(e); alert('Google sign-in failed: ' + e.message); } finally { setLoading(false); }
+    try {
+      await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+      await signInWithEmailAndPassword(auth, email, password);
+      setCurrentPage('photo-guide');
+    } catch (err) { setError(friendlyError(err.code)); } finally { setLoading(false); }
   };
+
+  const handleGoogleLogin = async () => {
+    setError('');
+    setLoading(true);
+    try { await signInWithPopup(auth, googleProvider); setCurrentPage('photo-guide'); } catch (e) { setError(friendlyError(e.code)); } finally { setLoading(false); }
+  };
+
   return (
     <div className="flex-grow flex items-center justify-center px-6 py-32 relative">
       <FadeUp>
         <SpotlightFormWrapper>
           <div className="w-full text-center mb-4"><h2 className="text-3xl font-black italic text-white uppercase tracking-tighter">Welcome Back</h2><p className="text-zinc-500 text-[10px] uppercase font-mono tracking-widest mt-2">Resume your ascent</p></div>
+
+          {error && (
+            <div className="w-full p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-2 mb-2">
+              <AlertCircle size={14} className="text-red-400 shrink-0" />
+              <span className="text-red-400 text-xs">{error}</span>
+            </div>
+          )}
+
           <button onClick={handleGoogleLogin} disabled={loading} className="w-full py-3 mb-2 bg-zinc-900/50 border border-zinc-800 hover:bg-white hover:text-black rounded-xl flex items-center justify-center gap-2 text-white text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"><GoogleIcon /> {loading ? 'Signing in...' : 'Continue with Google'}</button>
           <div className="flex items-center gap-4 w-full"><div className="h-[1px] flex-1 bg-zinc-800" /><span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Or</span><div className="h-[1px] flex-1 bg-zinc-800" /></div>
-          <div className="w-full space-y-4">
-            <input type="text" placeholder="Username" className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-4 px-6 text-white text-sm outline-none focus:border-zinc-600 transition-colors" />
-            <input type="password" placeholder="Password" className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-4 px-6 text-white text-sm outline-none focus:border-zinc-600 transition-colors" />
-          </div>
-          <button onClick={handleGoogleLogin} className="w-full py-4 bg-white text-black font-black uppercase tracking-widest italic text-sm hover:scale-[1.02] transition-transform cursor-pointer">LOGIN</button>
+          <form onSubmit={handleEmailLogin} className="w-full space-y-4">
+            <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-4 px-6 text-white text-sm outline-none focus:border-zinc-600 transition-colors" />
+            <div className="relative">
+              <input type={showPassword ? 'text' : 'password'} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-4 px-6 text-white text-sm outline-none focus:border-zinc-600 transition-colors pr-12" />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <label className="flex items-center gap-3 w-full cursor-pointer group">
+              <div className={`relative flex items-center justify-center w-4 h-4 border rounded transition-colors ${rememberMe ? 'bg-white border-white' : 'border-zinc-700 bg-zinc-900/50 group-hover:border-zinc-500'}`}>
+                {rememberMe && <Check size={10} className="text-black" />}
+              </div>
+              <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="hidden" />
+              <span className="text-[10px] text-zinc-400 uppercase font-mono tracking-widest group-hover:text-zinc-300 transition-colors select-none">Keep me logged in</span>
+            </label>
+            <button type="submit" disabled={loading} className="w-full py-4 bg-white text-black font-black uppercase tracking-widest italic text-sm hover:scale-[1.02] transition-transform cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
+              {loading ? 'SIGNING IN...' : 'LOGIN'}
+            </button>
+          </form>
           <button onClick={() => setCurrentPage('register')} className="text-zinc-500 text-[10px] uppercase font-mono tracking-widest hover:text-white transition-colors cursor-pointer">No account? Create one</button>
         </SpotlightFormWrapper>
       </FadeUp>
@@ -1201,26 +1202,69 @@ const LoginPage = ({ setCurrentPage }) => {
   );
 };
 
-const RegisterPage = ({ setCurrentPage }) => {
+const RegisterPage = ({ setCurrentPage, user }) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const handleGoogleLogin = async () => {
+  const [error, setError] = useState('');
+
+  useEffect(() => { if (user) setCurrentPage('photo-guide'); }, [user, setCurrentPage]);
+
+  const friendlyError = (code) => ({
+    'auth/email-already-in-use': 'An account with this email already exists.',
+    'auth/invalid-email': 'Please enter a valid email address.',
+    'auth/weak-password': 'Password must be at least 6 characters.',
+    'auth/operation-not-allowed': 'Email/password accounts are not enabled.',
+  }[code] || 'Something went wrong. Please try again.');
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
     setLoading(true);
-    try { await signInWithPopup(auth, googleProvider); setCurrentPage('photo-guide'); } catch (e) { console.error(e); alert('Google sign-in failed: ' + e.message); } finally { setLoading(false); }
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      setCurrentPage('photo-guide');
+    } catch (err) { setError(friendlyError(err.code)); } finally { setLoading(false); }
   };
+
+  const handleGoogleRegister = async () => {
+    setError('');
+    setLoading(true);
+    try { await signInWithPopup(auth, googleProvider); setCurrentPage('photo-guide'); } catch (e) { setError(friendlyError(e.code)); } finally { setLoading(false); }
+  };
+
   return (
     <div className="flex-grow flex items-center justify-center px-6 py-32 relative">
       <FadeUp>
         <SpotlightFormWrapper>
           <div className="w-full text-center mb-4"><h2 className="text-3xl font-black italic text-white uppercase tracking-tighter">Start Now</h2><p className="text-zinc-500 text-[10px] uppercase font-mono tracking-widest mt-2">Join the elite</p></div>
-          <button onClick={handleGoogleLogin} disabled={loading} className="w-full py-3 mb-2 bg-zinc-900/50 border border-zinc-800 hover:bg-white hover:text-black rounded-xl flex items-center justify-center gap-2 text-white text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"><GoogleIcon /> {loading ? 'Signing in...' : 'Continue with Google'}</button>
+
+          {error && (
+            <div className="w-full p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-2 mb-2">
+              <AlertCircle size={14} className="text-red-400 shrink-0" />
+              <span className="text-red-400 text-xs">{error}</span>
+            </div>
+          )}
+
+          <button onClick={handleGoogleRegister} disabled={loading} className="w-full py-3 mb-2 bg-zinc-900/50 border border-zinc-800 hover:bg-white hover:text-black rounded-xl flex items-center justify-center gap-2 text-white text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"><GoogleIcon /> {loading ? 'Signing in...' : 'Continue with Google'}</button>
           <div className="flex items-center gap-4 w-full"><div className="h-[1px] flex-1 bg-zinc-800" /><span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Or</span><div className="h-[1px] flex-1 bg-zinc-800" /></div>
-          <div className="w-full space-y-4">
-            <input type="text" placeholder="Full Name" className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-4 px-6 text-white text-sm outline-none focus:border-zinc-600 transition-colors" />
-            <input type="email" placeholder="Email Address" className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-4 px-6 text-white text-sm outline-none focus:border-zinc-600 transition-colors" />
-            <input type="password" placeholder="Password" className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-4 px-6 text-white text-sm outline-none focus:border-zinc-600 transition-colors" />
-          </div>
-          <label className="flex items-center gap-3 w-full cursor-pointer group mt-2"><div className="relative flex items-center justify-center w-4 h-4 border border-zinc-700 rounded bg-zinc-900/50 group-hover:border-zinc-500 transition-colors"><input type="checkbox" className="appearance-none absolute inset-0 cursor-pointer peer" /><div className="hidden peer-checked:block w-2 h-2 bg-white rounded-sm" /></div><span className="text-[10px] text-zinc-400 uppercase font-mono tracking-widest group-hover:text-zinc-300 transition-colors select-none">Receive newsletter updates</span></label>
-          <button onClick={handleGoogleLogin} className="w-full py-4 mt-2 bg-white text-black font-black uppercase tracking-widest italic text-sm hover:scale-[1.02] transition-transform cursor-pointer">CREATE ACCOUNT</button>
+          <form onSubmit={handleRegister} className="w-full space-y-4">
+            <input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-4 px-6 text-white text-sm outline-none focus:border-zinc-600 transition-colors" />
+            <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-4 px-6 text-white text-sm outline-none focus:border-zinc-600 transition-colors" />
+            <div className="relative">
+              <input type={showPassword ? 'text' : 'password'} placeholder="Password (min. 6 characters)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-4 px-6 text-white text-sm outline-none focus:border-zinc-600 transition-colors pr-12" />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors">
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <button type="submit" disabled={loading} className="w-full py-4 mt-2 bg-white text-black font-black uppercase tracking-widest italic text-sm hover:scale-[1.02] transition-transform cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
+              {loading ? 'CREATING...' : 'CREATE ACCOUNT'}
+            </button>
+          </form>
           <button onClick={() => setCurrentPage('login')} className="text-zinc-500 text-[10px] uppercase font-mono tracking-widest hover:text-white transition-colors cursor-pointer">Already registered? Login</button>
         </SpotlightFormWrapper>
       </FadeUp>
@@ -1463,7 +1507,7 @@ const FaceScanOverlay = ({ landmarksData }) => {
   );
 };
 
-const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onComplete }) => {
+const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onComplete, user }) => {
   const [statusText, setStatusText] = useState('Connecting to Backend Bridge...');
   const [videoUrl, setVideoUrl] = useState(null);
   const [landmarks, setLandmarks] = useState(null);
@@ -1519,6 +1563,10 @@ const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onC
         formData.append('choice', choice || "3");
 
         const isUltra = choice === "1" || choice === "2";
+        if (isUltra && !user) {
+          setStatusText('Sign in required for Ultra models.');
+          return;
+        }
         if (isUltra && sideImageFile) {
           const sideResponse = await fetch(sideImageFile);
           const sideBlob = await sideResponse.blob();
@@ -1526,14 +1574,32 @@ const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onC
         }
 
         setStatusText("Running vision pipeline & AI model (this often takes 30–120s)...");
-        
-        const apiRes = await fetch("http://localhost:3001/api/analyze", {
+
+        const headers = {};
+        if (isUltra && user) {
+          try {
+            const token = await user.getIdToken();
+            headers.Authorization = `Bearer ${token}`;
+          } catch (e) {
+            console.error("Failed to get auth token", e);
+            setStatusText("Sign in required for Ultra. Please refresh and log in.");
+            return;
+          }
+        }
+
+        const apiRes = await fetch(`${API_BASE}/api/analyze`, {
           method: "POST",
-          body: formData
+          headers,
+          body: formData,
         });
-        
+
         if (!active) return;
         const data = await apiRes.json();
+
+        if (!apiRes.ok) {
+          setStatusText(data.error || `Request failed (${apiRes.status})`);
+          return;
+        }
 
         const elapsed = Date.now() - scanStartedAt;
         if (elapsed < minScanMs) {
@@ -1557,7 +1623,7 @@ const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onC
     startScan();
 
     return () => { active = false; };
-  }, [sideImageSrc, sideImageFile, sideMetricData, onComplete]);
+  }, [sideImageSrc, sideImageFile, sideMetricData, choice, user, onComplete]);
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center animate-[fadeIn_0.5s_ease-out]">
@@ -1594,7 +1660,7 @@ const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onC
 
 
 // --- Upload Photo Page ---
-const UploadPhotoPage = ({ setCurrentPage, setDashboardData }) => {
+const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrity, user, userPlan }) => {
   const [frontImage, setFrontImage] = useState(null);
   const [sideImage, setSideImage] = useState(null);
   const [selectedModel, setSelectedModel] = useState("3");
@@ -1602,6 +1668,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData }) => {
   const [dropdownAnimOpen, setDropdownAnimOpen] = useState(false);
   const [justUnlocked, setJustUnlocked] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [scanningCeleb, setScanningCeleb] = useState(null);
   const modelMenuRef = useRef(null);
 
   const models = [
@@ -1650,6 +1717,17 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData }) => {
 
   const isUltraModel = selectedModel === "1" || selectedModel === "2";
 
+  const canUseUltra =
+    !!user &&
+    (userPlan?.plan === 'pro' ||
+      (userPlan?.plan === 'single_scan' && (userPlan?.scanCredits ?? 0) > 0));
+
+  useEffect(() => {
+    if (!canUseUltra && (selectedModel === '1' || selectedModel === '2')) {
+      setSelectedModel('3');
+    }
+  }, [canUseUltra, selectedModel]);
+
   useEffect(() => {
     if (!isUltraModel) {
       setSideImage(null);
@@ -1694,17 +1772,35 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData }) => {
 
   if (isScanning) {
     return (
-      <div className="flex-grow flex flex-col items-center pt-24 pb-24 px-6 lg:px-12 relative overflow-hidden bg-[#0c0d0e]">
-        <ScanningView 
-           sideImageSrc={frontImage}
-           sideImageFile={sideImage}
-           sideMetricData={sideMetricDataGlobal} 
-           choice={selectedModel}
-           onComplete={(data) => {
-              setDashboardData({ ...data, frontImage, sideImage, selectedModel });
-              setCurrentPage('dashboard');
-           }} 
-        />
+      <div className="flex-grow flex flex-col bg-[#0c0d0e]">
+        {scanningCeleb ? (
+          <CelebrityStatsPage celeb={scanningCeleb} setCurrentPage={() => setScanningCeleb(null)} />
+        ) : (
+          <>
+            <div className="flex flex-col items-center pt-24 pb-16 px-6 lg:px-12 relative min-h-screen">
+              <ScanningView 
+                 sideImageSrc={frontImage}
+                 sideImageFile={sideImage}
+                 sideMetricData={sideMetricDataGlobal} 
+                 choice={selectedModel}
+                 user={user}
+                 onComplete={(data) => {
+                    setScanningCeleb(null);
+                    setDashboardData({ ...data, frontImage, sideImage, selectedModel });
+                    setCurrentPage('dashboard');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                 }} 
+              />
+              <div className="mt-12 flex flex-col items-center gap-2 animate-bounce">
+                <span className="text-zinc-600 font-mono text-[9px] uppercase tracking-[0.3em]">Scroll down while you wait</span>
+                <ChevronRight size={16} className="text-zinc-600 rotate-90" />
+              </div>
+            </div>
+            <div className="border-t border-zinc-800/50">
+              <CelebrityRatingPage setCurrentPage={() => {}} setSelectedCelebrity={setScanningCeleb} />
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -1851,16 +1947,25 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData }) => {
                       const isUltra = m.tier === 'ultra';
                       const Icon = m.Icon ?? Diamond;
 
+                      const ultraLocked = isUltra && !canUseUltra;
+
                       return (
                         <button
                           key={m.id}
                           type="button"
                           onClick={() => {
+                            if (ultraLocked) {
+                              setIsModelMenuOpen(false);
+                              if (!user) setCurrentPage('login');
+                              else setCurrentPage('plans');
+                              return;
+                            }
                             setSelectedModel(m.id);
                             setIsModelMenuOpen(false);
                           }}
                           className={[
                             "ascend-model-option w-full text-left rounded-xl px-3 py-3 flex items-start gap-3 relative group",
+                            ultraLocked ? "opacity-50 cursor-pointer" : "",
                             isActive
                               ? "bg-white/5 shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
                               : "hover:bg-white/5 hover:shadow-[0_12px_44px_rgba(0,0,0,0.38)]"
@@ -1903,7 +2008,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData }) => {
                               </span>
                               {isUltra && (
                                 <span className="text-[9px] font-mono uppercase tracking-[0.3em] text-yellow-300/80 border border-yellow-500/20 bg-yellow-500/10 px-2 py-1 rounded-full">
-                                  Premium
+                                  {ultraLocked ? 'Pro / 1 scan' : 'Premium'}
                                 </span>
                               )}
                               {isActive && (
@@ -1938,7 +2043,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData }) => {
 
           <button 
             onClick={() => setIsScanning(true)} 
-            disabled={isUltraModel ? (!frontImage || !sideImage) : !frontImage} 
+            disabled={isUltraModel ? (!frontImage || !sideImage || !canUseUltra) : !frontImage} 
             className={`relative overflow-hidden px-20 py-6 bg-white text-black font-black uppercase tracking-widest text-lg md:text-xl flex items-center justify-center gap-5 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none ${justUnlocked ? 'animate-[buttonUnlock_1s_ease-out_forwards]' : 'shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}
           >
             {justUnlocked && <div className="absolute top-0 bottom-0 w-[50%] bg-gradient-to-r from-transparent via-white to-transparent opacity-80 mix-blend-overlay" style={{ animation: 'sweepGlow 1.5s ease-out forwards' }} />}
@@ -2663,8 +2768,9 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover })
   );
 };
 
-const DashboardPage = ({ dashboardData, setCurrentPage }) => {
-  const isFreePlan = dashboardData?.selectedModel ? ['3', '4', '5'].includes(dashboardData.selectedModel) : false;
+const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
+  const paidPlan = userPlan?.plan === 'pro' || userPlan?.plan === 'single_scan';
+  const isFreePlan = paidPlan ? false : (dashboardData?.selectedModel ? ['3', '4', '5'].includes(dashboardData.selectedModel) : false);
 
   const renderBlurredOverlay = (title) => (
     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a0a0b]/60 backdrop-blur-[6px] rounded-3xl border border-zinc-800/50 group transition-all select-none">
@@ -2705,7 +2811,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage }) => {
       const formData = new FormData();
       formData.append('image', blob, 'face.jpg');
 
-      const res = await fetch('http://localhost:3001/api/unlock-potential', {
+      const res = await fetch(`${API_BASE}/api/unlock-potential`, {
         method: 'POST',
         body: formData,
       });
@@ -3042,29 +3148,37 @@ const DashboardPage = ({ dashboardData, setCurrentPage }) => {
             {isFreePlan && renderBlurredOverlay("Actionable Protocol")}
             <div className={`flex flex-col ${isFreePlan ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
               <h3 className="text-xl font-black italic uppercase tracking-tighter text-white mb-6 border-b border-zinc-800 pb-4">Actionable Protocol</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex bg-zinc-900/50 rounded-xl border border-zinc-800 overflow-hidden hover:border-zinc-600 transition-colors group">
-                   <div className="bg-zinc-800 flex items-center justify-center px-4"><span className="text-2xl font-black text-zinc-600 group-hover:text-zinc-400">01</span></div>
-                   <div className="p-4 flex flex-col gap-1">
-                     <span className="text-white font-bold uppercase text-sm tracking-widest">Reduce Body Fat to 12%</span>
-                     <span className="text-zinc-500 text-xs font-mono">Will vastly improve buccal framing and expose zygomatic arch.</span>
-                   </div>
-                </div>
-                <div className="flex bg-zinc-900/50 rounded-xl border border-zinc-800 overflow-hidden hover:border-zinc-600 transition-colors group">
-                   <div className="bg-zinc-800 flex items-center justify-center px-4"><span className="text-2xl font-black text-zinc-600 group-hover:text-zinc-400">02</span></div>
-                   <div className="p-4 flex flex-col gap-1">
-                     <span className="text-white font-bold uppercase text-sm tracking-widest">Minoxidil for Brows</span>
-                     <span className="text-zinc-500 text-xs font-mono">Increasing eyebrow density by 15% will heavily boost dimorphism score.</span>
-                   </div>
-                </div>
-                <div className="flex bg-zinc-900/50 rounded-xl border border-zinc-800 overflow-hidden hover:border-zinc-600 transition-colors group">
-                   <div className="bg-zinc-800 flex items-center justify-center px-4"><span className="text-2xl font-black text-zinc-600 group-hover:text-zinc-400">03</span></div>
-                   <div className="p-4 flex flex-col gap-1">
-                     <span className="text-white font-bold uppercase text-sm tracking-widest">Volufiline under eyes</span>
-                     <span className="text-zinc-500 text-xs font-mono">Will help mask negative canthal tilt and reduce orbital shadowing.</span>
-                   </div>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(dashboardData?.protocols && dashboardData.protocols.length > 0
+                  ? dashboardData.protocols.slice(0, 6)
+                  : [
+                      { id: 1, name: 'Reduce Body Fat to 12%', description: 'Will vastly improve buccal framing and expose zygomatic arch', impact: 'Highest Impact' },
+                      { id: 2, name: 'Minoxidil for Brows', description: 'Increasing eyebrow density by 15% will heavily boost dimorphism score', impact: 'High Impact' },
+                      { id: 3, name: 'Volufiline under eyes', description: 'Will help mask negative canthal tilt and reduce orbital shadowing', impact: 'Medium Impact' },
+                    ]
+                ).map((p, i) => {
+                  const impactColor = /highest/i.test(p.impact) ? 'text-red-400' : /high/i.test(p.impact) ? 'text-orange-400' : /medium/i.test(p.impact) ? 'text-yellow-400' : 'text-emerald-400';
+                  return (
+                    <div key={p.id || i} onClick={() => setCurrentPage(`protocol-${p.id || i+1}`)} className="flex bg-zinc-900/50 rounded-xl border border-zinc-800 overflow-hidden hover:border-cyan-500/40 hover:shadow-[0_0_20px_rgba(34,211,238,0.08)] transition-all cursor-pointer group">
+                      <div className="bg-zinc-800 flex items-center justify-center px-4 shrink-0"><span className="text-2xl font-black text-zinc-600 group-hover:text-cyan-400 transition-colors">{String(p.id || i+1).padStart(2, '0')}</span></div>
+                      <div className="p-4 flex flex-col gap-1 min-w-0">
+                        <span className="text-white font-bold uppercase text-sm tracking-widest truncate">{p.name}</span>
+                        <span className="text-zinc-500 text-xs font-mono line-clamp-2">{p.description}</span>
+                        <span className={`text-[9px] font-mono uppercase tracking-widest mt-1 ${impactColor}`}>{p.impact}</span>
+                      </div>
+                      <div className="flex items-center pr-4 shrink-0"><ChevronRight size={16} className="text-zinc-700 group-hover:text-cyan-400 transition-colors" /></div>
+                    </div>
+                  );
+                })}
               </div>
+              {dashboardData?.protocols && dashboardData.protocols.length > 6 && (
+                <button onClick={() => setCurrentPage('protocol-all')} className="mt-4 text-cyan-400 font-mono text-[10px] uppercase tracking-widest hover:underline self-center">
+                  View all {dashboardData.protocols.length} protocols →  
+                </button>
+              )}
+              {!dashboardData?.protocols?.length && !isFreePlan && (
+                <p className="text-zinc-600 font-mono text-[10px] uppercase tracking-widest mt-4 text-center">Run an Ultra analysis to get personalized protocols based on your weak points</p>
+              )}
             </div>
           </div>
 
@@ -3298,52 +3412,184 @@ const NoiseOverlay = () => (
   </div>
 );
 
-const PlansPage = ({ setCurrentPage }) => (
-  <div className="w-full flex flex-col items-center py-32 px-6 font-sans bg-[#111214] min-h-screen">
-    <div className="text-center mb-16 max-w-2xl">
-      <h1 className="text-5xl sm:text-7xl font-black uppercase tracking-tighter mb-4 italic text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]">Ascend Pro</h1>
-      <p className="text-zinc-400 font-mono text-sm leading-relaxed uppercase tracking-widest opacity-80">
-        Unlock your true genetic potential with Ascend's premium models.
+const PlansPage = ({ setCurrentPage, user }) => {
+  const handleCheckout = (plan) => {
+    if (!user) {
+      setCurrentPage('login');
+      return;
+    }
+    const url = getCheckoutUrl(plan, user);
+    if (window.createLemonSqueezy) window.createLemonSqueezy();
+    if (window.LemonSqueezy) {
+      window.LemonSqueezy.Url.Open(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  };
+
+  return (
+  <div className="w-full flex flex-col items-center pt-32 pb-24 px-6 font-sans min-h-screen relative">
+    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-yellow-500/5 rounded-full blur-[150px] pointer-events-none" />
+
+    <FadeUp>
+      <div className="text-center mb-14 max-w-2xl relative z-10">
+        <p className="text-yellow-500/80 font-mono text-[10px] uppercase tracking-[0.4em] mb-4">Pricing</p>
+        <h1 className="text-5xl sm:text-7xl font-black uppercase tracking-tighter mb-5 italic">
+          Choose Your <span className="text-yellow-500 drop-shadow-[0_0_20px_rgba(234,179,8,0.4)]">Path</span>
+        </h1>
+        <p className="text-zinc-500 font-mono text-xs leading-relaxed uppercase tracking-widest">
+          Start free, try a single scan, or go all-in with Pro
+        </p>
+      </div>
+    </FadeUp>
+
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full max-w-6xl relative z-10">
+
+      {/* --- Free --- */}
+      <FadeUp delay={150}>
+        <div className="h-full bg-zinc-900/40 border border-zinc-800 rounded-3xl p-8 md:p-10 flex flex-col hover:border-zinc-700 transition-colors">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center">
+              <Eye size={18} className="text-zinc-400" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black uppercase italic tracking-tighter text-zinc-200">Free</h3>
+              <p className="text-zinc-600 font-mono text-[9px] uppercase tracking-widest">Basic tier</p>
+            </div>
+          </div>
+
+          <div className="flex items-baseline gap-1 mb-1">
+            <span className="text-5xl font-black text-white">$0</span>
+            <span className="text-sm text-zinc-600 font-mono tracking-widest">/forever</span>
+          </div>
+          <p className="text-zinc-500 font-mono text-[10px] uppercase tracking-widest mb-8">No credit card required</p>
+
+          <div className="w-full h-px bg-zinc-800 mb-8" />
+
+          <p className="text-zinc-500 font-mono text-[10px] uppercase tracking-widest mb-5">What you get</p>
+          <ul className="flex flex-col gap-4 text-sm font-mono text-zinc-400 w-full mb-10">
+            <li className="flex items-start gap-3"><Check size={15} className="text-zinc-500 mt-0.5 shrink-0" /> <span>Basic appearance overview & general rating</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-zinc-500 mt-0.5 shrink-0" /> <span>Structural symmetry snapshot</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-zinc-500 mt-0.5 shrink-0" /> <span>1 scan per day</span></li>
+            <li className="flex items-start gap-3 text-zinc-600"><X size={15} className="text-zinc-700 mt-0.5 shrink-0" /> <span>No detailed facial biometrics</span></li>
+            <li className="flex items-start gap-3 text-zinc-600"><X size={15} className="text-zinc-700 mt-0.5 shrink-0" /> <span>No AI potential analysis</span></li>
+            <li className="flex items-start gap-3 text-zinc-600"><X size={15} className="text-zinc-700 mt-0.5 shrink-0" /> <span>No personalized protocols</span></li>
+            <li className="flex items-start gap-3 text-zinc-600"><X size={15} className="text-zinc-700 mt-0.5 shrink-0" /> <span>No celebrity lookalike matching</span></li>
+          </ul>
+
+          <button onClick={() => setCurrentPage('photo-guide')} className="mt-auto w-full py-3.5 rounded-xl border border-zinc-700 text-zinc-300 font-bold uppercase tracking-widest text-xs hover:bg-zinc-800 hover:text-white transition-all">
+            Get Started Free
+          </button>
+        </div>
+      </FadeUp>
+
+      {/* --- Single Scan --- */}
+      <FadeUp delay={300}>
+        <div className="h-full bg-gradient-to-b from-[#0f1520] via-zinc-900/60 to-[#0c0d0e] border border-cyan-500/30 rounded-3xl p-8 md:p-10 flex flex-col relative hover:border-cyan-500/50 transition-colors shadow-[0_0_60px_rgba(34,211,238,0.04)] hover:shadow-[0_0_60px_rgba(34,211,238,0.1)]">
+          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-cyan-500 text-black px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Best Value</div>
+
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center">
+              <Zap size={18} className="text-cyan-400" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black uppercase italic tracking-tighter text-cyan-400">Single Scan</h3>
+              <p className="text-cyan-400/40 font-mono text-[9px] uppercase tracking-widest">One-time</p>
+            </div>
+          </div>
+
+          <div className="flex items-baseline gap-1 mb-1">
+            <span className="text-5xl font-black text-white">$8</span>
+            <span className="text-sm text-zinc-600 font-mono tracking-widest">/one-time</span>
+          </div>
+          <p className="text-zinc-500 font-mono text-[10px] uppercase tracking-widest mb-8">Pay once, no subscription</p>
+
+          <div className="w-full h-px bg-cyan-500/15 mb-8" />
+
+          <p className="text-cyan-400/60 font-mono text-[10px] uppercase tracking-widest mb-5">One full analysis includes</p>
+          <ul className="flex flex-col gap-4 text-sm font-mono text-zinc-300 w-full mb-10">
+            <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>1 full-detail AI facial analysis with 40+ measurements</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>Exact final rating with detailed ratio breakdown</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>Customized personal improvement protocols</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>Celebrity lookalike matching & comparison</span></li>
+            <li className="flex items-start gap-3 text-zinc-600"><X size={15} className="text-zinc-700 mt-0.5 shrink-0" /> <span>No AI potential analysis</span></li>
+            <li className="flex items-start gap-3 text-zinc-600"><X size={15} className="text-zinc-700 mt-0.5 shrink-0" /> <span>No progress tracking</span></li>
+          </ul>
+
+          <button onClick={() => handleCheckout('single_scan')} className="mt-auto w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[1.02] transition-transform shadow-[0_0_25px_rgba(34,211,238,0.25)] flex items-center justify-center gap-2">
+            <Zap size={14} /> Buy Single Scan
+          </button>
+        </div>
+      </FadeUp>
+
+      {/* --- Ascend Pro --- */}
+      <FadeUp delay={450}>
+        <div className="h-full bg-gradient-to-b from-[#1a1600] via-zinc-900/80 to-[#0c0d0e] border border-yellow-500/40 rounded-3xl p-8 md:p-10 flex flex-col relative shadow-[0_0_80px_rgba(234,179,8,0.08)] hover:shadow-[0_0_80px_rgba(234,179,8,0.15)] transition-shadow">
+          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-600 to-yellow-400 text-black px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Unlimited</div>
+
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center">
+              <Crown size={18} className="text-yellow-500" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black uppercase italic tracking-tighter text-yellow-500">Ascend Pro</h3>
+              <p className="text-yellow-500/40 font-mono text-[9px] uppercase tracking-widest">Full access</p>
+            </div>
+          </div>
+
+          <div className="flex items-baseline gap-1 mb-1">
+            <span className="text-5xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">$23</span>
+            <span className="text-sm text-zinc-500 font-mono tracking-widest">/mo</span>
+          </div>
+          <p className="text-zinc-500 font-mono text-[10px] uppercase tracking-widest mb-8">Cancel anytime, no commitment</p>
+
+          <div className="w-full h-px bg-yellow-500/15 mb-8" />
+
+          <p className="text-yellow-500/60 font-mono text-[10px] uppercase tracking-widest mb-5">Everything in Single Scan, plus</p>
+          <ul className="flex flex-col gap-4 text-sm font-mono text-zinc-300 w-full mb-10">
+            <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Up to 2 full scans per day</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>AI potential analysis — see your projected best self</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Full-detail AI facial analysis with 40+ biometric measurements</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Customized personal improvement protocols</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Celebrity lookalike matching & comparison</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Progress tracking dashboard</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Exact final rating with detailed ratio breakdown</span></li>
+          </ul>
+
+          <button onClick={() => handleCheckout('pro')} className="mt-auto w-full py-3.5 rounded-xl bg-gradient-to-r from-yellow-600 to-yellow-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[1.02] transition-transform shadow-[0_0_25px_rgba(234,179,8,0.3)] flex items-center justify-center gap-2">
+            <Crown size={14} /> Upgrade to Pro
+          </button>
+        </div>
+      </FadeUp>
+    </div>
+
+    <FadeUp delay={600}>
+      <div className="mt-20 w-full max-w-4xl relative z-10">
+        <p className="text-center text-zinc-600 font-mono text-[10px] uppercase tracking-widest mb-10">Why upgrade?</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            { icon: <Target size={18} />, title: 'Precision', desc: '40+ facial measurements using advanced AI biometric models' },
+            { icon: <TrendingUp size={18} />, title: 'Potential', desc: 'AI forecasts your achievable look with surgery or softmaxxing' },
+            { icon: <Shield size={18} />, title: 'Protocols', desc: 'Personalized step-by-step plans built around your exact facial structure' },
+          ].map((item, i) => (
+            <div key={i} className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 text-center hover:border-zinc-700 transition-colors">
+              <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center mx-auto mb-4 text-zinc-400">{item.icon}</div>
+              <h4 className="text-white font-bold uppercase text-xs tracking-widest mb-2">{item.title}</h4>
+              <p className="text-zinc-500 font-mono text-[10px] leading-relaxed">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </FadeUp>
+
+    <FadeUp delay={700}>
+      <p className="mt-16 text-zinc-600 font-mono text-[10px] uppercase tracking-widest text-center relative z-10">
+        Secure payment via Lemon Squeezy · Cancel anytime · Instant access
       </p>
-    </div>
-
-    <div className="flex flex-col md:flex-row gap-8 w-full max-w-4xl justify-center items-stretch relative z-10">
-      {/* Free Plan */}
-      <div className="flex-1 bg-zinc-900/30 border border-zinc-800 rounded-3xl p-8 flex flex-col items-center text-center max-w-sm w-full mx-auto">
-        <h3 className="text-2xl font-black uppercase italic tracking-tighter text-zinc-300 mb-2">Base</h3>
-        <div className="text-4xl font-black text-white mb-6">$0<span className="text-sm text-zinc-500 font-mono tracking-widest">/mo</span></div>
-        <div className="w-full h-px bg-zinc-800 mb-6" />
-        <ul className="flex flex-col gap-4 text-sm font-mono text-zinc-400 w-full text-left mb-8">
-          <li className="flex items-center gap-3"><Check size={16} className="text-green-500" /> Basic visual analysis</li>
-          <li className="flex items-center gap-3"><Check size={16} className="text-green-500" /> Structural overview</li>
-          <li className="flex items-center gap-3 opacity-30"><X size={16} className="text-red-500" /> No detailed biometrics</li>
-          <li className="flex items-center gap-3 opacity-30"><X size={16} className="text-red-500" /> No actionable protocols</li>
-        </ul>
-        <button onClick={() => setCurrentPage('home')} className="mt-auto w-full py-3 rounded-full border border-zinc-700 text-zinc-300 font-bold uppercase tracking-widest text-xs hover:bg-zinc-800 hover:text-white transition-colors">
-          Current Plan
-        </button>
-      </div>
-
-      {/* Pro Plan */}
-      <div className="flex-1 bg-gradient-to-b from-zinc-900 to-black border border-yellow-500/50 rounded-3xl p-8 flex flex-col items-center text-center shadow-[0_0_50px_rgba(234,179,8,0.15)] relative max-w-sm w-full mx-auto transform hover:-translate-y-2 transition-transform duration-300">
-        <div className="absolute -top-4 bg-yellow-500 text-black px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Most Popular</div>
-        <h3 className="text-2xl font-black uppercase italic tracking-tighter text-yellow-500 mb-2 drop-shadow-md">Pro</h3>
-        <div className="text-4xl font-black text-white mb-6 drop-shadow-md">$15<span className="text-sm text-zinc-500 font-mono tracking-widest">/mo</span></div>
-        <div className="w-full h-px bg-yellow-500/20 mb-6" />
-        <ul className="flex flex-col gap-4 text-sm font-mono text-zinc-300 w-full text-left mb-8">
-          <li className="flex items-center gap-3"><Check size={16} className="text-yellow-500" /> Everything in Base</li>
-          <li className="flex items-center gap-3"><Check size={16} className="text-yellow-500" /> Ultra-accurate Gemini Pro models</li>
-          <li className="flex items-center gap-3"><Check size={16} className="text-yellow-500" /> Exact final rating & detailed ratios</li>
-          <li className="flex items-center gap-3"><Check size={16} className="text-yellow-500" /> 15-step actionable improvement protocol</li>
-          <li className="flex items-center gap-3"><Check size={16} className="text-yellow-500" /> AI potential morph forecasting</li>
-        </ul>
-        <button onClick={() => setCurrentPage('home')} className="mt-auto w-full py-3 rounded-full bg-gradient-to-r from-yellow-600 to-yellow-500 text-black font-black uppercase tracking-widest text-xs hover:scale-105 transition-transform shadow-[0_0_20px_rgba(234,179,8,0.4)]">
-          Upgrade Now
-        </button>
-      </div>
-    </div>
+    </FadeUp>
   </div>
-);
+  );
+};
 
 // --- Admin Dashboard ---
 const AdminDashboardPage = ({ setCurrentPage }) => {
@@ -3360,7 +3606,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('http://localhost:3001/api/admin/stats', { headers: { 'x-admin-password': pw } });
+      const res = await fetch(`${API_BASE}/api/admin/stats`, { headers: { 'x-admin-password': pw } });
       if (!res.ok) {
         if (res.status === 401) { setAuthenticated(false); setError('Invalid password'); return; }
         throw new Error(`HTTP ${res.status}`);
@@ -3651,6 +3897,253 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
   );
 };
 
+// --- Protocol Detail Page ---
+const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
+  const [activePhase, setActivePhase] = useState(0);
+  const [checkedTasks, setCheckedTasks] = useState({});
+
+  const toggleTask = (phaseIdx, taskIdx) => {
+    const key = `${phaseIdx}-${taskIdx}`;
+    setCheckedTasks(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const impactLevel = (impact) => {
+    if (/highest/i.test(impact)) return { color: 'red', pct: 100, label: 'CRITICAL' };
+    if (/high/i.test(impact)) return { color: 'orange', pct: 80, label: 'HIGH' };
+    if (/medium/i.test(impact)) return { color: 'yellow', pct: 55, label: 'MODERATE' };
+    return { color: 'emerald', pct: 30, label: 'LOW' };
+  };
+
+  const imp = impactLevel(protocol?.impact || 'Medium');
+
+  const isSurgical = /surgery|rhinoplasty|implant|genioplasty|osteotomy|blepharoplasty|buccal|liposuction|fat graft|filler|botox|lefort/i.test(protocol?.name + ' ' + protocol?.description);
+
+  const timelinePhases = isSurgical ? [
+    { week: 'Month 1-2', title: 'Research & Consultation', icon: '🔍', tasks: ['Research board-certified surgeons in your area', 'Book 2-3 consultations for multiple opinions', 'Review before/after galleries of each surgeon', 'Ask about complication rates and revision rates', 'Get imaging/morphs done during consultations'] },
+    { week: 'Month 2-3', title: 'Pre-Operative Preparation', icon: '📋', tasks: ['Complete all required bloodwork and imaging', 'Stop blood thinners, supplements, and smoking', 'Arrange 1-2 weeks off work for recovery', 'Prepare recovery area at home (ice, soft foods, pillows)', 'Take standardized baseline photos (front, side, 45°)'] },
+    { week: 'Day of Surgery', title: 'Procedure Day', icon: '🏥', tasks: ['Follow NPO (nothing by mouth) instructions', 'Arrive with a responsible adult for transport', 'Confirm procedure details with your surgeon', 'Follow all pre-op nursing instructions'] },
+    { week: 'Week 1-2', title: 'Acute Recovery', icon: '🩹', tasks: ['Apply ice 20 min on / 20 min off for first 48 hours', 'Sleep elevated at 30-45 degrees to minimize swelling', 'Soft/liquid diet for the first week', 'Take prescribed medications on schedule', 'Attend your first post-op checkup'] },
+    { week: 'Week 3-6', title: 'Healing Phase', icon: '🔄', tasks: ['Swelling continues to reduce — be patient', 'Gradually reintroduce normal diet and activity', 'Avoid contact sports and strenuous exercise', 'Take weekly progress photos for comparison', 'Follow up with surgeon at 4-6 week mark'] },
+    { week: 'Month 3-12', title: 'Final Results', icon: '✅', tasks: ['Most swelling resolved by month 3; final form by month 12', 'Compare progress photos against pre-op baseline', 'Schedule 6-month and 12-month follow-up visits', 'Discuss any asymmetries or concerns with surgeon', 'Consider complementary protocols if needed'] },
+  ] : [
+    { week: 'Week 1', title: 'Setup & Baseline', icon: '📸', tasks: ['Take standardized baseline photos (front, side, 45°)', 'Purchase all required products or equipment', 'Set daily reminders/alarms for consistency', 'Journal your starting measurements if applicable', 'Research proper technique and application methods'] },
+    { week: 'Week 2-4', title: 'Building the Habit', icon: '⚡', tasks: ['Apply the protocol daily without skipping', 'Track adherence in a habit tracker or journal', 'Note any skin sensitivity or adverse reactions', 'Take weekly progress photos in the same lighting', 'Adjust dosage/frequency if irritation occurs'] },
+    { week: 'Month 2-3', title: 'Early Adaptation', icon: '🔬', tasks: ['First subtle changes may become visible', 'Compare month 2 photos vs. baseline side-by-side', 'Increase intensity/frequency if well-tolerated', 'Re-evaluate product quality and consider upgrades', 'Stay consistent — this is where most people quit'] },
+    { week: 'Month 3-6', title: 'Visible Transformation', icon: '📈', tasks: ['Clear, measurable changes vs. baseline', 'Document with high-quality progress photos', 'Evaluate whether to continue, intensify, or maintain', 'Begin transitioning to maintenance dosage if applicable', 'Stack with complementary protocols for compound gains'] },
+    { week: 'Month 6+', title: 'Maintenance', icon: '🏆', tasks: ['Shift to maintenance frequency/dosage', 'Take monthly comparison photos', 'Focus on the next highest-impact protocol', 'Re-evaluate every 3 months for continued relevance', 'Share progress with your community for accountability'] },
+  ];
+
+  const totalTasks = timelinePhases.reduce((sum, p) => sum + p.tasks.length, 0);
+  const completedTasks = Object.values(checkedTasks).filter(Boolean).length;
+  const overallProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  return (
+    <div className="min-h-screen pt-28 pb-20 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+      <button onClick={() => setCurrentPage('dashboard')} className="flex items-center gap-2 text-zinc-500 hover:text-cyan-400 font-mono text-[10px] uppercase tracking-widest mb-8 transition-colors">
+        <ChevronLeft size={14} /> Back to Dashboard
+      </button>
+
+      {/* Header */}
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 mb-6 relative overflow-hidden">
+        <div className="flex items-start gap-4 mb-6">
+          <div className="w-14 h-14 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0">
+            <span className="text-xl font-black text-zinc-400">{String(protocol?.id || 1).padStart(2, '0')}</span>
+          </div>
+          <div className="flex-grow">
+            <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-tight text-white">{protocol?.name || 'Protocol'}</h1>
+            <p className="text-zinc-400 font-mono text-sm mt-2 leading-relaxed">{protocol?.description || ''}</p>
+            <div className="flex items-center gap-3 mt-3">
+              <span className={`text-[9px] font-mono uppercase tracking-widest px-2.5 py-1 rounded-full border ${/highest/i.test(protocol?.impact) ? 'text-red-400 border-red-500/20 bg-red-500/10' : /high/i.test(protocol?.impact) ? 'text-orange-400 border-orange-500/20 bg-orange-500/10' : /medium/i.test(protocol?.impact) ? 'text-yellow-400 border-yellow-500/20 bg-yellow-500/10' : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10'}`}>{protocol?.impact || 'Medium Impact'}</span>
+              <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-600 px-2.5 py-1 rounded-full border border-zinc-800 bg-zinc-900">{isSurgical ? 'Surgical' : 'Non-Surgical'}</span>
+            </div>
+          </div>
+        </div>
+        {/* Overall progress */}
+        <div className="mt-2">
+          <div className="flex justify-between mb-1.5">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Overall Progress</span>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400">{overallProgress}%</span>
+          </div>
+          <div className="h-2 bg-zinc-950 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full transition-all duration-500" style={{ width: `${overallProgress}%` }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Interactive Timeline */}
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 mb-6">
+        <h2 className="font-mono text-xs uppercase tracking-widest text-zinc-300 mb-6 flex items-center gap-2">
+          <Clock size={14} className="text-cyan-400" /> Implementation Timeline
+        </h2>
+
+        {/* Phase selector tabs */}
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+          {timelinePhases.map((phase, i) => {
+            const phaseTasks = phase.tasks.length;
+            const phaseCompleted = phase.tasks.filter((_, ti) => checkedTasks[`${i}-${ti}`]).length;
+            const phasePct = phaseTasks > 0 ? Math.round((phaseCompleted / phaseTasks) * 100) : 0;
+            return (
+              <button key={i} onClick={() => setActivePhase(i)} className={`shrink-0 px-4 py-3 rounded-xl border font-mono text-[10px] uppercase tracking-widest transition-all ${activePhase === i ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400' : 'bg-zinc-950/50 border-zinc-800 text-zinc-500 hover:border-zinc-700 hover:text-zinc-400'}`}>
+                <span className="mr-2">{phase.icon}</span>
+                {phase.week}
+                {phaseCompleted > 0 && <span className="ml-2 text-[8px] text-cyan-500">{phasePct}%</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Active phase detail */}
+        <div className="bg-zinc-950/50 border border-zinc-800/50 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-white font-bold uppercase text-sm tracking-widest">{timelinePhases[activePhase]?.title}</h3>
+              <span className="text-cyan-400 font-mono text-[10px] uppercase tracking-widest">{timelinePhases[activePhase]?.week}</span>
+            </div>
+            <div className="text-right">
+              <span className="text-zinc-500 font-mono text-[10px]">
+                {timelinePhases[activePhase]?.tasks.filter((_, ti) => checkedTasks[`${activePhase}-${ti}`]).length}/{timelinePhases[activePhase]?.tasks.length} tasks
+              </span>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {timelinePhases[activePhase]?.tasks.map((task, ti) => {
+              const isChecked = !!checkedTasks[`${activePhase}-${ti}`];
+              return (
+                <div key={ti} onClick={() => toggleTask(activePhase, ti)} className={`flex items-start gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-all ${isChecked ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-zinc-900/30 border-zinc-800/50 hover:border-zinc-700'}`}>
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${isChecked ? 'border-cyan-500 bg-cyan-500' : 'border-zinc-700'}`}>
+                    {isChecked && <Check size={12} className="text-black" />}
+                  </div>
+                  <span className={`font-mono text-xs leading-relaxed transition-colors ${isChecked ? 'text-zinc-500 line-through' : 'text-zinc-300'}`}>{task}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Phase progress dots */}
+        <div className="flex items-center justify-center gap-2 mt-6">
+          {timelinePhases.map((phase, i) => {
+            const phaseTasks = phase.tasks.length;
+            const phaseCompleted = phase.tasks.filter((_, ti) => checkedTasks[`${i}-${ti}`]).length;
+            const done = phaseCompleted === phaseTasks && phaseTasks > 0;
+            return (
+              <button key={i} onClick={() => setActivePhase(i)} className={`w-3 h-3 rounded-full transition-all ${activePhase === i ? 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)] scale-125' : done ? 'bg-emerald-500' : phaseCompleted > 0 ? 'bg-yellow-500' : 'bg-zinc-700 hover:bg-zinc-600'}`} />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Scientific Research */}
+      {protocol?.research && (
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 mb-6">
+          <h2 className="font-mono text-xs uppercase tracking-widest text-zinc-300 mb-6 flex items-center gap-2">
+            <Activity size={14} className="text-violet-400" /> Scientific Research
+          </h2>
+          <div className="bg-zinc-950/50 border border-zinc-800/50 rounded-xl p-6">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                <Activity size={14} className="text-violet-400" />
+              </div>
+              <div>
+                {(() => {
+                  const titleMatch = protocol.research.match(/"([^"]+)"/);
+                  const query = titleMatch ? titleMatch[1] : protocol.research;
+                  const scholarUrl = `https://scholar.google.com/scholar?q=${encodeURIComponent(query)}`;
+                  return (
+                    <a href={scholarUrl} target="_blank" rel="noopener noreferrer" className="group/link block">
+                      <p className="text-zinc-300 font-mono text-xs leading-relaxed group-hover/link:text-violet-300 transition-colors">
+                        {protocol.research}
+                        <ArrowUpRight size={12} className="inline ml-1 opacity-0 group-hover/link:opacity-100 transition-opacity text-violet-400" />
+                      </p>
+                    </a>
+                  );
+                })()}
+                <p className="text-violet-400/60 font-mono text-[9px] uppercase tracking-widest mt-3">Cited from peer-reviewed literature</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Key Principles */}
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 mb-6">
+        <h2 className="font-mono text-xs uppercase tracking-widest text-zinc-300 mb-6 flex items-center gap-2">
+          <Target size={14} className="text-emerald-400" /> Key Principles
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {(isSurgical ? [
+            { title: 'Surgeon Selection', desc: 'Choose a board-certified surgeon with specific experience in this procedure. Review at least 20 before/after cases.' },
+            { title: 'Realistic Expectations', desc: 'Understand the limits of the procedure. Results depend on your anatomy, healing, and the surgeon\'s skill.' },
+            { title: 'Recovery Compliance', desc: 'Follow post-op instructions exactly. Most complications arise from non-compliance during recovery.' },
+          ] : [
+            { title: 'Consistency', desc: 'Results compound over time. Daily adherence matters more than intensity.' },
+            { title: 'Documentation', desc: 'Take progress photos weekly under the same lighting and angle.' },
+            { title: 'Patience', desc: 'Most changes take 3-6 months to become clearly visible. Don\'t quit early.' },
+          ]).map((tip, i) => (
+            <div key={i} className="bg-zinc-950/50 border border-zinc-800/50 rounded-xl p-5">
+              <h4 className="text-white font-bold uppercase text-xs tracking-widest mb-2">{tip.title}</h4>
+              <p className="text-zinc-500 font-mono text-[10px] leading-relaxed">{tip.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Other Protocols */}
+      {allProtocols && allProtocols.length > 1 && (
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8">
+          <h2 className="font-mono text-xs uppercase tracking-widest text-zinc-300 mb-6">Other Protocols</h2>
+          <div className="space-y-2">
+            {allProtocols.filter(p => p.id !== protocol?.id).slice(0, 8).map((p, i) => {
+              const pImp = impactLevel(p.impact);
+              return (
+                <div key={p.id || i} onClick={() => { setCurrentPage(`protocol-${p.id}`); window.scrollTo(0, 0); }} className="flex items-center gap-3 px-4 py-3 rounded-lg bg-zinc-950/30 border border-zinc-800/50 hover:border-zinc-700 cursor-pointer transition-colors group">
+                  <span className="text-zinc-600 font-black text-sm w-8">{String(p.id).padStart(2, '0')}</span>
+                  <span className="text-zinc-300 font-bold uppercase text-xs tracking-widest flex-grow truncate group-hover:text-white transition-colors">{p.name}</span>
+                  <span className={`text-[8px] font-mono uppercase tracking-widest text-${pImp.color}-400 shrink-0`}>{p.impact}</span>
+                  <ChevronRight size={12} className="text-zinc-700 group-hover:text-cyan-400 shrink-0 transition-colors" />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- All Protocols Page ---
+const AllProtocolsPage = ({ protocols, setCurrentPage }) => {
+  const impactColor = (impact) => {
+    if (/highest/i.test(impact)) return 'text-red-400';
+    if (/high/i.test(impact)) return 'text-orange-400';
+    if (/medium/i.test(impact)) return 'text-yellow-400';
+    return 'text-emerald-400';
+  };
+
+  return (
+    <div className="min-h-screen pt-28 pb-20 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+      <button onClick={() => setCurrentPage('dashboard')} className="flex items-center gap-2 text-zinc-500 hover:text-cyan-400 font-mono text-[10px] uppercase tracking-widest mb-8 transition-colors">
+        <ChevronLeft size={14} /> Back to Dashboard
+      </button>
+      <h1 className="text-3xl md:text-4xl font-black italic uppercase tracking-tight text-white mb-2">All Protocols</h1>
+      <p className="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-10">Sorted by impact — highest first</p>
+      <div className="space-y-3">
+        {(protocols || []).map((p, i) => (
+          <div key={p.id || i} onClick={() => { setCurrentPage(`protocol-${p.id}`); window.scrollTo(0, 0); }} className="flex items-center gap-4 px-5 py-4 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-cyan-500/30 hover:shadow-[0_0_15px_rgba(34,211,238,0.05)] cursor-pointer transition-all group">
+            <span className="text-2xl font-black text-zinc-700 group-hover:text-cyan-400 transition-colors w-10 shrink-0">{String(p.id).padStart(2, '0')}</span>
+            <div className="flex-grow min-w-0">
+              <span className="text-white font-bold uppercase text-sm tracking-widest block truncate group-hover:text-cyan-50 transition-colors">{p.name}</span>
+              <span className="text-zinc-600 text-xs font-mono block truncate">{p.description}</span>
+            </div>
+            <span className={`text-[9px] font-mono uppercase tracking-widest shrink-0 ${impactColor(p.impact)}`}>{p.impact}</span>
+            <ChevronRight size={16} className="text-zinc-700 group-hover:text-cyan-400 shrink-0 transition-colors" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // --- Hidden Admin Access (5 clicks on footer logo within 3s) ---
 const AdminFooterTrigger = ({ setCurrentPage }) => {
   const clicks = useRef([]);
@@ -3676,27 +4169,71 @@ const App = () => {
   const [currentPage, setCurrentPage] = useState('home');
   const [dashboardData, setDashboardData] = useState(null);
   const [selectedCelebrity, setSelectedCelebrity] = useState(null);
-  
+  const [user, setUser] = useState(null);
+  const [userPlan, setUserPlan] = useState({ plan: 'free', scanCredits: 0 });
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user?.uid) { setUserPlan({ plan: 'free', scanCredits: 0 }); return; }
+    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setUserPlan({
+          plan: data.plan || 'free',
+          scanCredits: data.scanCredits ?? 0,
+          subscriptionId: data.subscriptionId || null,
+        });
+      } else {
+        setUserPlan({ plan: 'free', scanCredits: 0 });
+      }
+    });
+    return () => unsubscribe();
+  }, [user?.uid]);
+
   useEffect(() => { window.scrollTo(0, 0); }, [currentPage]);
+
+  const handleSignOut = async () => {
+    await signOut(auth);
+    setCurrentPage('home');
+  };
   
   return (
     <div className="min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black">
       <NoiseOverlay />
-      <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
+      <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} user={user} onSignOut={handleSignOut} userPlan={userPlan} />
       <main className="flex flex-col min-h-screen">
         {currentPage === 'home' && <HomePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'photo-guide' && <PhotoGuidePage setCurrentPage={setCurrentPage} />}
-        {currentPage === 'upload-photo' && <UploadPhotoPage setCurrentPage={setCurrentPage} setDashboardData={setDashboardData} />}
+        {currentPage === 'upload-photo' && (
+          <UploadPhotoPage
+            setCurrentPage={setCurrentPage}
+            setDashboardData={setDashboardData}
+            setSelectedCelebrity={setSelectedCelebrity}
+            user={user}
+            userPlan={userPlan}
+          />
+        )}
         {currentPage === 'results' && <ResultsPage />}
-        {currentPage === 'dashboard' && <DashboardPage dashboardData={dashboardData} setCurrentPage={setCurrentPage} />}
-        {currentPage === 'plans' && <PlansPage setCurrentPage={setCurrentPage} />}
+        {currentPage === 'dashboard' && <DashboardPage dashboardData={dashboardData} setCurrentPage={setCurrentPage} userPlan={userPlan} />}
+        {currentPage === 'plans' && <PlansPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'mog-battles' && <MogBattlePage dashboardData={dashboardData} />}
-        {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} />}
-        {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} />}
-        {currentPage === 'morph' && <div className="pt-32 text-center h-screen uppercase font-black italic text-4xl opacity-50">Morph Lab Coming Soon</div>}
+        {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} user={user} />}
+        {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} user={user} />}
+        {currentPage === 'morph' && <div className="pt-32 text-center h-screen uppercase font-black italic text-4xl opacity-50">News Coming Soon</div>}
         {currentPage === 'celebrity' && <CelebrityRatingPage setCurrentPage={setCurrentPage} setSelectedCelebrity={setSelectedCelebrity} />}
         {currentPage === 'celebrity-stats' && selectedCelebrity && <CelebrityStatsPage celeb={selectedCelebrity} setCurrentPage={setCurrentPage} />}
         {currentPage === 'admin' && <AdminDashboardPage setCurrentPage={setCurrentPage} />}
+        {currentPage === 'protocol-all' && <AllProtocolsPage protocols={dashboardData?.protocols || []} setCurrentPage={setCurrentPage} />}
+        {currentPage.startsWith('protocol-') && currentPage !== 'protocol-all' && (() => {
+          const pid = parseInt(currentPage.split('-')[1]);
+          const allProtos = dashboardData?.protocols || [];
+          const proto = allProtos.find(p => p.id === pid) || { id: pid, name: `Protocol ${pid}`, description: '', impact: 'Medium Impact' };
+          return <ProtocolDetailPage protocol={proto} allProtocols={allProtos} setCurrentPage={setCurrentPage} />;
+        })()}
       </main>
       <footer className="py-20 border-t border-zinc-900 flex flex-col items-center gap-8 bg-[#090a0b]">
         <AdminFooterTrigger setCurrentPage={setCurrentPage} />

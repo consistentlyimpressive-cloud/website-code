@@ -362,11 +362,14 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice=None, side_img
         10. [SIDE] Flaw: Description
 
         ### ACTIONABLE PROTOCOLS
-        [List exactly 25 actionable protocols. Sorted from HIGHEST IMPACT to LOWEST IMPACT.]
-        [Address both Frontal and Lateral structural issues based on the dual analysis.]
-        1. [Protocol Name]: [Description]. [Impact Rating]
+        [List exactly 10 actionable protocols. Each MUST directly address a specific weak point or flaw identified in the analysis above.]
+        [Sorted from HIGHEST IMPACT to LOWEST IMPACT. Address both Frontal and Lateral structural issues.]
+        [Format EXACTLY as shown — each protocol on ONE line:]
+        1. Protocol Name: Description of what to do and why, targeting the specific flaw. (Impact Rating) [RESEARCH: Author et al. (Year). "Study title." Journal Name. Brief finding relevant to this protocol.]
         ...
-        25. [Protocol Name]: [Description]. [Impact Rating]
+        10. Protocol Name: Description. (Impact Rating) [RESEARCH: Author et al. (Year). "Study title." Journal Name. Brief finding.]
+        [Impact Rating must be one of: Highest Impact, High Impact, Medium Impact, Low Impact]
+        [RESEARCH must cite a real, relevant scientific study or clinical paper for each protocol. For surgical protocols cite outcome studies. For non-surgical cite dermatology/cosmetic science papers.]
 
         ### MOG_REPORT_REVISION
         [Re-list every feature from INPUT A and Side features from INPUT B. Rate 1-100. Ensure Shared Ratings match. Format: "Feature Name: Score". NO EXPLANATIONS.]
