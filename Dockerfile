@@ -18,7 +18,7 @@ FROM node:20-bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-venv python3-pip \
-    libgl1 libglib2.0-0 libsm6 libxext6 libxrender-dev libgles2 \
+    libgl1 libglib2.0-0 libsm6 libxext6 libxrender-dev libgles2 libegl1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
