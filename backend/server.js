@@ -506,72 +506,72 @@ app.post(
 
       const success = code === 0 && parsed.hasSubstantiveParse === true;
 
-      const finalRating =
-        parsed.finalRating != null && !Number.isNaN(parsed.finalRating) ? parsed.finalRating : null;
-      const sideRating =
-        parsed.sideRating != null && !Number.isNaN(parsed.sideRating) ? parsed.sideRating : null;
+  const finalRating =
+    parsed.finalRating != null && !Number.isNaN(parsed.finalRating) ? parsed.finalRating : null;
+  const sideRating =
+    parsed.sideRating != null && !Number.isNaN(parsed.sideRating) ? parsed.sideRating : null;
 
-      const payload = {
-        success,
-        sex: parsed.sex,
-        finalRating,
-        sideRating,
-        technicalSummary: parsed.technicalSummary,
-        bestFeatures: parsed.bestFeatures,
-        primaryFlaws: parsed.primaryFlaws,
-        sideBestFeatures: parsed.sideBestFeatures,
-        sidePrimaryFlaws: parsed.sidePrimaryFlaws,
-        categories: parsed.categories,
-        sideCategories: parsed.sideCategories,
-        biometrics: parsed.biometrics.length ? parsed.biometrics : undefined,
-        sideBiometrics: parsed.sideBiometrics.length ? parsed.sideBiometrics : undefined,
-        protocols: parsed.protocols.length ? parsed.protocols : undefined,
-        videoUrl: getLoadingVideoUrl(),
-        rawOutput:
-          pythonStderr.trim().length > 0
-            ? `${pythonOutput}\n\n--- Python stderr ---\n${pythonStderr}`
-            : pythonOutput,
-      };
+  const payload = {
+    success,
+    sex: parsed.sex,
+    finalRating,
+    sideRating,
+    technicalSummary: parsed.technicalSummary,
+    bestFeatures: parsed.bestFeatures,
+    primaryFlaws: parsed.primaryFlaws,
+    sideBestFeatures: parsed.sideBestFeatures,
+    sidePrimaryFlaws: parsed.sidePrimaryFlaws,
+    categories: parsed.categories,
+    sideCategories: parsed.sideCategories,
+    biometrics: parsed.biometrics.length ? parsed.biometrics : undefined,
+    sideBiometrics: parsed.sideBiometrics.length ? parsed.sideBiometrics : undefined,
+    protocols: parsed.protocols.length ? parsed.protocols : undefined,
+    videoUrl: getLoadingVideoUrl(),
+    rawOutput:
+      pythonStderr.trim().length > 0
+        ? `${pythonOutput}\n\n--- Python stderr ---\n${pythonStderr}`
+        : pythonOutput,
+  };
 
-      if (!success) {
-        if (code !== 0) {
-          payload.error = `Python exited with code ${code}. Check this terminal for [FATAL] or API errors above.`;
-        } else if (!parsed.hasSubstantiveParse) {
-          payload.error =
-            'Analysis finished but no usable text was parsed (empty model response, wrong format, or API key/model issue). Check the PY ENGINE block above.';
-        } else {
-          payload.error = 'Analysis did not complete successfully.';
-        }
-      }
+  if (!success) {
+    if (code !== 0) {
+      payload.error = `Python exited with code ${code}. Check this terminal for [FATAL] or API errors above.`;
+    } else if (!parsed.hasSubstantiveParse) {
+      payload.error =
+        'Analysis finished but no usable text was parsed (empty model response, wrong format, or API key/model issue). Check the PY ENGINE block above.';
+    } else {
+      payload.error = 'Analysis did not complete successfully.';
+    }
+  }
 
-      console.log(
-        `[api/analyze] Parsed → bestFeatures=${payload.bestFeatures.length} flaws=${payload.primaryFlaws.length} biometrics=${(payload.biometrics || []).length} rating=${finalRating ?? 'n/a'}`
-      );
-      console.log('========== END PY ENGINE ==========\n');
+  console.log(
+    `[api/analyze] Parsed → bestFeatures=${payload.bestFeatures.length} flaws=${payload.primaryFlaws.length} biometrics=${(payload.biometrics || []).length} rating=${finalRating ?? 'n/a'}`
+  );
+  console.log('========== END PY ENGINE ==========\n');
 
-      adminStore.parseKeyEventsFromStdout(pythonOutput);
-      adminStore.logAnalysis({
-        model: modelChoice,
-        durationMs: Date.now() - analysisStartTime,
-        success,
-        rating: finalRating,
-        sideRating,
-        error: payload.error || null,
+  adminStore.parseKeyEventsFromStdout(pythonOutput);
+  adminStore.logAnalysis({
+    model: modelChoice,
+    durationMs: Date.now() - analysisStartTime,
+    success,
+    rating: finalRating,
+    sideRating,
+    error: payload.error || null,
+  });
+
+  if (success && req.ultraContext && req.ultraContext.plan === 'single_scan') {
+    try {
+      await firestore.collection('users').doc(req.ultraContext.uid).update({
+        scanCredits: admin.firestore.FieldValue.increment(-1),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
+      console.log(`[analyze] Single Scan credit consumed for ${req.ultraContext.uid}`);
+    } catch (e) {
+      console.error('[analyze] Failed to decrement scanCredits:', e.message);
+    }
+  }
 
-      if (success && req.ultraContext && req.ultraContext.plan === 'single_scan') {
-        try {
-          await firestore.collection('users').doc(req.ultraContext.uid).update({
-            scanCredits: admin.firestore.FieldValue.increment(-1),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-          console.log(`[analyze] Single Scan credit consumed for ${req.ultraContext.uid}`);
-        } catch (e) {
-          console.error('[analyze] Failed to decrement scanCredits:', e.message);
-        }
-      }
-
-      res.json(payload);
+  res.json(payload);
 
       setImmediate(() => {
         maybeUploadAndDeleteLocal(imagePath).catch(() => {});
