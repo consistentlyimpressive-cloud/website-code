@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus } from 'lucide-react';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
-import TriangulationField from './components/TriangulationField';
+import NewsPage from './components/NewsPage';
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
@@ -133,7 +133,10 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan }) => {
       </div>
       <div className="hidden md:flex items-center gap-8 text-xs font-bold">
         <button onClick={() => setCurrentPage('home')} className={`${currentPage === 'home' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Home</button>
-        <button onClick={() => setCurrentPage('morph')} className={`${currentPage === 'morph' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>News</button>
+        <button onClick={() => setCurrentPage('news')} className={`${currentPage === 'news' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>
+          News
+          <span className="bg-red-500/20 text-red-500 text-[8px] px-1.5 py-0.5 rounded-sm animate-pulse ml-1">LIVE</span>
+        </button>
         <button onClick={() => setCurrentPage('dashboard')} className={`${currentPage === 'dashboard' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}><Activity size={14} /> Dashboard</button>
         <button onClick={() => setCurrentPage('celebrity')} className={`${currentPage === 'celebrity' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Celebrity Ratings</button>
         <button onClick={() => setCurrentPage('plans')} className={`${currentPage === 'plans' ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'text-yellow-500/70'} hover:text-yellow-400 transition-all uppercase tracking-widest flex items-center gap-1`}><Crown size={13} /> Plans</button>
@@ -182,9 +185,9 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan }) => {
       <button className="md:hidden text-white" onClick={() => setIsOpen(!isOpen)}>{isOpen ? <X /> : <Menu />}</button>
       {isOpen && (
         <div className="absolute top-full left-0 w-full bg-[#0c0d0e] border-b border-zinc-900 flex flex-col items-center py-6 gap-6 md:hidden">
-          <button onClick={() => { setCurrentPage('home'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Home</button>
-          <button onClick={() => { setCurrentPage('morph'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">News</button>
-          <button onClick={() => { setCurrentPage('dashboard'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Activity size={14} /> Dashboard</button>
+        <button onClick={() => { setCurrentPage('home'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Home</button>
+        <button onClick={() => { setCurrentPage('news'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2">News <span className="bg-red-500/20 text-red-500 text-[8px] px-1.5 py-0.5 rounded-sm animate-pulse ml-1">LIVE</span></button>
+        <button onClick={() => { setCurrentPage('dashboard'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Activity size={14} /> Dashboard</button>
           <button onClick={() => { setCurrentPage('celebrity'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Celebrity Rating</button>
           <button onClick={() => { setCurrentPage('plans'); setIsOpen(false); }} className="text-yellow-500/70 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Crown size={13} /> Plans</button>
           {user ? (
@@ -1042,9 +1045,6 @@ const HomePage = ({ setCurrentPage }) => {
     <div className="absolute inset-0 h-full pointer-events-none overflow-hidden -z-10">
       <div className="absolute top-0 left-0 w-[30%] h-full bg-gradient-to-r from-transparent via-white/[0.03] to-transparent" style={{ animation: 'sweepGlow 8s ease-in-out infinite' }} />
     </div>
-    <div className="absolute inset-0 pointer-events-none -z-[8] min-h-full">
-      <TriangulationField />
-    </div>
     <header className="relative w-full flex flex-col items-center pt-[25vh] pb-32 text-center px-6 overflow-x-hidden overflow-y-visible">
       <div className="absolute inset-0 bg-radial-gradient from-white/5 to-transparent -z-10 opacity-30" />
       
@@ -1196,7 +1196,7 @@ const SpotlightFormWrapper = ({ children }) => {
   const [isHovered, setIsHovered] = useState(false);
   const handleMouseMove = (e) => { const rect = e.currentTarget.getBoundingClientRect(); setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top }); };
   return (
-    <div className="relative w-full max-w-[400px] flex flex-col gap-5 items-center p-10 rounded-3xl border border-zinc-800 bg-[#0c0d0e]/50 backdrop-blur-xl transition-colors duration-500 z-10" onMouseMove={handleMouseMove} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+    <div className="relative w-[360px] md:w-[400px] flex flex-col gap-5 items-center p-8 md:p-10 rounded-3xl border border-zinc-800 bg-[#0c0d0e]/50 backdrop-blur-xl transition-colors duration-500 z-10" onMouseMove={handleMouseMove} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <div className="pointer-events-none absolute inset-0 -z-10 rounded-3xl transition-opacity duration-300" style={{ opacity: isHovered ? 1 : 0, background: `radial-gradient(200px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 80%)` }} />
       {children}
     </div>
@@ -1809,9 +1809,17 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
   const isUltraModel = selectedModel === "1" || selectedModel === "2";
 
+  // Check if current user is an admin by email domain or specific email
+  const isAdmin = user?.email && (
+    user.email === 'laithbu07@gmail.com' || 
+    user.email === 'admin@looksmaxxing.com' ||
+    user.email.endsWith('@looksmaxxing.com')
+  );
+
   const canUseUltra =
     !!user &&
     (userPlan?.plan === 'pro' ||
+      isAdmin ||
       (userPlan?.plan === 'single_scan' && (userPlan?.scanCredits ?? 0) > 0));
 
   useEffect(() => {
@@ -4316,7 +4324,7 @@ const App = () => {
         {currentPage === 'mog-battles' && <MogBattlePage dashboardData={dashboardData} />}
         {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} user={user} />}
-        {currentPage === 'morph' && <div className="pt-32 text-center h-screen uppercase font-black italic text-4xl opacity-50">News Coming Soon</div>}
+        {currentPage === 'news' && <NewsPage />}
         {currentPage === 'celebrity' && <CelebrityRatingPage setCurrentPage={setCurrentPage} setSelectedCelebrity={setSelectedCelebrity} />}
         {currentPage === 'celebrity-stats' && selectedCelebrity && <CelebrityStatsPage celeb={selectedCelebrity} setCurrentPage={setCurrentPage} />}
         {currentPage === 'admin' && <AdminDashboardPage setCurrentPage={setCurrentPage} />}
