@@ -1813,6 +1813,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const isAdmin = user?.email && (
     user.email === 'laithbu07@gmail.com' || 
     user.email === 'admin@looksmaxxing.com' ||
+    user.email === 'serenity.eyb@gmail.com' ||
     user.email.endsWith('@looksmaxxing.com')
   );
 
