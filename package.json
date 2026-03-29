@@ -13,9 +13,9 @@
     "url": "https://github.com/consistentlyimpressive-cloud/website-code/issues"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --port 5174 --strictPort",
     "dev:api": "npm --prefix backend run dev",
-    "dev:stack": "concurrently -k -n api,web -c cyan,magenta \"npm --prefix backend run dev\" \"vite\"",
+    "dev:stack": "concurrently -k -n api,web -c cyan,magenta \"npm --prefix backend run dev\" \"vite --port 5174 --strictPort\"",
     "setup:local": "node scripts/setup-local.mjs",
     "build": "vite build",
     "lint": "eslint .",

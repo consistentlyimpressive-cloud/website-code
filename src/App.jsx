@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus } from 'lucide-react';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
-import CyanFaceMesh from './components/CyanFaceMesh';
+import TriangulationField from './components/TriangulationField';
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
@@ -218,10 +218,10 @@ const SpotlightImageCard = ({ item }) => {
   return (
     <div className="flex flex-col items-center cursor-pointer w-full group">
       <div className="relative w-full aspect-square rounded-2xl overflow-hidden transition-all duration-500 border border-zinc-900 group-hover:border-zinc-700 transform-gpu" onMouseMove={handleMouseMove} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
-        {item.imgSrc ? (<img src={item.imgSrc} alt={item.title} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 transform-gpu will-change-transform ${isHovered ? 'opacity-100 scale-105' : 'opacity-50 scale-100'} ${item.imgClassName || ''}`} />) : (<div className="absolute inset-0 bg-zinc-900/40" />)}
+        {item.imgSrc ? (<img src={item.imgSrc} alt={item.title} referrerPolicy="no-referrer" className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 transform-gpu will-change-transform ${isHovered ? 'opacity-100 scale-105' : 'opacity-90 scale-100'} ${item.imgClassName || ''}`} />) : (<div className="absolute inset-0 bg-zinc-900/40" />)}
         {item.imgSrc && (
           <div className={`absolute inset-0 w-full h-full pointer-events-none transition-opacity duration-500 ${isHovered ? 'opacity-100' : 'opacity-0'}`} style={{ WebkitMaskImage: `radial-gradient(120px circle at ${mousePos.x}px ${mousePos.y}px, black 0%, transparent 100%)`, maskImage: `radial-gradient(120px circle at ${mousePos.x}px ${mousePos.y}px, black 0%, transparent 100%)` }}>
-            <img src={item.imgSrc} alt={`${item.title} blurred`} className={`w-full h-full object-cover blur-xl transform-gpu will-change-transform transition-all duration-700 opacity-60 ${isHovered ? 'scale-105' : 'scale-100'} ${item.imgClassName || ''}`} />
+            <img src={item.imgSrc} alt={`${item.title} blurred`} referrerPolicy="no-referrer" className={`w-full h-full object-cover blur-xl transform-gpu will-change-transform transition-all duration-700 opacity-60 ${isHovered ? 'scale-105' : 'scale-100'} ${item.imgClassName || ''}`} />
           </div>
         )}
         <div className="absolute inset-0 p-8 pointer-events-none z-30 transform-gpu">{item.svg}</div>
@@ -246,8 +246,8 @@ const ComparisonCard = ({ beforeImgSrc, afterImgSrc, beforeScore, afterScore, is
   }, [isDragging]);
   return (
     <div ref={containerRef} className={`relative aspect-[4/5] rounded-xl overflow-hidden border ${isActive ? 'border-blue-500/50 scale-105 z-10 shadow-[0_0_30px_rgba(59,130,246,0.3)]' : 'border-zinc-800 opacity-80 scale-95'} transition-all duration-700 bg-zinc-900 group cursor-ew-resize select-none touch-none`} onMouseDown={(e) => { setIsDragging(true); handleMove(e.clientX); }} onTouchStart={(e) => { setIsDragging(true); handleMove(e.touches[0].clientX); }}>
-      <img src={afterImgSrc} className="absolute inset-0 w-full h-full object-cover brightness-110 pointer-events-none" alt="After" draggable="false" />
-      <img src={beforeImgSrc} className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ clipPath: `polygon(0 0, ${sliderPosition}% 0, ${sliderPosition}% 100%, 0% 100%)` }} alt="Before" draggable="false" />
+      <img src={afterImgSrc} className="absolute inset-0 w-full h-full object-cover brightness-110 pointer-events-none" alt="After" draggable="false" referrerPolicy="no-referrer" />
+      <img src={beforeImgSrc} className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ clipPath: `polygon(0 0, ${sliderPosition}% 0, ${sliderPosition}% 100%, 0% 100%)` }} alt="Before" draggable="false" referrerPolicy="no-referrer" />
       <div className="absolute top-0 bottom-0 w-[2px] bg-white/40 z-20 shadow-[0_0_10px_rgba(0,0,0,0.5)] pointer-events-none" style={{ left: `calc(${sliderPosition}% - 1px)` }} />
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent z-10 pointer-events-none" />
       
@@ -280,23 +280,23 @@ const ComparisonCard = ({ beforeImgSrc, afterImgSrc, beforeScore, afterScore, is
 
 // --- Measure Items Data ---
 const measureItems = [
-  { title: "Health Indicators", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175878148427826/Emmawatson0000.png?ex=69c0e952&is=69bf97d2&hm=df0f09c6f237ced5ba60c58ae143a1d1ef70e67eecccc1a115606755eaf8e979&animated=true", imgClassName: "object-cover object-center scale-110", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-[25%] left-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-left opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Dermal Vitality</div><div className="text-green-400 text-xs font-bold">98.4% OPTIMAL</div></div><div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-right opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Facial Symmetry</div><div className="text-green-400 text-xs font-bold">HIGH 96.3%</div></div></div>) },
-  { title: "Facial Harmony", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175876600729630/jordan_barret0000.png?ex=69c0e952&is=69bf97d2&hm=d191337151ba095f9e3294a774863e3bf63ef4f2c49353362300e61ba99eb166&animated=true", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-left opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Convexity Angle</div><div className="text-emerald-400 text-xs font-bold">165° OPTIMAL</div></div><div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-right opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Nasal Bridge Index</div><div className="text-blue-400 text-xs font-bold">GRADE A</div></div></div>) },
-  { title: "Dimorphism", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175877623877652/chrisgemsowrth0000.png?ex=69c0e952&is=69bf97d2&hm=ea70475213909a026630a2744de6221fc69493378ee863fe7efe5bbf5865fe23&animated=true", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-[30%] left-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Low Set Brows</div><div className="text-white text-xs font-bold tracking-widest">DETECTED</div></div><div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-right opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Mandibular Angle</div><div className="text-emerald-400 text-xs font-bold">108°</div></div></div>) },
-  { title: "Uniqueness", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175876957114398/seanopry0000.png?ex=69c0e952&is=69bf97d2&hm=07c10ee7e73d6fa9b3826ac1b40a2515ff947d4ac35f25126a0713da7926e803&animated=true", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-8 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-lg border border-white/20 px-6 py-4 rounded-xl text-center opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Facial Uniqueness</div><div className="text-purple-400 text-lg font-black italic">TOP 1%</div></div></div>) }
+  { title: "Health Indicators", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175878148427826/Emmawatson0000.png?ex=69ca23d2&is=69c8d252&hm=d4da2a9287e498221776f2c683f48896cfc308cad226e304147db5216918f292&animated=true", imgClassName: "object-cover object-center scale-110", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-[25%] left-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-left opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Dermal Vitality</div><div className="text-green-400 text-xs font-bold">98.4% OPTIMAL</div></div><div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-right opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Facial Symmetry</div><div className="text-green-400 text-xs font-bold">HIGH 96.3%</div></div></div>) },
+  { title: "Facial Harmony", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175876600729630/jordan_barret0000.png?ex=69ca23d2&is=69c8d252&hm=0bcddb29885959b977ed1b186f97541fc1a13397f07af70584d9cd0f153fcf2f&animated=true", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-left opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Convexity Angle</div><div className="text-emerald-400 text-xs font-bold">165° OPTIMAL</div></div><div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-right opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Nasal Bridge Index</div><div className="text-blue-400 text-xs font-bold">GRADE A</div></div></div>) },
+  { title: "Dimorphism", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175877623877652/chrisgemsowrth0000.png?ex=69ca23d2&is=69c8d252&hm=d300ad06ee6556d736eed7d7ca2bc79f351ea287a009037f8c55bc2ca91c76c1&animated=true", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-[30%] left-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Low Set Brows</div><div className="text-white text-xs font-bold tracking-widest">DETECTED</div></div><div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-right opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Mandibular Angle</div><div className="text-emerald-400 text-xs font-bold">108°</div></div></div>) },
+  { title: "Uniqueness", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175876957114398/seanopry0000.png?ex=69ca23d2&is=69c8d252&hm=f4885162411605baedc4b974d589ae5244fbb5bbc1987234c1187f9c7f11e016&animated=true", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-8 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-lg border border-white/20 px-6 py-4 rounded-xl text-center opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Facial Uniqueness</div><div className="text-purple-400 text-lg font-black italic">TOP 1%</div></div></div>) }
 ];
 
-const compBefore1 = "https://media.discordapp.net/attachments/1450216881796419738/1486388349676683395/New_Project_16.png?ex=69c55286&is=69c40106&hm=1ad05d00ae5dd1b8e6890710f2cd7f81ec3781eed8c2cee32af7d0e966876cbd&=&format=webp&quality=lossless&width=815&height=1060";
-const compAfter1 = "https://media.discordapp.net/attachments/1450216881796419738/1486388350523936768/New_Project_15.png?ex=69c55286&is=69c40106&hm=26e2ae28403fe8eb5329449d7c1d797db344487bf90468cd5cba60ecd6789cf7&=&format=webp&quality=lossless&width=815&height=1060";
-const compBefore2 = "https://media.discordapp.net/attachments/1437036690899468298/1486390330033967194/New_Project_17.png?ex=69c5545e&is=69c402de&hm=29506d90ea65d222e3c84d70a17b3806d4c38e4d2b4bf47f5ed7bf2e8a0a558f&=&format=webp&quality=lossless&width=815&height=1060";
-const compAfter2 = "https://media.discordapp.net/attachments/1437036690899468298/1486390668770148362/New_Project_18.png?ex=69c554af&is=69c4032f&hm=214bdf7ec2e65bd5de842b80e8e700ebd25ae6bf1ce49227dde7a06578c33375&=&format=webp&quality=lossless&width=336&height=438";
-const compBefore3 = "https://media.discordapp.net/attachments/1450216881796419738/1486395368332591174/AOI_d_8KyktFJZsSlT4GdRDJTaqmi16TUzTmvzaiJ5Iqom7wj1H1JXOikMqcovIrrHrK1uJ2tpv6sQiaapIFOjMIbSNKu3EdFGsxceEjNJj4W8HT05-QxA9MuXQ16-0sx-RNr7nrofryRDxx3yjI6zZzChJRnSXKG_GqTB9XWKoBHUpRAcKbs1600-rj.png?ex=69c5590f&is=69c4078f&hm=f01396dbe1730d283a2049f4f663d7a3277d4c3e25bd4bb336905c140f935574&=&format=webp&quality=lossless&width=244&height=438";
-const compAfter3 = "https://media.discordapp.net/attachments/1450216881796419738/1486394769281388544/AOI_d_-8fWBPSwDm89MVDBNyx8vjItEzK1RqCfYWfYOxIbMYME3Ses19pq3i1jsx41TELGgp_G6dpRLsBWGsktNGRTuE_K6lQkbwTTBHIViBQ7wacNLiOriiTj7Naef8SoBf1PZR_AijFMbqKcyYIO134gZFx9V5M3fYvfpNohMBVvYa-NTF9Qs1600-rj.png?ex=69c55880&is=69c40700&hm=a4b08ffc78e8747045ee61fcd8b438e90b1aac68cb65db2fefbaceffbb3fcc81&=&format=webp&quality=lossless&width=960&height=1721";
+const compBefore1 = "https://cdn.discordapp.com/attachments/1450216881796419738/1486395368332591174/AOI_d_8KyktFJZsSlT4GdRDJTaqmi16TUzTmvzaiJ5Iqom7wj1H1JXOikMqcovIrrHrK1uJ2tpv6sQiaapIFOjMIbSNKu3EdFGsxceEjNJj4W8HT05-QxA9MuXQ16-0sx-RNr7nrofryRDxx3yjI6zZzChJRnSXKG_GqTB9XWKoBHUpRAcKbs1600-rj.png?ex=69c9f64f&is=69c8a4cf&hm=7b0fb2dcb29048e804da6fcb637e4125350311ed6928ded25182e4498a645767&animated=true";
+const compAfter1 = "https://cdn.discordapp.com/attachments/1450216881796419738/1486394769281388544/AOI_d_-8fWBPSwDm89MVDBNyx8vjItEzK1RqCfYWfYOxIbMYME3Ses19pq3i1jsx41TELGgp_G6dpRLsBWGsktNGRTuE_K6lQkbwTTBHIViBQ7wacNLiOriiTj7Naef8SoBf1PZR_AijFMbqKcyYIO134gZFx9V5M3fYvfpNohMBVvYa-NTF9Qs1600-rj.png?ex=69c9f5c0&is=69c8a440&hm=50c614d385e120b6e28860a7ec2b07e521f3a563503fd5ad541db76640d1f04e&animated=true";
+const compBefore2 = "https://media.discordapp.net/attachments/1450216881796419738/1486388349676683395/New_Project_16.png?ex=69c9efc6&is=69c89e46&hm=bb4ee24aa27d67d1ff526a1ed8af8c12f4d556d8259ec6ec4c01c86155522d53&animated=true";
+const compAfter2 = "https://media.discordapp.net/attachments/1450216881796419738/1486388350523936768/New_Project_15.png?ex=69c9efc6&is=69c89e46&hm=d85fb5d8a3754f97df7e66237f0f772b495ab6ab2e556212d3ed8f8f90692374&animated=true";
+const compBefore3 = "https://media.discordapp.net/attachments/1450216881796419738/1487760489013444608/New_Project_17.png?ex=69ca506d&is=69c8feed&hm=9a7428837b4114e73fab3c081556e9d1f41fa86a7f1dbdf146950b61d00fd7fb&animated=true";
+const compAfter3 = "https://media.discordapp.net/attachments/1450216881796419738/1487760489412038806/New_Project_19.png?ex=69ca506d&is=69c8feed&hm=0c9e288f6a85d5479a1f01c2ee1cc8aa120787e82c69d243df35c86afa7f8f71&animated=true";
 
 const researchItems = [
-  { label: "Link to study", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC4866249/", text: "By Dr. Stephen Marquardt, an oral and maxillofacial surgeon.", imgSrc: "https://cdn.discordapp.com/attachments/1450216881796419738/1485242970209779813/image.png?ex=69c127ce&is=69bfd64e&hm=c2a85c335383ea20846378c389a938b4ab7fe73fff697f7dea64cb7e15df2187&animated=true", grayscale: false },
-  { label: "Link to study", url: "https://www.annualreviews.org/content/journals/10.1146/annurev.psych.57.102904.190208", text: "Dr. Gillian Rhodes, University of Western Australia.", imgSrc: "https://cdn.discordapp.com/attachments/1450216881796419738/1485242383800205433/GillianRhodes_img.png?ex=69c12742&is=69bfd5c2&hm=655d2222a3bee154b9150b7c0aef81e2719693bc5bd35c8e3f9d632b506f0e72&animated=true", grayscale: true },
-  { label: "Link to study", url: "https://www.nature.com/articles/29772", text: "Dr. Kendra Schmid, Biostatistician at the University of Nebraska", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485244172582518920/image.png?ex=69c128ed&is=69bfd76d&hm=02f84cd84c9f4210d787107aa346888c9d8c97c681b40fa8bfbb211c0bd96a8a&animated=true", grayscale: true }
+  { label: "Link to study", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC4866249/", text: "By Dr. Stephen Marquardt, an oral and maxillofacial surgeon.", imgSrc: "https://cdn.discordapp.com/attachments/1450216881796419738/1485242970209779813/image.png?ex=69c9b98e&is=69c8680e&hm=8438ba1a939dc8ac879717954970b67891102b950fbe5c53a1be24ac6c3fbbf3&animated=true", grayscale: false },
+  { label: "Link to study", url: "https://www.annualreviews.org/content/journals/10.1146/annurev.psych.57.102904.190208", text: "Dr. Gillian Rhodes, University of Western Australia.", imgSrc: "https://cdn.discordapp.com/attachments/1450216881796419738/1485242383800205433/GillianRhodes_img.png?ex=69c9b902&is=69c86782&hm=b25026515c11a252708ef063bd7f6b77f1171b7eaeaae263e0edb5639f260f66&animated=true", grayscale: true },
+  { label: "Link to study", url: "https://www.nature.com/articles/29772", text: "Dr. Kendra Schmid, Biostatistician at the University of Nebraska", imgSrc: "https://cdn.discordapp.com/attachments/1450216881796419738/1485244172582518920/image.png?ex=69c9baad&is=69c8692d&hm=f39bda99a06995ec8de88b12dea68dc094f47105797c7908c55e519c2357e48e&animated=true", grayscale: true }
 ];
 
 // --- Body Fat Slider ---
@@ -471,7 +471,7 @@ const ReviewsCarousel = () => {
 const celebrityData = [
   { 
     name: "Adriana Lima", rating: "8.8", tier: "S-Tier", flags: ["pt", "jp", "ch", "bb"], sex: "Female",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485645455701446800/New_Project_10.png?ex=69c29ea6&is=69c14d26&hm=a464b0c40db182d9353392ec25f62ace7a2f8f0a898d15f7db2448721875b0c5&=&format=webp&quality=lossless&width=815&height=1060",
+    imgSrc: "https://cdn.discordapp.com/attachments/1450216881796419738/1485645455701446800/New_Project_10.png?ex=69c9dee6&is=69c88d66&hm=b8e5ef7b291f7c4502d21bf3e47d42d7bd29419a6e2c86344af2141fa1968b97&animated=true",
     technicalSummary: "Exceptional bizygomatic width and extremely positive canthal tilt. Flawless facial thirds harmony with highly striking feline eye characteristics.",
     stats: [
       { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.817)", score: 84, displayValue: "84/100" },
@@ -492,7 +492,7 @@ const celebrityData = [
   },
   { 
     name: "Jordan Barrett", rating: "9.2", tier: "S-Tier", flags: ["gb-eng", "ie"], sex: "Male",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485647434326610061/New_Project_12.png?ex=69c2a07e&is=69c14efe&hm=6afd24878edbeee395a756eb7b36fad9e8e9024adecd72e2c69430c355e49666&=&format=webp&quality=lossless&width=815&height=1060",
+    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485647434326610061/New_Project_12.png?ex=69c9e0be&is=69c88f3e&hm=94c717eaa5968dc4642d9ec14a2b346313125a0ae84152134141f2d4d8c4249d&animated=true",
     technicalSummary: "Hyper-masculine lower third with extreme jaw angularity and hollow cheeks. Hunter eyes feature minimal upper eyelid exposure and intense positive tilt.",
     stats: [
       { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.824)", score: 95, displayValue: "95/100" },
@@ -513,7 +513,7 @@ const celebrityData = [
   },
   { 
     name: "Henry Cavill", rating: "8.5", tier: "A-Tier", flags: ["gb", "gb-sct"], sex: "Male",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485633699016872168/New_Project_6.png?ex=69c293b3&is=69c14233&hm=8dffdd599412787267e0aa26d562cefd82686a88e925a70ebd96bca1d8acc1a1&=&format=webp&quality=lossless&width=815&height=1060",
+    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485633699016872168/New_Project_6.png?ex=69c9d3f3&is=69c88273&hm=d5dc28bf0806b7f34daa894ef36f5e0c2023bde911c753a56b3ca2a000124093&animated=true",
     technicalSummary: "Classic dimorphic traits with a robust squared jawline and excellent midface ratio. Eye region shows ideal masculine brow structure though slightly less striking than S-tiers.",
     stats: [
       { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.834)", score: 95, displayValue: "95/100" },
@@ -534,7 +534,7 @@ const celebrityData = [
   },
   { 
     name: "Madison Beer", rating: "8.4", tier: "A-Tier", flags: ["il", "ma"], sex: "Female",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485643225807982804/New_Project_9.png?ex=69c29c92&is=69c14b12&hm=9c2dcd63036abadcb1115122e9c246bbbbf30bae09690a26f2b532067a51567f&=&format=webp&quality=lossless&width=815&height=1060",
+    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485643225807982804/New_Project_9.png?ex=69c9dcd2&is=69c88b52&hm=a4c458d3a2d00eb5acc72c72cb0e5dea267987189d32bde4db371444cc972eb3&animated=true",
     technicalSummary: "Excellent facial symmetry with highly neotenous features balanced by high cheekbones. Strong peri-oral region and positive canthal tilt provide high feminine appeal.",
     stats: [
       { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.761)", score: 88, displayValue: "88/100" },
@@ -555,7 +555,7 @@ const celebrityData = [
   },
   { 
     name: "Dua Lipa", rating: "7.8", tier: "B-Tier", flags: ["al", "ba"], sex: "Female",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485968947294507030/New_Project_14.png?ex=69c3cbed&is=69c27a6d&hm=db303b970d14de641be36d811f40467a820eaaff4ace975cc92da35764b1a289&=&format=webp&quality=lossless&width=336&height=438",
+    imgSrc: "https://cdn.discordapp.com/attachments/1450216881796419738/1485968947294507030/New_Project_14.png?ex=69c9baad&is=69c8692d&hm=f5f5f3b023f229bbff4a683368283c35152594a93bdd7c03243a73bafa6a2cb7&animated=true",
     technicalSummary: "Strong bone structure with striking brows and defined jawline. Slight midface elongation drops her from higher tiers but overall harmony remains strong.",
     stats: [
       { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.809)", score: 82, displayValue: "82/100" },
@@ -576,7 +576,7 @@ const celebrityData = [
   },
   { 
     name: "Regé-Jean Page", rating: "8.6", tier: "B-Tier", flags: ["zw", "gb-eng"], sex: "Male",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485965019597377627/New_Project_13.png?ex=69c3c844&is=69c276c4&hm=e253db1ebbc7b706a42622230026bf0d72f9c149df13da50626e224a94fd6492&=&format=webp&quality=lossless&width=656&height=854",
+    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485965019597377627/New_Project_13.png?ex=69c9b704&is=69c86584&hm=1017b3df6574616d562b34e482e3d5b37cc092a4b83e74847614c56a3f038208&animated=true",
     technicalSummary: "Harmonious facial thirds and excellent skin quality. Softened jawline and average eye spacing prevent higher classification despite strong aesthetic appeal.",
     stats: [
       { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.817)", score: 90, displayValue: "90/100" },
@@ -597,7 +597,7 @@ const celebrityData = [
   },
   { 
     name: "Tom Holland", rating: "6.8", tier: "C-Tier", flags: ["gb-eng"], sex: "Male",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485965019182137486/Tom_Holland.png?ex=69c3c844&is=69c276c4&hm=c85a2c47103e5c38338afb82405c250344ac627e932ed2e31e7ebbe31529bdcf&=&format=webp&quality=lossless&width=656&height=854",
+    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485965019182137486/Tom_Holland.png?ex=69c9b704&is=69c86584&hm=acca65386f8ed7e87e195182c38d1b34c63f4d2e2afeed2a63ab345e3a410db1&animated=true",
     technicalSummary: "Highly neotenous features lacking robust masculine dimorphism. Average jaw width and slight facial asymmetry lower his objective rating despite mass appeal.",
     stats: [
       { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.796)", score: 82, displayValue: "82/100" },
@@ -618,7 +618,7 @@ const celebrityData = [
   },
   { 
     name: "Ellie Kemper", rating: "6.4", tier: "C-Tier", flags: ["it", "de", "gb-eng"], sex: "Female",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485639923208814682/New_Project_7.png?ex=69c2997f&is=69c147ff&hm=eea74e040fcbc355c148d57783a5e68ab097fe4d2c3bd9c27f883312f52a36f4&=&format=webp&quality=lossless&width=815&height=1060",
+    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485639923208814682/New_Project_7.png?ex=69c9d9bf&is=69c8883f&hm=72d8ce31c0d61f438af1969448d4491ad4a13bc37d97520cb97425d30297e46e&animated=true",
     technicalSummary: "Pleasant, highly approachable features with a strong smile. Suboptimal facial width-to-height ratio and average midface projection place her in the average tier.",
     stats: [
       { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.811)", score: 80, displayValue: "80/100" },
@@ -639,7 +639,7 @@ const celebrityData = [
   },
   { 
     name: "Will Smith", rating: "5.8", tier: "D-Tier", flags: ["ng", "gb-eng"], sex: "Male",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485633629286694975/MV5BNTczMzk1MjU1MV5BMl5BanBnXkFtZTcwNDk2MzAyMg._V1_FMjpg_UX1000_.png?ex=69c293a2&is=69c14222&hm=a4f4ac9b2e1fe2add36852ebf745a3fc9bce53b5a4e1638670dde7c594ce4546&=&format=webp&quality=lossless&width=815&height=1060",
+    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485633629286694975/MV5BNTczMzk1MjU1MV5BMl5BanBnXkFtZTcwNDk2MzAyMg._V1_FMjpg_UX1000_.png?ex=69c9d3e2&is=69c88262&hm=f7533d2667eb61a9a8034de999df960882160d6fedd66b8b3bcb2ab8a6783441&animated=true",
     technicalSummary: "Significant ear protrusion and facial asymmetry pull down his objective score. Age-related soft tissue changes have also affected jawline definition.",
     stats: [
       { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.822)", score: 75, displayValue: "75/100" },
@@ -660,7 +660,7 @@ const celebrityData = [
   },
   { 
     name: "Nora Lum", rating: "5.8", tier: "D-Tier", flags: ["cn", "kr"], sex: "Female",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485633630100258926/New_Project.png?ex=69c293a3&is=69c14223&hm=ff7fc408f65a4f119d8843748b5a8eed83dd121e14cf787e39b1245f0acdfe54&=&format=webp&quality=lossless&width=815&height=1060",
+    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485633630100258926/New_Project.png?ex=69c9d3e3&is=69c88263&hm=8e06b197b0f9c928b40190248c6fd1fd50c543ccf3338a82e061c8397c51e821&animated=true",
     technicalSummary: "Poor posture-related structural issues including forward head posture. Suboptimal midface development and excess buccal fat obscure underlying bone structure.",
     stats: [
       { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.793)", score: 70, displayValue: "70/100" },
@@ -772,7 +772,7 @@ const HolographicCard = ({ celeb, onClick }) => {
         }}
       >
         <div className="absolute inset-0 pointer-events-none">
-          <img src={celeb.imgSrc} className={`w-full h-full object-cover transition-all duration-700 transform-gpu ${isHovering ? 'scale-[1.15] brightness-110 opacity-100' : 'scale-105 brightness-90 opacity-80'}`} alt={celeb.name} />
+          <img src={celeb.imgSrc} referrerPolicy="no-referrer" className={`w-full h-full object-cover transition-all duration-700 transform-gpu ${isHovering ? 'scale-[1.15] brightness-110 opacity-100' : 'scale-105 brightness-95 opacity-100'}`} alt={celeb.name} />
           <div className="absolute inset-0 bg-gradient-to-t from-[#0c0d0e]/30 via-transparent to-transparent" />
         </div>
         
@@ -1002,6 +1002,22 @@ const CelebrityStatsPage = ({ celeb, setCurrentPage }) => {
 // --- Home Page ---
 const HomePage = ({ setCurrentPage }) => {
   const [analysisHeroCount, setAnalysisHeroCount] = useState(74);
+  const [activeUsers, setActiveUsers] = useState(106);
+
+  useEffect(() => {
+    // Initial active users (analysis count + 32)
+    setActiveUsers(analysisHeroCount + 32);
+
+    // Fluctuate by ~3 every minute
+    const interval = setInterval(() => {
+      setActiveUsers(prev => {
+        const change = Math.floor(Math.random() * 7) - 3; // Random between -3 and +3
+        return Math.max(1, prev + change); // Ensure it doesn't go below 1
+      });
+    }, 60000); // 1 minute
+
+    return () => clearInterval(interval);
+  }, [analysisHeroCount]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1026,8 +1042,29 @@ const HomePage = ({ setCurrentPage }) => {
     <div className="absolute inset-0 h-full pointer-events-none overflow-hidden -z-10">
       <div className="absolute top-0 left-0 w-[30%] h-full bg-gradient-to-r from-transparent via-white/[0.03] to-transparent" style={{ animation: 'sweepGlow 8s ease-in-out infinite' }} />
     </div>
+    <div className="absolute inset-0 pointer-events-none -z-[8] min-h-full">
+      <TriangulationField />
+    </div>
     <header className="relative w-full flex flex-col items-center pt-[25vh] pb-32 text-center px-6 overflow-x-hidden overflow-y-visible">
       <div className="absolute inset-0 bg-radial-gradient from-white/5 to-transparent -z-10 opacity-30" />
+      
+      {/* Extracted Video: Placed directly in the header to avoid FadeUp's stacking context which breaks mix-blend-screen */}
+      <div
+        className="pointer-events-none absolute left-1/2 top-[18vh] z-0 w-[min(118vw,1040px)] h-[min(82vh,760px)] origin-center -translate-x-1/2 -translate-y-[22%] sm:-translate-y-[27%] md:-translate-y-[32%] overflow-visible scale-[0.81] mix-blend-screen"
+        style={{ mixBlendMode: 'screen' }}
+        aria-hidden
+      >
+        <video 
+          autoPlay 
+          loop 
+          muted 
+          playsInline 
+          className="w-full h-full object-contain object-center opacity-[0.92]"
+          style={{ filter: 'contrast(1.08)' }}
+          src="/FaceANimationforwebsite.webm" 
+        />
+      </div>
+
       {/* Animated gradient sweep */}
       <style>{`
         @keyframes sweepGlow {
@@ -1045,24 +1082,42 @@ const HomePage = ({ setCurrentPage }) => {
           {/* Wireframe only behind the headline — flow continues at divider / CTA */}
           <div className="relative w-full flex justify-center px-4 mb-6 md:mb-10">
             {/* Mesh: absolute overlay only — height comes from headline text, not from the SVG */}
-            <div className="relative w-fit max-w-full isolate py-2 md:py-4">
-              <div
-                className="pointer-events-none absolute left-1/2 top-0 -z-10 w-[min(112vw,980px)] h-[min(74vh,680px)] origin-center -translate-x-1/2 -translate-y-[24%] sm:-translate-y-[28%] md:-translate-y-[32%] overflow-visible scale-90"
-                aria-hidden
-              >
-                <CyanFaceMesh mode="hero" />
-              </div>
-              <div className="relative z-10">
-                <p
-                  className="mb-1 md:mb-2 pointer-events-none select-none flex items-center gap-2 text-base md:text-lg font-sans uppercase tracking-[0.18em] text-white"
+            <div className="relative w-fit max-w-full py-2 md:py-4">
+              <div className="relative z-10 flex flex-col items-center">
+                
+                {/* Active Users Badge */}
+                <div className="flex items-center gap-2 mb-2 bg-zinc-900/50 border border-zinc-800 backdrop-blur-md px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+                  <div className="relative flex items-center justify-center w-2 h-2">
+                    <div className="absolute w-full h-full bg-green-500 rounded-full animate-ping opacity-75"></div>
+                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.8)]"></div>
+                  </div>
+                  <span className="font-sans font-bold text-xs uppercase tracking-widest text-zinc-300">
+                    <span className="text-white mr-1 tabular-nums">{activeUsers}</span>Users Online
+                  </span>
+                </div>
+
+                {/* Analysis Count Badge */}
+                <div
+                  className="mb-1 md:mb-2 pointer-events-none select-none flex items-center gap-2 text-base md:text-lg font-sans uppercase tracking-[0.18em] text-white bg-zinc-900/50 border border-zinc-800 backdrop-blur-md px-4 py-1.5 rounded-full shadow-[0_0_15px_rgba(0,0,0,0.5)]"
                   aria-label={`${analysisHeroCount} analyses completed`}
                 >
+                  <div className="relative flex items-center justify-center w-2.5 h-2.5 mr-1">
+                    <div className="absolute w-full h-full bg-cyan-500 rounded-full animate-ping opacity-75" style={{ animationDuration: '2s' }}></div>
+                    <div className="w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)]"></div>
+                  </div>
                   <span className="font-black italic tabular-nums">{analysisHeroCount}</span>
-                  <span className="font-bold">Analysis</span>
-                </p>
-                <h1 className="text-6xl md:text-[140px] font-black italic tracking-tighter uppercase leading-[0.85] bg-gradient-to-t from-zinc-500 to-white bg-clip-text text-transparent overflow-visible px-0">
-                  <span className="block text-left">YOUR LOOKS</span>
-                  <span className="block text-center w-full mt-1 md:mt-2">MATTER</span>
+                  <span className="font-bold">Analyses</span>
+                </div>
+
+                <h1
+                  className="text-6xl md:text-[140px] italic uppercase leading-[0.82] overflow-visible px-0 [-webkit-font-smoothing:antialiased] font-extrabold tracking-[-0.03em] md:tracking-[-0.04em] [font-variation-settings:'wght'_800]"
+                  style={{
+                    filter:
+                      'drop-shadow(0 0 12px rgba(255,255,255,0.26)) drop-shadow(0 0 28px rgba(255,255,255,0.16)) drop-shadow(0 0 56px rgba(255,255,255,0.09)) drop-shadow(0 3px 5px rgba(0,0,0,0.72)) drop-shadow(0 8px 14px rgba(0,0,0,0.58)) drop-shadow(0 16px 32px rgba(0,0,0,0.42))',
+                  }}
+                >
+                  <span className="block text-center bg-clip-text text-transparent bg-[linear-gradient(180deg,#fff_0%,#e4e4e7_26%,#a1a1aa_55%,#52525b_100%)]">YOUR LOOKS</span>
+                  <span className="block text-center w-full mt-1 md:mt-2 bg-clip-text text-transparent bg-[linear-gradient(180deg,#fff_0%,#e4e4e7_24%,#a1a1aa_52%,#3f3f46_100%)]">MATTER</span>
                 </h1>
               </div>
             </div>
@@ -1082,7 +1137,7 @@ const HomePage = ({ setCurrentPage }) => {
       <FadeUp>
         <div className="text-center mb-20">
           <span className="text-blue-500 font-sans text-[10px] uppercase tracking-[0.3em] block mb-4 font-bold drop-shadow-[0_0_10px_rgba(59,130,246,0.6)]">REAL RESULTS</span>
-          <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4 uppercase italic">Make The Impossible, Possible.</h2>
+          <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4 uppercase italic [font-weight:950] drop-shadow-none [text-shadow:none]">Make The Impossible, Possible.</h2>
           <p className="text-zinc-400 font-sans text-sm max-w-2xl mx-auto uppercase tracking-widest">Join the many who cracked the aesthetic code</p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
@@ -3208,14 +3263,14 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
                   );
                 })}
               </div>
-              {dashboardData?.protocols && dashboardData.protocols.length > 6 && (
-                <button onClick={() => setCurrentPage('protocol-all')} className="mt-4 text-cyan-400 font-sans text-[10px] uppercase tracking-widest hover:underline self-center">
-                  View all {dashboardData.protocols.length} protocols →  
-                </button>
-              )}
-              {!dashboardData?.protocols?.length && !isFreePlan && (
-                <p className="text-zinc-600 font-sans text-[10px] uppercase tracking-widest mt-4 text-center">Run a premium analysis to get personalized protocols based on your weak points</p>
-              )}
+                  {dashboardData?.protocols && dashboardData.protocols.length > 6 && (
+                    <button onClick={() => setCurrentPage('protocol-all')} className="mt-4 text-cyan-400 font-sans text-[10px] uppercase tracking-widest hover:underline self-center">
+                      View all {dashboardData.protocols.length} protocols →  
+                    </button>
+                  )}
+                  {!dashboardData?.protocols?.length && !isFreePlan && (
+                    <p className="text-zinc-600 font-sans text-[10px] uppercase tracking-widest mt-4 text-center">Run a premium analysis to get personalized protocols based on your weak points</p>
+                  )}
             </div>
           </div>
 
