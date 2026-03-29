@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Diamond, ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus } from 'lucide-react';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import CyanFaceMesh from './components/CyanFaceMesh';
 import { initializeApp } from 'firebase/app';
@@ -47,6 +47,32 @@ const getCheckoutUrl = (plan, user) => {
 };
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+const MOGCHECK_LOGO_SRC = '/mogcheck-logo.png';
+
+/** PNG mark for nav / footer / page heroes */
+const MogCheckLogoMark = ({ className = '', size = 32 }) => (
+  <img
+    src={MOGCHECK_LOGO_SRC}
+    alt=""
+    width={size}
+    height={size}
+    className={`object-contain shrink-0 drop-shadow-[0_0_12px_rgba(255,255,255,0.22)] ${className}`}
+    aria-hidden
+  />
+);
+
+/** Drop-in for Lucide icons where models omit a custom Icon */
+const MogCheckLogoIcon = ({ size = 16, className = '' }) => (
+  <img
+    src={MOGCHECK_LOGO_SRC}
+    alt=""
+    width={size}
+    height={size}
+    className={`object-contain ${className}`}
+    aria-hidden
+  />
+);
 
 // --- Shared Components ---
 const FadeUp = ({ children, delay = 0 }) => {
@@ -99,11 +125,11 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan }) => {
 
   return (
     <nav className="fixed top-0 w-full z-50 overflow-visible bg-[#0c0d0e]/80 backdrop-blur-md border-b border-zinc-900 flex justify-between items-center px-6 py-4">
-      <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setCurrentPage('home')}>
-        <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center group-hover:rotate-12 transition-transform">
-          <Diamond className="text-black" size={18} fill="currentColor" />
+      <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => setCurrentPage('home')}>
+        <div className="w-9 h-9 flex items-center justify-center group-hover:rotate-12 transition-transform">
+          <MogCheckLogoMark size={36} className="w-9 h-9" />
         </div>
-        <span className="text-xl font-black tracking-tighter text-white italic">ASCEND</span>
+        <span className="text-xl font-black tracking-tighter text-white italic">MogCheck</span>
       </div>
       <div className="hidden md:flex items-center gap-8 text-xs font-bold">
         <button onClick={() => setCurrentPage('home')} className={`${currentPage === 'home' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Home</button>
@@ -133,7 +159,7 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan }) => {
             {showUserMenu && (
               <div className="absolute right-0 top-full z-[100] mt-2 w-52 bg-[#0c0d0e] border border-zinc-800 rounded-xl shadow-2xl overflow-hidden">
                 <div className="px-4 py-3 border-b border-zinc-800">
-                  <p className="text-[10px] text-zinc-500 font-mono truncate">{user.email}</p>
+                  <p className="text-[10px] text-zinc-500 font-sans truncate">{user.email}</p>
                   {planChip && (
                     <p className={`mt-2 inline-flex items-center px-2 py-0.5 rounded-md border text-[9px] font-bold uppercase tracking-widest ${planChip.className}`}>
                       Plan: {planChip.label}
@@ -164,7 +190,7 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan }) => {
           {user ? (
             <>
               <div className="flex flex-col items-center gap-1">
-                <span className="text-zinc-300 font-mono text-xs">{username}</span>
+                <span className="text-zinc-300 font-sans text-xs">{username}</span>
                 {planChip && (
                   <span className={`px-2.5 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-widest ${planChip.className}`}>
                     {planChip.label}
@@ -200,7 +226,7 @@ const SpotlightImageCard = ({ item }) => {
         )}
         <div className="absolute inset-0 p-8 pointer-events-none z-30 transform-gpu">{item.svg}</div>
       </div>
-      <span className={`mt-6 text-zinc-500 font-mono uppercase text-sm tracking-[0.3em] transition-colors ${isHovered ? 'text-white' : ''}`}>{item.title}</span>
+      <span className={`mt-6 text-zinc-500 font-sans uppercase text-sm tracking-[0.3em] transition-colors ${isHovered ? 'text-white' : ''}`}>{item.title}</span>
     </div>
   );
 };
@@ -230,8 +256,8 @@ const ComparisonCard = ({ beforeImgSrc, afterImgSrc, beforeScore, afterScore, is
       <div className="absolute inset-0 pointer-events-none z-20 bg-blue-500/10 mix-blend-color" />
       <div className="absolute inset-0 pointer-events-none z-20 bg-[radial-gradient(circle,transparent_40%,rgba(0,5,20,0.9)_120%)]" />
 
-      <div className="absolute top-4 left-4 flex gap-1 items-center z-30 pointer-events-none"><div className="bg-black/60 backdrop-blur px-2 py-1 rounded text-[8px] font-mono text-zinc-400 uppercase tracking-tighter border border-white/5">BEFORE - {beforeScore}</div></div>
-      <div className="absolute top-4 right-4 flex gap-1 items-center z-30 pointer-events-none"><div className="bg-blue-900/80 backdrop-blur px-2 py-1 rounded text-[8px] font-mono text-blue-200 uppercase tracking-tighter border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.5)]">AFTER - {afterScore}</div></div>
+      <div className="absolute top-4 left-4 flex gap-1 items-center z-30 pointer-events-none"><div className="bg-black/60 backdrop-blur px-2 py-1 rounded text-[8px] font-sans text-zinc-400 uppercase tracking-tighter border border-white/5">BEFORE - {beforeScore}</div></div>
+      <div className="absolute top-4 right-4 flex gap-1 items-center z-30 pointer-events-none"><div className="bg-blue-900/80 backdrop-blur px-2 py-1 rounded text-[8px] font-sans text-blue-200 uppercase tracking-tighter border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.5)]">AFTER - {afterScore}</div></div>
       <div className="absolute top-1/2 -translate-y-1/2 z-30 pointer-events-none" style={{ left: `calc(${sliderPosition}% - 12px)` }}>
         <div className={`w-6 h-6 bg-black/80 backdrop-blur border border-white/20 rounded flex items-center justify-center rotate-45 shadow-xl transition-transform ${isDragging ? 'scale-125 bg-white/20' : 'group-hover:scale-110'}`}><div className="-rotate-45 flex items-center justify-center"><ChevronRight size={14} className="text-white ml-0.5" /></div></div>
       </div>
@@ -245,7 +271,7 @@ const ComparisonCard = ({ beforeImgSrc, afterImgSrc, beforeScore, afterScore, is
             ))}
           </div>
           <p className="text-blue-50 text-[11px] md:text-xs font-sans italic mb-2 leading-relaxed opacity-90">"{review.text}"</p>
-          <p className="text-blue-400 font-mono text-[9px] uppercase tracking-widest font-bold">{review.author}</p>
+          <p className="text-blue-400 font-sans text-[9px] uppercase tracking-widest font-bold">{review.author}</p>
         </div>
       )}
     </div>
@@ -254,10 +280,10 @@ const ComparisonCard = ({ beforeImgSrc, afterImgSrc, beforeScore, afterScore, is
 
 // --- Measure Items Data ---
 const measureItems = [
-  { title: "Health Indicators", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175878148427826/Emmawatson0000.png?ex=69c0e952&is=69bf97d2&hm=df0f09c6f237ced5ba60c58ae143a1d1ef70e67eecccc1a115606755eaf8e979&animated=true", imgClassName: "object-cover object-center scale-110", svg: (<div className="w-full h-full relative font-mono z-20"><div className="absolute top-[25%] left-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-left opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Dermal Vitality</div><div className="text-green-400 text-xs font-bold">98.4% OPTIMAL</div></div><div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-right opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Facial Symmetry</div><div className="text-green-400 text-xs font-bold">HIGH 96.3%</div></div></div>) },
-  { title: "Facial Harmony", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175876600729630/jordan_barret0000.png?ex=69c0e952&is=69bf97d2&hm=d191337151ba095f9e3294a774863e3bf63ef4f2c49353362300e61ba99eb166&animated=true", svg: (<div className="w-full h-full relative font-mono z-20"><div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-left opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Convexity Angle</div><div className="text-emerald-400 text-xs font-bold">165° OPTIMAL</div></div><div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-right opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Nasal Bridge Index</div><div className="text-blue-400 text-xs font-bold">GRADE A</div></div></div>) },
-  { title: "Dimorphism", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175877623877652/chrisgemsowrth0000.png?ex=69c0e952&is=69bf97d2&hm=ea70475213909a026630a2744de6221fc69493378ee863fe7efe5bbf5865fe23&animated=true", svg: (<div className="w-full h-full relative font-mono z-20"><div className="absolute top-[30%] left-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Low Set Brows</div><div className="text-white text-xs font-bold tracking-widest">DETECTED</div></div><div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-right opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Mandibular Angle</div><div className="text-emerald-400 text-xs font-bold">108°</div></div></div>) },
-  { title: "Uniqueness", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175876957114398/seanopry0000.png?ex=69c0e952&is=69bf97d2&hm=07c10ee7e73d6fa9b3826ac1b40a2515ff947d4ac35f25126a0713da7926e803&animated=true", svg: (<div className="w-full h-full relative font-mono z-20"><div className="absolute top-8 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-lg border border-white/20 px-6 py-4 rounded-xl text-center opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Facial Uniqueness</div><div className="text-purple-400 text-lg font-black italic">TOP 1%</div></div></div>) }
+  { title: "Health Indicators", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175878148427826/Emmawatson0000.png?ex=69c0e952&is=69bf97d2&hm=df0f09c6f237ced5ba60c58ae143a1d1ef70e67eecccc1a115606755eaf8e979&animated=true", imgClassName: "object-cover object-center scale-110", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-[25%] left-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-left opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Dermal Vitality</div><div className="text-green-400 text-xs font-bold">98.4% OPTIMAL</div></div><div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-right opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Facial Symmetry</div><div className="text-green-400 text-xs font-bold">HIGH 96.3%</div></div></div>) },
+  { title: "Facial Harmony", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175876600729630/jordan_barret0000.png?ex=69c0e952&is=69bf97d2&hm=d191337151ba095f9e3294a774863e3bf63ef4f2c49353362300e61ba99eb166&animated=true", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-left opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Convexity Angle</div><div className="text-emerald-400 text-xs font-bold">165° OPTIMAL</div></div><div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-right opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Nasal Bridge Index</div><div className="text-blue-400 text-xs font-bold">GRADE A</div></div></div>) },
+  { title: "Dimorphism", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175877623877652/chrisgemsowrth0000.png?ex=69c0e952&is=69bf97d2&hm=ea70475213909a026630a2744de6221fc69493378ee863fe7efe5bbf5865fe23&animated=true", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-[30%] left-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Low Set Brows</div><div className="text-white text-xs font-bold tracking-widest">DETECTED</div></div><div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-right opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Mandibular Angle</div><div className="text-emerald-400 text-xs font-bold">108°</div></div></div>) },
+  { title: "Uniqueness", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175876957114398/seanopry0000.png?ex=69c0e952&is=69bf97d2&hm=07c10ee7e73d6fa9b3826ac1b40a2515ff947d4ac35f25126a0713da7926e803&animated=true", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-8 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-lg border border-white/20 px-6 py-4 rounded-xl text-center opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Facial Uniqueness</div><div className="text-purple-400 text-lg font-black italic">TOP 1%</div></div></div>) }
 ];
 
 const compBefore1 = "https://media.discordapp.net/attachments/1450216881796419738/1486388349676683395/New_Project_16.png?ex=69c55286&is=69c40106&hm=1ad05d00ae5dd1b8e6890710f2cd7f81ec3781eed8c2cee32af7d0e966876cbd&=&format=webp&quality=lossless&width=815&height=1060";
@@ -307,9 +333,9 @@ const BodyFatSlider = () => {
       </div>
       <div className="w-full max-w-sm">
         <div className="flex justify-between items-center mb-3">
-          <span className="text-xs font-mono font-bold uppercase tracking-widest text-green-400">10% Body Fat</span>
+          <span className="text-xs font-sans font-bold uppercase tracking-widest text-green-400">10% Body Fat</span>
           <span className="text-lg font-black italic text-white">{currentBF}%</span>
-          <span className="text-xs font-mono font-bold uppercase tracking-widest text-red-400">35% Body Fat</span>
+          <span className="text-xs font-sans font-bold uppercase tracking-widest text-red-400">35% Body Fat</span>
         </div>
         <style>{`
           .bf-slider { 
@@ -430,7 +456,7 @@ const ReviewsCarousel = () => {
                     ))}
                   </div>
                   <p className="text-zinc-200 font-sans text-xl italic mb-8 leading-relaxed">"{review.text}"</p>
-                  <p className="text-zinc-500 font-mono text-xs uppercase tracking-[0.2em]">{review.author}</p>
+                  <p className="text-zinc-500 font-sans text-xs uppercase tracking-[0.2em]">{review.author}</p>
                 </div>
               </div>
             );
@@ -808,7 +834,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
           <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter text-white mb-6 drop-shadow-2xl">Elite Protocol</h1>
           <div className="flex items-center justify-center gap-4">
             <div className="h-[1px] w-12 bg-zinc-800" />
-            <p className="text-white font-mono text-xs md:text-sm uppercase tracking-[0.2em] font-black text-center px-6 py-3 border border-white/20 bg-white/10 backdrop-blur-md rounded-full max-w-2xl leading-relaxed shadow-[0_0_20px_rgba(255,255,255,0.15)]">
+            <p className="text-white font-sans text-xs md:text-sm uppercase tracking-[0.2em] font-black text-center px-6 py-3 border border-white/20 bg-white/10 backdrop-blur-md rounded-full max-w-2xl leading-relaxed shadow-[0_0_20px_rgba(255,255,255,0.15)]">
               The flags represent genetic ethnic backgrounds and not nationalities
             </p>
             <div className="h-[1px] w-12 bg-zinc-800" />
@@ -933,7 +959,7 @@ const CelebrityStatsPage = ({ celeb, setCurrentPage }) => {
                   </div>
                 )}
                 
-                <span className="text-xs font-mono uppercase tracking-widest text-zinc-400 border-l border-zinc-800 pl-4">
+                <span className="text-xs font-sans uppercase tracking-widest text-zinc-400 border-l border-zinc-800 pl-4">
                   Sex: {celeb.sex || 'Unknown'}
                 </span>
               </div>
@@ -1028,7 +1054,7 @@ const HomePage = ({ setCurrentPage }) => {
               </div>
               <div className="relative z-10">
                 <p
-                  className="mb-1 md:mb-2 pointer-events-none select-none flex items-center gap-2 text-base md:text-lg font-mono uppercase tracking-[0.18em] text-white"
+                  className="mb-1 md:mb-2 pointer-events-none select-none flex items-center gap-2 text-base md:text-lg font-sans uppercase tracking-[0.18em] text-white"
                   aria-label={`${analysisHeroCount} analyses completed`}
                 >
                   <span className="font-black italic tabular-nums">{analysisHeroCount}</span>
@@ -1043,7 +1069,7 @@ const HomePage = ({ setCurrentPage }) => {
           </div>
 
           <div className="w-16 h-[1px] bg-gradient-to-r from-transparent via-zinc-500 to-transparent mb-5" />
-          <p className="text-zinc-300 font-mono text-sm md:text-base uppercase tracking-[0.3em] mb-14 font-bold">Powered by AI, Track Progress and Ascend</p>
+          <p className="text-zinc-300 font-sans text-sm md:text-base uppercase tracking-[0.3em] mb-14 font-bold">Powered by AI — track your looks with MogCheck</p>
           <button onClick={() => setCurrentPage('login')} className="mx-auto group relative px-12 py-5 bg-white text-black font-black uppercase tracking-tighter text-lg flex items-center gap-5 hover:scale-110 transition-all duration-300 rounded-sm" style={{ animation: 'ctaPulse 3s ease-in-out infinite' }}>
             <span className="tracking-widest">TRY FOR FREE</span>
             <div className="flex items-center"><div className="h-[2px] w-10 bg-black" /><div className="rotate-45 w-4 h-4 bg-black -ml-2" /></div>
@@ -1055,9 +1081,9 @@ const HomePage = ({ setCurrentPage }) => {
     <section id="results-section" className="w-full pt-24 pb-16 px-6 max-w-7xl mx-auto border-t border-zinc-900 relative z-10">
       <FadeUp>
         <div className="text-center mb-20">
-          <span className="text-blue-500 font-mono text-[10px] uppercase tracking-[0.3em] block mb-4 font-bold drop-shadow-[0_0_10px_rgba(59,130,246,0.6)]">REAL RESULTS</span>
+          <span className="text-blue-500 font-sans text-[10px] uppercase tracking-[0.3em] block mb-4 font-bold drop-shadow-[0_0_10px_rgba(59,130,246,0.6)]">REAL RESULTS</span>
           <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4 uppercase italic">Make The Impossible, Possible.</h2>
-          <p className="text-zinc-400 font-mono text-sm max-w-2xl mx-auto uppercase tracking-widest">Join the many who cracked the aesthetic code</p>
+          <p className="text-zinc-400 font-sans text-sm max-w-2xl mx-auto uppercase tracking-widest">Join the many who cracked the aesthetic code</p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
           <ComparisonCard beforeImgSrc={compBefore1} afterImgSrc={compAfter1} beforeScore="4.8" afterScore="7.4" review={reviewsData[0]} />
@@ -1075,7 +1101,7 @@ const HomePage = ({ setCurrentPage }) => {
     </section>
 
     <section className="w-full pt-16 pb-32 px-6 bg-[#0c0d0e]">
-      <FadeUp><div className="text-center mb-16"><h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white mb-4">What Actually Matters</h2><p className="text-zinc-500 font-mono text-[10px] uppercase tracking-widest">Forget the trends. Follow the metrics.</p></div></FadeUp>
+      <FadeUp><div className="text-center mb-16"><h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white mb-4">What Actually Matters</h2><p className="text-zinc-500 font-sans text-[10px] uppercase tracking-widest">Forget the trends. Follow the metrics.</p></div></FadeUp>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-10 w-full max-w-5xl mx-auto">{measureItems.map((item, idx) => (<FadeUp key={idx} delay={idx * 150}><SpotlightImageCard item={item} /></FadeUp>))}</div>
     </section>
 
@@ -1085,7 +1111,7 @@ const HomePage = ({ setCurrentPage }) => {
         <div className="space-y-6">
           {researchItems.map((item, idx) => (
             <a key={idx} href={item.url} target="_blank" rel="noopener noreferrer" className="flex flex-col sm:flex-row items-center justify-between p-8 rounded-2xl bg-zinc-900/20 border border-zinc-900 hover:border-zinc-700 hover:bg-zinc-900/40 transition-all group">
-              <div className="flex flex-col gap-3"><div className="flex items-center gap-4 text-blue-500 group-hover:text-blue-400 transition-colors uppercase font-mono font-bold tracking-widest text-lg">{item.label} <ArrowUpRight size={20} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></div><span className="text-zinc-500 font-mono text-xs uppercase tracking-[0.2em]">{item.text}</span></div>
+              <div className="flex flex-col gap-3"><div className="flex items-center gap-4 text-blue-500 group-hover:text-blue-400 transition-colors uppercase font-sans font-bold tracking-widest text-lg">{item.label} <ArrowUpRight size={20} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></div><span className="text-zinc-500 font-sans text-xs uppercase tracking-[0.2em]">{item.text}</span></div>
               <div className="w-32 h-40 sm:w-40 sm:h-48 bg-zinc-800 rounded-xl mt-8 sm:mt-0 overflow-hidden border border-zinc-700 shadow-2xl"><img src={item.imgSrc} alt="Doctor" className={`w-full h-full object-cover ${item.grayscale ? 'grayscale' : ''}`} /></div>
             </a>
           ))}
@@ -1096,8 +1122,8 @@ const HomePage = ({ setCurrentPage }) => {
     <section className="w-full py-32 px-6 border-t border-zinc-900">
       <FadeUp>
         <div className="flex flex-col items-center gap-6">
-          <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white text-center">Ready to Ascend?</h2>
-          <p className="text-zinc-500 font-mono text-[10px] uppercase tracking-[0.3em] mb-4">Discover your true potential today</p>
+          <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white text-center">Ready for MogCheck?</h2>
+          <p className="text-zinc-500 font-sans text-[10px] uppercase tracking-[0.3em] mb-4">Discover your true potential today</p>
           <button onClick={() => setCurrentPage('login')} className="group relative px-12 py-5 bg-white text-black font-black uppercase tracking-tighter text-lg flex items-center gap-5 hover:scale-110 hover:shadow-[0_0_60px_rgba(255,255,255,0.8)] transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.2)] rounded-sm">
             <span className="tracking-widest">START NOW</span>
             <div className="flex items-center"><div className="h-[2px] w-10 bg-black" /><div className="rotate-45 w-4 h-4 bg-black -ml-2" /></div>
@@ -1164,7 +1190,11 @@ const LoginPage = ({ setCurrentPage, user }) => {
     <div className="flex-grow flex items-center justify-center px-6 py-32 relative">
       <FadeUp>
         <SpotlightFormWrapper>
-          <div className="w-full text-center mb-4"><h2 className="text-3xl font-black italic text-white uppercase tracking-tighter">Welcome Back</h2><p className="text-zinc-500 text-[10px] uppercase font-mono tracking-widest mt-2">Resume your ascent</p></div>
+          <div className="w-full flex flex-col items-center mb-6">
+            <MogCheckLogoMark size={80} className="w-16 h-16 md:w-20 md:h-20 mb-5 opacity-95" />
+            <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter">Welcome Back</h2>
+            <p className="text-zinc-500 text-[10px] uppercase font-sans tracking-widest mt-2">Resume your ascent</p>
+          </div>
 
           {error && (
             <div className="w-full p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-2 mb-2">
@@ -1174,7 +1204,7 @@ const LoginPage = ({ setCurrentPage, user }) => {
           )}
 
           <button onClick={handleGoogleLogin} disabled={loading} className="w-full py-3 mb-2 bg-zinc-900/50 border border-zinc-800 hover:bg-white hover:text-black rounded-xl flex items-center justify-center gap-2 text-white text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"><GoogleIcon /> {loading ? 'Signing in...' : 'Continue with Google'}</button>
-          <div className="flex items-center gap-4 w-full"><div className="h-[1px] flex-1 bg-zinc-800" /><span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Or</span><div className="h-[1px] flex-1 bg-zinc-800" /></div>
+          <div className="flex items-center gap-4 w-full"><div className="h-[1px] flex-1 bg-zinc-800" /><span className="text-[10px] font-sans text-zinc-600 uppercase tracking-widest">Or</span><div className="h-[1px] flex-1 bg-zinc-800" /></div>
           <form onSubmit={handleEmailLogin} className="w-full space-y-4">
             <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-4 px-6 text-white text-sm outline-none focus:border-zinc-600 transition-colors" />
             <div className="relative">
@@ -1188,14 +1218,14 @@ const LoginPage = ({ setCurrentPage, user }) => {
                 {rememberMe && <Check size={10} className="text-black" />}
               </div>
               <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="hidden" />
-              <span className="text-[10px] text-zinc-400 uppercase font-mono tracking-widest group-hover:text-zinc-300 transition-colors select-none">Keep me logged in</span>
+              <span className="text-[10px] text-zinc-400 uppercase font-sans tracking-widest group-hover:text-zinc-300 transition-colors select-none">Keep me logged in</span>
             </label>
             <button type="submit" disabled={loading} className="w-full py-4 bg-white text-black font-black uppercase tracking-widest italic text-sm hover:scale-[1.02] transition-transform cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
               {loading ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
               {loading ? 'SIGNING IN...' : 'LOGIN'}
             </button>
           </form>
-          <button onClick={() => setCurrentPage('register')} className="text-zinc-500 text-[10px] uppercase font-mono tracking-widest hover:text-white transition-colors cursor-pointer">No account? Create one</button>
+          <button onClick={() => setCurrentPage('register')} className="text-zinc-500 text-[10px] uppercase font-sans tracking-widest hover:text-white transition-colors cursor-pointer">No account? Create one</button>
         </SpotlightFormWrapper>
       </FadeUp>
     </div>
@@ -1240,7 +1270,11 @@ const RegisterPage = ({ setCurrentPage, user }) => {
     <div className="flex-grow flex items-center justify-center px-6 py-32 relative">
       <FadeUp>
         <SpotlightFormWrapper>
-          <div className="w-full text-center mb-4"><h2 className="text-3xl font-black italic text-white uppercase tracking-tighter">Start Now</h2><p className="text-zinc-500 text-[10px] uppercase font-mono tracking-widest mt-2">Join the elite</p></div>
+          <div className="w-full flex flex-col items-center mb-6">
+            <MogCheckLogoMark size={80} className="w-16 h-16 md:w-20 md:h-20 mb-5 opacity-95" />
+            <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter">Start Now</h2>
+            <p className="text-zinc-500 text-[10px] uppercase font-sans tracking-widest mt-2">Join the elite</p>
+          </div>
 
           {error && (
             <div className="w-full p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-2 mb-2">
@@ -1250,7 +1284,7 @@ const RegisterPage = ({ setCurrentPage, user }) => {
           )}
 
           <button onClick={handleGoogleRegister} disabled={loading} className="w-full py-3 mb-2 bg-zinc-900/50 border border-zinc-800 hover:bg-white hover:text-black rounded-xl flex items-center justify-center gap-2 text-white text-[10px] font-bold uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"><GoogleIcon /> {loading ? 'Signing in...' : 'Continue with Google'}</button>
-          <div className="flex items-center gap-4 w-full"><div className="h-[1px] flex-1 bg-zinc-800" /><span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">Or</span><div className="h-[1px] flex-1 bg-zinc-800" /></div>
+          <div className="flex items-center gap-4 w-full"><div className="h-[1px] flex-1 bg-zinc-800" /><span className="text-[10px] font-sans text-zinc-600 uppercase tracking-widest">Or</span><div className="h-[1px] flex-1 bg-zinc-800" /></div>
           <form onSubmit={handleRegister} className="w-full space-y-4">
             <input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-4 px-6 text-white text-sm outline-none focus:border-zinc-600 transition-colors" />
             <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-4 px-6 text-white text-sm outline-none focus:border-zinc-600 transition-colors" />
@@ -1265,7 +1299,7 @@ const RegisterPage = ({ setCurrentPage, user }) => {
               {loading ? 'CREATING...' : 'CREATE ACCOUNT'}
             </button>
           </form>
-          <button onClick={() => setCurrentPage('login')} className="text-zinc-500 text-[10px] uppercase font-mono tracking-widest hover:text-white transition-colors cursor-pointer">Already registered? Login</button>
+          <button onClick={() => setCurrentPage('login')} className="text-zinc-500 text-[10px] uppercase font-sans tracking-widest hover:text-white transition-colors cursor-pointer">Already registered? Login</button>
         </SpotlightFormWrapper>
       </FadeUp>
     </div>
@@ -1275,12 +1309,15 @@ const RegisterPage = ({ setCurrentPage, user }) => {
 // --- Photo Guide Page ---
 const PhotoGuidePage = ({ setCurrentPage }) => {
   return (
-    <div className="flex-grow flex flex-col items-center pt-32 pb-24 px-6 relative font-mono overflow-hidden">
+    <div className="flex-grow flex flex-col items-center pt-32 pb-24 px-6 relative font-sans overflow-hidden">
       <FadeUp>
         <div className="w-full max-w-4xl bg-[#0c0d0e]/80 border border-zinc-800 rounded-2xl p-8 md:p-12 shadow-2xl backdrop-blur-xl relative z-10 mx-auto">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500" />
           
-          <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white mb-6 text-center">Take the Perfect Photo</h2>
+          <div className="flex flex-col items-center gap-4 mb-6">
+            <MogCheckLogoMark size={56} className="w-14 h-14 opacity-90" />
+            <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white text-center">Take the Perfect Photo</h2>
+          </div>
           
           <div className="flex items-start gap-4 bg-red-500/10 border border-red-500/30 p-5 rounded-xl mb-12 shadow-[0_0_20px_rgba(239,68,68,0.1)]">
             <span className="text-red-500 font-bold uppercase tracking-widest text-sm md:text-base mt-0.5 animate-pulse">Warning:</span>
@@ -1367,7 +1404,7 @@ const FileDropzone = ({ label, file, setFile, isPulsing }) => {
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               </div>
               <span className="font-sans text-sm md:text-base font-bold tracking-wide text-center leading-relaxed transition-colors">Select Image <br/> <span className="text-xs font-normal text-zinc-600 group-hover:text-zinc-400 uppercase tracking-widest mt-1 block">Or Drag & Drop</span></span>
-              <span className="font-mono text-[9px] uppercase tracking-widest opacity-40 mt-2">JPG or PNG (Max 10MB)</span>
+              <span className="font-sans text-[9px] uppercase tracking-widest opacity-40 mt-2">JPG or PNG (Max 10MB)</span>
             </div>
           </>
         )}
@@ -1564,7 +1601,7 @@ const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onC
 
         const isUltra = choice === "1" || choice === "2";
         if (isUltra && !user) {
-          setStatusText('Sign in required for Ultra models.');
+          setStatusText('Sign in required for premium models.');
           return;
         }
         if (isUltra && sideImageFile) {
@@ -1582,7 +1619,7 @@ const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onC
             headers.Authorization = `Bearer ${token}`;
           } catch (e) {
             console.error("Failed to get auth token", e);
-            setStatusText("Sign in required for Ultra. Please refresh and log in.");
+            setStatusText("Sign in required for premium models. Please refresh and log in.");
             return;
           }
         }
@@ -1634,7 +1671,7 @@ const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onC
       `}</style>
       <div className="text-center mb-10 mt-10">
         <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-cyan-400 mb-2 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] animate-pulse">Consulting AI</h2>
-        <p className="font-mono text-zinc-400 text-sm uppercase tracking-[0.3em]">{statusText}</p>
+        <p className="font-sans text-zinc-400 text-sm uppercase tracking-[0.3em]">{statusText}</p>
       </div>
 
       <div className="relative aspect-[3/4] w-full max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] scale-[1.02] transform-gpu">
@@ -1674,7 +1711,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const models = [
     {
       id: "1",
-      name: "ULTRA - Highest Quality",
+      name: "Premium — highest quality",
       description:
         "Our most powerful analysis engine. Provides the highest level of accuracy and detail, though processing may take longer.",
       tier: "ultra",
@@ -1682,9 +1719,9 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     },
     {
       id: "2",
-      name: "ULTRA - Fast",
+      name: "Fun mode",
       description:
-        "High-performance analysis optimized for speed. Delivers rapid results with a slight trade-off in extreme edge-case accuracy.",
+        "Faster, lighter analysis for quick entertainment. Results can be inaccurate — don't treat scores as medical or professional advice.",
       tier: "ultra",
       Icon: Zap
     },
@@ -1792,7 +1829,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                  }} 
               />
               <div className="mt-12 flex flex-col items-center gap-2 animate-bounce">
-                <span className="text-zinc-600 font-mono text-[9px] uppercase tracking-[0.3em]">Scroll down while you wait</span>
+                <span className="text-zinc-600 font-sans text-[9px] uppercase tracking-[0.3em]">Scroll down while you wait</span>
                 <ChevronRight size={16} className="text-zinc-600 rotate-90" />
               </div>
             </div>
@@ -1839,11 +1876,11 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
               {!isUltraModel && (
                 <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none translate-y-8 px-6 text-center">
                   <Lock size={24} className="text-yellow-500 mb-2 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]" />
-                  <span className="text-yellow-400 font-black italic uppercase tracking-widest text-xs">Ultra Only</span>
-                  <span className="text-zinc-500 font-mono text-[9px] uppercase tracking-[0.28em] mt-2 leading-[1.7] max-w-[220px]">
-                    Side Profile Requires
+                  <span className="text-yellow-400 font-black italic uppercase tracking-widest text-xs">Premium only</span>
+                  <span className="text-zinc-500 font-sans text-[9px] uppercase tracking-[0.28em] mt-2 leading-[1.7] max-w-[220px]">
+                    Side profile requires
                     <br />
-                    Ultra Model
+                    a premium model
                   </span>
                 </div>
               )}
@@ -1855,7 +1892,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       {/* Dropdown + CTA outside FadeUp: parent transform/opacity was compositing away child motion */}
       <div className="w-full max-w-[1200px] flex flex-col items-center outline-none">
           <div className="w-full max-w-sm mb-12">
-            <label className="block text-zinc-500 font-mono text-[10px] uppercase tracking-[0.3em] mb-3 text-center">AI Model Selection</label>
+            <label className="block text-zinc-500 font-sans text-[10px] uppercase tracking-[0.3em] mb-3 text-center">AI Model Selection</label>
             <div ref={modelMenuRef} className="relative">
               {(() => {
                 const active = models.find((m) => m.id === selectedModel);
@@ -1886,7 +1923,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                             className={isUltra ? "text-yellow-300 drop-shadow-[0_0_10px_rgba(250,204,21,0.35)]" : "text-zinc-300"}
                           />
                         ) : (
-                          <Diamond size={16} className="text-zinc-300" />
+                          <MogCheckLogoIcon size={16} className="opacity-90" />
                         )}
                         {isUltra && (
                           <span
@@ -1911,7 +1948,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                         >
                           {active?.name ?? "Select a model"}
                         </span>
-                        <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-zinc-500 truncate">
+                        <span className="text-[10px] font-sans uppercase tracking-[0.22em] text-zinc-500 truncate">
                           {isUltra ? "Premium tier" : "Specialized engine"}
                         </span>
                       </span>
@@ -1925,7 +1962,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
               {isModelMenuOpen && (
                 <div
-                  className={`ascend-model-dropdown absolute left-0 right-0 mt-3 rounded-2xl border border-zinc-800 bg-[#0c0d0e]/95 backdrop-blur-xl shadow-2xl z-[80] origin-top ${dropdownAnimOpen ? 'ascend-model-dropdown--open' : ''}`}
+                  className={`mogcheck-model-dropdown absolute left-0 right-0 mt-3 rounded-2xl border border-zinc-800 bg-[#0c0d0e]/95 backdrop-blur-xl shadow-2xl z-[80] origin-top ${dropdownAnimOpen ? 'mogcheck-model-dropdown--open' : ''}`}
                   role="listbox"
                   aria-label="AI Model Selection"
                 >
@@ -1936,7 +1973,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                           <div key={`sep-${idx}`} className="px-3 py-2">
                             <div className="flex items-center gap-3">
                               <div className="h-px flex-1 bg-zinc-800/80" />
-                              <span className="text-[9px] font-mono uppercase tracking-[0.35em] text-zinc-600">Specialized</span>
+                              <span className="text-[9px] font-sans uppercase tracking-[0.35em] text-zinc-600">Specialized</span>
                               <div className="h-px flex-1 bg-zinc-800/80" />
                             </div>
                           </div>
@@ -1945,7 +1982,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
                       const isActive = m.id === selectedModel;
                       const isUltra = m.tier === 'ultra';
-                      const Icon = m.Icon ?? Diamond;
+                      const Icon = m.Icon ?? MogCheckLogoIcon;
 
                       const ultraLocked = isUltra && !canUseUltra;
 
@@ -1964,7 +2001,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                             setIsModelMenuOpen(false);
                           }}
                           className={[
-                            "ascend-model-option w-full text-left rounded-xl px-3 py-3 flex items-start gap-3 relative group",
+                            "mogcheck-model-option w-full text-left rounded-xl px-3 py-3 flex items-start gap-3 relative group",
                             ultraLocked ? "opacity-50 cursor-pointer" : "",
                             isActive
                               ? "bg-white/5 shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
@@ -2007,19 +2044,19 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                                 {m.name}
                               </span>
                               {isUltra && (
-                                <span className="text-[9px] font-mono uppercase tracking-[0.3em] text-yellow-300/80 border border-yellow-500/20 bg-yellow-500/10 px-2 py-1 rounded-full">
+                                <span className="text-[9px] font-sans uppercase tracking-[0.3em] text-yellow-300/80 border border-yellow-500/20 bg-yellow-500/10 px-2 py-1 rounded-full">
                                   {ultraLocked ? 'Pro / 1 scan' : 'Premium'}
                                 </span>
                               )}
                               {isActive && (
-                                <span className="text-[9px] font-mono uppercase tracking-[0.3em] text-cyan-300/80 border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 rounded-full">
+                                <span className="text-[9px] font-sans uppercase tracking-[0.3em] text-cyan-300/80 border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 rounded-full">
                                   Selected
                                 </span>
                               )}
                             </span>
 
                             {/* Below md: description only on hover (smooth expand) */}
-                            <div className="ascend-model-desc md:hidden">
+                            <div className="mogcheck-model-desc md:hidden">
                               <p className="text-[11px] text-zinc-400 leading-relaxed font-sans normal-case tracking-normal pr-1">
                                 {m.description}
                               </p>
@@ -2027,7 +2064,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                           </span>
 
                           {/* md+: description only, slides in smoothly */}
-                          <div className="ascend-model-tooltip hidden md:block z-[90]">
+                          <div className="mogcheck-model-tooltip hidden md:block z-[90]">
                             <p className="text-xs text-zinc-300 leading-relaxed font-sans normal-case tracking-normal">
                               {m.description}
                             </p>
@@ -2063,7 +2100,7 @@ const ScoreBar = ({ label, score, max = 10, locked = false }) => {
   const textColor = isGreen ? 'text-green-500' : displayScore >= 4 ? 'text-yellow-500' : 'text-red-500';
   return (
     <div className="flex flex-col mb-3 relative group">
-      <div className="flex justify-between items-end text-[10px] uppercase font-mono text-zinc-400 mb-1.5">
+      <div className="flex justify-between items-end text-[10px] uppercase font-sans text-zinc-400 mb-1.5">
         <span className={`tracking-widest ${locked ? 'blur-[3px] opacity-60' : ''}`}>{label}</span>
         {displayScore !== null && (<span className={`relative ${textColor} font-bold text-sm leading-none`}><span className={locked ? 'blur-[5px] opacity-60 inline-block' : ''}>{displayScore.toFixed(1)}</span></span>)}
       </div>
@@ -2078,12 +2115,12 @@ const ResultsPage = () => (
     <style>{`@keyframes oscillate { 0% { width: 5%; } 100% { width: 85%; } } .animate-oscillate { animation: oscillate 2s ease-in-out infinite alternate; }`}</style>
     <div className="w-full max-w-5xl flex justify-end items-center gap-4 mb-12">
       <button className="px-3 py-1.5 bg-zinc-200 hover:bg-white text-black font-bold text-xs uppercase tracking-widest transition-colors shadow-lg rounded">UPGRADE</button>
-      <div className="flex items-center gap-3 border border-zinc-800 pl-4 pr-1 py-1 rounded-full bg-zinc-900/50"><div className="flex flex-col text-right px-1"><span className="text-xs font-mono uppercase tracking-widest text-zinc-300 leading-none">Stinky User</span><span className="text-[8px] font-mono uppercase tracking-widest text-zinc-500 mt-1">Free Plan</span></div><div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700"></div></div>
+      <div className="flex items-center gap-3 border border-zinc-800 pl-4 pr-1 py-1 rounded-full bg-zinc-900/50"><div className="flex flex-col text-right px-1"><span className="text-xs font-sans uppercase tracking-widest text-zinc-300 leading-none">Stinky User</span><span className="text-[8px] font-sans uppercase tracking-widest text-zinc-500 mt-1">Free Plan</span></div><div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700"></div></div>
     </div>
     <div className="w-full max-w-5xl space-y-16">
       <section>
-        <h3 className="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-4">Face Analysis 1</h3>
-        <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">{[1,2,3,4,5].map(i => (<div key={i} className="w-24 h-32 shrink-0 bg-zinc-900/50 border border-zinc-800 rounded flex items-center justify-center">{i === 1 && <span className="text-[10px] text-zinc-600 font-mono uppercase">Current</span>}</div>))}</div>
+        <h3 className="text-zinc-500 font-sans text-xs uppercase tracking-widest mb-4">Face Analysis 1</h3>
+        <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">{[1,2,3,4,5].map(i => (<div key={i} className="w-24 h-32 shrink-0 bg-zinc-900/50 border border-zinc-800 rounded flex items-center justify-center">{i === 1 && <span className="text-[10px] text-zinc-600 font-sans uppercase">Current</span>}</div>))}</div>
       </section>
       <section className="flex flex-col md:flex-row gap-12">
         <div className="w-full md:w-1/3 flex flex-col items-center">
@@ -2093,20 +2130,20 @@ const ResultsPage = () => (
         <div className="w-full md:w-2/3 space-y-8">
           <h2 className="text-2xl font-bold uppercase tracking-widest flex items-center gap-2">Your Front Profile <ChevronRight className="text-zinc-500" /></h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-8">
-            <div><h4 className="text-zinc-300 font-mono text-xs uppercase tracking-widest mb-4">Harmony</h4><ScoreBar label="Facial ratio" score={6.7} /><ScoreBar label="Jaw likeness" score={5.1} /><ScoreBar label="Facial thirds" score={2.3} /><ScoreBar label="Facial width to height" score={9.2} locked={true} /></div>
-            <div><h4 className="text-zinc-300 font-mono text-xs uppercase tracking-widest mb-4">Dimorphism</h4><ScoreBar label="Eye brow thickness" score={6.7} /><ScoreBar label="Eye brow distance" score={5.1} /><ScoreBar label="Facial hair" score={2.3} /><ScoreBar label="Facial width to height" score={9.2} locked={true} /></div>
-            <div><h4 className="text-zinc-300 font-mono text-xs uppercase tracking-widest mb-4">Health Indicators</h4><ScoreBar label="Skin health" score={8.5} /><ScoreBar label="Bone score" score={4.2} /><ScoreBar label="Facial symmetry" score={9.6} locked={true} /><ScoreBar label="Facial width to height" score={null} /></div>
-            <div><h4 className="text-zinc-300 font-mono text-xs uppercase tracking-widest mb-4">Uniqueness (Subjective)</h4><ScoreBar label="Eye color" score={7.0} /><ScoreBar label="Jaw symmetry" score={5.5} /><ScoreBar label="Facial symmetry" score={8.9} locked={true} /><ScoreBar label="Facial width to height" score={null} /></div>
+            <div><h4 className="text-zinc-300 font-sans text-xs uppercase tracking-widest mb-4">Harmony</h4><ScoreBar label="Facial ratio" score={6.7} /><ScoreBar label="Jaw likeness" score={5.1} /><ScoreBar label="Facial thirds" score={2.3} /><ScoreBar label="Facial width to height" score={9.2} locked={true} /></div>
+            <div><h4 className="text-zinc-300 font-sans text-xs uppercase tracking-widest mb-4">Dimorphism</h4><ScoreBar label="Eye brow thickness" score={6.7} /><ScoreBar label="Eye brow distance" score={5.1} /><ScoreBar label="Facial hair" score={2.3} /><ScoreBar label="Facial width to height" score={9.2} locked={true} /></div>
+            <div><h4 className="text-zinc-300 font-sans text-xs uppercase tracking-widest mb-4">Health Indicators</h4><ScoreBar label="Skin health" score={8.5} /><ScoreBar label="Bone score" score={4.2} /><ScoreBar label="Facial symmetry" score={9.6} locked={true} /><ScoreBar label="Facial width to height" score={null} /></div>
+            <div><h4 className="text-zinc-300 font-sans text-xs uppercase tracking-widest mb-4">Uniqueness (Subjective)</h4><ScoreBar label="Eye color" score={7.0} /><ScoreBar label="Jaw symmetry" score={5.5} /><ScoreBar label="Facial symmetry" score={8.9} locked={true} /><ScoreBar label="Facial width to height" score={null} /></div>
           </div>
-          <button className="w-full mt-6 py-4 bg-zinc-900 border border-zinc-700 hover:border-zinc-500 rounded-lg flex items-center justify-center gap-3 text-white uppercase font-bold tracking-widest transition-all shadow-lg hover:shadow-xl cursor-pointer group hover:bg-zinc-800/50"><Diamond size={18} className="text-zinc-400 group-hover:text-white transition-colors" fill="currentColor" /> Unlock All Stats</button>
+          <button className="w-full mt-6 py-4 bg-zinc-900 border border-zinc-700 hover:border-zinc-500 rounded-lg flex items-center justify-center gap-3 text-white uppercase font-bold tracking-widest transition-all shadow-lg hover:shadow-xl cursor-pointer group hover:bg-zinc-800/50"><MogCheckLogoIcon size={18} className="opacity-70 group-hover:opacity-100 transition-opacity" /> Unlock All Stats</button>
         </div>
       </section>
       <hr className="border-zinc-800/50" />
       <section>
         <h2 className="text-3xl font-black uppercase tracking-widest mb-8 text-center italic">Plan</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-          <div className="p-8 bg-zinc-900/30 border border-zinc-800 rounded-2xl shadow-xl"><h3 className="text-xl font-bold uppercase tracking-widest mb-6 text-zinc-100">Softmaxing</h3><ol className="space-y-4 font-mono text-sm tracking-wider"><li className="flex flex-col sm:flex-row sm:items-end gap-1 sm:gap-2 text-green-500"><div className="flex gap-2"><span className="text-lg">1.</span><span className="uppercase font-bold">Grooming</span></div><span className="text-[10px] text-zinc-500 mb-0.5 ml-5 sm:ml-0">(estimated price $20/mth)</span></li><li className="flex flex-col sm:flex-row sm:items-end gap-1 sm:gap-2 text-yellow-500"><div className="flex gap-2"><span className="text-lg">2.</span><span className="uppercase font-bold">Skincare</span></div><span className="text-[10px] text-zinc-500 mb-0.5 ml-5 sm:ml-0">(estimated price $40/mth)</span></li></ol></div>
-          <div className="p-8 bg-zinc-900/30 border border-zinc-800 rounded-2xl shadow-xl"><h3 className="text-xl font-bold uppercase tracking-widest mb-6 text-zinc-100">Hardmaxing</h3><ol className="space-y-4 font-mono text-sm tracking-wider"><li className="flex flex-col sm:flex-row sm:items-end gap-1 sm:gap-2 text-zinc-400"><div className="flex gap-2"><span className="text-lg">1.</span><span className="uppercase font-bold text-zinc-300">Jaw Surgery</span></div><span className="text-[10px] text-zinc-500 mb-0.5 ml-5 sm:ml-0">(estimated price $3000)</span></li><li className="flex flex-col sm:flex-row sm:items-end gap-1 sm:gap-2 text-zinc-400"><div className="flex gap-2"><span className="text-lg">2.</span><span className="uppercase font-bold text-zinc-300">Rhinoplasty</span></div><span className="text-[10px] text-zinc-500 mb-0.5 ml-5 sm:ml-0">(estimated price $2500)</span></li></ol></div>
+          <div className="p-8 bg-zinc-900/30 border border-zinc-800 rounded-2xl shadow-xl"><h3 className="text-xl font-bold uppercase tracking-widest mb-6 text-zinc-100">Softmaxing</h3><ol className="space-y-4 font-sans text-sm tracking-wider"><li className="flex flex-col sm:flex-row sm:items-end gap-1 sm:gap-2 text-green-500"><div className="flex gap-2"><span className="text-lg">1.</span><span className="uppercase font-bold">Grooming</span></div><span className="text-[10px] text-zinc-500 mb-0.5 ml-5 sm:ml-0">(estimated price $20/mth)</span></li><li className="flex flex-col sm:flex-row sm:items-end gap-1 sm:gap-2 text-yellow-500"><div className="flex gap-2"><span className="text-lg">2.</span><span className="uppercase font-bold">Skincare</span></div><span className="text-[10px] text-zinc-500 mb-0.5 ml-5 sm:ml-0">(estimated price $40/mth)</span></li></ol></div>
+          <div className="p-8 bg-zinc-900/30 border border-zinc-800 rounded-2xl shadow-xl"><h3 className="text-xl font-bold uppercase tracking-widest mb-6 text-zinc-100">Hardmaxing</h3><ol className="space-y-4 font-sans text-sm tracking-wider"><li className="flex flex-col sm:flex-row sm:items-end gap-1 sm:gap-2 text-zinc-400"><div className="flex gap-2"><span className="text-lg">1.</span><span className="uppercase font-bold text-zinc-300">Jaw Surgery</span></div><span className="text-[10px] text-zinc-500 mb-0.5 ml-5 sm:ml-0">(estimated price $3000)</span></li><li className="flex flex-col sm:flex-row sm:items-end gap-1 sm:gap-2 text-zinc-400"><div className="flex gap-2"><span className="text-lg">2.</span><span className="uppercase font-bold text-zinc-300">Rhinoplasty</span></div><span className="text-[10px] text-zinc-500 mb-0.5 ml-5 sm:ml-0">(estimated price $2500)</span></li></ol></div>
         </div>
       </section>
       <hr className="border-zinc-800/50" />
@@ -2115,11 +2152,11 @@ const ResultsPage = () => (
       <section className="flex flex-col items-center">
         <h2 className="text-3xl font-black uppercase tracking-widest mb-12 text-center italic">Potential</h2>
         <div className="flex flex-col md:flex-row items-center gap-8 mb-12 w-full justify-center">
-          <div className="flex flex-col items-center gap-3"><span className="text-sm font-bold font-mono uppercase tracking-widest text-white">Face Analysis 1</span><div className="w-48 h-64 bg-zinc-900/50 border border-zinc-800 rounded-lg shadow-xl"></div></div>
+          <div className="flex flex-col items-center gap-3"><span className="text-sm font-bold font-sans uppercase tracking-widest text-white">Face Analysis 1</span><div className="w-48 h-64 bg-zinc-900/50 border border-zinc-800 rounded-lg shadow-xl"></div></div>
           <div className="hidden md:flex flex-col items-center text-zinc-500 px-4"><div className="w-32 h-[2px] bg-zinc-700 relative"><ChevronRight className="absolute -right-3 top-1/2 -translate-y-1/2" size={24} /></div></div>
-          <div className="flex flex-col items-center gap-3"><span className="text-sm font-bold font-mono uppercase tracking-widest text-white">Estimated Image of your potential</span><div className="w-48 h-64 bg-zinc-900/50 border border-zinc-800 rounded-lg relative overflow-hidden flex flex-col items-center justify-center text-center p-4 shadow-xl"><div className="absolute inset-0 backdrop-blur-xl bg-black/40 z-10" /><div className="relative z-20 text-zinc-300 flex flex-col items-center gap-4"><button className="flex items-center gap-2 text-yellow-400 bg-yellow-500/10 border border-yellow-500/50 px-5 py-2.5 rounded-full shadow-[0_0_30px_rgba(234,179,8,0.4)] hover:shadow-[0_0_50px_rgba(234,179,8,0.7)] hover:bg-yellow-500/20 hover:scale-105 transition-all duration-300 cursor-pointer"><Lock size={18} className="drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]" /><span className="font-bold uppercase tracking-widest text-lg drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]">UNLOCK</span></button><span className="block text-xs font-mono uppercase leading-tight opacity-80 tracking-wider">Estimated<br/>Full Potential</span></div></div></div>
+          <div className="flex flex-col items-center gap-3"><span className="text-sm font-bold font-sans uppercase tracking-widest text-white">Estimated Image of your potential</span><div className="w-48 h-64 bg-zinc-900/50 border border-zinc-800 rounded-lg relative overflow-hidden flex flex-col items-center justify-center text-center p-4 shadow-xl"><div className="absolute inset-0 backdrop-blur-xl bg-black/40 z-10" /><div className="relative z-20 text-zinc-300 flex flex-col items-center gap-4"><button className="flex items-center gap-2 text-yellow-400 bg-yellow-500/10 border border-yellow-500/50 px-5 py-2.5 rounded-full shadow-[0_0_30px_rgba(234,179,8,0.4)] hover:shadow-[0_0_50px_rgba(234,179,8,0.7)] hover:bg-yellow-500/20 hover:scale-105 transition-all duration-300 cursor-pointer"><Lock size={18} className="drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]" /><span className="font-bold uppercase tracking-widest text-lg drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]">UNLOCK</span></button><span className="block text-xs font-sans uppercase leading-tight opacity-80 tracking-wider">Estimated<br/>Full Potential</span></div></div></div>
         </div>
-        <button className="relative w-full max-w-md h-16 bg-zinc-900 border border-yellow-600/50 rounded-lg overflow-hidden flex items-center justify-between px-6 shadow-[0_0_15px_rgba(202,138,4,0.1)] hover:shadow-[0_0_25px_rgba(202,138,4,0.2)] hover:border-yellow-500 transition-all group cursor-pointer"><div className="absolute top-0 left-0 bottom-0 bg-gradient-to-r from-yellow-900/40 to-yellow-600/40 animate-oscillate z-0 border-r border-yellow-500/50" /><div className="relative z-10 flex items-center gap-3"><Lock size={20} className="text-yellow-500 group-hover:scale-110 transition-transform" /><span className="text-zinc-100 font-bold uppercase tracking-widest text-sm">Unlock</span></div><span className="relative z-10 text-yellow-500 font-mono uppercase tracking-widest text-xs drop-shadow-md">Estimated Full Potential</span></button>
+        <button className="relative w-full max-w-md h-16 bg-zinc-900 border border-yellow-600/50 rounded-lg overflow-hidden flex items-center justify-between px-6 shadow-[0_0_15px_rgba(202,138,4,0.1)] hover:shadow-[0_0_25px_rgba(202,138,4,0.2)] hover:border-yellow-500 transition-all group cursor-pointer"><div className="absolute top-0 left-0 bottom-0 bg-gradient-to-r from-yellow-900/40 to-yellow-600/40 animate-oscillate z-0 border-r border-yellow-500/50" /><div className="relative z-10 flex items-center gap-3"><Lock size={20} className="text-yellow-500 group-hover:scale-110 transition-transform" /><span className="text-zinc-100 font-bold uppercase tracking-widest text-sm">Unlock</span></div><span className="relative z-10 text-yellow-500 font-sans uppercase tracking-widest text-xs drop-shadow-md">Estimated Full Potential</span></button>
       </section>
       <hr className="border-zinc-800/50" />
       <section className="pb-12">
@@ -2128,7 +2165,7 @@ const ResultsPage = () => (
           <svg viewBox="0 0 100 70" className="w-full h-full overflow-visible">
             <line x1="8" y1="60" x2="92" y2="60" stroke="#71717a" strokeWidth="0.5" /><path d="M 8 60 L 5 57 L 2 60 L 5 63 Z" fill="none" stroke="#71717a" strokeWidth="0.5" /><path d="M 92 60 L 95 57 L 98 60 L 95 63 Z" fill="none" stroke="#71717a" strokeWidth="0.5" /><path d="M 8 60 C 35 60, 42 15, 50 15 C 58 15, 65 60, 92 60" fill="none" stroke="#e4e4e7" strokeWidth="0.5" /><line x1="50" y1="15" x2="50" y2="60" stroke="#71717a" strokeWidth="0.5" />
             <line x1="24" y1="58" x2="24" y2="60" stroke="#ef4444" strokeWidth="0.5" /><line x1="50" y1="58" x2="50" y2="60" stroke="#d97706" strokeWidth="0.5" /><line x1="76" y1="58" x2="76" y2="60" stroke="#22c55e" strokeWidth="0.5" />
-            <text x="24" y="66" fill="#ef4444" fontSize="4" textAnchor="middle" className="font-mono">2</text><text x="50" y="66" fill="#d97706" fontSize="4" textAnchor="middle" className="font-mono">5</text><text x="76" y="66" fill="#22c55e" fontSize="4" textAnchor="middle" className="font-mono">8</text>
+            <text x="24" y="66" fill="#ef4444" fontSize="4" textAnchor="middle" className="font-sans">2</text><text x="50" y="66" fill="#d97706" fontSize="4" textAnchor="middle" className="font-sans">5</text><text x="76" y="66" fill="#22c55e" fontSize="4" textAnchor="middle" className="font-sans">8</text>
             <text x="69" y="10" fill="#e4e4e7" fontSize="3" textAnchor="middle" className="font-sans tracking-wide">Now</text><rect x="64" y="12" width="10" height="10" fill="none" stroke="#a1a1aa" strokeWidth="0.3" rx="1.5" /><text x="62" y="20" fill="#e4e4e7" fontSize="3.5" textAnchor="end" className="font-sans uppercase tracking-widest">YOU</text>
             <path d="M 59 23 Q 56 26, 54 28" fill="none" stroke="#a1a1aa" strokeWidth="0.6" strokeLinecap="round" /><path d="M 57 27 L 54 28 L 54 25" fill="none" stroke="#a1a1aa" strokeWidth="0.6" strokeLinecap="round" strokeLinejoin="round" />
             <text x="75" y="38" fill="#e4e4e7" fontSize="3" textAnchor="middle" className="font-sans tracking-wide">3 months</text><rect x="70" y="40" width="10" height="10" fill="none" stroke="#a1a1aa" strokeWidth="0.3" rx="1.5" />
@@ -2183,11 +2220,11 @@ const RadarChart = ({ data, finalScore }) => {
           return <circle key={i} cx={x} cy={y} r="1.5" fill="#fff" className="drop-shadow-[0_0_4px_rgba(255,255,255,1)]" />;
         })}
       </svg>
-      <span className="absolute top-[-5%] left-1/2 -translate-x-1/2 text-[9px] font-mono text-cyan-400 uppercase tracking-widest">{data[0].label}</span>
-      <span className="absolute top-[35%] right-[-15%] text-[9px] font-mono text-cyan-400 uppercase tracking-widest">{data[1].label}</span>
-      <span className="absolute bottom-[10%] right-[-5%] text-[9px] font-mono text-cyan-400 uppercase tracking-widest">{data[2].label}</span>
-      <span className="absolute bottom-[10%] left-[-5%] text-[9px] font-mono text-cyan-400 uppercase tracking-widest">{data[3].label}</span>
-      <span className="absolute top-[35%] left-[-15%] text-[9px] font-mono text-cyan-400 uppercase tracking-widest">{data[4].label}</span>
+      <span className="absolute top-[-5%] left-1/2 -translate-x-1/2 text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[0].label}</span>
+      <span className="absolute top-[35%] right-[-15%] text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[1].label}</span>
+      <span className="absolute bottom-[10%] right-[-5%] text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[2].label}</span>
+      <span className="absolute bottom-[10%] left-[-5%] text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[3].label}</span>
+      <span className="absolute top-[35%] left-[-15%] text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[4].label}</span>
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white font-black italic text-xl drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
         {finalScore != null && finalScore !== '' && !Number.isNaN(Number(finalScore))
           ? ((Number(finalScore) / 10) * progress).toFixed(1)
@@ -2228,7 +2265,7 @@ const MetricBar = ({ label, score, max = 100, displayValue, isFreePlan = false }
 
   return (
     <div className="flex flex-col mb-4 relative group">
-      <div className="flex justify-between items-end text-xs uppercase font-mono text-zinc-400 mb-2">
+      <div className="flex justify-between items-end text-xs uppercase font-sans text-zinc-400 mb-2">
         <span className="tracking-widest font-bold">{label}</span>
         <span className="font-black text-white text-sm bg-zinc-900/80 px-2 py-0.5 rounded shadow-sm border border-zinc-800">{isFreePlan ? `${Math.round(progress)}/100` : (displayValue ? displayValue : `${progress.toFixed(1)}${max === 100 ? '%' : ''}`)}</span>
       </div>
@@ -2299,7 +2336,7 @@ const FeatureCard = ({ type = 'best', title, description }) => {
       <div className="relative z-10 flex flex-col h-full transition-colors duration-700">
         <span className={`${textLabel} text-[10px] uppercase font-black tracking-widest mb-1 block`}>{label}</span>
         <h4 className={`${textTitle} font-bold uppercase text-sm tracking-widest mb-3 drop-shadow-md`}>{title}</h4>
-        <p className="text-zinc-300 text-[11px] font-mono leading-relaxed mt-auto drop-shadow">{description}</p>
+        <p className="text-zinc-300 text-[11px] font-sans leading-relaxed mt-auto drop-shadow">{description}</p>
       </div>
     </div>
   );
@@ -2325,7 +2362,7 @@ const DashboardOverview = ({ dashboardData, isFreePlan, activeProfileView }) => 
 
   return (
     <div className="bg-zinc-900/30 p-8 rounded-3xl border border-zinc-800 flex flex-col relative overflow-hidden">
-      <h3 className="text-zinc-400 font-mono text-xs uppercase tracking-widest mb-6 border-b border-zinc-800/50 pb-4"><Activity size={14} className="inline mr-2" /> Structural Overview</h3>
+      <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 border-b border-zinc-800/50 pb-4"><Activity size={14} className="inline mr-2" /> Structural Overview</h3>
       
       <div className={`relative transition-all duration-500 overflow-hidden ${isExpanded ? 'max-h-[2000px]' : 'max-h-[64px]'}`}>
         <p className="text-zinc-300 font-sans text-sm leading-relaxed tracking-wide text-justify mb-6">
@@ -2373,7 +2410,7 @@ const DashboardOverview = ({ dashboardData, isFreePlan, activeProfileView }) => 
       {!isFreePlan && (
         <button 
           onClick={() => setIsExpanded(!isExpanded)}
-          className="mt-6 self-start md:self-center px-6 py-2 border border-zinc-700 rounded-full text-zinc-400 text-[10px] font-mono uppercase tracking-widest hover:text-white hover:border-zinc-500 transition-colors"
+          className="mt-6 self-start md:self-center px-6 py-2 border border-zinc-700 rounded-full text-zinc-400 text-[10px] font-sans uppercase tracking-widest hover:text-white hover:border-zinc-500 transition-colors"
         >
           {isExpanded ? 'Show Less' : 'Show More'}
         </button>
@@ -2461,7 +2498,7 @@ const FeatureHighlightCard = ({ type, feature, onHover }) => {
       <div className={railClass} />
       <span className={labelClass}>{isBest ? 'Best Feature' : 'Primary Flaw'}</span>
       <h4 className={titleClass}>{feature.title}</h4>
-      <p className="text-zinc-400 text-xs font-mono leading-relaxed">{feature.description}</p>
+      <p className="text-zinc-400 text-xs font-sans leading-relaxed">{feature.description}</p>
     </div>
   );
 };
@@ -2776,7 +2813,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a0a0b]/60 backdrop-blur-[6px] rounded-3xl border border-zinc-800/50 group transition-all select-none">
       <Lock size={32} className="text-yellow-500 mb-3 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" />
       <span className="text-white font-black italic uppercase tracking-widest text-lg mb-1 drop-shadow-md">PRO FEATURE</span>
-      <span className="text-zinc-300 font-mono text-[10px] uppercase tracking-widest mb-6">{title} Requires Ultra Model</span>
+      <span className="text-zinc-300 font-sans text-[10px] uppercase tracking-widest mb-6">{title} requires a premium model</span>
       <button 
         onClick={() => setCurrentPage('plans')}
         className="px-6 py-2 bg-gradient-to-r from-yellow-600 to-yellow-500 text-black font-bold uppercase tracking-widest text-xs rounded-full hover:scale-105 transition-transform shadow-[0_0_15px_rgba(234,179,8,0.4)]"
@@ -2937,9 +2974,9 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
                   </div>
                 </div>
                 <div className="min-w-0">
-                  <div className="text-zinc-500 font-mono text-[7px] uppercase tracking-[0.35em] mb-1">Subject</div>
+                  <div className="text-zinc-500 font-sans text-[7px] uppercase tracking-[0.35em] mb-1">Subject</div>
                   <div className="text-xs md:text-sm font-black italic text-zinc-300 uppercase tracking-tight truncate">User_8410</div>
-                  <div className="text-zinc-400 text-[10px] uppercase font-mono tracking-widest mt-1">Sex: {dashboardData?.sex || 'Unknown'}</div>
+                  <div className="text-zinc-400 text-[10px] uppercase font-sans tracking-widest mt-1">Sex: {dashboardData?.sex || 'Unknown'}</div>
                 </div>
               </div>
             </div>
@@ -2947,8 +2984,8 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
             {/* Face Analysis History Row */}
             <div className="flex flex-col gap-3">
               <div className="flex flex-col">
-                <h3 className="text-base md:text-lg font-black uppercase tracking-[0.28em] text-[#e4e4e7] font-mono">FACE ANALYSIS 1</h3>
-                <span className="text-zinc-500 font-mono text-xs tracking-widest">2026/March/5</span>
+                <h3 className="text-base md:text-lg font-black uppercase tracking-[0.28em] text-[#e4e4e7] font-sans">FACE ANALYSIS 1</h3>
+                <span className="text-zinc-500 font-sans text-xs tracking-widest">2026/March/5</span>
               </div>
               
               <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
@@ -3004,7 +3041,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="col-span-1 lg:col-span-2 bg-zinc-900/30 p-8 rounded-3xl border border-zinc-800 flex flex-col">
-                  <h3 className="text-zinc-400 font-mono text-xs uppercase tracking-widest mb-6"><Target size={14} className="inline mr-2" /> Structure</h3>
+                  <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6"><Target size={14} className="inline mr-2" /> Structure</h3>
                   <div className="flex flex-col md:flex-row gap-8 items-center justify-center">
                     <StructureMap 
                       activeImageUrl={activeImageUrl} 
@@ -3018,12 +3055,12 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
                            <div onClick={() => setActiveProfileView('front')} className={`relative w-24 h-16 rounded-xl overflow-hidden cursor-pointer border-2 transition-all group ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_12px_rgba(34,211,238,0.3)]' : 'border-zinc-800 opacity-50 grayscale hover:opacity-80 hover:grayscale-0'}`}>
                              <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" alt="Front" />
                              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                             <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-mono uppercase tracking-widest font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
+                             <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
                            </div>
                            <div onClick={() => setActiveProfileView('side')} className={`relative w-24 h-16 rounded-xl overflow-hidden cursor-pointer border-2 transition-all group ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_12px_rgba(34,211,238,0.3)]' : 'border-zinc-800 opacity-50 grayscale hover:opacity-80 hover:grayscale-0'}`}>
                              <img src={dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" style={{objectPosition: 'top'}} alt="Side" />
                              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                             <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-mono uppercase tracking-widest font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
+                             <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
                            </div>
                          </div>
                        )}
@@ -3036,7 +3073,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
                 <div className="col-span-1 flex flex-col gap-4">
                   <div className="bg-zinc-900/30 px-6 py-6 rounded-3xl border border-zinc-800 relative overflow-hidden text-center">
                     <div className="relative z-10 flex flex-col items-center justify-center">
-                      <span className="font-mono text-[10px] uppercase tracking-[0.45em] mb-3 text-green-300/80">Final Rating</span>
+                      <span className="font-sans text-[10px] uppercase tracking-[0.45em] mb-3 text-green-300/80">Final Rating</span>
                       <div className="relative leading-none">
                         <>
                           <span className="absolute inset-0 block text-[3.5rem] font-black italic tracking-tighter text-green-400/90 blur-[28px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none">
@@ -3064,7 +3101,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
                 <div className="col-span-1 flex flex-col gap-4">
                   <div className="bg-zinc-900/30 px-6 py-6 rounded-3xl border border-zinc-800 relative overflow-hidden text-center">
                     <div className="relative z-10 flex flex-col items-center justify-center">
-                      <span className="font-mono text-[10px] uppercase tracking-[0.45em] mb-3 text-cyan-400/80">Final Rating</span>
+                      <span className="font-sans text-[10px] uppercase tracking-[0.45em] mb-3 text-cyan-400/80">Final Rating</span>
                       <div className="relative leading-none">
                         <span className="block text-[3.5rem] font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-500">
                           {displayedFinalRating}
@@ -3080,7 +3117,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
                 </div>
 
                 <div className="col-span-1 lg:col-span-2 bg-zinc-900/30 p-8 rounded-3xl border border-zinc-800 flex flex-col">
-                  <h3 className="text-zinc-400 font-mono text-xs uppercase tracking-widest mb-6"><Target size={14} className="inline mr-2" /> Structure</h3>
+                  <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6"><Target size={14} className="inline mr-2" /> Structure</h3>
                   <div className="flex flex-col md:flex-row gap-8 items-center justify-center">
                     <StructureMap 
                       activeImageUrl={activeImageUrl} 
@@ -3093,12 +3130,12 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
                          <div onClick={() => setActiveProfileView('front')} className={`relative w-24 h-16 rounded-xl overflow-hidden cursor-pointer border-2 transition-all group ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_12px_rgba(34,211,238,0.3)]' : 'border-zinc-800 opacity-50 grayscale hover:opacity-80 hover:grayscale-0'}`}>
                            <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" alt="Front" />
                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-mono uppercase tracking-widest font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
+                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
                          </div>
                          <div onClick={() => setActiveProfileView('side')} className={`relative w-24 h-16 rounded-xl overflow-hidden cursor-pointer border-2 transition-all group ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_12px_rgba(34,211,238,0.3)]' : 'border-zinc-800 opacity-50 grayscale hover:opacity-80 hover:grayscale-0'}`}>
                            <img src={dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" style={{objectPosition: 'top'}} alt="Side" />
                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-mono uppercase tracking-widest font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
+                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
                          </div>
                        </div>
                        <FeatureHighlightCard type="best" feature={activeBestFeatures?.[0]} onHover={setActiveHover} />
@@ -3114,7 +3151,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
           <div className="relative bg-zinc-900/30 p-8 rounded-3xl border border-zinc-800 flex flex-col">
             {isFreePlan && renderBlurredOverlay("Detailed Ratios")}
             <div className={`flex flex-col ${isFreePlan ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
-              <h3 className="text-zinc-400 font-mono text-sm uppercase tracking-widest mb-10"><Activity size={16} className="inline mr-2" /> Detailed Morphometric Ratios</h3>
+              <h3 className="text-zinc-400 font-sans text-sm uppercase tracking-widest mb-10"><Activity size={16} className="inline mr-2" /> Detailed Morphometric Ratios</h3>
               <div className="flex flex-col gap-10">
               {Object.entries(
                 metricData.reduce((acc, m) => {
@@ -3163,8 +3200,8 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
                       <div className="bg-zinc-800 flex items-center justify-center px-4 shrink-0"><span className="text-2xl font-black text-zinc-600 group-hover:text-cyan-400 transition-colors">{String(p.id || i+1).padStart(2, '0')}</span></div>
                       <div className="p-4 flex flex-col gap-1 min-w-0">
                         <span className="text-white font-bold uppercase text-sm tracking-widest truncate">{p.name}</span>
-                        <span className="text-zinc-500 text-xs font-mono line-clamp-2">{p.description}</span>
-                        <span className={`text-[9px] font-mono uppercase tracking-widest mt-1 ${impactColor}`}>{p.impact}</span>
+                        <span className="text-zinc-500 text-xs font-sans line-clamp-2">{p.description}</span>
+                        <span className={`text-[9px] font-sans uppercase tracking-widest mt-1 ${impactColor}`}>{p.impact}</span>
                       </div>
                       <div className="flex items-center pr-4 shrink-0"><ChevronRight size={16} className="text-zinc-700 group-hover:text-cyan-400 transition-colors" /></div>
                     </div>
@@ -3172,12 +3209,12 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
                 })}
               </div>
               {dashboardData?.protocols && dashboardData.protocols.length > 6 && (
-                <button onClick={() => setCurrentPage('protocol-all')} className="mt-4 text-cyan-400 font-mono text-[10px] uppercase tracking-widest hover:underline self-center">
+                <button onClick={() => setCurrentPage('protocol-all')} className="mt-4 text-cyan-400 font-sans text-[10px] uppercase tracking-widest hover:underline self-center">
                   View all {dashboardData.protocols.length} protocols →  
                 </button>
               )}
               {!dashboardData?.protocols?.length && !isFreePlan && (
-                <p className="text-zinc-600 font-mono text-[10px] uppercase tracking-widest mt-4 text-center">Run an Ultra analysis to get personalized protocols based on your weak points</p>
+                <p className="text-zinc-600 font-sans text-[10px] uppercase tracking-widest mt-4 text-center">Run a premium analysis to get personalized protocols based on your weak points</p>
               )}
             </div>
           </div>
@@ -3201,8 +3238,8 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
                         <div className="absolute inset-0 border-2 border-cyan-500/30 rounded-full" />
                         <div className="absolute inset-0 border-2 border-transparent border-t-cyan-400 rounded-full animate-spin" />
                       </div>
-                      <span className="text-cyan-400 font-mono text-[10px] uppercase tracking-widest animate-pulse">Generating...</span>
-                      <span className="text-zinc-500 font-mono text-[8px] uppercase tracking-widest">AI Enhancement in Progress</span>
+                      <span className="text-cyan-400 font-sans text-[10px] uppercase tracking-widest animate-pulse">Generating...</span>
+                      <span className="text-zinc-500 font-sans text-[8px] uppercase tracking-widest">AI Enhancement in Progress</span>
                     </div>
                   </>
                 ) : (
@@ -3217,7 +3254,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
 
               <div className="flex flex-col flex-1 text-center md:text-left z-10">
                 <h3 className="text-3xl font-black italic text-white uppercase tracking-tighter mb-2">Analyze Potential</h3>
-                <p className="text-zinc-400 font-mono text-xs leading-relaxed mb-8 max-w-sm mx-auto md:mx-0">Unlock an AI-generated rendering of your exact facial morphology if you perfectly executed the actionable protocol.</p>
+                <p className="text-zinc-400 font-sans text-xs leading-relaxed mb-8 max-w-sm mx-auto md:mx-0">Unlock an AI-generated rendering of your exact facial morphology if you perfectly executed the actionable protocol.</p>
                 
                 {!isUnlocked ? (
                   <div className="flex flex-col gap-3 w-full md:w-auto">
@@ -3235,7 +3272,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
                     {unlockError && (
                       <div className="flex items-center gap-2 bg-red-950/40 border border-red-500/30 rounded-lg px-4 py-2.5">
                         <AlertCircle size={14} className="text-red-400 shrink-0" />
-                        <span className="text-red-400 font-mono text-[10px] uppercase tracking-wider">{unlockError}</span>
+                        <span className="text-red-400 font-sans text-[10px] uppercase tracking-wider">{unlockError}</span>
                       </div>
                     )}
                   </div>
@@ -3244,7 +3281,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
                     <div className="bg-cyan-900/20 border border-cyan-500/30 rounded-xl p-4 inline-block self-center md:self-start shadow-[0_0_20px_rgba(34,211,238,0.1)] backdrop-blur-md">
                       <span className="text-cyan-400 font-black italic uppercase text-2xl drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]">9.4 TIER UNLOCKED</span>
                     </div>
-                    <p className="text-[10px] text-cyan-500/70 font-mono uppercase tracking-widest mt-2">{'>'} PROJECTION COMPLETE</p>
+                    <p className="text-[10px] text-cyan-500/70 font-sans uppercase tracking-widest mt-2">{'>'} PROJECTION COMPLETE</p>
                   </div>
                 )}
               </div>
@@ -3277,7 +3314,7 @@ const MogBattlePage = ({ dashboardData }) => {
       <FadeUp>
         <div className="text-center mb-12 relative z-10">
           <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter bg-gradient-to-b from-cyan-400 to-blue-600 bg-clip-text text-transparent flex justify-center items-center gap-4"><Swords size={48} className="text-cyan-500" /> MOG BATTLES</h1>
-          <p className="text-zinc-400 font-mono text-sm shadow-black drop-shadow uppercase tracking-widest mt-2 block">Head-to-head aesthetic breakdown</p>
+          <p className="text-zinc-400 font-sans text-sm shadow-black drop-shadow uppercase tracking-widest mt-2 block">Head-to-head aesthetic breakdown</p>
         </div>
       </FadeUp>
 
@@ -3334,7 +3371,7 @@ const MogBattlePage = ({ dashboardData }) => {
         {/* Stats breakdown */}
         <div className={`w-full max-w-3xl mt-16 transition-all duration-1000 relative z-10 ${battleState === 'results' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
           <div className="bg-zinc-900/30 border border-zinc-800 rounded-2xl p-6 md:p-10 flex flex-col gap-6 backdrop-blur-md">
-            <h3 className="text-center text-zinc-400 font-mono text-xs uppercase tracking-widest border-b border-zinc-800 pb-4">Metric Breakdown</h3>
+            <h3 className="text-center text-zinc-400 font-sans text-xs uppercase tracking-widest border-b border-zinc-800 pb-4">Metric Breakdown</h3>
             
             {/* Row 1 */}
             <div className="flex items-center gap-4 w-full">
@@ -3378,7 +3415,7 @@ const MogBattlePage = ({ dashboardData }) => {
           </div>
           
           <div className="flex justify-center mt-8">
-            <button onClick={() => setBattleState('idle')} className="text-zinc-500 hover:text-white uppercase font-mono text-xs tracking-widest transition-colors cursor-pointer border border-zinc-800 px-6 py-2 rounded-full hover:border-zinc-500">Reset Battle</button>
+            <button onClick={() => setBattleState('idle')} className="text-zinc-500 hover:text-white uppercase font-sans text-xs tracking-widest transition-colors cursor-pointer border border-zinc-800 px-6 py-2 rounded-full hover:border-zinc-500">Reset Battle</button>
           </div>
         </div>
 
@@ -3432,12 +3469,13 @@ const PlansPage = ({ setCurrentPage, user }) => {
     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-yellow-500/5 rounded-full blur-[150px] pointer-events-none" />
 
     <FadeUp>
-      <div className="text-center mb-14 max-w-2xl relative z-10">
-        <p className="text-yellow-500/80 font-mono text-[10px] uppercase tracking-[0.4em] mb-4">Pricing</p>
+      <div className="text-center mb-14 max-w-2xl relative z-10 flex flex-col items-center">
+        <MogCheckLogoMark size={72} className="w-16 h-16 sm:w-20 sm:h-20 mb-6 opacity-95" />
+        <p className="text-yellow-500/80 font-sans text-[10px] uppercase tracking-[0.4em] mb-4">Pricing</p>
         <h1 className="text-5xl sm:text-7xl font-black uppercase tracking-tighter mb-5 italic">
           Choose Your <span className="text-yellow-500 drop-shadow-[0_0_20px_rgba(234,179,8,0.4)]">Path</span>
         </h1>
-        <p className="text-zinc-500 font-mono text-xs leading-relaxed uppercase tracking-widest">
+        <p className="text-zinc-500 font-sans text-xs leading-relaxed uppercase tracking-widest">
           Start free, try a single scan, or go all-in with Pro
         </p>
       </div>
@@ -3449,25 +3487,25 @@ const PlansPage = ({ setCurrentPage, user }) => {
       <FadeUp delay={150}>
         <div className="h-full bg-zinc-900/40 border border-zinc-800 rounded-3xl p-8 md:p-10 flex flex-col hover:border-zinc-700 transition-colors">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center">
-              <Eye size={18} className="text-zinc-400" />
+            <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center p-1.5">
+              <MogCheckLogoIcon size={28} className="opacity-95" />
             </div>
             <div>
               <h3 className="text-xl font-black uppercase italic tracking-tighter text-zinc-200">Free</h3>
-              <p className="text-zinc-600 font-mono text-[9px] uppercase tracking-widest">Basic tier</p>
+              <p className="text-zinc-600 font-sans text-[9px] uppercase tracking-widest">Basic tier</p>
             </div>
           </div>
 
           <div className="flex items-baseline gap-1 mb-1">
             <span className="text-5xl font-black text-white">$0</span>
-            <span className="text-sm text-zinc-600 font-mono tracking-widest">/forever</span>
+            <span className="text-sm text-zinc-600 font-sans tracking-widest">/forever</span>
           </div>
-          <p className="text-zinc-500 font-mono text-[10px] uppercase tracking-widest mb-8">No credit card required</p>
+          <p className="text-zinc-400 font-sans text-xs uppercase tracking-wide mb-8">No credit card required</p>
 
           <div className="w-full h-px bg-zinc-800 mb-8" />
 
-          <p className="text-zinc-500 font-mono text-[10px] uppercase tracking-widest mb-5">What you get</p>
-          <ul className="flex flex-col gap-4 text-sm font-mono text-zinc-400 w-full mb-10">
+          <p className="text-zinc-500 font-sans text-[10px] uppercase tracking-widest mb-5">What you get</p>
+          <ul className="flex flex-col gap-4 text-sm font-sans text-zinc-400 w-full mb-10">
             <li className="flex items-start gap-3"><Check size={15} className="text-zinc-500 mt-0.5 shrink-0" /> <span>Basic appearance overview & general rating</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-zinc-500 mt-0.5 shrink-0" /> <span>Structural symmetry snapshot</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-zinc-500 mt-0.5 shrink-0" /> <span>1 scan per day</span></li>
@@ -3489,25 +3527,25 @@ const PlansPage = ({ setCurrentPage, user }) => {
           <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-cyan-500 text-black px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Best Value</div>
 
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center">
-              <Zap size={18} className="text-cyan-400" />
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center p-1.5">
+              <MogCheckLogoIcon size={28} className="opacity-95 [filter:drop-shadow(0_0_8px_rgba(34,211,238,0.35))]" />
             </div>
             <div>
               <h3 className="text-xl font-black uppercase italic tracking-tighter text-cyan-400">Single Scan</h3>
-              <p className="text-cyan-400/40 font-mono text-[9px] uppercase tracking-widest">One-time</p>
+              <p className="text-cyan-400/40 font-sans text-[9px] uppercase tracking-widest">One-time</p>
             </div>
           </div>
 
           <div className="flex items-baseline gap-1 mb-1">
             <span className="text-5xl font-black text-white">$8</span>
-            <span className="text-sm text-zinc-600 font-mono tracking-widest">/one-time</span>
+            <span className="text-sm text-zinc-600 font-sans tracking-widest">/one-time</span>
           </div>
-          <p className="text-zinc-500 font-mono text-[10px] uppercase tracking-widest mb-8">Pay once, no subscription</p>
+          <p className="text-zinc-400 font-sans text-xs uppercase tracking-wide mb-8">Pay once, no subscription</p>
 
           <div className="w-full h-px bg-cyan-500/15 mb-8" />
 
-          <p className="text-cyan-400/60 font-mono text-[10px] uppercase tracking-widest mb-5">One full analysis includes</p>
-          <ul className="flex flex-col gap-4 text-sm font-mono text-zinc-300 w-full mb-10">
+          <p className="text-cyan-400/60 font-sans text-[10px] uppercase tracking-widest mb-5">One full analysis includes</p>
+          <ul className="flex flex-col gap-4 text-sm font-sans text-zinc-300 w-full mb-10">
             <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>1 full-detail AI facial analysis with 40+ measurements</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>Exact final rating with detailed ratio breakdown</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>Customized personal improvement protocols</span></li>
@@ -3522,31 +3560,31 @@ const PlansPage = ({ setCurrentPage, user }) => {
         </div>
       </FadeUp>
 
-      {/* --- Ascend Pro --- */}
+      {/* --- MogCheck Pro --- */}
       <FadeUp delay={450}>
         <div className="h-full bg-gradient-to-b from-[#1a1600] via-zinc-900/80 to-[#0c0d0e] border border-yellow-500/40 rounded-3xl p-8 md:p-10 flex flex-col relative shadow-[0_0_80px_rgba(234,179,8,0.08)] hover:shadow-[0_0_80px_rgba(234,179,8,0.15)] transition-shadow">
           <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-600 to-yellow-400 text-black px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Unlimited</div>
 
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center">
-              <Crown size={18} className="text-yellow-500" />
+            <div className="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center p-1.5">
+              <MogCheckLogoIcon size={28} className="opacity-95 [filter:drop-shadow(0_0_8px_rgba(234,179,8,0.4))]" />
             </div>
             <div>
-              <h3 className="text-xl font-black uppercase italic tracking-tighter text-yellow-500">Ascend Pro</h3>
-              <p className="text-yellow-500/40 font-mono text-[9px] uppercase tracking-widest">Full access</p>
+              <h3 className="text-xl font-black uppercase italic tracking-tighter text-yellow-500">MogCheck Pro</h3>
+              <p className="text-yellow-500/40 font-sans text-[9px] uppercase tracking-widest">Full access</p>
             </div>
           </div>
 
           <div className="flex items-baseline gap-1 mb-1">
             <span className="text-5xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">$23</span>
-            <span className="text-sm text-zinc-500 font-mono tracking-widest">/mo</span>
+            <span className="text-sm text-zinc-500 font-sans tracking-widest">/mo</span>
           </div>
-          <p className="text-zinc-500 font-mono text-[10px] uppercase tracking-widest mb-8">Cancel anytime, no commitment</p>
+          <p className="text-zinc-400 font-sans text-xs uppercase tracking-wide mb-8">Cancel anytime, no commitment</p>
 
           <div className="w-full h-px bg-yellow-500/15 mb-8" />
 
-          <p className="text-yellow-500/60 font-mono text-[10px] uppercase tracking-widest mb-5">Everything in Single Scan, plus</p>
-          <ul className="flex flex-col gap-4 text-sm font-mono text-zinc-300 w-full mb-10">
+          <p className="text-yellow-500/60 font-sans text-[10px] uppercase tracking-widest mb-5">Everything in Single Scan, plus</p>
+          <ul className="flex flex-col gap-4 text-sm font-sans text-zinc-300 w-full mb-10">
             <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Up to 2 full scans per day</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>AI potential analysis — see your projected best self</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Full-detail AI facial analysis with 40+ biometric measurements</span></li>
@@ -3565,7 +3603,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
 
     <FadeUp delay={600}>
       <div className="mt-20 w-full max-w-4xl relative z-10">
-        <p className="text-center text-zinc-600 font-mono text-[10px] uppercase tracking-widest mb-10">Why upgrade?</p>
+        <p className="text-center text-zinc-600 font-sans text-[10px] uppercase tracking-widest mb-10">Why upgrade?</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
             { icon: <Target size={18} />, title: 'Precision', desc: '40+ facial measurements using advanced AI biometric models' },
@@ -3575,7 +3613,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
             <div key={i} className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 text-center hover:border-zinc-700 transition-colors">
               <div className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center mx-auto mb-4 text-zinc-400">{item.icon}</div>
               <h4 className="text-white font-bold uppercase text-xs tracking-widest mb-2">{item.title}</h4>
-              <p className="text-zinc-500 font-mono text-[10px] leading-relaxed">{item.desc}</p>
+              <p className="text-zinc-500 font-sans text-[10px] leading-relaxed">{item.desc}</p>
             </div>
           ))}
         </div>
@@ -3583,7 +3621,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
     </FadeUp>
 
     <FadeUp delay={700}>
-      <p className="mt-16 text-zinc-600 font-mono text-[10px] uppercase tracking-widest text-center relative z-10">
+      <p className="mt-16 text-zinc-600 font-sans text-[10px] uppercase tracking-widest text-center relative z-10">
         Secure payment via Lemon Squeezy · Cancel anytime · Instant access
       </p>
     </FadeUp>
@@ -3645,7 +3683,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     return ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(0)}s`;
   };
 
-  const modelLabel = (m) => ({ '1': 'Ultra', '2': 'Ultra+', '3': 'Free' }[m] || m);
+  const modelLabel = (m) => ({ '1': 'Premium', '2': 'Fun mode', '3': 'Free' }[m] || m);
 
   if (!authenticated) {
     return (
@@ -3653,12 +3691,12 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
         <div className="w-full max-w-sm">
           <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-8 backdrop-blur-sm">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-                <Shield size={20} className="text-cyan-400" />
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center p-1.5">
+                <MogCheckLogoIcon size={30} className="opacity-95" />
               </div>
               <div>
                 <h2 className="text-lg font-bold tracking-tight">Admin Access</h2>
-                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">Restricted Area</p>
+                <p className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest">Restricted Area</p>
               </div>
             </div>
             <form onSubmit={handleLogin}>
@@ -3668,18 +3706,18 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="Enter admin password"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/50 transition-colors pr-10"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm font-sans text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/50 transition-colors pr-10"
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors">
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              {error && <p className="text-red-400 text-xs font-mono mb-3">{error}</p>}
-              <button type="submit" disabled={!password.trim()} className="w-full py-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-mono text-xs uppercase tracking-widest hover:bg-cyan-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+              {error && <p className="text-red-400 text-xs font-sans mb-3">{error}</p>}
+              <button type="submit" disabled={!password.trim()} className="w-full py-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-sans text-xs uppercase tracking-widest hover:bg-cyan-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
                 Authenticate
               </button>
             </form>
-            <button onClick={() => setCurrentPage('home')} className="w-full mt-3 py-2 text-zinc-600 text-[10px] font-mono uppercase tracking-widest hover:text-zinc-400 transition-colors">
+            <button onClick={() => setCurrentPage('home')} className="w-full mt-3 py-2 text-zinc-600 text-[10px] font-sans uppercase tracking-widest hover:text-zinc-400 transition-colors">
               ← Back to site
             </button>
           </div>
@@ -3696,27 +3734,27 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-            <Shield size={20} className="text-cyan-400" />
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center p-1.5">
+            <MogCheckLogoIcon size={30} className="opacity-95" />
           </div>
           <div>
             <h1 className="text-xl font-black tracking-tight">ADMIN PANEL</h1>
-            <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
+            <p className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest">
               {lastRefresh ? `Last refresh: ${lastRefresh.toLocaleTimeString()}` : 'Loading...'}
             </p>
           </div>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => fetchStats(storedPw.current)} disabled={loading} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs font-mono uppercase tracking-widest hover:text-cyan-400 hover:border-cyan-500/30 transition-all disabled:opacity-40">
+          <button onClick={() => fetchStats(storedPw.current)} disabled={loading} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs font-sans uppercase tracking-widest hover:text-cyan-400 hover:border-cyan-500/30 transition-all disabled:opacity-40">
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
           </button>
-          <button onClick={() => { setAuthenticated(false); setStats(null); setPassword(''); setCurrentPage('home'); }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs font-mono uppercase tracking-widest hover:text-red-400 hover:border-red-500/30 transition-all">
+          <button onClick={() => { setAuthenticated(false); setStats(null); setPassword(''); setCurrentPage('home'); }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs font-sans uppercase tracking-widest hover:text-red-400 hover:border-red-500/30 transition-all">
             <LogOut size={13} /> Exit
           </button>
         </div>
       </div>
 
-      {error && <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono">{error}</div>}
+      {error && <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-sans">{error}</div>}
 
       {stats && (
         <>
@@ -3732,8 +3770,8 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                 <div className={`absolute top-0 right-0 w-20 h-20 rounded-full bg-${card.color}-500/5 -translate-y-1/2 translate-x-1/2`} />
                 <card.icon size={16} className={`text-${card.color}-400 mb-3`} />
                 <p className="text-2xl font-black tracking-tight">{card.value}</p>
-                <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mt-1">{card.label}</p>
-                <p className="text-[9px] font-mono text-zinc-600 mt-0.5">{card.sub}</p>
+                <p className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest mt-1">{card.label}</p>
+                <p className="text-[9px] font-sans text-zinc-600 mt-0.5">{card.sub}</p>
               </div>
             ))}
           </div>
@@ -3743,19 +3781,19 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
             <div className="lg:col-span-2 bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Key size={14} className="text-cyan-400" />
-                <h3 className="font-mono text-xs uppercase tracking-widest text-zinc-300">Gemini API Key Health</h3>
+                <h3 className="font-sans text-xs uppercase tracking-widest text-zinc-300">Gemini API Key Health</h3>
               </div>
               <div className="space-y-3">
                 {(stats.keyHealth || []).map((k) => (
                   <div key={k.key} className="flex items-center gap-3">
-                    <span className="text-[10px] font-mono text-zinc-500 w-12 shrink-0">KEY {k.key}</span>
+                    <span className="text-[10px] font-sans text-zinc-500 w-12 shrink-0">KEY {k.key}</span>
                     <div className="flex-grow h-2.5 bg-zinc-950 rounded-full overflow-hidden relative">
                       <div
                         className={`h-full rounded-full transition-all duration-700 ${k.exhausted ? 'bg-gradient-to-r from-red-600 to-red-400' : 'bg-gradient-to-r from-cyan-600 to-cyan-400'}`}
                         style={{ width: `${k.exhausted ? 100 : Math.min(100, (k.attempts / 250) * 100)}%` }}
                       />
                     </div>
-                    <span className="text-[10px] font-mono text-zinc-500 w-16 text-right shrink-0">{k.attempts}/250</span>
+                    <span className="text-[10px] font-sans text-zinc-500 w-16 text-right shrink-0">{k.attempts}/250</span>
                     <span className="w-5 shrink-0 text-center">
                       {k.exhausted
                         ? <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
@@ -3765,14 +3803,14 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                   </div>
                 ))}
               </div>
-              <p className="text-[9px] font-mono text-zinc-600 mt-3">Quota resets daily. Attempts tracked from Python stdout during this server session.</p>
+              <p className="text-[9px] font-sans text-zinc-600 mt-3">Quota resets daily. Attempts tracked from Python stdout during this server session.</p>
             </div>
 
             {/* Model Breakdown */}
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Zap size={14} className="text-violet-400" />
-                <h3 className="font-mono text-xs uppercase tracking-widest text-zinc-300">Model Usage</h3>
+                <h3 className="font-sans text-xs uppercase tracking-widest text-zinc-300">Model Usage</h3>
               </div>
               {(() => {
                 const total = (stats.modelBreakdown?.ultra || 0) + (stats.modelBreakdown?.free || 0);
@@ -3782,8 +3820,8 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                   <div className="space-y-4">
                     <div>
                       <div className="flex justify-between mb-1.5">
-                        <span className="text-xs font-mono text-cyan-400 uppercase tracking-widest">Ultra</span>
-                        <span className="text-xs font-mono text-zinc-400">{stats.modelBreakdown?.ultra || 0} ({uPct}%)</span>
+                        <span className="text-xs font-sans text-cyan-400 uppercase tracking-widest">Premium</span>
+                        <span className="text-xs font-sans text-zinc-400">{stats.modelBreakdown?.ultra || 0} ({uPct}%)</span>
                       </div>
                       <div className="h-2.5 bg-zinc-950 rounded-full overflow-hidden">
                         <div className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full transition-all" style={{ width: `${uPct}%` }} />
@@ -3791,8 +3829,8 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                     </div>
                     <div>
                       <div className="flex justify-between mb-1.5">
-                        <span className="text-xs font-mono text-emerald-400 uppercase tracking-widest">Free</span>
-                        <span className="text-xs font-mono text-zinc-400">{stats.modelBreakdown?.free || 0} ({fPct}%)</span>
+                        <span className="text-xs font-sans text-emerald-400 uppercase tracking-widest">Free</span>
+                        <span className="text-xs font-sans text-zinc-400">{stats.modelBreakdown?.free || 0} ({fPct}%)</span>
                       </div>
                       <div className="h-2.5 bg-zinc-950 rounded-full overflow-hidden">
                         <div className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full transition-all" style={{ width: `${fPct}%` }} />
@@ -3800,7 +3838,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                     </div>
                     <div className="text-center pt-2 border-t border-zinc-800/50">
                       <p className="text-3xl font-black">{total}</p>
-                      <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">Total analyses</p>
+                      <p className="text-[9px] font-sans text-zinc-500 uppercase tracking-widest">Total analyses</p>
                     </div>
                   </div>
                 );
@@ -3812,7 +3850,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 mb-6">
             <div className="flex items-center gap-2 mb-4">
               <Activity size={14} className="text-emerald-400" />
-              <h3 className="font-mono text-xs uppercase tracking-widest text-zinc-300">Today's Activity</h3>
+              <h3 className="font-sans text-xs uppercase tracking-widest text-zinc-300">Today's Activity</h3>
             </div>
             <div className="flex items-end gap-[3px] h-24">
               {(stats.hourlyUsage || Array(24).fill(0)).map((count, i) => {
@@ -3821,11 +3859,11 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
                     <div className="w-full rounded-t-sm transition-all duration-300 group-hover:opacity-80 relative" style={{ height: `${Math.max(h, 2)}%`, background: i === now ? 'linear-gradient(to top, #06b6d4, #22d3ee)' : count > 0 ? 'linear-gradient(to top, #27272a, #3f3f46)' : '#18181b' }}>
-                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-zinc-800 px-1.5 py-0.5 rounded text-[8px] font-mono text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-zinc-800 px-1.5 py-0.5 rounded text-[8px] font-sans text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                         {count} scan{count !== 1 ? 's' : ''} at {i}:00
                       </div>
                     </div>
-                    {i % 4 === 0 && <span className="text-[7px] font-mono text-zinc-600">{i}</span>}
+                    {i % 4 === 0 && <span className="text-[7px] font-sans text-zinc-600">{i}</span>}
                   </div>
                 );
               })}
@@ -3836,14 +3874,14 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-4">
               <Clock size={14} className="text-amber-400" />
-              <h3 className="font-mono text-xs uppercase tracking-widest text-zinc-300">Recent Analyses</h3>
-              <span className="ml-auto text-[9px] font-mono text-zinc-600">{stats.recentAnalyses?.length || 0} records</span>
+              <h3 className="font-sans text-xs uppercase tracking-widest text-zinc-300">Recent Analyses</h3>
+              <span className="ml-auto text-[9px] font-sans text-zinc-600">{stats.recentAnalyses?.length || 0} records</span>
             </div>
             {(!stats.recentAnalyses || stats.recentAnalyses.length === 0) ? (
               <div className="text-center py-12">
                 <BarChart3 size={32} className="text-zinc-700 mx-auto mb-3" />
-                <p className="text-zinc-600 text-xs font-mono uppercase tracking-widest">No analyses recorded yet</p>
-                <p className="text-zinc-700 text-[10px] font-mono mt-1">Run a scan to see data here</p>
+                <p className="text-zinc-600 text-xs font-sans uppercase tracking-widest">No analyses recorded yet</p>
+                <p className="text-zinc-700 text-[10px] font-sans mt-1">Run a scan to see data here</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -3851,33 +3889,33 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                   <thead>
                     <tr className="border-b border-zinc-800/50">
                       {['Time', 'Model', 'Status', 'Rating', 'Duration', 'Details'].map(h => (
-                        <th key={h} className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest pb-2 pr-4">{h}</th>
+                        <th key={h} className="text-[9px] font-sans text-zinc-500 uppercase tracking-widest pb-2 pr-4">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {stats.recentAnalyses.map((a, i) => (
                       <tr key={a.id || i} className="border-b border-zinc-800/30 hover:bg-zinc-800/20 transition-colors">
-                        <td className="py-2.5 pr-4 text-[11px] font-mono text-zinc-400">
+                        <td className="py-2.5 pr-4 text-[11px] font-sans text-zinc-400">
                           {new Date(a.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </td>
                         <td className="py-2.5 pr-4">
-                          <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${['1','2'].includes(a.model) ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}>
+                          <span className={`text-[10px] font-sans px-2 py-0.5 rounded-full ${['1','2'].includes(a.model) ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}>
                             {modelLabel(a.model)}
                           </span>
                         </td>
                         <td className="py-2.5 pr-4">
                           {a.success
-                            ? <span className="inline-flex items-center gap-1 text-emerald-400 text-[10px] font-mono"><Check size={10} /> OK</span>
-                            : <span className="inline-flex items-center gap-1 text-red-400 text-[10px] font-mono"><X size={10} /> FAIL</span>
+                            ? <span className="inline-flex items-center gap-1 text-emerald-400 text-[10px] font-sans"><Check size={10} /> OK</span>
+                            : <span className="inline-flex items-center gap-1 text-red-400 text-[10px] font-sans"><X size={10} /> FAIL</span>
                           }
                         </td>
-                        <td className="py-2.5 pr-4 text-[11px] font-mono text-zinc-300">
+                        <td className="py-2.5 pr-4 text-[11px] font-sans text-zinc-300">
                           {a.rating != null ? `${a.rating}/100` : '—'}
                           {a.sideRating != null && <span className="text-zinc-600 ml-1">| {a.sideRating}</span>}
                         </td>
-                        <td className="py-2.5 pr-4 text-[11px] font-mono text-zinc-400">{fmtDuration(a.durationMs)}</td>
-                        <td className="py-2.5 text-[10px] font-mono text-zinc-600 max-w-[200px] truncate">{a.error || '—'}</td>
+                        <td className="py-2.5 pr-4 text-[11px] font-sans text-zinc-400">{fmtDuration(a.durationMs)}</td>
+                        <td className="py-2.5 text-[10px] font-sans text-zinc-600 max-w-[200px] truncate">{a.error || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -3939,7 +3977,7 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
 
   return (
     <div className="min-h-screen pt-28 pb-20 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
-      <button onClick={() => setCurrentPage('dashboard')} className="flex items-center gap-2 text-zinc-500 hover:text-cyan-400 font-mono text-[10px] uppercase tracking-widest mb-8 transition-colors">
+      <button onClick={() => setCurrentPage('dashboard')} className="flex items-center gap-2 text-zinc-500 hover:text-cyan-400 font-sans text-[10px] uppercase tracking-widest mb-8 transition-colors">
         <ChevronLeft size={14} /> Back to Dashboard
       </button>
 
@@ -3951,18 +3989,18 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
           </div>
           <div className="flex-grow">
             <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-tight text-white">{protocol?.name || 'Protocol'}</h1>
-            <p className="text-zinc-400 font-mono text-sm mt-2 leading-relaxed">{protocol?.description || ''}</p>
+            <p className="text-zinc-400 font-sans text-sm mt-2 leading-relaxed">{protocol?.description || ''}</p>
             <div className="flex items-center gap-3 mt-3">
-              <span className={`text-[9px] font-mono uppercase tracking-widest px-2.5 py-1 rounded-full border ${/highest/i.test(protocol?.impact) ? 'text-red-400 border-red-500/20 bg-red-500/10' : /high/i.test(protocol?.impact) ? 'text-orange-400 border-orange-500/20 bg-orange-500/10' : /medium/i.test(protocol?.impact) ? 'text-yellow-400 border-yellow-500/20 bg-yellow-500/10' : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10'}`}>{protocol?.impact || 'Medium Impact'}</span>
-              <span className="text-[9px] font-mono uppercase tracking-widest text-zinc-600 px-2.5 py-1 rounded-full border border-zinc-800 bg-zinc-900">{isSurgical ? 'Surgical' : 'Non-Surgical'}</span>
+              <span className={`text-[9px] font-sans uppercase tracking-widest px-2.5 py-1 rounded-full border ${/highest/i.test(protocol?.impact) ? 'text-red-400 border-red-500/20 bg-red-500/10' : /high/i.test(protocol?.impact) ? 'text-orange-400 border-orange-500/20 bg-orange-500/10' : /medium/i.test(protocol?.impact) ? 'text-yellow-400 border-yellow-500/20 bg-yellow-500/10' : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10'}`}>{protocol?.impact || 'Medium Impact'}</span>
+              <span className="text-[9px] font-sans uppercase tracking-widest text-zinc-600 px-2.5 py-1 rounded-full border border-zinc-800 bg-zinc-900">{isSurgical ? 'Surgical' : 'Non-Surgical'}</span>
             </div>
           </div>
         </div>
         {/* Overall progress */}
         <div className="mt-2">
           <div className="flex justify-between mb-1.5">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">Overall Progress</span>
-            <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400">{overallProgress}%</span>
+            <span className="text-[10px] font-sans uppercase tracking-widest text-zinc-500">Overall Progress</span>
+            <span className="text-[10px] font-sans uppercase tracking-widest text-cyan-400">{overallProgress}%</span>
           </div>
           <div className="h-2 bg-zinc-950 rounded-full overflow-hidden">
             <div className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full transition-all duration-500" style={{ width: `${overallProgress}%` }} />
@@ -3972,7 +4010,7 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
 
       {/* Interactive Timeline */}
       <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 mb-6">
-        <h2 className="font-mono text-xs uppercase tracking-widest text-zinc-300 mb-6 flex items-center gap-2">
+        <h2 className="font-sans text-xs uppercase tracking-widest text-zinc-300 mb-6 flex items-center gap-2">
           <Clock size={14} className="text-cyan-400" /> Implementation Timeline
         </h2>
 
@@ -3983,7 +4021,7 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
             const phaseCompleted = phase.tasks.filter((_, ti) => checkedTasks[`${i}-${ti}`]).length;
             const phasePct = phaseTasks > 0 ? Math.round((phaseCompleted / phaseTasks) * 100) : 0;
             return (
-              <button key={i} onClick={() => setActivePhase(i)} className={`shrink-0 px-4 py-3 rounded-xl border font-mono text-[10px] uppercase tracking-widest transition-all ${activePhase === i ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400' : 'bg-zinc-950/50 border-zinc-800 text-zinc-500 hover:border-zinc-700 hover:text-zinc-400'}`}>
+              <button key={i} onClick={() => setActivePhase(i)} className={`shrink-0 px-4 py-3 rounded-xl border font-sans text-[10px] uppercase tracking-widest transition-all ${activePhase === i ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400' : 'bg-zinc-950/50 border-zinc-800 text-zinc-500 hover:border-zinc-700 hover:text-zinc-400'}`}>
                 <span className="mr-2">{phase.icon}</span>
                 {phase.week}
                 {phaseCompleted > 0 && <span className="ml-2 text-[8px] text-cyan-500">{phasePct}%</span>}
@@ -3997,10 +4035,10 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-white font-bold uppercase text-sm tracking-widest">{timelinePhases[activePhase]?.title}</h3>
-              <span className="text-cyan-400 font-mono text-[10px] uppercase tracking-widest">{timelinePhases[activePhase]?.week}</span>
+              <span className="text-cyan-400 font-sans text-[10px] uppercase tracking-widest">{timelinePhases[activePhase]?.week}</span>
             </div>
             <div className="text-right">
-              <span className="text-zinc-500 font-mono text-[10px]">
+              <span className="text-zinc-500 font-sans text-[10px]">
                 {timelinePhases[activePhase]?.tasks.filter((_, ti) => checkedTasks[`${activePhase}-${ti}`]).length}/{timelinePhases[activePhase]?.tasks.length} tasks
               </span>
             </div>
@@ -4013,7 +4051,7 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
                   <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${isChecked ? 'border-cyan-500 bg-cyan-500' : 'border-zinc-700'}`}>
                     {isChecked && <Check size={12} className="text-black" />}
                   </div>
-                  <span className={`font-mono text-xs leading-relaxed transition-colors ${isChecked ? 'text-zinc-500 line-through' : 'text-zinc-300'}`}>{task}</span>
+                  <span className={`font-sans text-xs leading-relaxed transition-colors ${isChecked ? 'text-zinc-500 line-through' : 'text-zinc-300'}`}>{task}</span>
                 </div>
               );
             })}
@@ -4036,7 +4074,7 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
       {/* Scientific Research */}
       {protocol?.research && (
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 mb-6">
-          <h2 className="font-mono text-xs uppercase tracking-widest text-zinc-300 mb-6 flex items-center gap-2">
+          <h2 className="font-sans text-xs uppercase tracking-widest text-zinc-300 mb-6 flex items-center gap-2">
             <Activity size={14} className="text-violet-400" /> Scientific Research
           </h2>
           <div className="bg-zinc-950/50 border border-zinc-800/50 rounded-xl p-6">
@@ -4051,14 +4089,14 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
                   const scholarUrl = `https://scholar.google.com/scholar?q=${encodeURIComponent(query)}`;
                   return (
                     <a href={scholarUrl} target="_blank" rel="noopener noreferrer" className="group/link block">
-                      <p className="text-zinc-300 font-mono text-xs leading-relaxed group-hover/link:text-violet-300 transition-colors">
+                      <p className="text-zinc-300 font-sans text-xs leading-relaxed group-hover/link:text-violet-300 transition-colors">
                         {protocol.research}
                         <ArrowUpRight size={12} className="inline ml-1 opacity-0 group-hover/link:opacity-100 transition-opacity text-violet-400" />
                       </p>
                     </a>
                   );
                 })()}
-                <p className="text-violet-400/60 font-mono text-[9px] uppercase tracking-widest mt-3">Cited from peer-reviewed literature</p>
+                <p className="text-violet-400/60 font-sans text-[9px] uppercase tracking-widest mt-3">Cited from peer-reviewed literature</p>
               </div>
             </div>
           </div>
@@ -4067,7 +4105,7 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
 
       {/* Key Principles */}
       <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8 mb-6">
-        <h2 className="font-mono text-xs uppercase tracking-widest text-zinc-300 mb-6 flex items-center gap-2">
+        <h2 className="font-sans text-xs uppercase tracking-widest text-zinc-300 mb-6 flex items-center gap-2">
           <Target size={14} className="text-emerald-400" /> Key Principles
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -4082,7 +4120,7 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
           ]).map((tip, i) => (
             <div key={i} className="bg-zinc-950/50 border border-zinc-800/50 rounded-xl p-5">
               <h4 className="text-white font-bold uppercase text-xs tracking-widest mb-2">{tip.title}</h4>
-              <p className="text-zinc-500 font-mono text-[10px] leading-relaxed">{tip.desc}</p>
+              <p className="text-zinc-500 font-sans text-[10px] leading-relaxed">{tip.desc}</p>
             </div>
           ))}
         </div>
@@ -4091,7 +4129,7 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
       {/* Other Protocols */}
       {allProtocols && allProtocols.length > 1 && (
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-8">
-          <h2 className="font-mono text-xs uppercase tracking-widest text-zinc-300 mb-6">Other Protocols</h2>
+          <h2 className="font-sans text-xs uppercase tracking-widest text-zinc-300 mb-6">Other Protocols</h2>
           <div className="space-y-2">
             {allProtocols.filter(p => p.id !== protocol?.id).slice(0, 8).map((p, i) => {
               const pImp = impactLevel(p.impact);
@@ -4099,7 +4137,7 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
                 <div key={p.id || i} onClick={() => { setCurrentPage(`protocol-${p.id}`); window.scrollTo(0, 0); }} className="flex items-center gap-3 px-4 py-3 rounded-lg bg-zinc-950/30 border border-zinc-800/50 hover:border-zinc-700 cursor-pointer transition-colors group">
                   <span className="text-zinc-600 font-black text-sm w-8">{String(p.id).padStart(2, '0')}</span>
                   <span className="text-zinc-300 font-bold uppercase text-xs tracking-widest flex-grow truncate group-hover:text-white transition-colors">{p.name}</span>
-                  <span className={`text-[8px] font-mono uppercase tracking-widest text-${pImp.color}-400 shrink-0`}>{p.impact}</span>
+                  <span className={`text-[8px] font-sans uppercase tracking-widest text-${pImp.color}-400 shrink-0`}>{p.impact}</span>
                   <ChevronRight size={12} className="text-zinc-700 group-hover:text-cyan-400 shrink-0 transition-colors" />
                 </div>
               );
@@ -4122,20 +4160,20 @@ const AllProtocolsPage = ({ protocols, setCurrentPage }) => {
 
   return (
     <div className="min-h-screen pt-28 pb-20 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
-      <button onClick={() => setCurrentPage('dashboard')} className="flex items-center gap-2 text-zinc-500 hover:text-cyan-400 font-mono text-[10px] uppercase tracking-widest mb-8 transition-colors">
+      <button onClick={() => setCurrentPage('dashboard')} className="flex items-center gap-2 text-zinc-500 hover:text-cyan-400 font-sans text-[10px] uppercase tracking-widest mb-8 transition-colors">
         <ChevronLeft size={14} /> Back to Dashboard
       </button>
       <h1 className="text-3xl md:text-4xl font-black italic uppercase tracking-tight text-white mb-2">All Protocols</h1>
-      <p className="text-zinc-500 font-mono text-xs uppercase tracking-widest mb-10">Sorted by impact — highest first</p>
+      <p className="text-zinc-500 font-sans text-xs uppercase tracking-widest mb-10">Sorted by impact — highest first</p>
       <div className="space-y-3">
         {(protocols || []).map((p, i) => (
           <div key={p.id || i} onClick={() => { setCurrentPage(`protocol-${p.id}`); window.scrollTo(0, 0); }} className="flex items-center gap-4 px-5 py-4 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-cyan-500/30 hover:shadow-[0_0_15px_rgba(34,211,238,0.05)] cursor-pointer transition-all group">
             <span className="text-2xl font-black text-zinc-700 group-hover:text-cyan-400 transition-colors w-10 shrink-0">{String(p.id).padStart(2, '0')}</span>
             <div className="flex-grow min-w-0">
               <span className="text-white font-bold uppercase text-sm tracking-widest block truncate group-hover:text-cyan-50 transition-colors">{p.name}</span>
-              <span className="text-zinc-600 text-xs font-mono block truncate">{p.description}</span>
+              <span className="text-zinc-600 text-xs font-sans block truncate">{p.description}</span>
             </div>
-            <span className={`text-[9px] font-mono uppercase tracking-widest shrink-0 ${impactColor(p.impact)}`}>{p.impact}</span>
+            <span className={`text-[9px] font-sans uppercase tracking-widest shrink-0 ${impactColor(p.impact)}`}>{p.impact}</span>
             <ChevronRight size={16} className="text-zinc-700 group-hover:text-cyan-400 shrink-0 transition-colors" />
           </div>
         ))}
@@ -4157,9 +4195,9 @@ const AdminFooterTrigger = ({ setCurrentPage }) => {
     }
   };
   return (
-    <div className="flex items-center gap-2 cursor-pointer select-none" onClick={handleClick}>
-      <Diamond className="text-white" size={24} fill="currentColor" />
-      <span className="text-2xl font-black italic tracking-tighter">ASCEND</span>
+    <div className="flex items-center gap-2.5 cursor-pointer select-none" onClick={handleClick}>
+      <MogCheckLogoMark size={32} className="w-8 h-8" />
+      <span className="text-2xl font-black italic tracking-tighter">MogCheck</span>
     </div>
   );
 };
@@ -4237,7 +4275,7 @@ const App = () => {
       </main>
       <footer className="py-20 border-t border-zinc-900 flex flex-col items-center gap-8 bg-[#090a0b]">
         <AdminFooterTrigger setCurrentPage={setCurrentPage} />
-        <p className="text-zinc-600 text-[10px] font-mono uppercase tracking-[0.5em]">Peak Performance Aesthetics © 2024</p>
+        <p className="text-zinc-600 text-[10px] font-sans uppercase tracking-[0.5em]">Peak Performance Aesthetics © 2024</p>
       </footer>
     </div>
   );

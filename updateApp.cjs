@@ -112,7 +112,7 @@ const ScanningView = ({ sideImageSrc, sideMetricData, onComplete }) => {
       <style>{\`@keyframes scan { 0% { transform: translateY(-100px); } 100% { transform: translateY(600px); } }\`}</style>
       <div className="text-center mb-10 mt-10">
         <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-cyan-400 mb-2 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] animate-pulse">Consulting AI</h2>
-        <p className="font-mono text-zinc-400 text-sm uppercase tracking-[0.3em]">{statusText}</p>
+        <p className="font-sans text-zinc-400 text-sm uppercase tracking-[0.3em]">{statusText}</p>
       </div>
 
       <div className="relative aspect-[3/4] w-full max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] scale-[1.02] transform-gpu">

@@ -179,7 +179,7 @@ app.use(express.json({ limit: '2mb' }));
 function healthPayload() {
   return {
     ok: true,
-    service: 'ascend-backend',
+    service: 'mogcheck-backend',
     uptimeMs: Date.now() - SERVER_BOOT_AT,
     timestamp: new Date().toISOString(),
   };
@@ -374,7 +374,7 @@ async function verifyUltraAccess(req, res, next) {
   if (!token) {
     return res.status(401).json({
       success: false,
-      error: 'Sign in required for Ultra models. Create an account and upgrade on the Plans page.',
+      error: 'Sign in required for premium models. Create an account and upgrade on the Plans page.',
     });
   }
 
@@ -398,7 +398,7 @@ async function verifyUltraAccess(req, res, next) {
     return res.status(403).json({
       success: false,
       error:
-        'Ultra models require Ascend Pro or an unused Single Scan credit. Open Plans to upgrade.',
+        'Premium models require MogCheck Pro or an unused Single Scan credit. Open Plans to upgrade.',
     });
   } catch (e) {
     console.error('[analyze] Ultra auth failed:', e.message);

@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-[#0c0d0e] text-white antialiased m-0 p-0;
+    @apply bg-[#0c0d0e] text-white antialiased m-0 p-0 font-sans;
   }
   
   #root {
@@ -32,7 +32,7 @@
 }
 
 /* Model dropdown: smooth open (syncs with React rAF open class) */
-.ascend-model-dropdown {
+.mogcheck-model-dropdown {
   opacity: 0;
   transform: translateY(-12px) scale(0.985);
   transition:
@@ -40,39 +40,39 @@
     transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: opacity, transform;
 }
-.ascend-model-dropdown--open {
+.mogcheck-model-dropdown--open {
   opacity: 1;
   transform: translateY(0) scale(1);
 }
 @media (prefers-reduced-motion: reduce) {
-  .ascend-model-dropdown,
-  .ascend-model-dropdown--open {
+  .mogcheck-model-dropdown,
+  .mogcheck-model-dropdown--open {
     transition: none;
     opacity: 1;
     transform: none;
   }
 }
 
-.ascend-model-option {
+.mogcheck-model-option {
   transform: translateY(0) translateZ(0);
   transition:
     background-color 380ms cubic-bezier(0.22, 1, 0.36, 1),
     transform 380ms cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 380ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-.ascend-model-option:hover {
+.mogcheck-model-option:hover {
   transform: translateY(-1px) translateZ(0);
 }
 @media (prefers-reduced-motion: reduce) {
-  .ascend-model-option,
-  .ascend-model-option:hover {
+  .mogcheck-model-option,
+  .mogcheck-model-option:hover {
     transition: none;
     transform: none;
   }
 }
 
 /* Description only on hover — smooth height + fade (mobile / narrow) */
-.ascend-model-desc {
+.mogcheck-model-desc {
   max-height: 0;
   opacity: 0;
   overflow: hidden;
@@ -83,17 +83,17 @@
   margin-top: 0;
   pointer-events: none;
 }
-.ascend-model-option:hover .ascend-model-desc {
+.mogcheck-model-option:hover .mogcheck-model-desc {
   max-height: 6.5rem;
   opacity: 1;
   margin-top: 0.35rem;
 }
 @media (prefers-reduced-motion: reduce) {
-  .ascend-model-desc,
-  .ascend-model-option:hover .ascend-model-desc {
+  .mogcheck-model-desc,
+  .mogcheck-model-option:hover .mogcheck-model-desc {
     transition: none;
   }
-  .ascend-model-option:hover .ascend-model-desc {
+  .mogcheck-model-option:hover .mogcheck-model-desc {
     max-height: 6.5rem;
     opacity: 1;
     margin-top: 0.35rem;
@@ -101,7 +101,7 @@
 }
 
 /* Desktop: description-only panel slides in from the left of the cursor */
-.ascend-model-tooltip {
+.mogcheck-model-tooltip {
   position: absolute;
   top: 50%;
   left: 100%;
@@ -120,15 +120,15 @@
     opacity 400ms cubic-bezier(0.22, 1, 0.36, 1),
     transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-.ascend-model-option:hover .ascend-model-tooltip {
+.mogcheck-model-option:hover .mogcheck-model-tooltip {
   transform: translate(0, -50%);
   opacity: 1;
 }
 @media (prefers-reduced-motion: reduce) {
-  .ascend-model-tooltip {
+  .mogcheck-model-tooltip {
     transition: none;
   }
-  .ascend-model-option:hover .ascend-model-tooltip {
+  .mogcheck-model-option:hover .mogcheck-model-tooltip {
     transform: translate(0, -50%);
     opacity: 1;
   }
