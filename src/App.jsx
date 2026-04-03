@@ -1451,7 +1451,7 @@ const ScanningView = ({
 
 
 // --- Upload Photo Page ---
-const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrity, user, userPlan, initialModel = "3" }) => {
+const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrity, user, userPlan, initialModel = "3", isLockedToUltra = false }) => {
   const [frontImage, setFrontImage] = useState(null);
   const [frontFile, setFrontFile] = useState(null);
   const [sideImage, setSideImage] = useState(null);
@@ -1591,7 +1591,39 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                  user={user}
                  onComplete={(data) => {
                     setScanningCeleb(null);
-                    setDashboardData({ ...data, frontImage, sideImage, selectedModel });
+                    setDashboardData(prev => {
+                      const newScanHistory = prev?.scanHistory ? [...prev.scanHistory] : [];
+                      const newRatingHistory = prev?.ratingHistory ? [...prev.ratingHistory] : [];
+                      
+                      if (prev && prev.frontImage && prev.finalRating && newScanHistory.length === 0) {
+                         newScanHistory.push({
+                           frontImage: prev.frontImage,
+                           sideImage: prev.sideImage,
+                           finalRating: prev.finalRating
+                         });
+                      }
+                      if (prev && prev.finalRating && newRatingHistory.length === 0) {
+                         newRatingHistory.push(prev.finalRating);
+                      }
+
+                      if (data.finalRating) {
+                        newScanHistory.push({
+                           frontImage: frontImage,
+                           sideImage: sideImage,
+                           finalRating: data.finalRating
+                        });
+                        newRatingHistory.push(data.finalRating);
+                      }
+
+                      return {
+                        ...data,
+                        frontImage,
+                        sideImage,
+                        selectedModel,
+                        scanHistory: newScanHistory,
+                        ratingHistory: newRatingHistory
+                      };
+                    });
                     setCurrentPage('dashboard');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                  }} 
@@ -1726,14 +1758,15 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                 return (
                   <button
                     type="button"
-                    onClick={() => setIsModelMenuOpen((v) => !v)}
+                    onClick={() => { if (!isLockedToUltra) setIsModelMenuOpen((v) => !v); }}
                     className={[
-                      "w-full flex items-center justify-between gap-4 rounded-xl py-4 px-5 text-sm outline-none transition-all cursor-pointer",
+                      "w-full flex items-center justify-between gap-4 rounded-xl py-4 px-5 text-sm outline-none transition-all",
+                      isLockedToUltra ? "cursor-default" : "cursor-pointer",
                       "border bg-zinc-900/50 hover:bg-zinc-900/80 focus:border-zinc-500",
                       isUltra ? "border-yellow-500/40 shadow-[0_0_28px_rgba(234,179,8,0.14)]" : "border-zinc-800"
                     ].join(' ')}
-                    aria-haspopup="listbox"
-                    aria-expanded={isModelMenuOpen}
+                    aria-haspopup={isLockedToUltra ? undefined : "listbox"}
+                    aria-expanded={isLockedToUltra ? undefined : isModelMenuOpen}
                   >
                     <span className="flex items-center gap-3 min-w-0">
                       <span
@@ -1778,14 +1811,16 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                         </span>
                       </span>
                     </span>
+                    {!isLockedToUltra && (
                     <span className="text-zinc-500">
                       <ChevronRight size={18} className={`rotate-90 transition-transform duration-300 ease-out ${isModelMenuOpen ? "rotate-[270deg]" : ""}`} />
                     </span>
+                    )}
                   </button>
                 );
               })()}
 
-              {isModelMenuOpen && (
+              {isModelMenuOpen && !isLockedToUltra && (
                 <div
                   className={`mogcheck-model-dropdown absolute left-0 right-0 mt-3 rounded-2xl border border-zinc-800 bg-[#0c0d0e]/95 backdrop-blur-xl shadow-2xl z-[80] origin-top ${dropdownAnimOpen ? 'mogcheck-model-dropdown--open' : ''}`}
                   role="listbox"
@@ -4148,6 +4183,7 @@ const App = () => {
             user={user}
             userPlan={userPlan}
             initialModel={currentPage === 'upload-ultra' ? "1" : "3"}
+            isLockedToUltra={currentPage === 'upload-ultra'}
           />
         )}
         {currentPage === 'results' && <ResultsPage />}
