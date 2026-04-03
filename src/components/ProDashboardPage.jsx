@@ -323,10 +323,26 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     [goalMilestonesBase, completedLadderCount]
   );
 
-  const renderNode = (node) => {
-    const isCompleted = node.status === 'COMPLETED';
-    const isInProgress = node.status === 'IN_PROGRESS';
-    const isLocked = node.status === 'LOCKED';
+  // Provide a toggle function for milestones that can be completed manually
+  const toggleMilestone = (index) => {
+    // Determine the next intended state.
+    // If the user clicks a milestone they've already completed (i < completedLadderCount),
+    // they want to uncheck it, so set count to that index.
+    // If they click the current one, they want to complete it, so increment.
+    setCompletedLadderCount((prev) => {
+      if (index < prev) {
+        return index; // Uncheck this and all subsequent
+      } else if (index === prev) {
+        return prev + 1; // Check this one
+      }
+      return prev; // Do nothing for locked milestones further up
+    });
+  };
+
+  const renderNode = (node, index) => {
+    const isCompleted = node.status === 'completed';
+    const isInProgress = node.status === 'current';
+    const isLocked = node.status === 'locked';
 
     let borderClass = 'border-zinc-800';
     let glowClass = '';
@@ -351,7 +367,10 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     }
 
     return (
-      <div className={`relative group flex flex-col items-center bg-zinc-900/60 border ${borderClass} rounded-xl p-4 w-40 text-center cursor-pointer hover:scale-105 transition-all duration-300 z-10 ${glowClass} ${isLocked ? 'opacity-40 grayscale hover:opacity-100 hover:grayscale-0' : 'backdrop-blur-sm'}`}>
+      <div 
+        onClick={() => toggleMilestone(index)}
+        className={`relative group flex flex-col items-center bg-zinc-900/60 border ${borderClass} rounded-xl p-4 w-40 text-center cursor-pointer hover:scale-105 transition-all duration-300 z-10 ${glowClass} ${isLocked ? 'opacity-40 grayscale hover:opacity-100 hover:grayscale-0' : 'backdrop-blur-sm'}`}
+      >
         <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%] opacity-10 mix-blend-overlay rounded-xl pointer-events-none"></div>
         <div className="flex items-center justify-center mb-3 h-5 relative z-10">
           {icon}
