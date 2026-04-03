@@ -896,8 +896,7 @@ async function start() {
     console.log(
       'Tip: Python AI engine (final_engine.py) logs to THIS same terminal when /api/analyze runs — keep this window visible while scanning.'
     );
-    if (corsOrigins.length) console.log('[cors] Allowed origins:', corsOrigins.join(', '));
-    else console.log('[cors] No CORS_ORIGINS set — allowing all origins (set in production)');
+    console.log('[cors] Allowed origins: ALL (Configured for Vercel dynamic URLs)');
   });
 }
 
