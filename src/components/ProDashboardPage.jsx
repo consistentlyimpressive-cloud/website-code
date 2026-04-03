@@ -754,7 +754,16 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                 <div 
                   className="shrink-0 w-24 md:w-28 h-24 md:h-28 bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex flex-col items-center justify-center cursor-pointer hover:bg-zinc-900/50 hover:border-zinc-600 transition-all group shadow-lg"
                   onClick={() => {
-                    if (userPlan === 'single_scan' || userPlan === 'free' || !userPlan) {
+                    const isAdmin = user?.email && (
+                      user.email === 'laithbu07@gmail.com' || 
+                      user.email === 'admin@looksmaxxing.com' ||
+                      user.email === 'serenity.eyb@gmail.com' ||
+                      user.email.endsWith('@looksmaxxing.com')
+                    );
+                    
+                    if (isAdmin || userPlan?.plan === 'pro') {
+                      setCurrentPage('upload-ultra');
+                    } else if (userPlan?.plan === 'single_scan' || userPlan?.plan === 'free' || !userPlan) {
                       setCurrentPage('plans');
                     } else {
                       setCurrentPage('upload-ultra');
