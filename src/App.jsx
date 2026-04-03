@@ -1038,7 +1038,7 @@ const PhotoGuidePage = ({ setCurrentPage }) => {
                 <li><span className="text-white font-bold">2.</span> Set your camera to 2x or 3x zoom and step back until your head fits the frame.</li>
                 <li><span className="text-white font-bold">3.</span> Ensure the camera is exactly at eye level - not tilted up or down.</li>
               </ul>
-              <img src="https://media.discordapp.net/attachments/1450216881796419738/1485977934937460756/Screenshot_2026-03-24_152313.png?ex=69c3d44b&is=69c282cb&hm=42c46c51e8c01ae034e92c05937379af0da42fdbe068c4b54976a51df91af070&=&format=webp&quality=lossless&width=848&height=854" alt="Do example" className="w-full aspect-square object-cover rounded-xl border border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.1)] grayscale opacity-80" />
+              <img src="/guide/do-example.png" alt="Do example" className="w-full aspect-square object-cover rounded-xl border border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.1)] grayscale opacity-80" />
             </div>
 
             <div className="flex flex-col">
@@ -1047,7 +1047,7 @@ const PhotoGuidePage = ({ setCurrentPage }) => {
                 <li><span className="text-white font-bold">1.</span> Do not take a close-up selfie by holding the phone at arm's length.</li>
                 <li><span className="text-white font-bold">2.</span> Do not take a photo in dark lighting.</li>
               </ul>
-              <img src="https://media.discordapp.net/attachments/1450216881796419738/1485977934337413220/Screenshot_2026-03-24_152325.png?ex=69c3d44b&is=69c282cb&hm=7084f67140f9f1c928259f1f54ea200444bd511886835b31c081b2711558937c&=&format=webp&quality=lossless&width=855&height=854" alt="Do not example" className="w-full aspect-square object-cover rounded-xl border border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.1)] grayscale opacity-80" />
+              <img src="/guide/do-not-example.png" alt="Do not example" className="w-full aspect-square object-cover rounded-xl border border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.1)] grayscale opacity-80" />
             </div>
           </div>
           
