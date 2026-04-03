@@ -68,14 +68,13 @@ const SERVER_BOOT_AT = Date.now();
 
 const app = express();
 
-const corsOrigins = (process.env.CORS_ORIGINS || '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
-const corsOptions =
-  corsOrigins.length > 0
-    ? { origin: corsOrigins, credentials: true }
-    : undefined;
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow all origins to connect (useful for dynamic Vercel preview links)
+    callback(null, true);
+  },
+  credentials: true
+};
 app.use(cors(corsOptions));
 
 const analyzeLimiter = rateLimit({
