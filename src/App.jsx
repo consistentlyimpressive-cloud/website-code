@@ -1451,12 +1451,12 @@ const ScanningView = ({
 
 
 // --- Upload Photo Page ---
-const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrity, user, userPlan }) => {
+const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrity, user, userPlan, initialModel = "3" }) => {
   const [frontImage, setFrontImage] = useState(null);
   const [frontFile, setFrontFile] = useState(null);
   const [sideImage, setSideImage] = useState(null);
   const [sideFile, setSideFile] = useState(null);
-  const [selectedModel, setSelectedModel] = useState("3");
+  const [selectedModel, setSelectedModel] = useState(initialModel);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [dropdownAnimOpen, setDropdownAnimOpen] = useState(false);
   const [justUnlocked, setJustUnlocked] = useState(false);
@@ -4140,13 +4140,14 @@ const App = () => {
       <main className="flex flex-col min-h-screen">
         {currentPage === 'home' && <HomePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'photo-guide' && <PhotoGuidePage setCurrentPage={setCurrentPage} />}
-        {currentPage === 'upload-photo' && (
+        {(currentPage === 'upload-photo' || currentPage === 'upload-ultra') && (
           <UploadPhotoPage
             setCurrentPage={setCurrentPage}
             setDashboardData={setDashboardData}
             setSelectedCelebrity={setSelectedCelebrity}
             user={user}
             userPlan={userPlan}
+            initialModel={currentPage === 'upload-ultra' ? "1" : "3"}
           />
         )}
         {currentPage === 'results' && <ResultsPage />}
