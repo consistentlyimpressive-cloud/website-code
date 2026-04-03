@@ -724,7 +724,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                 
                 <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
                   {/* Card 1 */}
-                  {dashboardData?.scanHistory && dashboardData.scanHistory.length > 0 ? dashboardData.scanHistory.map((scan, i) => (
+                  {dashboardData?.scanHistory && dashboardData.scanHistory.length > 0 && dashboardData.scanHistory.map((scan, i) => (
                     <div key={i} className="shrink-0 w-40 md:w-48 h-24 md:h-28 bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex overflow-hidden shadow-lg relative group cursor-pointer" onClick={() => {/* Future implementation for viewing past scan */}}>
                       <div 
                         className="flex-1 border-r border-zinc-900 relative overflow-hidden group ring-2 ring-inset ring-cyan-500 z-10"
