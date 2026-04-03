@@ -2636,7 +2636,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover })
   };
 
   return (
-    <div className="relative w-72 h-[28rem] shrink-0 bg-[#060708] rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 flex items-center justify-center p-6">
+    <div className="relative w-72 sm:w-80 md:w-[22rem] aspect-square shrink-0 bg-[#060708] rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 flex items-center justify-center p-6 mx-auto">
       <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-[#0a0a0b]/20 to-transparent z-10 pointer-events-none" />
       <img 
         ref={imgRef}
@@ -3022,15 +3022,15 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                     />
                     <div className="flex-grow space-y-4 w-full flex flex-col justify-center max-w-sm">
                        {!isFreePlan && (
-                       <div className="flex gap-3 mb-2">
-                         <div onClick={() => setActiveProfileView('front')} className={`relative flex-1 aspect-[4/3] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                       <div className="flex gap-3 mb-2 w-full max-w-[16rem] mx-auto md:max-w-none">
+                         <div onClick={() => setActiveProfileView('front')} className={`relative flex-1 aspect-square rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
                            <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" alt="Front" />
-                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                            <span className={`absolute bottom-2 left-0 right-0 text-center text-[10px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
                          </div>
-                         <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[4/3] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                         <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-square rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
                            <img src={dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" style={{objectPosition: 'top'}} alt="Side" />
-                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                            <span className={`absolute bottom-2 left-0 right-0 text-center text-[10px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
                          </div>
                        </div>
@@ -3081,15 +3081,15 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                       activeHover={showBestFlaw ? activeHover : null}
                     />
                     <div className="flex-grow space-y-4 w-full flex flex-col justify-center max-w-sm">
-                       <div className="flex gap-3 mb-2">
-                         <div onClick={() => setActiveProfileView('front')} className={`relative flex-1 aspect-[4/3] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                       <div className="flex gap-3 mb-2 w-full max-w-[16rem] mx-auto md:max-w-none">
+                         <div onClick={() => setActiveProfileView('front')} className={`relative flex-1 aspect-square rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
                            <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" alt="Front" />
-                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                            <span className={`absolute bottom-2 left-0 right-0 text-center text-[10px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
                          </div>
-                         <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[4/3] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                         <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-square rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
                            <img src={dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" style={{objectPosition: 'top'}} alt="Side" />
-                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                            <span className={`absolute bottom-2 left-0 right-0 text-center text-[10px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
                          </div>
                        </div>
