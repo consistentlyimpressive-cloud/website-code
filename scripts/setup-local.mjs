@@ -23,4 +23,4 @@ function copyIfMissing(src, dest) {
 
 copyIfMissing(path.join(root, '.env.example'), path.join(root, '.env.local'));
 copyIfMissing(path.join(root, 'backend', '.env.example'), path.join(root, 'backend', '.env'));
-console.log('[setup] Next: npm run dev:stack');
+console.log('[setup] Next: npm install && npm run dev   (Firestore emulator + API + Vite — no service account needed for Mog Battle votes)');

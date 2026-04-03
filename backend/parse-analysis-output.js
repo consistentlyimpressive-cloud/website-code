@@ -200,7 +200,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
       for (const key of allKeys) {
         if (line.toLowerCase().includes(key.toLowerCase())) {
           if (isDualFormat) {
-            const pipeMatch = line.match(/(\d+)\s*\|\s*(\d+|N\/A)/i);
+            const pipeMatch = line.match(/(?::\s*)?\b(\d+)\b(?:\/\d+)?\s*\|\s*\b(\d+|N\/A)\b/i);
             if (pipeMatch) {
               categories[key] = Math.min(100, Math.max(0, parseInt(pipeMatch[1], 10)));
               if (pipeMatch[2].toUpperCase() !== 'N/A') {
@@ -210,7 +210,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
               }
             }
           } else {
-            const num = line.match(/\b(\d+)\b/);
+            const num = line.match(/(?::\s*)?\b(\d+)\b/);
             if (num) categories[key] = Math.min(100, Math.max(0, parseInt(num[1], 10)));
           }
         }

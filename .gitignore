@@ -23,6 +23,9 @@ backend/temp_analysis.jpg
 backend/test.jpg
 backend/mog_report.txt
 debug-cb256d.log
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
 build_error.txt
 build_error_utf8.txt
 

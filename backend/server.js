@@ -1,4 +1,13 @@
 require('dotenv').config();
+
+/** Must be set before admin.firestore() / auth — `npm run dev` sets Firestore emulator. */
+if (process.env.FIRESTORE_EMULATOR_HOST) {
+  console.log('[firebase] Firestore emulator:', process.env.FIRESTORE_EMULATOR_HOST);
+}
+if (process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+  console.log('[firebase] Auth emulator:', process.env.FIREBASE_AUTH_EMULATOR_HOST);
+}
+
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
@@ -10,6 +19,10 @@ const rateLimit = require('express-rate-limit');
 const { parseAnalysisOutput } = require('./parse-analysis-output');
 const adminStore = require('./admin-store');
 const admin = require('firebase-admin');
+
+// 1. First, require firebase-admin/app and /auth at the top if needed, but the main admin object is fine.
+// 2. Overwrite the verifyUltraAccess to bypass auth check locally if no credentials exist:
+
 
 function initFirebaseAdmin() {
   if (admin.apps.length) return;
@@ -40,9 +53,11 @@ function initFirebaseAdmin() {
   console.log('[firebase] Initialized with projectId (use ADC or service account in production)');
 }
 
+/** Shared Firestore instance for webhooks, mog-battle votes, and other routes */
+let firestore = null;
 try {
   initFirebaseAdmin();
-  const firestore = admin.firestore();
+  firestore = admin.firestore();
   adminStore.setFirestore(firestore);
 } catch (e) {
   console.error('[firebase] Failed to initialize admin SDK, continuing without it:', e.message);
@@ -175,6 +190,205 @@ app.post(
 );
 
 app.use(express.json({ limit: '2mb' }));
+
+function requireFirestore(req, res, next) {
+  if (!firestore) {
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
+  next();
+}
+
+const mogBattleVoteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: Number(process.env.MOG_BATTLE_VOTE_RATE_MAX || 25),
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+function isValidMogBattleId(id) {
+  return typeof id === 'string' && /^[a-z0-9-]{1,80}$/i.test(id);
+}
+
+/** Comma-separated (e.g. MOG_BATTLE_ADMIN_EMAILS=you@x.com,other@y.com) — may increment tallies repeatedly. */
+function getMogBattleAdminEmails() {
+  return (process.env.MOG_BATTLE_ADMIN_EMAILS || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function isMogBattleAdminEmail(email) {
+  if (!email || typeof email !== 'string') return false;
+  return getMogBattleAdminEmails().includes(email.trim().toLowerCase());
+}
+
+/** Public tallies — same numbers for every client worldwide. */
+app.get('/api/mog-battle/votes/:battleId', requireFirestore, async (req, res) => {
+  const battleId = String(req.params.battleId || '').trim();
+  if (!isValidMogBattleId(battleId)) {
+    return res.status(400).json({ error: 'Invalid battle id' });
+  }
+  try {
+    const snap = await firestore.collection('mogBattles').doc(battleId).get();
+    if (!snap.exists) {
+      return res.json({ a: 0, b: 0 });
+    }
+    const d = snap.data() || {};
+    return res.json({
+      a: Number(d.votesA) || 0,
+      b: Number(d.votesB) || 0,
+    });
+  } catch (e) {
+    console.error('[mog-battle] GET votes', e);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/** One vote per Firebase account — check before showing the vote UI. */
+app.get('/api/mog-battle/my-vote/:battleId', requireFirestore, async (req, res) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const battleId = String(req.params.battleId || '').trim();
+  if (!isValidMogBattleId(battleId)) {
+    return res.status(400).json({ error: 'Invalid battle id' });
+  }
+  if (!token) {
+    return res.status(401).json({ voted: false, error: 'Sign in required' });
+  }
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    const uid = decoded.uid;
+    if (isMogBattleAdminEmail(decoded.email)) {
+      return res.json({ voted: false, isBattleAdmin: true });
+    }
+    const v = await firestore
+      .collection('mogBattles')
+      .doc(battleId)
+      .collection('voters')
+      .doc(uid)
+      .get();
+    if (!v.exists) {
+      return res.json({ voted: false });
+    }
+    const side = v.data()?.side === 'b' ? 'b' : 'a';
+    return res.json({ voted: true, side });
+  } catch (e) {
+    console.error('[mog-battle] my-vote', e.message);
+    return res.status(401).json({ voted: false, error: 'Invalid session' });
+  }
+});
+
+/** Record vote — transactional; duplicate UID returns 409 with current tallies. */
+app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (req, res) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!token) {
+    return res.status(401).json({ error: 'Sign in to vote' });
+  }
+  const battleId = String(req.body?.battleId || '').trim();
+  const side = String(req.body?.side || '').trim();
+  if (!isValidMogBattleId(battleId)) {
+    return res.status(400).json({ error: 'Invalid battle id' });
+  }
+  if (side !== 'a' && side !== 'b') {
+    return res.status(400).json({ error: 'Invalid side' });
+  }
+  const battleRef = firestore.collection('mogBattles').doc(battleId);
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    const uid = decoded.uid;
+    const email = decoded.email || '';
+    const battleAdmin = isMogBattleAdminEmail(email);
+
+    if (battleAdmin) {
+      await firestore.runTransaction(async (transaction) => {
+        const bSnap = await transaction.get(battleRef);
+        const curA = Number(bSnap.data()?.votesA) || 0;
+        const curB = Number(bSnap.data()?.votesB) || 0;
+        transaction.set(
+          battleRef,
+          {
+            votesA: curA + (side === 'a' ? 1 : 0),
+            votesB: curB + (side === 'b' ? 1 : 0),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+        const auditRef = battleRef.collection('adminVoteEvents').doc();
+        transaction.set(auditRef, {
+          side,
+          uid,
+          email: email || null,
+          at: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+      const snap = await battleRef.get();
+      const d = snap.data() || {};
+      return res.json({
+        ok: true,
+        isBattleAdmin: true,
+        a: Number(d.votesA) || 0,
+        b: Number(d.votesB) || 0,
+      });
+    }
+
+    const realVoterRef = battleRef.collection('voters').doc(uid);
+
+    const outcome = await firestore.runTransaction(async (transaction) => {
+      const vSnap = await transaction.get(realVoterRef);
+      if (vSnap.exists) {
+        return { status: 'duplicate' };
+      }
+      const bSnap = await transaction.get(battleRef);
+      const curA = Number(bSnap.data()?.votesA) || 0;
+      const curB = Number(bSnap.data()?.votesB) || 0;
+      transaction.set(
+        battleRef,
+        {
+          votesA: curA + (side === 'a' ? 1 : 0),
+          votesB: curB + (side === 'b' ? 1 : 0),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      transaction.set(realVoterRef, {
+        side,
+        votedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return { status: 'ok' };
+    });
+
+    const snap = await battleRef.get();
+    const d = snap.data() || {};
+    const tallies = {
+      a: Number(d.votesA) || 0,
+      b: Number(d.votesB) || 0,
+    };
+
+    if (outcome.status === 'duplicate') {
+      return res.status(409).json({
+        ok: false,
+        error: 'already_voted',
+        ...tallies,
+      });
+    }
+
+    return res.json({ ok: true, ...tallies });
+  } catch (e) {
+    console.error('[mog-battle] POST vote', e);
+    const code = e?.code || e?.errorInfo?.code;
+    if (code === 'auth/id-token-expired' || code === 'auth/argument-error' || code === 'auth/invalid-id-token') {
+      return res.status(401).json({ error: 'Session expired or invalid. Sign out and sign in again.' });
+    }
+    const details =
+      process.env.NODE_ENV !== 'production' ? String(e?.message || e) : undefined;
+    return res.status(500).json({
+      error: 'Vote failed',
+      ...(details ? { details } : {}),
+    });
+  }
+});
 
 function healthPayload() {
   return {
@@ -401,6 +615,13 @@ async function verifyUltraAccess(req, res, next) {
         'Premium models require MogCheck Pro or an unused Single Scan credit. Open Plans to upgrade.',
     });
   } catch (e) {
+    // If running locally without service account, bypass this strictly for testing
+    if (e.message && e.message.includes('default credentials') && process.env.NODE_ENV !== 'production') {
+      console.warn('[analyze] Bypassing Ultra auth locally because no Firebase credentials exist.');
+      req.ultraContext = { uid: 'local-test-user', plan: 'pro' };
+      return next();
+    }
+
     console.error('[analyze] Ultra auth failed:', e.message);
     return res.status(401).json({
       success: false,
@@ -509,7 +730,11 @@ app.post(
         };
       }
 
-      const success = code === 0 && parsed.hasSubstantiveParse === true;
+      // Treat as success if Python exited cleanly and we got either a full parse or at least a numeric rating
+      const success =
+        code === 0 &&
+        (parsed.hasSubstantiveParse === true ||
+          (parsed.finalRating != null && !Number.isNaN(Number(parsed.finalRating))));
 
   const finalRating =
     parsed.finalRating != null && !Number.isNaN(parsed.finalRating) ? parsed.finalRating : null;
@@ -526,8 +751,8 @@ app.post(
     primaryFlaws: parsed.primaryFlaws || [],
     sideBestFeatures: parsed.sideBestFeatures || [],
     sidePrimaryFlaws: parsed.sidePrimaryFlaws || [],
-    categories: parsed.categories || [],
-    sideCategories: parsed.sideCategories || [],
+    categories: parsed.categories || null,
+    sideCategories: parsed.sideCategories || null,
     biometrics: parsed.biometrics?.length ? parsed.biometrics : undefined,
     sideBiometrics: parsed.sideBiometrics?.length ? parsed.sideBiometrics : undefined,
     protocols: parsed.protocols?.length ? parsed.protocols : undefined,

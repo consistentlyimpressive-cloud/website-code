@@ -17,16 +17,16 @@
 
    This creates `.env.local` (frontend → `VITE_API_URL=http://localhost:3001`) and `backend/.env` from the examples when those files are missing. Set `ADMIN_PASSWORD` and Firebase in `backend/.env` when you use auth or the API beyond defaults.
 
-3. **Start API + frontend together**:
+3. **Start API + frontend together** (required for scans — the UI calls the local API):
 
    ```bash
-   npm run dev:stack
+   npm run dev
    ```
 
-   - Site: **http://localhost:5173** (Vite)
+   - Site: **http://localhost:5174** (Vite)
    - API: **http://localhost:3001** (Express)
 
-   Or run them in two terminals: `npm run dev:api` and `npm run dev`.
+   Frontend only (no scans): `npm run dev:web`. API only: `npm run dev:api`.
 
 4. **Production** (you already have GitHub + a domain): **[.github/WEBSITE.md](.github/WEBSITE.md)** — full reference **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
 

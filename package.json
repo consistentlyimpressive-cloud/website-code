@@ -13,9 +13,12 @@
     "url": "https://github.com/consistentlyimpressive-cloud/website-code/issues"
   },
   "scripts": {
-    "dev": "vite --port 5174 --strictPort",
+    "dev": "npm run dev:local",
+    "dev:local": "concurrently -n fs,api,web -c yellow,cyan,magenta \"firebase emulators:start --only firestore --project demo-mogcheck\" \"wait-on tcp:8080 && cross-env FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm --prefix backend run dev\" \"wait-on tcp:8080 && vite --port 5174 --strictPort\"",
+    "dev:no-emulator": "concurrently -n api,web -c cyan,magenta \"npm --prefix backend run dev\" \"vite --port 5174 --strictPort\"",
+    "dev:web": "vite --port 5174 --strictPort",
     "dev:api": "npm --prefix backend run dev",
-    "dev:stack": "concurrently -k -n api,web -c cyan,magenta \"npm --prefix backend run dev\" \"vite --port 5174 --strictPort\"",
+    "dev:stack": "npm run dev",
     "setup:local": "node scripts/setup-local.mjs",
     "build": "vite build",
     "lint": "eslint .",
@@ -31,6 +34,9 @@
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
+    "firebase-tools": "^13.29.1",
+    "wait-on": "^8.0.1",
     "@eslint/js": "^9.39.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

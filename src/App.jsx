@@ -1,8 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft } from 'lucide-react';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import NewsPage from './components/NewsPage';
+import MogBattlePage from './components/MogBattlePage';
+import ProDashboardPage from './components/ProDashboardPage';
+import { getNavbarPlanChip, hasEffectiveProAccess, canAlwaysAccessDashboard } from './utils/planAccess';
 import { initializeApp } from 'firebase/app';
+import { celebrityData } from './data/celebrityData';
+import { COMMUNITY_SCANS } from './data/communityScans';
+import { measureItems, researchItems, reviewsData, compBefore1, compAfter1, compBefore2, compAfter2, compBefore3, compAfter3 } from './data/shared';
+import HolographicCard from './components/ui/HolographicCard';
 import {
   getAuth,
   signInWithPopup,
@@ -16,6 +23,14 @@ import {
   browserSessionPersistence,
 } from 'firebase/auth';
 import { getFirestore, doc, onSnapshot } from 'firebase/firestore';
+
+const GENERIC_ERROR = 'Something went wrong. Please try again later.';
+
+function stripCommunityDashboardData(dd) {
+  if (!dd || typeof dd !== 'object') return dd;
+  const { bestFeatures, primaryFlaws, sideBestFeatures, sidePrimaryFlaws, ...rest } = dd;
+  return rest;
+}
 
 const firebaseConfig = {
   apiKey: "AIzaSyDg9bES9zvmfvsjS6FLjCOKzBb9b6Mm0Ts",
@@ -91,29 +106,38 @@ const FadeUp = ({ children, delay = 0 }) => {
   );
 };
 
-/** Label + styles for the signed-in plan chip (synced with Firestore `users/{uid}`). */
-const getNavbarPlanChip = (userPlan) => {
-  const p = userPlan?.plan || 'free';
-  if (p === 'pro') {
-    return { label: 'Pro', className: 'text-yellow-300 border-yellow-500/40 bg-yellow-500/10' };
-  }
-  if (p === 'single_scan') {
-    const c = userPlan?.scanCredits ?? 0;
-    return {
-      label: c > 0 ? `Scan · ${c}` : 'Pay per scan',
-      className: 'text-cyan-300 border-cyan-500/40 bg-cyan-500/10',
-    };
-  }
-  return { label: 'Free', className: 'text-zinc-400 border-zinc-600/70 bg-zinc-800/90' };
+const FlipIn = ({ children, delay = 0 }) => {
+  const domRef = useRef();
+  const [isVisible, setVisible] = useState(false);
+  useEffect(() => {
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) {
+        setVisible(true);
+        observer.disconnect();
+      }
+    });
+    if (domRef.current) observer.observe(domRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div 
+      ref={domRef} 
+      className={`transition-all duration-1000 ease-out [transform-style:preserve-3d] ${isVisible ? 'opacity-100 [transform:rotateY(0deg)_scale(1)]' : 'opacity-0 [transform:rotateY(-30deg)_scale(0.8)]'}`} 
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
+  );
 };
 
 // --- Navbar ---
-const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan }) => {
+const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDashboard }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef(null);
   const username = user?.email?.split('@')[0] || '';
-  const planChip = user ? getNavbarPlanChip(userPlan) : null;
+  const planChip = user ? getNavbarPlanChip(userPlan, user) : null;
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -137,7 +161,12 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan }) => {
           News
           <span className="bg-red-500/20 text-red-500 text-[8px] px-1.5 py-0.5 rounded-sm animate-pulse ml-1">LIVE</span>
         </button>
+        <button onClick={() => setCurrentPage('mog-battles')} className={`${currentPage === 'mog-battles' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>
+          <Swords size={14} className="text-cyan-500/90" /> Mog Battles
+        </button>
+        {showDashboard && (
         <button onClick={() => setCurrentPage('dashboard')} className={`${currentPage === 'dashboard' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}><Activity size={14} /> Dashboard</button>
+        )}
         <button onClick={() => setCurrentPage('celebrity')} className={`${currentPage === 'celebrity' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Celebrity Ratings</button>
         <button onClick={() => setCurrentPage('plans')} className={`${currentPage === 'plans' ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'text-yellow-500/70'} hover:text-yellow-400 transition-all uppercase tracking-widest flex items-center gap-1`}><Crown size={13} /> Plans</button>
       </div>
@@ -187,7 +216,10 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan }) => {
         <div className="absolute top-full left-0 w-full bg-[#0c0d0e] border-b border-zinc-900 flex flex-col items-center py-6 gap-6 md:hidden">
         <button onClick={() => { setCurrentPage('home'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Home</button>
         <button onClick={() => { setCurrentPage('news'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2">News <span className="bg-red-500/20 text-red-500 text-[8px] px-1.5 py-0.5 rounded-sm animate-pulse ml-1">LIVE</span></button>
+        <button onClick={() => { setCurrentPage('mog-battles'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Swords size={14} className="text-cyan-500/90" /> Mog Battles</button>
+        {showDashboard && (
         <button onClick={() => { setCurrentPage('dashboard'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Activity size={14} /> Dashboard</button>
+        )}
           <button onClick={() => { setCurrentPage('celebrity'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Celebrity Rating</button>
           <button onClick={() => { setCurrentPage('plans'); setIsOpen(false); }} className="text-yellow-500/70 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Crown size={13} /> Plans</button>
           {user ? (
@@ -280,27 +312,6 @@ const ComparisonCard = ({ beforeImgSrc, afterImgSrc, beforeScore, afterScore, is
     </div>
   );
 };
-
-// --- Measure Items Data ---
-const measureItems = [
-  { title: "Health Indicators", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175878148427826/Emmawatson0000.png?ex=69ca23d2&is=69c8d252&hm=d4da2a9287e498221776f2c683f48896cfc308cad226e304147db5216918f292&animated=true", imgClassName: "object-cover object-center scale-110", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-[25%] left-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-left opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Dermal Vitality</div><div className="text-green-400 text-xs font-bold">98.4% OPTIMAL</div></div><div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-right opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Facial Symmetry</div><div className="text-green-400 text-xs font-bold">HIGH 96.3%</div></div></div>) },
-  { title: "Facial Harmony", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175876600729630/jordan_barret0000.png?ex=69ca23d2&is=69c8d252&hm=0bcddb29885959b977ed1b186f97541fc1a13397f07af70584d9cd0f153fcf2f&animated=true", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-left opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Convexity Angle</div><div className="text-emerald-400 text-xs font-bold">165° OPTIMAL</div></div><div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-right opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Nasal Bridge Index</div><div className="text-blue-400 text-xs font-bold">GRADE A</div></div></div>) },
-  { title: "Dimorphism", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175877623877652/chrisgemsowrth0000.png?ex=69ca23d2&is=69c8d252&hm=d300ad06ee6556d736eed7d7ca2bc79f351ea287a009037f8c55bc2ca91c76c1&animated=true", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-[30%] left-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Low Set Brows</div><div className="text-white text-xs font-bold tracking-widest">DETECTED</div></div><div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-3 rounded-lg text-right opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Mandibular Angle</div><div className="text-emerald-400 text-xs font-bold">108°</div></div></div>) },
-  { title: "Uniqueness", imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485175876957114398/seanopry0000.png?ex=69ca23d2&is=69c8d252&hm=f4885162411605baedc4b974d589ae5244fbb5bbc1987234c1187f9c7f11e016&animated=true", svg: (<div className="w-full h-full relative font-sans z-20"><div className="absolute top-8 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-lg border border-white/20 px-6 py-4 rounded-xl text-center opacity-0 group-hover:opacity-100 transition-all duration-500 transform-gpu"><div className="text-zinc-400 text-[10px] uppercase tracking-widest mb-1">Facial Uniqueness</div><div className="text-purple-400 text-lg font-black italic">TOP 1%</div></div></div>) }
-];
-
-const compBefore1 = "https://cdn.discordapp.com/attachments/1450216881796419738/1486395368332591174/AOI_d_8KyktFJZsSlT4GdRDJTaqmi16TUzTmvzaiJ5Iqom7wj1H1JXOikMqcovIrrHrK1uJ2tpv6sQiaapIFOjMIbSNKu3EdFGsxceEjNJj4W8HT05-QxA9MuXQ16-0sx-RNr7nrofryRDxx3yjI6zZzChJRnSXKG_GqTB9XWKoBHUpRAcKbs1600-rj.png?ex=69c9f64f&is=69c8a4cf&hm=7b0fb2dcb29048e804da6fcb637e4125350311ed6928ded25182e4498a645767&animated=true";
-const compAfter1 = "https://cdn.discordapp.com/attachments/1450216881796419738/1486394769281388544/AOI_d_-8fWBPSwDm89MVDBNyx8vjItEzK1RqCfYWfYOxIbMYME3Ses19pq3i1jsx41TELGgp_G6dpRLsBWGsktNGRTuE_K6lQkbwTTBHIViBQ7wacNLiOriiTj7Naef8SoBf1PZR_AijFMbqKcyYIO134gZFx9V5M3fYvfpNohMBVvYa-NTF9Qs1600-rj.png?ex=69c9f5c0&is=69c8a440&hm=50c614d385e120b6e28860a7ec2b07e521f3a563503fd5ad541db76640d1f04e&animated=true";
-const compBefore2 = "https://media.discordapp.net/attachments/1450216881796419738/1486388349676683395/New_Project_16.png?ex=69c9efc6&is=69c89e46&hm=bb4ee24aa27d67d1ff526a1ed8af8c12f4d556d8259ec6ec4c01c86155522d53&animated=true";
-const compAfter2 = "https://media.discordapp.net/attachments/1450216881796419738/1486388350523936768/New_Project_15.png?ex=69c9efc6&is=69c89e46&hm=d85fb5d8a3754f97df7e66237f0f772b495ab6ab2e556212d3ed8f8f90692374&animated=true";
-const compBefore3 = "https://media.discordapp.net/attachments/1450216881796419738/1487760489013444608/New_Project_17.png?ex=69ca506d&is=69c8feed&hm=9a7428837b4114e73fab3c081556e9d1f41fa86a7f1dbdf146950b61d00fd7fb&animated=true";
-const compAfter3 = "https://media.discordapp.net/attachments/1450216881796419738/1487760489412038806/New_Project_19.png?ex=69ca506d&is=69c8feed&hm=0c9e288f6a85d5479a1f01c2ee1cc8aa120787e82c69d243df35c86afa7f8f71&animated=true";
-
-const researchItems = [
-  { label: "Link to study", url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC4866249/", text: "By Dr. Stephen Marquardt, an oral and maxillofacial surgeon.", imgSrc: "https://cdn.discordapp.com/attachments/1450216881796419738/1485242970209779813/image.png?ex=69c9b98e&is=69c8680e&hm=8438ba1a939dc8ac879717954970b67891102b950fbe5c53a1be24ac6c3fbbf3&animated=true", grayscale: false },
-  { label: "Link to study", url: "https://www.annualreviews.org/content/journals/10.1146/annurev.psych.57.102904.190208", text: "Dr. Gillian Rhodes, University of Western Australia.", imgSrc: "https://cdn.discordapp.com/attachments/1450216881796419738/1485242383800205433/GillianRhodes_img.png?ex=69c9b902&is=69c86782&hm=b25026515c11a252708ef063bd7f6b77f1171b7eaeaae263e0edb5639f260f66&animated=true", grayscale: true },
-  { label: "Link to study", url: "https://www.nature.com/articles/29772", text: "Dr. Kendra Schmid, Biostatistician at the University of Nebraska", imgSrc: "https://cdn.discordapp.com/attachments/1450216881796419738/1485244172582518920/image.png?ex=69c9baad&is=69c8692d&hm=f39bda99a06995ec8de88b12dea68dc094f47105797c7908c55e519c2357e48e&animated=true", grayscale: true }
-];
 
 // --- Body Fat Slider ---
 const BodyFatSlider = () => {
@@ -396,11 +407,6 @@ const BodyFatSlider = () => {
 };
 
 // --- Reviews Carousel ---
-const reviewsData = [
-  { rating: 5, text: "I thought I was too old to see any real structural shift without surgery. Total cope. Once I got the actual harmony measurements and stopped guessing with my routine, things finally started clicking.", author: "hudson*******@gmail.com" },
-  { rating: 5, text: "Honestly I was stuck for years just because I didn't get my own features. This breakdown was a reality check I actually needed. It stopped the guessing games and gaev me a clear plan to finally level up.", author: "kumar*******@gmail.com" },
-  { rating: 5, text: "When I was 13 to 17 I struggled with confidence and I hated looking at myself in the mirror, my life turned around whn I started using the right looksmaxxing advice and putting in the work", author: "k.miller*******@outlook.com" }
-];
 
 const ReviewsCarousel = () => {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -470,363 +476,6 @@ const ReviewsCarousel = () => {
   );
 };
 
-// --- Celebrity Rating Page ---
-const celebrityData = [
-  { 
-    name: "Adriana Lima", rating: "8.8", tier: "S-Tier", flags: ["pt", "jp", "ch", "bb"], sex: "Female",
-    imgSrc: "https://cdn.discordapp.com/attachments/1450216881796419738/1485645455701446800/New_Project_10.png?ex=69c9dee6&is=69c88d66&hm=b8e5ef7b291f7c4502d21bf3e47d42d7bd29419a6e2c86344af2141fa1968b97&animated=true",
-    technicalSummary: "Exceptional bizygomatic width and extremely positive canthal tilt. Flawless facial thirds harmony with highly striking feline eye characteristics.",
-    stats: [
-      { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.817)", score: 84, displayValue: "84/100" },
-      { category: "Skeletal Structure & Harmony", label: "Upper Third Length (0.455)", score: 78, displayValue: "78/100" },
-      { category: "Skeletal Structure & Harmony", label: "Middle Third Length (0.46)", score: 89, displayValue: "89/100" },
-      { category: "Skeletal Structure & Harmony", label: "Lower Third Length (0.423)", score: 92, displayValue: "92/100" },
-      { category: "Skeletal Structure & Harmony", label: "Fwhr", score: 99, displayValue: "99/100" },
-      { category: "Skeletal Structure & Harmony", label: "Midface Ratio", score: 97, displayValue: "97/100" },
-      { category: "Eye / Upper Third Area", label: "Ipd Index", score: 88, displayValue: "88/100" },
-      { category: "Eye / Upper Third Area", label: "Eye Height Index (0.062)", score: 94, displayValue: "94/100" },
-      { category: "Eye / Upper Third Area", label: "Brow Compactness Index", score: 95, displayValue: "95/100" },
-      { category: "Eye / Upper Third Area", label: "Canthal Tilt Degrees (7.82°)", score: 96, displayValue: "96/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Mouth Width Index (0.394)", score: 85, displayValue: "85/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Nose Width Index (0.246)", score: 87, displayValue: "87/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Philtrum Height Index (0.079)", score: 98, displayValue: "98/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Total Lip Height Index (0.148)", score: 96, displayValue: "96/100" }
-    ]
-  },
-  { 
-    name: "Jordan Barrett", rating: "9.2", tier: "S-Tier", flags: ["gb-eng", "ie"], sex: "Male",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485647434326610061/New_Project_12.png?ex=69c9e0be&is=69c88f3e&hm=94c717eaa5968dc4642d9ec14a2b346313125a0ae84152134141f2d4d8c4249d&animated=true",
-    technicalSummary: "Hyper-masculine lower third with extreme jaw angularity and hollow cheeks. Hunter eyes feature minimal upper eyelid exposure and intense positive tilt.",
-    stats: [
-      { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.824)", score: 95, displayValue: "95/100" },
-      { category: "Skeletal Structure & Harmony", label: "Upper Third Length (0.388)", score: 88, displayValue: "88/100" },
-      { category: "Skeletal Structure & Harmony", label: "Middle Third Length (0.42)", score: 96, displayValue: "96/100" },
-      { category: "Skeletal Structure & Harmony", label: "Lower Third Length (0.457)", score: 90, displayValue: "90/100" },
-      { category: "Skeletal Structure & Harmony", label: "Fwhr (Zygo / Upper Face) (1.928)", score: 99, displayValue: "99/100" },
-      { category: "Skeletal Structure & Harmony", label: "Midface Ratio (Mid/ipd) (0.891)", score: 97, displayValue: "97/100" },
-      { category: "Eye / Upper Third Area", label: "Ipd Index (Geometric) (0.46)", score: 90, displayValue: "90/100" },
-      { category: "Eye / Upper Third Area", label: "Eye Height Index (0.054)", score: 98, displayValue: "98/100" },
-      { category: "Eye / Upper Third Area", label: "Brow Compactness Index", score: 99, displayValue: "99/100" },
-      { category: "Eye / Upper Third Area", label: "Canthal Tilt Degrees (5.53°)", score: 95, displayValue: "95/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Mouth Width Index (0.37)", score: 88, displayValue: "88/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Nose Width Index (0.241)", score: 82, displayValue: "82/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Philtrum Height Index (0.099)", score: 85, displayValue: "85/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Total Lip Height Index (0.123)", score: 92, displayValue: "92/100" }
-    ]
-  },
-  { 
-    name: "Henry Cavill", rating: "8.5", tier: "A-Tier", flags: ["gb", "gb-sct"], sex: "Male",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485633699016872168/New_Project_6.png?ex=69c9d3f3&is=69c88273&hm=d5dc28bf0806b7f34daa894ef36f5e0c2023bde911c753a56b3ca2a000124093&animated=true",
-    technicalSummary: "Classic dimorphic traits with a robust squared jawline and excellent midface ratio. Eye region shows ideal masculine brow structure though slightly less striking than S-tiers.",
-    stats: [
-      { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.834)", score: 95, displayValue: "95/100" },
-      { category: "Skeletal Structure & Harmony", label: "Upper Third Length (0.442)", score: 80, displayValue: "80/100" },
-      { category: "Skeletal Structure & Harmony", label: "Middle Third Length (0.436)", score: 65, displayValue: "65/100" },
-      { category: "Skeletal Structure & Harmony", label: "Lower Third Length (0.492)", score: 90, displayValue: "90/100" },
-      { category: "Skeletal Structure & Harmony", label: "Fwhr", score: 98, displayValue: "98/100" },
-      { category: "Skeletal Structure & Harmony", label: "Midface Ratio", score: 60, displayValue: "60/100" },
-      { category: "Eye / Upper Third Area", label: "Ipd Index", score: 85, displayValue: "85/100" },
-      { category: "Eye / Upper Third Area", label: "Eye Height Index (0.064)", score: 90, displayValue: "90/100" },
-      { category: "Eye / Upper Third Area", label: "Brow Compactness Index", score: 92, displayValue: "92/100" },
-      { category: "Eye / Upper Third Area", label: "Canthal Tilt Degrees (4.37°)", score: 85, displayValue: "85/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Mouth Width Index (0.345)", score: 80, displayValue: "80/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Nose Width Index (0.24)", score: 85, displayValue: "85/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Philtrum Height Index (0.113)", score: 85, displayValue: "85/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Total Lip Height Index (0.101)", score: 75, displayValue: "75/100" }
-    ]
-  },
-  { 
-    name: "Madison Beer", rating: "8.4", tier: "A-Tier", flags: ["il", "ma"], sex: "Female",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485643225807982804/New_Project_9.png?ex=69c9dcd2&is=69c88b52&hm=a4c458d3a2d00eb5acc72c72cb0e5dea267987189d32bde4db371444cc972eb3&animated=true",
-    technicalSummary: "Excellent facial symmetry with highly neotenous features balanced by high cheekbones. Strong peri-oral region and positive canthal tilt provide high feminine appeal.",
-    stats: [
-      { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.761)", score: 88, displayValue: "88/100" },
-      { category: "Skeletal Structure & Harmony", label: "Upper Third Length (0.397)", score: 84, displayValue: "84/100" },
-      { category: "Skeletal Structure & Harmony", label: "Middle Third Length (0.467)", score: 94, displayValue: "94/100" },
-      { category: "Skeletal Structure & Harmony", label: "Lower Third Length (0.461)", score: 92, displayValue: "92/100" },
-      { category: "Skeletal Structure & Harmony", label: "Fwhr", score: 97, displayValue: "97/100" },
-      { category: "Skeletal Structure & Harmony", label: "Midface Ratio", score: 96, displayValue: "96/100" },
-      { category: "Eye / Upper Third Area", label: "Ipd Index", score: 82, displayValue: "82/100" },
-      { category: "Eye / Upper Third Area", label: "Eye Height Index (0.065)", score: 90, displayValue: "90/100" },
-      { category: "Eye / Upper Third Area", label: "Brow Compactness Index", score: 96, displayValue: "96/100" },
-      { category: "Eye / Upper Third Area", label: "Canthal Tilt Degrees (6.51°)", score: 95, displayValue: "95/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Mouth Width Index (0.364)", score: 92, displayValue: "92/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Nose Width Index (0.206)", score: 95, displayValue: "95/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Philtrum Height Index (0.087)", score: 95, displayValue: "95/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Total Lip Height Index (0.164)", score: 98, displayValue: "98/100" }
-    ]
-  },
-  { 
-    name: "Dua Lipa", rating: "7.8", tier: "B-Tier", flags: ["al", "ba"], sex: "Female",
-    imgSrc: "https://cdn.discordapp.com/attachments/1450216881796419738/1485968947294507030/New_Project_14.png?ex=69c9baad&is=69c8692d&hm=f5f5f3b023f229bbff4a683368283c35152594a93bdd7c03243a73bafa6a2cb7&animated=true",
-    technicalSummary: "Strong bone structure with striking brows and defined jawline. Slight midface elongation drops her from higher tiers but overall harmony remains strong.",
-    stats: [
-      { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.809)", score: 82, displayValue: "82/100" },
-      { category: "Skeletal Structure & Harmony", label: "Upper Third Length (0.452)", score: 78, displayValue: "78/100" },
-      { category: "Skeletal Structure & Harmony", label: "Middle Third Length (0.495)", score: 85, displayValue: "85/100" },
-      { category: "Skeletal Structure & Harmony", label: "Lower Third Length (0.443)", score: 82, displayValue: "82/100" },
-      { category: "Skeletal Structure & Harmony", label: "Fwhr", score: 75, displayValue: "75/100" },
-      { category: "Skeletal Structure & Harmony", label: "Midface Ratio", score: 88, displayValue: "88/100" },
-      { category: "Eye / Upper Third Area", label: "Ipd Index", score: 80, displayValue: "80/100" },
-      { category: "Eye / Upper Third Area", label: "Eye Height Index (0.07)", score: 75, displayValue: "75/100" },
-      { category: "Eye / Upper Third Area", label: "Brow Compactness Index", score: 80, displayValue: "80/100" },
-      { category: "Eye / Upper Third Area", label: "Canthal Tilt Degrees (7.84°)", score: 85, displayValue: "85/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Mouth Width Index (0.405)", score: 85, displayValue: "85/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Nose Width Index (0.248)", score: 80, displayValue: "80/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Philtrum Height Index (0.092)", score: 82, displayValue: "82/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Total Lip Height Index (0.154)", score: 90, displayValue: "90/100" }
-    ]
-  },
-  { 
-    name: "Regé-Jean Page", rating: "8.6", tier: "B-Tier", flags: ["zw", "gb-eng"], sex: "Male",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485965019597377627/New_Project_13.png?ex=69c9b704&is=69c86584&hm=1017b3df6574616d562b34e482e3d5b37cc092a4b83e74847614c56a3f038208&animated=true",
-    technicalSummary: "Harmonious facial thirds and excellent skin quality. Softened jawline and average eye spacing prevent higher classification despite strong aesthetic appeal.",
-    stats: [
-      { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.817)", score: 90, displayValue: "90/100" },
-      { category: "Skeletal Structure & Harmony", label: "Upper Third Length (0.418)", score: 85, displayValue: "85/100" },
-      { category: "Skeletal Structure & Harmony", label: "Middle Third Length (0.44)", score: 88, displayValue: "88/100" },
-      { category: "Skeletal Structure & Harmony", label: "Lower Third Length (0.498)", score: 92, displayValue: "92/100" },
-      { category: "Skeletal Structure & Harmony", label: "Fwhr", score: 95, displayValue: "95/100" },
-      { category: "Skeletal Structure & Harmony", label: "Midface Ratio", score: 92, displayValue: "92/100" },
-      { category: "Eye / Upper Third Area", label: "Ipd Index", score: 85, displayValue: "85/100" },
-      { category: "Eye / Upper Third Area", label: "Eye Height Index (0.059)", score: 82, displayValue: "82/100" },
-      { category: "Eye / Upper Third Area", label: "Brow Compactness Index", score: 84, displayValue: "84/100" },
-      { category: "Eye / Upper Third Area", label: "Canthal Tilt Degrees (4.57°)", score: 80, displayValue: "80/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Mouth Width Index (0.376)", score: 88, displayValue: "88/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Nose Width Index (0.244)", score: 82, displayValue: "82/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Philtrum Height Index (0.115)", score: 86, displayValue: "86/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Total Lip Height Index (0.133)", score: 90, displayValue: "90/100" }
-    ]
-  },
-  { 
-    name: "Tom Holland", rating: "6.8", tier: "C-Tier", flags: ["gb-eng"], sex: "Male",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485965019182137486/Tom_Holland.png?ex=69c9b704&is=69c86584&hm=acca65386f8ed7e87e195182c38d1b34c63f4d2e2afeed2a63ab345e3a410db1&animated=true",
-    technicalSummary: "Highly neotenous features lacking robust masculine dimorphism. Average jaw width and slight facial asymmetry lower his objective rating despite mass appeal.",
-    stats: [
-      { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.796)", score: 82, displayValue: "82/100" },
-      { category: "Skeletal Structure & Harmony", label: "Upper Third Length (0.391)", score: 78, displayValue: "78/100" },
-      { category: "Skeletal Structure & Harmony", label: "Middle Third Length (0.407)", score: 85, displayValue: "85/100" },
-      { category: "Skeletal Structure & Harmony", label: "Lower Third Length (0.488)", score: 65, displayValue: "65/100" },
-      { category: "Skeletal Structure & Harmony", label: "Fwhr", score: 95, displayValue: "95/100" },
-      { category: "Skeletal Structure & Harmony", label: "Midface Ratio", score: 90, displayValue: "90/100" },
-      { category: "Eye / Upper Third Area", label: "Ipd Index", score: 75, displayValue: "75/100" },
-      { category: "Eye / Upper Third Area", label: "Eye Height Index (0.055)", score: 68, displayValue: "68/100" },
-      { category: "Eye / Upper Third Area", label: "Brow Compactness Index", score: 75, displayValue: "75/100" },
-      { category: "Eye / Upper Third Area", label: "Canthal Tilt Degrees (1.26°)", score: 75, displayValue: "75/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Mouth Width Index (0.331)", score: 60, displayValue: "60/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Nose Width Index (0.223)", score: 80, displayValue: "80/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Philtrum Height Index (0.116)", score: 45, displayValue: "45/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Total Lip Height Index (0.094)", score: 35, displayValue: "35/100" }
-    ]
-  },
-  { 
-    name: "Ellie Kemper", rating: "6.4", tier: "C-Tier", flags: ["it", "de", "gb-eng"], sex: "Female",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485639923208814682/New_Project_7.png?ex=69c9d9bf&is=69c8883f&hm=72d8ce31c0d61f438af1969448d4491ad4a13bc37d97520cb97425d30297e46e&animated=true",
-    technicalSummary: "Pleasant, highly approachable features with a strong smile. Suboptimal facial width-to-height ratio and average midface projection place her in the average tier.",
-    stats: [
-      { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.811)", score: 80, displayValue: "80/100" },
-      { category: "Skeletal Structure & Harmony", label: "Upper Third Length (0.419)", score: 72, displayValue: "72/100" },
-      { category: "Skeletal Structure & Harmony", label: "Middle Third Length (0.457)", score: 70, displayValue: "70/100" },
-      { category: "Skeletal Structure & Harmony", label: "Lower Third Length (0.453)", score: 75, displayValue: "75/100" },
-      { category: "Skeletal Structure & Harmony", label: "Fwhr", score: 95, displayValue: "95/100" },
-      { category: "Skeletal Structure & Harmony", label: "Midface Ratio", score: 88, displayValue: "88/100" },
-      { category: "Eye / Upper Third Area", label: "Ipd Index", score: 75, displayValue: "75/100" },
-      { category: "Eye / Upper Third Area", label: "Eye Height Index (0.053)", score: 65, displayValue: "65/100" },
-      { category: "Eye / Upper Third Area", label: "Brow Compactness Index", score: 68, displayValue: "68/100" },
-      { category: "Eye / Upper Third Area", label: "Canthal Tilt Degrees (8.82°)", score: 75, displayValue: "75/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Mouth Width Index (0.463)", score: 78, displayValue: "78/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Nose Width Index (0.265)", score: 75, displayValue: "75/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Philtrum Height Index (0.066)", score: 75, displayValue: "75/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Total Lip Height Index (0.169)", score: 72, displayValue: "72/100" }
-    ]
-  },
-  { 
-    name: "Will Smith", rating: "5.8", tier: "D-Tier", flags: ["ng", "gb-eng"], sex: "Male",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485633629286694975/MV5BNTczMzk1MjU1MV5BMl5BanBnXkFtZTcwNDk2MzAyMg._V1_FMjpg_UX1000_.png?ex=69c9d3e2&is=69c88262&hm=f7533d2667eb61a9a8034de999df960882160d6fedd66b8b3bcb2ab8a6783441&animated=true",
-    technicalSummary: "Significant ear protrusion and facial asymmetry pull down his objective score. Age-related soft tissue changes have also affected jawline definition.",
-    stats: [
-      { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.822)", score: 75, displayValue: "75/100" },
-      { category: "Skeletal Structure & Harmony", label: "Upper Third Length (0.364)", score: 70, displayValue: "70/100" },
-      { category: "Skeletal Structure & Harmony", label: "Middle Third Length (0.477)", score: 85, displayValue: "85/100" },
-      { category: "Skeletal Structure & Harmony", label: "Lower Third Length (0.495)", score: 75, displayValue: "75/100" },
-      { category: "Skeletal Structure & Harmony", label: "FWHR", score: 60, displayValue: "60/100" },
-      { category: "Skeletal Structure & Harmony", label: "Midface Ratio", score: 85, displayValue: "85/100" },
-      { category: "Eye / Upper Third Area", label: "IPD Index", score: 70, displayValue: "70/100" },
-      { category: "Eye / Upper Third Area", label: "Eye Height Index (0.049)", score: 55, displayValue: "55/100" },
-      { category: "Eye / Upper Third Area", label: "Brow Compactness Index", score: 65, displayValue: "65/100" },
-      { category: "Eye / Upper Third Area", label: "Canthal Tilt Degrees (-0.63°)", score: 50, displayValue: "50/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Mouth Width Index (0.364)", score: 65, displayValue: "65/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Nose Width Index (0.255)", score: 60, displayValue: "60/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Philtrum Height Index (0.109)", score: 70, displayValue: "70/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Total Lip Height Index (0.113)", score: 75, displayValue: "75/100" }
-    ]
-  },
-  { 
-    name: "Nora Lum", rating: "5.8", tier: "D-Tier", flags: ["cn", "kr"], sex: "Female",
-    imgSrc: "https://media.discordapp.net/attachments/1450216881796419738/1485633630100258926/New_Project.png?ex=69c9d3e3&is=69c88263&hm=8e06b197b0f9c928b40190248c6fd1fd50c543ccf3338a82e061c8397c51e821&animated=true",
-    technicalSummary: "Poor posture-related structural issues including forward head posture. Suboptimal midface development and excess buccal fat obscure underlying bone structure.",
-    stats: [
-      { category: "Skeletal Structure & Harmony", label: "Bigonial Width Index (0.793)", score: 70, displayValue: "70/100" },
-      { category: "Skeletal Structure & Harmony", label: "Upper Third Length (0.389)", score: 70, displayValue: "70/100" },
-      { category: "Skeletal Structure & Harmony", label: "Middle Third Length (0.497)", score: 65, displayValue: "65/100" },
-      { category: "Skeletal Structure & Harmony", label: "Lower Third Length (0.443)", score: 65, displayValue: "65/100" },
-      { category: "Skeletal Structure & Harmony", label: "Fwhr", score: 85, displayValue: "85/100" },
-      { category: "Skeletal Structure & Harmony", label: "Midface Ratio", score: 80, displayValue: "80/100" },
-      { category: "Eye / Upper Third Area", label: "Ipd Index", score: 75, displayValue: "75/100" },
-      { category: "Eye / Upper Third Area", label: "Eye Height Index (0.052)", score: 60, displayValue: "60/100" },
-      { category: "Eye / Upper Third Area", label: "Brow Compactness Index", score: 55, displayValue: "55/100" },
-      { category: "Eye / Upper Third Area", label: "Canthal Tilt Degrees (9.88°)", score: 75, displayValue: "75/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Mouth Width Index (0.419)", score: 60, displayValue: "60/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Nose Width Index (0.244)", score: 65, displayValue: "65/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Philtrum Height Index (0.074)", score: 65, displayValue: "65/100" },
-      { category: "Nasal & Peri-Oral Area", label: "Total Lip Height Index (0.178)", score: 50, displayValue: "50/100" }
-    ]
-  }
-];
-
-const HolographicCard = ({ celeb, onClick }) => {
-  const [rotation, setRotation] = useState({ x: 0, y: 0 });
-  const [isHovering, setIsHovering] = useState(false);
-  const cardRef = useRef(null);
-
-  const handleMouseMove = (e) => {
-    if (!cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    // Max rotation 15 degrees
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const rotateX = ((y - centerY) / centerY) * -15;
-    const rotateY = ((x - centerX) / centerX) * 15;
-    
-    setRotation({ x: rotateX, y: rotateY });
-  };
-
-  const handleMouseEnter = () => setIsHovering(true);
-  const handleMouseLeave = () => {
-    setIsHovering(false);
-    setRotation({ x: 0, y: 0 });
-  };
-  const num = parseFloat(celeb.rating);
-  let rColors = {};
-  if (num >= 9) {
-    // 9+ Very glowy green
-    rColors = {
-      text: 'from-green-200 via-green-400 to-green-500',
-      dropConfig: 'drop-shadow-[0_0_20px_rgba(74,222,128,1)] drop-shadow-[0_0_40px_rgba(74,222,128,0.8)]',
-      border: 'border-green-400/80',
-      shadowHov: 'shadow-[0_0_60px_rgba(74,222,128,0.6)]',
-      badge: 'text-green-300 border-green-500/30'
-    };
-  } else if (num >= 8) {
-    // 8s Just green
-    rColors = {
-      text: 'from-green-400 via-green-500 to-green-600',
-      dropConfig: 'drop-shadow-[0_0_15px_rgba(34,197,94,0.6)]',
-      border: 'border-green-500/60',
-      shadowHov: 'shadow-[0_0_40px_rgba(34,197,94,0.4)]',
-      badge: 'text-green-400 border-green-500/30'
-    };
-  } else if (num >= 7) {
-    // 7.2 mostly green but some orange tint
-    rColors = {
-      text: 'from-orange-400 via-lime-500 to-green-500',
-      dropConfig: 'drop-shadow-[0_0_15px_rgba(132,204,22,0.5)]',
-      border: 'border-lime-500/60',
-      shadowHov: 'shadow-[0_0_40px_rgba(132,204,22,0.3)]',
-      badge: 'text-lime-400 border-lime-500/30'
-    };
-  } else if (num >= 6) {
-    // 6 in between orange and green
-    rColors = {
-      text: 'from-orange-500 via-yellow-500 to-lime-500',
-      dropConfig: 'drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]',
-      border: 'border-yellow-500/60',
-      shadowHov: 'shadow-[0_0_40px_rgba(234,179,8,0.3)]',
-      badge: 'text-yellow-400 border-yellow-500/30'
-    };
-  } else {
-    // 5 -> orange
-    rColors = {
-      text: 'from-orange-500 via-orange-600 to-orange-700',
-      dropConfig: 'drop-shadow-[0_0_15px_rgba(249,115,22,0.5)]',
-      border: 'border-orange-600/60',
-      shadowHov: 'shadow-[0_0_40px_rgba(249,115,22,0.3)]',
-      badge: 'text-orange-500 border-orange-600/30'
-    };
-  }
-
-  return (
-    <div 
-      className="w-full max-w-md mx-auto group cursor-pointer"
-      style={{ perspective: '1000px' }}
-      onMouseMove={handleMouseMove}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onClick={onClick}
-    >
-      <div 
-        ref={cardRef}
-        className={`relative aspect-[3/4] rounded-2xl border ${rColors.border} bg-[#0c0d0e]/80 backdrop-blur-xl overflow-hidden transition-all duration-300 ease-out transform-gpu shadow-2xl ${isHovering ? rColors.shadowHov : 'shadow-black/50'}`}
-        style={{
-          transform: isHovering ? `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) scale3d(1.05, 1.05, 1.05)` : 'rotateX(0) rotateY(0) scale3d(1, 1, 1)'
-        }}
-      >
-        <div className="absolute inset-0 pointer-events-none">
-          <img src={celeb.imgSrc} referrerPolicy="no-referrer" className={`w-full h-full object-cover transition-all duration-700 transform-gpu ${isHovering ? 'scale-[1.15] brightness-110 opacity-100' : 'scale-105 brightness-95 opacity-100'}`} alt={celeb.name} />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0c0d0e]/30 via-transparent to-transparent" />
-        </div>
-        
-        {/* SEE WHY Overlay */}
-        <div className={`absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] transition-all duration-300 pointer-events-none ${isHovering ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
-          <div className="flex items-center gap-2 bg-white/10 border border-white/20 px-6 py-3 rounded-full shadow-[0_0_30px_rgba(255,255,255,0.2)] backdrop-blur-md">
-            <span className="text-white font-black italic tracking-widest text-sm uppercase">See Why</span>
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-        </div>
-        
-        {/* Card Info */}
-        <div className="absolute bottom-0 left-0 w-full px-6 pb-3 pt-28 z-30 transform-gpu transition-transform duration-500 bg-gradient-to-t from-[#0c0d0e]/50 via-transparent to-transparent">
-          <div className="flex justify-between items-end mb-1.5">
-            <h3 className="text-lg font-black italic tracking-tighter text-white uppercase leading-none flex items-center gap-2">
-              {celeb.name}
-              <span className={`text-xl font-black select-none text-transparent bg-clip-text bg-gradient-to-br ${rColors.text} ${rColors.dropConfig} transition-all duration-300`}>
-                {celeb.rating}
-              </span>
-              {celeb.flags && celeb.flags.length > 0 && (
-                <div className="flex items-center gap-1 ml-1 translate-y-[1px]">
-                  {celeb.flags.map((code) => (
-                    <img key={code} src={`https://flagcdn.com/w20/${code}.png`} alt={`${code} flag`} className="w-5 h-[14px] object-cover rounded-[2px] opacity-90 shadow-sm border border-white/10" />
-                  ))}
-                </div>
-              )}
-            </h3>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-black/60 border backdrop-blur-md ${rColors.badge}`}>
-              {celeb.tier}
-            </span>
-          </div>
-        </div>
-
-        {/* Glare effect */}
-        <div 
-          className="absolute inset-0 pointer-events-none z-40 transition-opacity duration-300 rounded-2xl"
-          style={{
-            opacity: isHovering ? 0.4 : 0,
-            background: `radial-gradient(circle at ${rotation.y * 5 + 50}% ${rotation.x * -5 + 50}%, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 60%)`,
-            mixBlendMode: 'overlay'
-          }}
-        />
-      </div>
-    </div>
-  );
-};
-
 const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
   return (
     <div className="w-full flex-grow pt-32 pb-24 px-6 relative flex flex-col items-center overflow-hidden">
@@ -847,7 +496,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
 
       <div className="w-full max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16">
         {celebrityData.map((celeb, idx) => (
-          <FadeUp key={idx} delay={idx * 150}>
+          <FlipIn key={idx} delay={idx * 150}>
             <HolographicCard 
               celeb={celeb} 
               onClick={() => {
@@ -855,7 +504,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
                 setCurrentPage('celebrity-stats');
               }} 
             />
-          </FadeUp>
+          </FlipIn>
         ))}
       </div>
     </div>
@@ -870,28 +519,28 @@ const CelebrityStatsPage = ({ celeb, setCurrentPage }) => {
 
   const num = parseFloat(celeb.rating);
   let rColors = {};
-  if (num >= 9) {
+  if (num >= 90) {
     rColors = {
       text: 'from-green-200 via-green-400 to-green-500',
       dropConfig: 'drop-shadow-[0_0_20px_rgba(74,222,128,1)] drop-shadow-[0_0_40px_rgba(74,222,128,0.8)]',
       border: 'border-green-400/80',
       badge: 'text-green-300 border-green-500/30'
     };
-  } else if (num >= 8) {
+  } else if (num >= 80) {
     rColors = {
       text: 'from-green-400 via-green-500 to-green-600',
       dropConfig: 'drop-shadow-[0_0_15px_rgba(34,197,94,0.6)]',
       border: 'border-green-500/60',
       badge: 'text-green-400 border-green-500/30'
     };
-  } else if (num >= 7) {
+  } else if (num >= 70) {
     rColors = {
       text: 'from-orange-400 via-lime-500 to-green-500',
       dropConfig: 'drop-shadow-[0_0_15px_rgba(132,204,22,0.5)]',
       border: 'border-lime-500/60',
       badge: 'text-lime-400 border-lime-500/30'
     };
-  } else if (num >= 6) {
+  } else if (num >= 60) {
     rColors = {
       text: 'from-orange-500 via-yellow-500 to-lime-500',
       dropConfig: 'drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]',
@@ -931,7 +580,7 @@ const CelebrityStatsPage = ({ celeb, setCurrentPage }) => {
           {/* Left Column: Card Image & Flags */}
           <div className="w-full md:w-1/3 flex flex-col items-center gap-6">
             <div className={`relative w-full aspect-[3/4] rounded-2xl border ${rColors.border} bg-[#0c0d0e] overflow-hidden shadow-2xl shadow-black/50`}>
-              <img src={celeb.imgSrc} className="w-full h-full object-cover" alt={celeb.name} />
+              <img src={celeb.imgSrc} referrerPolicy="no-referrer" className="w-full h-full object-cover" alt={celeb.name} />
               <div className="absolute inset-0 bg-gradient-to-t from-[#0c0d0e]/80 via-transparent to-transparent pointer-events-none" />
             </div>
           </div>
@@ -940,11 +589,11 @@ const CelebrityStatsPage = ({ celeb, setCurrentPage }) => {
           <div className="w-full md:w-2/3 space-y-12">
             {/* Header section */}
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-2">
                 <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white">
                   {celeb.name}
                 </h1>
-                <span className={`text-5xl font-black italic text-transparent bg-clip-text bg-gradient-to-br ${rColors.text} ${rColors.dropConfig}`}>
+                <span className={`text-5xl font-black italic text-transparent bg-clip-text bg-gradient-to-br leading-none shrink-0 ${rColors.text} ${rColors.dropConfig}`}>
                   {celeb.rating}
                 </span>
               </div>
@@ -1079,9 +728,9 @@ const HomePage = ({ setCurrentPage }) => {
 
       <FadeUp>
         <div className="relative flex flex-col items-center w-full max-w-6xl mx-auto">
-          {/* Wireframe only behind the headline — flow continues at divider / CTA */}
+          {/* Wireframe only behind the headline â€” flow continues at divider / CTA */}
           <div className="relative w-full flex justify-center px-4 mb-6 md:mb-10">
-            {/* Mesh: absolute overlay only — height comes from headline text, not from the SVG */}
+            {/* Mesh: absolute overlay only â€” height comes from headline text, not from the SVG */}
             <div className="relative w-fit max-w-full py-2 md:py-4">
               <div className="relative z-10 flex flex-col items-center">
                 
@@ -1124,7 +773,7 @@ const HomePage = ({ setCurrentPage }) => {
           </div>
 
           <div className="w-16 h-[1px] bg-gradient-to-r from-transparent via-zinc-500 to-transparent mb-5" />
-          <p className="text-zinc-300 font-sans text-sm md:text-base uppercase tracking-[0.3em] mb-14 font-bold">Powered by AI — track your looks with MogCheck</p>
+          <p className="text-zinc-300 font-sans text-sm md:text-base uppercase tracking-[0.3em] mb-14 font-bold">Powered by AI - track your looks with MogCheck</p>
           <button onClick={() => setCurrentPage('login')} className="mx-auto group relative px-12 py-5 bg-white text-black font-black uppercase tracking-tighter text-lg flex items-center gap-5 hover:scale-110 transition-all duration-300 rounded-sm" style={{ animation: 'ctaPulse 3s ease-in-out infinite' }}>
             <span className="tracking-widest">TRY FOR FREE</span>
             <div className="flex items-center"><div className="h-[2px] w-10 bg-black" /><div className="rotate-45 w-4 h-4 bg-black -ml-2" /></div>
@@ -1167,7 +816,7 @@ const HomePage = ({ setCurrentPage }) => {
           {researchItems.map((item, idx) => (
             <a key={idx} href={item.url} target="_blank" rel="noopener noreferrer" className="flex flex-col sm:flex-row items-center justify-between p-8 rounded-2xl bg-zinc-900/20 border border-zinc-900 hover:border-zinc-700 hover:bg-zinc-900/40 transition-all group">
               <div className="flex flex-col gap-3"><div className="flex items-center gap-4 text-blue-500 group-hover:text-blue-400 transition-colors uppercase font-sans font-bold tracking-widest text-lg">{item.label} <ArrowUpRight size={20} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></div><span className="text-zinc-500 font-sans text-xs uppercase tracking-[0.2em]">{item.text}</span></div>
-              <div className="w-32 h-40 sm:w-40 sm:h-48 bg-zinc-800 rounded-xl mt-8 sm:mt-0 overflow-hidden border border-zinc-700 shadow-2xl"><img src={item.imgSrc} alt="Doctor" className={`w-full h-full object-cover ${item.grayscale ? 'grayscale' : ''}`} /></div>
+              <div className="w-32 h-40 sm:w-40 sm:h-48 bg-zinc-800 rounded-xl mt-8 sm:mt-0 overflow-hidden border border-zinc-700 shadow-2xl"><img src={item.imgSrc} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover [filter:grayscale(100%)_saturate(0)]" /></div>
             </a>
           ))}
         </div>
@@ -1387,7 +1036,7 @@ const PhotoGuidePage = ({ setCurrentPage }) => {
               <ul className="space-y-6 text-zinc-300 text-sm md:text-base tracking-wider leading-relaxed mb-8 flex-grow">
                 <li><span className="text-white font-bold">1.</span> Place your phone roughly 6 feet (2 meters) away from you.</li>
                 <li><span className="text-white font-bold">2.</span> Set your camera to 2x or 3x zoom and step back until your head fits the frame.</li>
-                <li><span className="text-white font-bold">3.</span> Ensure the camera is exactly at eye level—not tilted up or down.</li>
+                <li><span className="text-white font-bold">3.</span> Ensure the camera is exactly at eye level - not tilted up or down.</li>
               </ul>
               <img src="https://media.discordapp.net/attachments/1450216881796419738/1485977934937460756/Screenshot_2026-03-24_152313.png?ex=69c3d44b&is=69c282cb&hm=42c46c51e8c01ae034e92c05937379af0da42fdbe068c4b54976a51df91af070&=&format=webp&quality=lossless&width=848&height=854" alt="Do example" className="w-full aspect-square object-cover rounded-xl border border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.1)] grayscale opacity-80" />
             </div>
@@ -1427,7 +1076,8 @@ const FileDropzone = ({ label, file, setFile, isPulsing }) => {
           e.stopPropagation();
           setIsDragging(false);
           if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            setFile(URL.createObjectURL(e.dataTransfer.files[0]));
+            const f = e.dataTransfer.files[0];
+            setFile(URL.createObjectURL(f), f);
           }
         }}
         className={`w-full aspect-[3/4] max-w-sm mx-auto rounded-3xl border transition-all duration-300 flex flex-col items-center justify-center cursor-pointer relative overflow-hidden group ${
@@ -1436,12 +1086,12 @@ const FileDropzone = ({ label, file, setFile, isPulsing }) => {
             : (isPulsing && !file ? 'border-zinc-500 bg-zinc-900/40 shadow-[0_0_30px_rgba(255,255,255,0.1)] animate-pulse hover:border-zinc-400' : 'border-zinc-800 bg-zinc-900/30 backdrop-blur-md hover:border-zinc-600 hover:bg-zinc-900/50 shadow-2xl')
         }`}
       >
-        <input type="file" className="hidden" accept="image/*" onChange={(e) => { if (e.target.files[0]) setFile(URL.createObjectURL(e.target.files[0])); }} />
+        <input type="file" className="hidden" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(URL.createObjectURL(f), f); }} />
         {file ? (
           <>
             <img src={file} alt={label} className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-40 transition-opacity duration-300" />
             <div 
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setFile(null); }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setFile(null, null); }}
               className="absolute top-4 right-4 md:top-6 md:right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20 bg-black/60 hover:bg-red-500/80 text-white rounded-full p-2 backdrop-blur-md border border-white/10 hover:border-red-500/50"
               title="Remove Image"
             >
@@ -1599,7 +1249,17 @@ const FaceScanOverlay = ({ landmarksData }) => {
   );
 };
 
-const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onComplete, user }) => {
+/** mainImageSrc: front preview URL; mainImageFile: native File for reliable FormData uploads */
+const ScanningView = ({
+  mainImageSrc,
+  mainImageFile,
+  sideImageUrl,
+  sideImageFile,
+  sideMetricData,
+  choice,
+  onComplete,
+  user,
+}) => {
   const [statusText, setStatusText] = useState('Connecting to Backend Bridge...');
   const [videoUrl, setVideoUrl] = useState(null);
   const [landmarks, setLandmarks] = useState(null);
@@ -1623,7 +1283,7 @@ const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onC
         });
         
         const img = new Image();
-        img.src = sideImageSrc;
+        img.src = mainImageSrc;
         img.onload = () => {
           if (!active) return;
           const result = faceLandmarker.detect(img);
@@ -1645,24 +1305,47 @@ const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onC
       const minScanMs = 3200;
       const scanStartedAt = Date.now();
       try {
+        setStatusText("Checking analysis server...");
+        try {
+          const healthCtrl = new AbortController();
+          const healthTimer = setTimeout(() => healthCtrl.abort(), 8000);
+          const healthRes = await fetch(`${API_BASE}/api/health`, { signal: healthCtrl.signal });
+          clearTimeout(healthTimer);
+          if (!healthRes.ok) {
+            setStatusText(GENERIC_ERROR);
+            return;
+          }
+        } catch (e) {
+          console.error("API health check failed", e);
+          setStatusText(GENERIC_ERROR);
+          return;
+        }
+
         setStatusText("Uploading image to secure AI server...");
-        
-        const response = await fetch(sideImageSrc);
-        const blob = await response.blob();
-        
+
         const formData = new FormData();
-        formData.append('image', blob, 'upload.jpg');
+        if (mainImageFile instanceof File) {
+          formData.append('image', mainImageFile, mainImageFile.name || 'upload.jpg');
+        } else {
+          const response = await fetch(mainImageSrc);
+          const blob = await response.blob();
+          formData.append('image', blob, 'upload.jpg');
+        }
         formData.append('choice', choice || "3");
 
         const isUltra = choice === "1" || choice === "2";
         if (isUltra && !user) {
-          setStatusText('Sign in required for premium models.');
+          setStatusText(GENERIC_ERROR);
           return;
         }
-        if (isUltra && sideImageFile) {
-          const sideResponse = await fetch(sideImageFile);
-          const sideBlob = await sideResponse.blob();
-          formData.append('sideImage', sideBlob, 'side.jpg');
+        if (isUltra && (sideImageUrl || sideImageFile)) {
+          if (sideImageFile instanceof File) {
+            formData.append('sideImage', sideImageFile, sideImageFile.name || 'side.jpg');
+          } else if (sideImageUrl) {
+            const sideResponse = await fetch(sideImageUrl);
+            const sideBlob = await sideResponse.blob();
+            formData.append('sideImage', sideBlob, 'side.jpg');
+          }
         }
 
         setStatusText("Running vision pipeline & AI model (this often takes 30–120s)...");
@@ -1674,7 +1357,7 @@ const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onC
             headers.Authorization = `Bearer ${token}`;
           } catch (e) {
             console.error("Failed to get auth token", e);
-            setStatusText("Sign in required for premium models. Please refresh and log in.");
+            setStatusText(GENERIC_ERROR);
             return;
           }
         }
@@ -1686,10 +1369,17 @@ const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onC
         });
 
         if (!active) return;
-        const data = await apiRes.json();
+        let data;
+        try {
+          data = await apiRes.json();
+        } catch (parseErr) {
+          console.error("Analyze response not JSON", parseErr);
+          setStatusText(GENERIC_ERROR);
+          return;
+        }
 
         if (!apiRes.ok) {
-          setStatusText(data.error || `Request failed (${apiRes.status})`);
+          setStatusText(GENERIC_ERROR);
           return;
         }
 
@@ -1704,18 +1394,19 @@ const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onC
            setVideoUrl(data.videoUrl);
            if (active) onComplete(data);
         } else {
-           setStatusText(data.error || "Analysis Failed.");
+           console.error('[analyze] success=false', data?.error || data);
+           setStatusText(GENERIC_ERROR);
         }
       } catch (err) {
         console.error("API failed", err);
-        setStatusText("Connection Failed.");
+        setStatusText(GENERIC_ERROR);
       }
     };
 
     startScan();
 
     return () => { active = false; };
-  }, [sideImageSrc, sideImageFile, sideMetricData, choice, user, onComplete]);
+  }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, user, onComplete]);
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center animate-[fadeIn_0.5s_ease-out]">
@@ -1726,7 +1417,15 @@ const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onC
       `}</style>
       <div className="text-center mb-10 mt-10">
         <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-cyan-400 mb-2 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] animate-pulse">Consulting AI</h2>
-        <p className="font-sans text-zinc-400 text-sm uppercase tracking-[0.3em]">{statusText}</p>
+        <p
+          className={`font-sans text-zinc-400 text-sm ${
+            statusText.length > 50 || /API offline|Can't reach|Error:|Invalid response|Sign in required/i.test(statusText)
+              ? 'normal-case tracking-normal max-w-lg mx-auto px-4 leading-relaxed'
+              : 'uppercase tracking-[0.3em]'
+          }`}
+        >
+          {statusText}
+        </p>
       </div>
 
       <div className="relative aspect-[3/4] w-full max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] scale-[1.02] transform-gpu">
@@ -1734,7 +1433,7 @@ const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onC
            <video src={videoUrl} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover z-10" />
         ) : (
            <>
-             <img src={sideImageSrc} alt="Scan target" className="absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%] z-0" />
+             <img src={mainImageSrc} alt="Scan target" className="absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%] z-0" />
              <div className="absolute inset-0 bg-blue-900/30 mix-blend-overlay z-0" />
            </>
         )}
@@ -1754,7 +1453,9 @@ const ScanningView = ({ sideImageSrc, sideImageFile, sideMetricData, choice, onC
 // --- Upload Photo Page ---
 const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrity, user, userPlan }) => {
   const [frontImage, setFrontImage] = useState(null);
+  const [frontFile, setFrontFile] = useState(null);
   const [sideImage, setSideImage] = useState(null);
+  const [sideFile, setSideFile] = useState(null);
   const [selectedModel, setSelectedModel] = useState("3");
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [dropdownAnimOpen, setDropdownAnimOpen] = useState(false);
@@ -1766,7 +1467,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const models = [
     {
       id: "1",
-      name: "Premium — highest quality",
+      name: "Premium - highest quality",
       description:
         "Our most powerful analysis engine. Provides the highest level of accuracy and detail, though processing may take longer.",
       tier: "ultra",
@@ -1776,7 +1477,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       id: "2",
       name: "Fun mode",
       description:
-        "Faster, lighter analysis for quick entertainment. Results can be inaccurate — don't treat scores as medical or professional advice.",
+        "Faster, lighter analysis for quick entertainment. Results can be inaccurate - don't treat scores as medical or professional advice.",
       tier: "ultra",
       Icon: Zap
     },
@@ -1832,6 +1533,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   useEffect(() => {
     if (!isUltraModel) {
       setSideImage(null);
+      setSideFile(null);
     }
   }, [isUltraModel]);
 
@@ -1880,8 +1582,10 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
           <>
             <div className="flex flex-col items-center pt-24 pb-16 px-6 lg:px-12 relative min-h-screen">
               <ScanningView 
-                 sideImageSrc={frontImage}
-                 sideImageFile={sideImage}
+                 mainImageSrc={frontImage}
+                 mainImageFile={frontFile}
+                 sideImageUrl={sideImage}
+                 sideImageFile={sideFile}
                  sideMetricData={sideMetricDataGlobal} 
                  choice={selectedModel}
                  user={user}
@@ -1892,9 +1596,66 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                  }} 
               />
-              <div className="mt-12 flex flex-col items-center gap-2 animate-bounce">
-                <span className="text-zinc-600 font-sans text-[9px] uppercase tracking-[0.3em]">Scroll down while you wait</span>
-                <ChevronRight size={16} className="text-zinc-600 rotate-90" />
+              <div className="mt-16 flex flex-col items-center gap-3 animate-bounce cursor-pointer hover:scale-105 transition-transform" onClick={() => window.scrollBy({ top: 600, behavior: 'smooth' })}>
+                <div className="bg-cyan-500/10 border border-cyan-500/30 px-6 py-2 rounded-full shadow-[0_0_15px_rgba(34,211,238,0.2)]">
+                  <span className="text-cyan-400 font-bold font-sans text-xs uppercase tracking-[0.3em]">Scroll down while you wait</span>
+                </div>
+                <ChevronRight size={24} className="text-cyan-400 rotate-90 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+              </div>
+            </div>
+            <div className="border-t border-zinc-800/50 w-full pt-16 pb-12 px-6">
+              <div className="max-w-6xl mx-auto flex flex-col gap-6">
+                <div className="text-center">
+                  <h2 className="text-2xl font-black uppercase tracking-tighter italic text-white mb-2">Community Scans</h2>
+                  <p className="text-zinc-400 font-sans text-sm uppercase tracking-widest">See how others in the community stack up.</p>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {COMMUNITY_SCANS.map((scan) => {
+                    const dd = scan.dashboardData;
+                    const rating = dd?.finalRating ?? 0;
+                    const tierUpper = String(scan.tier || '').toUpperCase();
+                    const tierBadgeClass =
+                      tierUpper.includes('S') && tierUpper.includes('TIER')
+                        ? 'bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+                        : tierUpper.includes('A') && tierUpper.includes('TIER')
+                          ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.6)]'
+                          : 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
+                    return (
+                      <div key={scan.id} className="text-left bg-[#0c0d0e] border border-zinc-800 rounded-2xl overflow-hidden relative">
+                        <div className="aspect-[3/4] bg-zinc-900 relative">
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-transparent to-transparent z-10 pointer-events-none" />
+                          {dd?.frontImage ? (
+                            <img
+                              src={dd.frontImage}
+                              alt=""
+                              className="absolute inset-0 w-full h-full object-cover object-top"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-zinc-700 opacity-50">
+                              <Users size={48} />
+                            </div>
+                          )}
+                          <div className="absolute top-3 left-3 z-20">
+                            <span className={`border text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${tierBadgeClass}`}>
+                              {scan.tier || '—'}
+                            </span>
+                          </div>
+                          <div className="absolute bottom-3 left-3 z-20 flex items-baseline gap-1">
+                            <span className="text-white font-black italic text-2xl drop-shadow-[0_0_10px_rgba(255,255,255,0.4)] tabular-nums">
+                              {Number(rating).toFixed(1)}
+                            </span>
+                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
+                          </div>
+                        </div>
+                        <div className="p-4 flex items-center justify-between bg-[#0a0a0b] relative z-20">
+                          <span className="text-zinc-400 font-mono text-[10px] uppercase tracking-widest truncate">
+                            {scan.displayName}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
             <div className="border-t border-zinc-800/50">
@@ -1932,10 +1693,10 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
           <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white mb-16 text-center drop-shadow-2xl">Upload Photo</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-24 w-full mb-16 px-4">
-            <FileDropzone label="Front Profile" file={frontImage} setFile={setFrontImage} isPulsing={(isUltraModel ? sideImage : false) && !frontImage} />
+            <FileDropzone label="Front Profile" file={frontImage} setFile={(url, f) => { setFrontImage(url); setFrontFile(f ?? null); }} isPulsing={(isUltraModel ? sideImage : false) && !frontImage} />
             <div className="relative">
               <div className={!isUltraModel ? 'blur-[6px] pointer-events-none select-none' : ''}>
-                <FileDropzone label="Side Profile" file={sideImage} setFile={setSideImage} isPulsing={isUltraModel && frontImage && !sideImage} />
+                <FileDropzone label="Side Profile" file={sideImage} setFile={(url, f) => { setSideImage(url); setSideFile(f ?? null); }} isPulsing={isUltraModel && frontImage && !sideImage} />
               </div>
               {!isUltraModel && (
                 <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none translate-y-8 px-6 text-center">
@@ -2267,7 +2028,7 @@ const RadarChart = ({ data, finalScore }) => {
 
   return (
     <div className="relative w-full aspect-square">
-      <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
+      <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-[162deg]">
         <polygon points="50,10 88,38 73,82 27,82 12,38" fill="rgba(255,255,255,0.05)" stroke="#3f3f46" strokeWidth="0.5" />
         <polygon points="50,30 69,44 62,66 38,66 31,44" fill="rgba(255,255,255,0.1)" stroke="#52525b" strokeWidth="0.5" />
         <line x1="50" y1="50" x2="50" y2="10" stroke="#3f3f46" strokeWidth="0.5" />
@@ -2284,11 +2045,19 @@ const RadarChart = ({ data, finalScore }) => {
           return <circle key={i} cx={x} cy={y} r="1.5" fill="#fff" className="drop-shadow-[0_0_4px_rgba(255,255,255,1)]" />;
         })}
       </svg>
-      <span className="absolute top-[-5%] left-1/2 -translate-x-1/2 text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[0].label}</span>
-      <span className="absolute top-[35%] right-[-15%] text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[1].label}</span>
-      <span className="absolute bottom-[10%] right-[-5%] text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[2].label}</span>
-      <span className="absolute bottom-[10%] left-[-5%] text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[3].label}</span>
-      <span className="absolute top-[35%] left-[-15%] text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[4].label}</span>
+      <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2">
+        <div className="flex justify-between w-full px-2 mt-4">
+           <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[3].label}</span>
+           <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[2].label}</span>
+        </div>
+        <div className="flex justify-between w-full px-0 -mt-2">
+           <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[4].label}</span>
+           <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[1].label}</span>
+        </div>
+        <div className="flex justify-center w-full mb-1">
+           <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[0].label}</span>
+        </div>
+      </div>
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white font-black italic text-xl drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
         {finalScore != null && finalScore !== '' && !Number.isNaN(Number(finalScore))
           ? ((Number(finalScore) / 10) * progress).toFixed(1)
@@ -2744,79 +2513,95 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover })
   const renderHighlight = (coords, color) => {
     if (!coords) return null;
 
-    const renderArrowSvg = (x, y, useAbsolute = true) => {
-      const isLeft = x < 50;
-      return (
-        <svg 
-          width="80" 
-          height="80" 
-          viewBox="0 0 80 80" 
-          className={`absolute ${useAbsolute ? '-translate-x-1/2 -translate-y-1/2' : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2'} ${color === 'green' ? 'drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]' : 'drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]'} z-20 pointer-events-none`}
-          style={{ 
-            color: color === 'green' ? '#22c55e' : '#ef4444',
-            ...(useAbsolute ? { left: `${x}%`, top: `${y}%` } : {})
-          }}
-        >
-          <g className="origin-center" style={{ transform: isLeft ? 'scaleX(-1)' : 'none' }}>
-            <path 
-              d="M48 40 L40 40 L40 32 M40 40 L75 5" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </g>
-        </svg>
-      );
-    };
+    const ringClass =
+      color === 'green'
+        ? 'border-emerald-400/80 shadow-[0_0_22px_rgba(34,197,94,0.45)]'
+        : 'border-red-400/80 shadow-[0_0_22px_rgba(239,68,68,0.45)]';
 
     if (coords.type === 'rect') {
-      return renderArrowSvg(coords.x + coords.w / 2, coords.y + coords.h / 2, false);
+      return (
+        <div
+          className={`absolute rounded-lg border-2 ${ringClass} z-20 pointer-events-none bg-transparent`}
+          style={{ left: `${coords.x}%`, top: `${coords.y}%`, width: `${coords.w}%`, height: `${coords.h}%` }}
+        />
+      );
     }
     if (coords.type === 'glow') {
-      return renderArrowSvg(coords.x, coords.y, false);
+      return (
+        <div
+          className={`absolute rounded-full border-2 ${ringClass} z-20 pointer-events-none -translate-x-1/2 -translate-y-1/2`}
+          style={{ left: `${coords.x}%`, top: `${coords.y}%`, width: `${coords.w}%`, height: `${coords.h}%` }}
+        />
+      );
     }
-    if (coords.type === 'path') {
-      let cx = 50, cy = 50;
-      if (coords.points) {
-        const pts = coords.points.split(' ').map(p => p.split(',').map(Number));
-        if (pts.length > 0) {
-          const xs = pts.map(p => p[0]);
-          const ys = pts.map(p => p[1]);
-          cx = (Math.min(...xs) + Math.max(...xs)) / 2;
-          cy = (Math.min(...ys) + Math.max(...ys)) / 2;
-        }
-      }
-      return renderArrowSvg(cx, cy, true);
+    if (coords.type === 'path' && coords.points) {
+      return (
+        <svg
+          className="absolute inset-0 w-full h-full z-20 pointer-events-none overflow-visible"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+        >
+          <polyline
+            points={coords.points}
+            fill="none"
+            stroke={color === 'green' ? 'rgba(34,197,94,0.95)' : 'rgba(239,68,68,0.95)'}
+            strokeWidth="0.35"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="drop-shadow-[0_0_12px_rgba(255,255,255,0.25)]"
+          />
+        </svg>
+      );
     }
     if (coords.type === 'double-glow') {
-      const lx = coords.left.x + coords.left.w/2;
-      const ly = coords.left.y + coords.left.h/2;
-      const rx = coords.right.x + coords.right.w/2;
-      const ry = coords.right.y + coords.right.h/2;
       return (
         <div className="absolute inset-0 w-full h-full z-20 pointer-events-none">
-          {renderArrowSvg(lx, ly, true)}
-          {renderArrowSvg(rx, ry, true)}
+          <div
+            className={`absolute rounded-lg border-2 ${ringClass}`}
+            style={{
+              left: `${coords.left.x}%`,
+              top: `${coords.left.y}%`,
+              width: `${coords.left.w}%`,
+              height: `${coords.left.h}%`,
+            }}
+          />
+          <div
+            className={`absolute rounded-lg border-2 ${ringClass}`}
+            style={{
+              left: `${coords.right.x}%`,
+              top: `${coords.right.y}%`,
+              width: `${coords.right.w}%`,
+              height: `${coords.right.h}%`,
+            }}
+          />
         </div>
       );
     }
     if (coords.type === 'double-point') {
       return (
         <div className="absolute inset-0 w-full h-full z-20 pointer-events-none">
-          {renderArrowSvg(coords.left.x, coords.left.y, true)}
-          {renderArrowSvg(coords.right.x, coords.right.y, true)}
+          <div
+            className={`absolute left-0 top-0 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 ${ringClass}`}
+            style={{ left: `${coords.left.x}%`, top: `${coords.left.y}%` }}
+          />
+          <div
+            className={`absolute left-0 top-0 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 ${ringClass}`}
+            style={{ left: `${coords.right.x}%`, top: `${coords.right.y}%` }}
+          />
         </div>
       );
     }
 
-    // Default point
-    return renderArrowSvg(coords.x, coords.y, false);
+    return (
+      <div
+        className={`absolute z-20 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 ${ringClass}`}
+        style={{ left: `${coords.x}%`, top: `${coords.y}%` }}
+      />
+    );
   };
 
   return (
-    <div className="relative w-72 h-[28rem] shrink-0 bg-[#060708] rounded-2xl overflow-hidden shadow-2xl border border-zinc-800">
+    <div className="relative w-72 h-[28rem] shrink-0 bg-[#060708] rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 flex items-center justify-center p-6">
       <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-[#0a0a0b]/20 to-transparent z-10 pointer-events-none" />
       <img 
         ref={imgRef}
@@ -2834,7 +2619,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover })
             }
           }
         }}
-        className="w-full h-full object-cover grayscale opacity-50 transform duration-1000 origin-top hover:scale-105" 
+        className="w-full h-full object-contain transform scale-90 duration-1000 rounded-xl"
         alt="face map"
       />
       
@@ -2869,15 +2654,16 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover })
   );
 };
 
-const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
-  const paidPlan = userPlan?.plan === 'pro' || userPlan?.plan === 'single_scan';
+const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection }) => {
+  const paidPlan = hasEffectiveProAccess(user, userPlan);
   const isFreePlan = paidPlan ? false : (dashboardData?.selectedModel ? ['3', '4', '5'].includes(dashboardData.selectedModel) : false);
+  const showBestFlaw = !hideBestFlawSection;
 
   const renderBlurredOverlay = (title) => (
     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a0a0b]/60 backdrop-blur-[6px] rounded-3xl border border-zinc-800/50 group transition-all select-none">
       <Lock size={32} className="text-yellow-500 mb-3 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" />
       <span className="text-white font-black italic uppercase tracking-widest text-lg mb-1 drop-shadow-md">PRO FEATURE</span>
-      <span className="text-zinc-300 font-sans text-[10px] uppercase tracking-widest mb-6">{title} requires a premium model</span>
+      <span className="text-zinc-300 font-sans text-[10px] uppercase tracking-widest mb-6 text-center px-4 max-w-[min(100%,280px)] leading-relaxed">{title} requires a premium model</span>
       <button 
         onClick={() => setCurrentPage('plans')}
         className="px-6 py-2 bg-gradient-to-r from-yellow-600 to-yellow-500 text-black font-bold uppercase tracking-widest text-xs rounded-full hover:scale-105 transition-transform shadow-[0_0_15px_rgba(234,179,8,0.4)]"
@@ -2891,17 +2677,27 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [potentialImageUrl, setPotentialImageUrl] = useState(null);
   const [unlockError, setUnlockError] = useState(null);
+  const [communityPeek, setCommunityPeek] = useState(null);
+  const [showAllProtocols, setShowAllProtocols] = useState(false);
+
+  useEffect(() => {
+    if (!communityPeek) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [communityPeek]);
 
   const handleUnlock = async () => {
     setIsUnlocking(true);
     setUnlockError(null);
     try {
-      const imgSrc = activeProfileView === 'front'
-        ? (dashboardData?.frontImage || null)
-        : (dashboardData?.sideImage || null);
+      // ONLY apply to front profile as requested
+      const imgSrc = dashboardData?.frontImage;
 
       if (!imgSrc) {
-        setUnlockError('No image available to enhance.');
+        setUnlockError(GENERIC_ERROR);
         setIsUnlocking(false);
         return;
       }
@@ -2922,11 +2718,11 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
         setPotentialImageUrl(data.imageUrl);
         setIsUnlocked(true);
       } else {
-        setUnlockError(data.error || 'AI generation failed. Please try again.');
+        setUnlockError(GENERIC_ERROR);
       }
     } catch (err) {
       console.error('Unlock potential failed:', err);
-      setUnlockError('Connection error. Make sure the backend is running.');
+      setUnlockError(GENERIC_ERROR);
     } finally {
       setIsUnlocking(false);
     }
@@ -2956,6 +2752,13 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
     { label: 'Bone', val: (activeCats.Bone ?? 50) / 10.0 }
   ] : defaultRadar;
 
+  const getCatScore = (catName) => {
+    if (!dashboardData?.categories) return null;
+    return typeof dashboardData.categories[catName] === 'number' 
+      ? (dashboardData.categories[catName] / 10).toFixed(1) 
+      : null;
+  };
+
   const frontMetricData = [
     { label: 'Bigonial Width Ratio', score: 88, max: 100 },
     { label: 'IPD Ratio', score: 92, max: 100 },
@@ -2973,7 +2776,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
   ];
 
   const FRONTAL_KEYWORDS = [
-    'bigonial', 'ipd', 'mouth width', 'nose width', 'upper third', 'middle third',
+    'bigonial', 'ipd', 'mouth', 'nose width', 'upper third', 'middle third',
     'lower third', 'eye height', 'brow compactness', 'philtrum', 'lip height',
     'fwhr', 'midface', 'canthal'
   ];
@@ -3016,7 +2819,46 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
         : (dashboardData?.finalRating ?? 85));
 
   return (
-    <div className="w-full flex-grow flex flex-col items-center pt-16 pb-24 px-4 sm:px-6 relative font-sans overflow-hidden bg-[#0a0a0b]">
+    <div className={`w-full flex-grow flex flex-col items-center relative font-sans overflow-hidden bg-[#0a0a0b] ${isEmbedded ? '' : 'pt-16 pb-24 px-4 sm:px-6'}`}>
+      {communityPeek && (
+        <div
+          className="fixed inset-0 z-[200] flex flex-col bg-[#0a0a0b] overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="free-community-scan-title"
+        >
+          <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-zinc-800 bg-[#0a0a0b]/95 px-4 py-3 backdrop-blur-md md:px-8">
+            <button
+              type="button"
+              onClick={() => setCommunityPeek(null)}
+              className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 font-sans text-xs font-bold uppercase tracking-widest text-zinc-200 hover:border-cyan-500/50 hover:text-cyan-300 transition-colors"
+            >
+              <ArrowLeft size={16} />
+              Community Scans
+            </button>
+            <div className="min-w-0 flex-1">
+              <p className="font-sans text-[10px] uppercase tracking-[0.35em] text-zinc-500">Community scan</p>
+              <h2 id="free-community-scan-title" className="truncate font-black uppercase italic tracking-tight text-white">
+                {communityPeek.displayName}
+              </h2>
+            </div>
+          </header>
+          <div className="flex-1 px-4 pb-16 pt-6 md:px-8">
+            <DashboardPage
+              dashboardData={communityPeek.data}
+              setCurrentPage={setCurrentPage}
+              userPlan={userPlan}
+              user={user}
+              hideTopSection
+              hideProtocols
+              hideActionableProtocols
+              isEmbedded
+              hideUnlockPotential
+              hideBestFlawSection
+            />
+          </div>
+        </div>
+      )}
       <style>{`
         @keyframes freeRatingFlicker {
           0%, 100% { opacity: 0.92; filter: blur(10px); }
@@ -3026,9 +2868,10 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
         }
       `}</style>
       <FadeUp>
-        <div className="w-full max-w-6xl mx-auto flex flex-col gap-12">
+        <div className={`w-full mx-auto flex flex-col gap-12 ${isEmbedded ? '' : 'max-w-6xl'}`}>
           {/* Top Section: Subject & History */}
-          <div className="flex flex-col gap-8">
+          {!hideTopSection && (
+          <div className="flex flex-col gap-8 hidden">
             {/* Header (Subject Badge) */}
             <div className="flex justify-start">
               <div className="bg-zinc-900/35 px-4 py-3 rounded-3xl border border-zinc-800 shadow-2xl backdrop-blur-xl flex items-center gap-3">
@@ -3097,63 +2940,72 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
             </div>
           </div>
           </div>
+          )}
 
           {/* Free vs Pro Adaptive Layout */}
           {isFreePlan ? (
             <>
               <DashboardOverview dashboardData={dashboardData} isFreePlan={isFreePlan} activeProfileView={activeProfileView} />
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="col-span-1 lg:col-span-2 bg-zinc-900/30 p-8 rounded-3xl border border-zinc-800 flex flex-col">
-                  <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6"><Target size={14} className="inline mr-2" /> Structure</h3>
-                  <div className="flex flex-col md:flex-row gap-8 items-center justify-center">
-                    <StructureMap 
-                      activeImageUrl={activeImageUrl} 
-                      bestFeature={activeBestFeatures?.[0]} 
-                      primaryFlaw={activePrimaryFlaws?.[0]} 
-                      activeHover={activeHover}
-                    />
-                    <div className="flex-grow space-y-5 w-full flex flex-col">
-                       {!isFreePlan && (
-                         <div className="flex gap-3">
-                           <div onClick={() => setActiveProfileView('front')} className={`relative w-24 h-16 rounded-xl overflow-hidden cursor-pointer border-2 transition-all group ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_12px_rgba(34,211,238,0.3)]' : 'border-zinc-800 opacity-50 grayscale hover:opacity-80 hover:grayscale-0'}`}>
-                             <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" alt="Front" />
-                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                             <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
-                           </div>
-                           <div onClick={() => setActiveProfileView('side')} className={`relative w-24 h-16 rounded-xl overflow-hidden cursor-pointer border-2 transition-all group ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_12px_rgba(34,211,238,0.3)]' : 'border-zinc-800 opacity-50 grayscale hover:opacity-80 hover:grayscale-0'}`}>
-                             <img src={dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" style={{objectPosition: 'top'}} alt="Side" />
-                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                             <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
-                           </div>
-                         </div>
-                       )}
-                       <FeatureHighlightCard type="best" feature={activeBestFeatures?.[0]} onHover={setActiveHover} />
-                       <FeatureHighlightCard type="flaw" feature={activePrimaryFlaws?.[0]} onHover={setActiveHover} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-span-1 flex flex-col gap-4">
-                  <div className="bg-zinc-900/30 px-6 py-6 rounded-3xl border border-zinc-800 relative overflow-hidden text-center">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
+                  {/* Left Column Stack: Final Rating then Categories */}
+                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden text-center flex flex-col justify-center h-[180px] shadow-lg group hover:border-zinc-700 transition-colors">
                     <div className="relative z-10 flex flex-col items-center justify-center">
-                      <span className="font-sans text-[10px] uppercase tracking-[0.45em] mb-3 text-green-300/80">Final Rating</span>
+                      <span className="font-sans text-[10px] uppercase tracking-[0.45em] mb-4 text-green-300/80">Final Rating</span>
                       <div className="relative leading-none">
                         <>
-                          <span className="absolute inset-0 block text-[3.5rem] font-black italic tracking-tighter text-green-400/90 blur-[28px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none">
+                          <span className="absolute inset-0 block text-6xl font-black italic tracking-tighter text-green-400/90 blur-[28px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none">
                             {displayedFinalRating}
                           </span>
-                          <span className="relative block text-[3.5rem] font-black italic tracking-tighter text-green-400 blur-[20px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none">
+                          <span className="relative block text-6xl font-black italic tracking-tighter text-green-400 blur-[20px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_rgba(74,222,128,0.4)]">
                             {displayedFinalRating}
                           </span>
                         </>
                       </div>
                     </div>
                   </div>
-                  <div className="relative bg-zinc-900/30 p-4 rounded-3xl border border-zinc-800 flex items-center justify-center aspect-square">
+                  <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg group hover:border-zinc-700 transition-colors p-4">
                     {renderBlurredOverlay("Category Scores")}
-                    <div className="w-[75%] max-w-[220px] opacity-10 blur-[14px] pointer-events-none select-none">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(74,222,128,0.05)_0%,transparent_70%)] pointer-events-none" />
+                    <div className="w-[85%] max-w-[200px] opacity-10 blur-[14px] pointer-events-none select-none relative z-10">
                       <RadarChart data={radarData} finalScore={dashboardData?.finalRating} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-span-1 md:col-span-3 bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
+                  <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2">
+                    <Target size={14} className="text-zinc-500" /> Structure
+                  </h3>
+                  <div className="flex flex-col md:flex-row gap-8 items-center justify-center flex-grow">
+                    <StructureMap 
+                      activeImageUrl={activeImageUrl} 
+                      bestFeature={showBestFlaw ? activeBestFeatures?.[0] : null} 
+                      primaryFlaw={showBestFlaw ? activePrimaryFlaws?.[0] : null} 
+                      activeHover={showBestFlaw ? activeHover : null}
+                    />
+                    <div className="flex-grow space-y-4 w-full flex flex-col justify-center max-w-sm">
+                       {!isFreePlan && (
+                       <div className="flex gap-3 mb-2">
+                         <div onClick={() => setActiveProfileView('front')} className={`relative flex-1 aspect-[4/3] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                           <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" alt="Front" />
+                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                           <span className={`absolute bottom-2 left-0 right-0 text-center text-[10px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
+                         </div>
+                         <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[4/3] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                           <img src={dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" style={{objectPosition: 'top'}} alt="Side" />
+                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                           <span className={`absolute bottom-2 left-0 right-0 text-center text-[10px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
+                         </div>
+                       </div>
+                       )}
+                       {showBestFlaw && (
+                         <>
+                           <FeatureHighlightCard type="best" feature={activeBestFeatures?.[0]} onHover={setActiveHover} />
+                           <FeatureHighlightCard type="flaw" feature={activePrimaryFlaws?.[0]} onHover={setActiveHover} />
+                         </>
+                       )}
                     </div>
                   </div>
                 </div>
@@ -3161,49 +3013,57 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
             </>
           ) : (
             <>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="col-span-1 flex flex-col gap-4">
-                  <div className="bg-zinc-900/30 px-6 py-6 rounded-3xl border border-zinc-800 relative overflow-hidden text-center">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
+                  {/* Left Column Stack: Final Rating then Categories */}
+                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden text-center flex flex-col justify-center h-[180px] shadow-lg group hover:border-zinc-700 transition-colors">
                     <div className="relative z-10 flex flex-col items-center justify-center">
-                      <span className="font-sans text-[10px] uppercase tracking-[0.45em] mb-3 text-cyan-400/80">Final Rating</span>
+                      <span className="font-sans text-[10px] uppercase tracking-[0.45em] mb-4 text-cyan-400/80">Final Rating</span>
                       <div className="relative leading-none">
-                        <span className="block text-[3.5rem] font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-500">
+                        <span className="block text-6xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-500 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)]">
                           {displayedFinalRating}
                         </span>
                       </div>
                     </div>
                   </div>
-                  <div className="relative bg-zinc-900/30 p-4 rounded-3xl border border-zinc-800 flex items-center justify-center aspect-square">
-                    <div className="w-[75%] max-w-[220px]">
+                  <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg group hover:border-zinc-700 transition-colors p-4">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.05)_0%,transparent_70%)] pointer-events-none" />
+                    <div className="w-[85%] max-w-[200px] relative z-10">
                       <RadarChart data={radarData} finalScore={displayedFinalRating} />
                     </div>
                   </div>
                 </div>
 
-                <div className="col-span-1 lg:col-span-2 bg-zinc-900/30 p-8 rounded-3xl border border-zinc-800 flex flex-col">
-                  <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6"><Target size={14} className="inline mr-2" /> Structure</h3>
-                  <div className="flex flex-col md:flex-row gap-8 items-center justify-center">
+                <div className="col-span-1 md:col-span-3 bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
+                  <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2">
+                    <Target size={14} className="text-zinc-500" /> Structure
+                  </h3>
+                  <div className="flex flex-col md:flex-row gap-8 items-center justify-center flex-grow">
                     <StructureMap 
                       activeImageUrl={activeImageUrl} 
-                      bestFeature={activeBestFeatures?.[0]} 
-                      primaryFlaw={activePrimaryFlaws?.[0]} 
-                      activeHover={activeHover}
+                      bestFeature={showBestFlaw ? activeBestFeatures?.[0] : null} 
+                      primaryFlaw={showBestFlaw ? activePrimaryFlaws?.[0] : null} 
+                      activeHover={showBestFlaw ? activeHover : null}
                     />
-                    <div className="flex-grow space-y-5 w-full flex flex-col">
-                       <div className="flex gap-3">
-                         <div onClick={() => setActiveProfileView('front')} className={`relative w-24 h-16 rounded-xl overflow-hidden cursor-pointer border-2 transition-all group ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_12px_rgba(34,211,238,0.3)]' : 'border-zinc-800 opacity-50 grayscale hover:opacity-80 hover:grayscale-0'}`}>
+                    <div className="flex-grow space-y-4 w-full flex flex-col justify-center max-w-sm">
+                       <div className="flex gap-3 mb-2">
+                         <div onClick={() => setActiveProfileView('front')} className={`relative flex-1 aspect-[4/3] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
                            <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" alt="Front" />
-                           <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
+                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                           <span className={`absolute bottom-2 left-0 right-0 text-center text-[10px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
                          </div>
-                         <div onClick={() => setActiveProfileView('side')} className={`relative w-24 h-16 rounded-xl overflow-hidden cursor-pointer border-2 transition-all group ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_12px_rgba(34,211,238,0.3)]' : 'border-zinc-800 opacity-50 grayscale hover:opacity-80 hover:grayscale-0'}`}>
+                         <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[4/3] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
                            <img src={dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" style={{objectPosition: 'top'}} alt="Side" />
-                           <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
+                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                           <span className={`absolute bottom-2 left-0 right-0 text-center text-[10px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
                          </div>
                        </div>
-                       <FeatureHighlightCard type="best" feature={activeBestFeatures?.[0]} onHover={setActiveHover} />
-                       <FeatureHighlightCard type="flaw" feature={activePrimaryFlaws?.[0]} onHover={setActiveHover} />
+                       {showBestFlaw && (
+                         <>
+                           <FeatureHighlightCard type="best" feature={activeBestFeatures?.[0]} onHover={setActiveHover} />
+                           <FeatureHighlightCard type="flaw" feature={activePrimaryFlaws?.[0]} onHover={setActiveHover} />
+                         </>
+                       )}
                     </div>
                   </div>
                 </div>
@@ -3212,10 +3072,10 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
           )}
 
           {/* Detailed Ratios Section */}
-          <div className="relative bg-zinc-900/30 p-8 rounded-3xl border border-zinc-800 flex flex-col">
+          <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
             {isFreePlan && renderBlurredOverlay("Detailed Ratios")}
             <div className={`flex flex-col ${isFreePlan ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
-              <h3 className="text-zinc-400 font-sans text-sm uppercase tracking-widest mb-10"><Activity size={16} className="inline mr-2" /> Detailed Morphometric Ratios</h3>
+              <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-10 flex items-center gap-2"><Activity size={14} className="text-zinc-500" /> Detailed Morphometric Ratios</h3>
               <div className="flex flex-col gap-10">
               {Object.entries(
                 metricData.reduce((acc, m) => {
@@ -3245,58 +3105,61 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
           {!isFreePlan && <DashboardOverview dashboardData={dashboardData} isFreePlan={isFreePlan} activeProfileView={activeProfileView} />}
 
           {/* Actionable Protocol */}
-          <div className="relative bg-zinc-900/30 p-8 rounded-3xl border border-zinc-800">
-            {isFreePlan && renderBlurredOverlay("Actionable Protocol")}
-            <div className={`flex flex-col ${isFreePlan ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
-              <h3 className="text-xl font-black italic uppercase tracking-tighter text-white mb-6 border-b border-zinc-800 pb-4">Actionable Protocol</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {(dashboardData?.protocols && dashboardData.protocols.length > 0
-                  ? dashboardData.protocols.slice(0, 6)
-                  : [
-                      { id: 1, name: 'Reduce Body Fat to 12%', description: 'Will vastly improve buccal framing and expose zygomatic arch', impact: 'Highest Impact' },
-                      { id: 2, name: 'Minoxidil for Brows', description: 'Increasing eyebrow density by 15% will heavily boost dimorphism score', impact: 'High Impact' },
-                      { id: 3, name: 'Volufiline under eyes', description: 'Will help mask negative canthal tilt and reduce orbital shadowing', impact: 'Medium Impact' },
-                    ]
-                ).map((p, i) => {
-                  const impactColor = /highest/i.test(p.impact) ? 'text-red-400' : /high/i.test(p.impact) ? 'text-orange-400' : /medium/i.test(p.impact) ? 'text-yellow-400' : 'text-emerald-400';
-                  return (
-                    <div key={p.id || i} onClick={() => setCurrentPage(`protocol-${p.id || i+1}`)} className="flex bg-zinc-900/50 rounded-xl border border-zinc-800 overflow-hidden hover:border-cyan-500/40 hover:shadow-[0_0_20px_rgba(34,211,238,0.08)] transition-all cursor-pointer group">
-                      <div className="bg-zinc-800 flex items-center justify-center px-4 shrink-0"><span className="text-2xl font-black text-zinc-600 group-hover:text-cyan-400 transition-colors">{String(p.id || i+1).padStart(2, '0')}</span></div>
-                      <div className="p-4 flex flex-col gap-1 min-w-0">
-                        <span className="text-white font-bold uppercase text-sm tracking-widest truncate">{p.name}</span>
-                        <span className="text-zinc-500 text-xs font-sans line-clamp-2">{p.description}</span>
-                        <span className={`text-[9px] font-sans uppercase tracking-widest mt-1 ${impactColor}`}>{p.impact}</span>
+          {!hideActionableProtocols && (
+            <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 shadow-lg group hover:border-zinc-700 transition-colors">
+              {isFreePlan && renderBlurredOverlay("Actionable Protocol")}
+              <div className={`flex flex-col ${isFreePlan ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
+                <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-zinc-800 pb-4"><Target size={14} className="text-zinc-500" /> Actionable Protocol</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(dashboardData?.protocols && dashboardData.protocols.length > 0
+                    ? dashboardData.protocols
+                    : [
+                        { id: 1, name: 'Reduce Body Fat to 12%', description: 'Will vastly improve buccal framing and expose zygomatic arch', impact: 'Highest Impact' },
+                        { id: 2, name: 'Minoxidil for Brows', description: 'Increasing eyebrow density by 15% will heavily boost dimorphism score', impact: 'High Impact' },
+                        { id: 3, name: 'Volufiline under eyes', description: 'Will help mask negative canthal tilt and reduce orbital shadowing', impact: 'Medium Impact' },
+                      ]
+                  ).slice(0, showAllProtocols ? undefined : 3).map((p, i) => {
+                    const impactColor = /highest/i.test(p.impact) ? 'text-red-400' : /high/i.test(p.impact) ? 'text-orange-400' : /medium/i.test(p.impact) ? 'text-yellow-400' : 'text-emerald-400';
+                    return (
+                      <div key={p.id || i} onClick={() => setCurrentPage(`protocol-${p.id || i+1}`)} className="flex bg-zinc-900/50 rounded-xl border border-zinc-800 overflow-hidden hover:border-cyan-500/40 hover:shadow-[0_0_20px_rgba(34,211,238,0.08)] transition-all cursor-pointer group">
+                        <div className="bg-zinc-800 flex items-center justify-center px-4 shrink-0"><span className="text-2xl font-black text-zinc-600 group-hover:text-cyan-400 transition-colors">{String(p.id || i+1).padStart(2, '0')}</span></div>
+                        <div className="p-4 flex flex-col gap-1 min-w-0">
+                          <span className="text-white font-bold uppercase text-sm tracking-widest truncate">{p.name}</span>
+                          <span className="text-zinc-500 text-xs font-sans line-clamp-2">{p.description}</span>
+                          <span className={`text-[9px] font-sans uppercase tracking-widest mt-1 ${impactColor}`}>{p.impact}</span>
+                        </div>
+                        <div className="flex items-center pr-4 shrink-0"><ChevronRight size={16} className="text-zinc-700 group-hover:text-cyan-400 transition-colors" /></div>
                       </div>
-                      <div className="flex items-center pr-4 shrink-0"><ChevronRight size={16} className="text-zinc-700 group-hover:text-cyan-400 transition-colors" /></div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+                    {((dashboardData?.protocols && dashboardData.protocols.length > 3) || (!dashboardData?.protocols && 3 > 3)) && (
+                      <button onClick={() => setShowAllProtocols(!showAllProtocols)} className="mt-6 self-center px-6 py-2 border border-zinc-700 rounded-full text-zinc-400 text-[10px] font-sans uppercase tracking-widest hover:text-white hover:border-zinc-500 transition-colors flex items-center gap-2">
+                        {showAllProtocols ? 'Show Less' : `Show All ${dashboardData?.protocols?.length || 3} Protocols`}
+                        <ChevronDown size={14} className={`transition-transform duration-300 ${showAllProtocols ? 'rotate-180' : ''}`} />
+                      </button>
+                    )}
+                    {!dashboardData?.protocols?.length && !isFreePlan && (
+                      <p className="text-zinc-600 font-sans text-[10px] uppercase tracking-widest mt-4 text-center">Run a premium analysis to get personalized protocols based on your weak points</p>
+                    )}
               </div>
-                  {dashboardData?.protocols && dashboardData.protocols.length > 6 && (
-                    <button onClick={() => setCurrentPage('protocol-all')} className="mt-4 text-cyan-400 font-sans text-[10px] uppercase tracking-widest hover:underline self-center">
-                      View all {dashboardData.protocols.length} protocols →  
-                    </button>
-                  )}
-                  {!dashboardData?.protocols?.length && !isFreePlan && (
-                    <p className="text-zinc-600 font-sans text-[10px] uppercase tracking-widest mt-4 text-center">Run a premium analysis to get personalized protocols based on your weak points</p>
-                  )}
             </div>
-          </div>
+          )}
 
-          {/* Analyze Potential */}
-          <div className="bg-gradient-to-br from-zinc-900/80 to-black p-1 rounded-3xl overflow-hidden mt-4 relative shadow-[0_10px_50px_rgba(0,0,0,0.5)] border border-zinc-800/50">
+          {!hideUnlockPotential && (
+          <div className="bg-gradient-to-br from-zinc-900/80 to-black p-1 rounded-2xl overflow-hidden mt-4 relative shadow-[0_10px_50px_rgba(0,0,0,0.5)] border border-zinc-800/50 group hover:border-zinc-700 transition-colors">
             {isFreePlan && renderBlurredOverlay("Analyze Potential")}
-            <div className={`bg-[#0a0a0b] p-8 md:p-12 rounded-[22px] flex flex-col md:flex-row items-center gap-12 relative overflow-hidden ${isFreePlan ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
+            <div className={`bg-[#0a0a0b] p-8 md:p-12 rounded-[14px] flex flex-col md:flex-row items-center gap-12 relative overflow-hidden ${isFreePlan ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
               
               {/* Glow effect behind the image */}
               {isUnlocked && <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-64 h-64 bg-cyan-500/20 blur-[100px] rounded-full pointer-events-none" />}
 
-              <div className="relative w-48 sm:w-64 aspect-square shrink-0 rounded-2xl overflow-hidden border border-zinc-800">
+              <div className="relative w-48 sm:w-64 aspect-square shrink-0 rounded-2xl overflow-hidden border border-zinc-800 p-6">
                 {isUnlocked && potentialImageUrl ? (
-                  <img src={potentialImageUrl} className="w-full h-full object-cover scale-110 opacity-100 transition-all duration-1000" alt="Max Potential" />
+                  <img src={potentialImageUrl} className="w-full h-full object-contain opacity-100 transition-all duration-1000 scale-90" alt="Max Potential" />
                 ) : isUnlocking ? (
                   <>
-                    <img src={activeImageUrl} className="w-full h-full object-cover blur-md opacity-20 scale-110 transition-all duration-500" alt="Generating" />
+                    <img src={activeImageUrl} className="w-full h-full object-contain blur-md opacity-20 transition-all duration-500 scale-90" alt="Generating" />
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/40 backdrop-blur-sm">
                       <div className="relative w-12 h-12">
                         <div className="absolute inset-0 border-2 border-cyan-500/30 rounded-full" />
@@ -3308,7 +3171,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
                   </>
                 ) : (
                   <>
-                    <img src={activeImageUrl} className="w-full h-full object-cover grayscale blur-xl opacity-30 scale-110" alt="Locked Potential" />
+                    <img src={activeImageUrl} className="w-full h-full object-contain blur-sm opacity-30 scale-90" alt="Locked Potential" />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <Lock className="text-zinc-500 drop-shadow-[0_0_15px_rgba(0,0,0,1)]" size={48} />
                     </div>
@@ -3351,139 +3214,79 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan }) => {
               </div>
             </div>
           </div>
+          )}
+
+          {!isEmbedded && isFreePlan && (
+            <section className="w-full max-w-6xl mx-auto mt-8 scroll-mt-24">
+              <div className="flex flex-col gap-6">
+                <div>
+                  <h2 className="text-2xl font-black uppercase tracking-tighter italic text-white mb-2">Community Scans</h2>
+                  <p className="text-zinc-400 font-sans text-sm uppercase tracking-widest">See how others in the community stack up.</p>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {COMMUNITY_SCANS.map((scan) => {
+                    const dd = scan.dashboardData;
+                    const rating = dd?.finalRating ?? 0;
+                    const tierUpper = String(scan.tier || '').toUpperCase();
+                    const tierBadgeClass =
+                      tierUpper.includes('S') && tierUpper.includes('TIER')
+                        ? 'bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+                        : tierUpper.includes('A') && tierUpper.includes('TIER')
+                          ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.6)]'
+                          : 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
+                    return (
+                      <button
+                        key={scan.id}
+                        type="button"
+                        onClick={() =>
+                          setCommunityPeek({
+                            displayName: scan.displayName,
+                            data: stripCommunityDashboardData({ ...dd }),
+                          })
+                        }
+                        className="text-left bg-[#0c0d0e] border border-zinc-800 rounded-2xl overflow-hidden group cursor-pointer hover:border-cyan-500/50 hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] transition-all relative"
+                      >
+                        <div className="aspect-[3/4] bg-zinc-900 relative">
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-transparent to-transparent z-10 pointer-events-none" />
+                          {dd?.frontImage ? (
+                            <img
+                              src={dd.frontImage}
+                              alt=""
+                              className="absolute inset-0 w-full h-full object-cover object-top"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-zinc-700 opacity-50">
+                              <Users size={48} />
+                            </div>
+                          )}
+                          <div className="absolute top-3 left-3 z-20">
+                            <span className={`border text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${tierBadgeClass}`}>
+                              {scan.tier || '—'}
+                            </span>
+                          </div>
+                          <div className="absolute bottom-3 left-3 z-20 flex items-baseline gap-1">
+                            <span className="text-white font-black italic text-2xl drop-shadow-[0_0_10px_rgba(255,255,255,0.4)] tabular-nums">
+                              {Number(rating).toFixed(1)}
+                            </span>
+                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
+                          </div>
+                        </div>
+                        <div className="p-4 flex items-center justify-between bg-[#0a0a0b] relative z-20">
+                          <span className="text-zinc-400 font-mono text-[10px] uppercase tracking-widest group-hover:text-white transition-colors truncate">
+                            {scan.displayName}
+                          </span>
+                          <ExternalLink size={12} className="text-zinc-600 group-hover:text-cyan-400 transition-colors shrink-0" />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+          )}
 
         </div>
       </FadeUp>
-    </div>
-  );
-};
-
-// --- Mog Battles Page ---
-const MogBattlePage = ({ dashboardData }) => {
-  const [battleState, setBattleState] = useState('idle'); 
-  
-  const handleFight = () => {
-    setBattleState('fighting');
-    setTimeout(() => {
-      setBattleState('results');
-    }, 4000); 
-  };
-
-  const getBarColor = (val1, val2) => val1 >= val2 ? 'bg-cyan-400' : 'bg-red-500';
-
-  return (
-    <div className="w-full flex-grow flex flex-col items-center pt-32 pb-24 px-4 sm:px-6 relative font-sans overflow-hidden bg-[#0c0d0e]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.05)_0%,transparent_70%)] pointer-events-none" />
-      
-      <FadeUp>
-        <div className="text-center mb-12 relative z-10">
-          <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter bg-gradient-to-b from-cyan-400 to-blue-600 bg-clip-text text-transparent flex justify-center items-center gap-4"><Swords size={48} className="text-cyan-500" /> MOG BATTLES</h1>
-          <p className="text-zinc-400 font-sans text-sm shadow-black drop-shadow uppercase tracking-widest mt-2 block">Head-to-head aesthetic breakdown</p>
-        </div>
-      </FadeUp>
-
-      <div className="w-full max-w-5xl mx-auto flex flex-col items-center">
-        {/* Arena */}
-        <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 w-full relative z-10">
-          
-          {/* Fighter 1 */}
-          <div className={`flex flex-col items-center transition-all duration-1000 ${battleState === 'results' ? 'scale-110 drop-shadow-[0_0_30px_rgba(34,211,238,0.3)]' : ''}`}>
-            <div className={`w-48 md:w-64 aspect-[3/4] bg-zinc-900 rounded-2xl border-4 ${battleState === 'results' ? 'border-cyan-400' : 'border-zinc-800'} overflow-hidden relative shadow-2xl transition-colors duration-1000`}>
-               <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" alt="Fighter 1" />
-               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/50 to-transparent p-4 text-center">
-                 <span className="text-white font-black uppercase italic tracking-tighter text-xl">User Profile</span>
-               </div>
-            </div>
-            {battleState === 'results' && <div className="mt-6 text-4xl font-black text-cyan-400 italic">9.1</div>}
-          </div>
-
-          {/* VS Badge */}
-          <div className="relative shrink-0 flex items-center justify-center">
-            {battleState === 'idle' && (
-              <button onClick={handleFight} className="w-24 h-24 rounded-full bg-cyan-500 hover:bg-cyan-400 border-4 border-[#0c0d0e] text-black font-black italic text-3xl flex items-center justify-center transform hover:scale-110 transition-all shadow-[0_0_40px_rgba(34,211,238,0.5)] cursor-pointer z-20">VS</button>
-            )}
-            {battleState === 'fighting' && (
-              <div className="w-24 h-24 rounded-full bg-zinc-900 border-4 border-zinc-800 flex flex-col items-center justify-center z-20 animate-[spin_1s_linear_infinite]">
-                 <Swords size={32} className="text-cyan-500 animate-pulse" />
-              </div>
-            )}
-            {battleState === 'results' && (
-              <div className="w-24 h-24 rounded-full bg-zinc-900 border-4 border-cyan-500 flex flex-col items-center justify-center z-20 shadow-[0_0_30px_rgba(34,211,238,0.3)]">
-                 <span className="text-cyan-500 font-black italic text-sm">WINNER</span>
-                 <ChevronLeft size={24} className="text-cyan-500" />
-              </div>
-            )}
-            
-            {/* Background clash effect */}
-            {battleState === 'fighting' && (
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-1 bg-cyan-500/50 rotate-45 blur-md" />
-            )}
-          </div>
-
-          {/* Fighter 2 */}
-          <div className={`flex flex-col items-center transition-all duration-1000 ${battleState === 'results' ? 'opacity-50 grayscale scale-95' : ''}`}>
-            <div className="w-48 md:w-64 aspect-[3/4] bg-zinc-900 rounded-2xl border-4 border-zinc-800 overflow-hidden relative shadow-2xl">
-               <img src="https://media.discordapp.net/attachments/1450216881796419738/1485633699016872168/New_Project_6.png?ex=69c293b3&is=69c14233&hm=8dffdd599412787267e0aa26d562cefd82686a88e925a70ebd96bca1d8acc1a1&=&format=webp&quality=lossless&width=815&height=1060" className="w-full h-full object-cover" alt="Fighter 2" />
-               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/50 to-transparent p-4 text-center">
-                 <span className="text-white font-black uppercase italic tracking-tighter text-xl">Henry Cavill</span>
-               </div>
-            </div>
-            {battleState === 'results' && <div className="mt-6 text-4xl font-black text-zinc-500 italic">8.8</div>}
-          </div>
-        </div>
-
-        {/* Stats breakdown */}
-        <div className={`w-full max-w-3xl mt-16 transition-all duration-1000 relative z-10 ${battleState === 'results' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
-          <div className="bg-zinc-900/30 border border-zinc-800 rounded-2xl p-6 md:p-10 flex flex-col gap-6 backdrop-blur-md">
-            <h3 className="text-center text-zinc-400 font-sans text-xs uppercase tracking-widest border-b border-zinc-800 pb-4">Metric Breakdown</h3>
-            
-            {/* Row 1 */}
-            <div className="flex items-center gap-4 w-full">
-              <div className="flex-1 right-align flex flex-col origin-right">
-                 <div className="h-2 w-full bg-zinc-800 rounded-full flex justify-end overflow-hidden"><div className={`h-full rounded-full ${getBarColor(9.2, 8.5)}`} style={{width: '92%'}}/></div>
-              </div>
-              <div className="w-32 text-center shrink-0">
-                <span className="text-white font-bold text-[10px] sm:text-xs uppercase tracking-widest">Harmony</span>
-              </div>
-              <div className="flex-1 origin-left flex flex-col overflow-hidden">
-                 <div className="h-2 w-full bg-zinc-800 rounded-full"><div className={`h-full rounded-full ${getBarColor(8.5, 9.2)}`} style={{width: '85%'}}/></div>
-              </div>
-            </div>
-
-            {/* Row 2 */}
-            <div className="flex items-center gap-4 w-full">
-              <div className="flex-1 right-align flex flex-col origin-right">
-                 <div className="h-2 w-full bg-zinc-800 rounded-full flex justify-end overflow-hidden"><div className={`h-full rounded-full ${getBarColor(9.6, 9.8)}`} style={{width: '96%'}}/></div>
-              </div>
-              <div className="w-32 text-center shrink-0">
-                <span className="text-white font-bold text-[10px] sm:text-xs uppercase tracking-widest">Dimorphism</span>
-              </div>
-              <div className="flex-1 origin-left flex flex-col overflow-hidden">
-                 <div className="h-2 w-full bg-zinc-800 rounded-full"><div className={`h-full rounded-full ${getBarColor(9.8, 9.6)}`} style={{width: '98%'}}/></div>
-              </div>
-            </div>
-
-             {/* Row 3 */}
-             <div className="flex items-center gap-4 w-full">
-              <div className="flex-1 right-align flex flex-col origin-right">
-                 <div className="h-2 w-full bg-zinc-800 rounded-full flex justify-end overflow-hidden"><div className={`h-full rounded-full ${getBarColor(8.4, 8.0)}`} style={{width: '84%'}}/></div>
-              </div>
-              <div className="w-32 text-center shrink-0">
-                <span className="text-white font-bold text-[10px] sm:text-xs uppercase tracking-widest">Nasal Bridge</span>
-              </div>
-              <div className="flex-1 origin-left flex flex-col overflow-hidden">
-                 <div className="h-2 w-full bg-zinc-800 rounded-full"><div className={`h-full rounded-full ${getBarColor(8.0, 8.4)}`} style={{width: '80%'}}/></div>
-              </div>
-            </div>
-
-          </div>
-          
-          <div className="flex justify-center mt-8">
-            <button onClick={() => setBattleState('idle')} className="text-zinc-500 hover:text-white uppercase font-sans text-xs tracking-widest transition-colors cursor-pointer border border-zinc-800 px-6 py-2 rounded-full hover:border-zinc-500">Reset Battle</button>
-          </div>
-        </div>
-
-      </div>
     </div>
   );
 };
@@ -3650,7 +3453,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
           <p className="text-yellow-500/60 font-sans text-[10px] uppercase tracking-widest mb-5">Everything in Single Scan, plus</p>
           <ul className="flex flex-col gap-4 text-sm font-sans text-zinc-300 w-full mb-10">
             <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Up to 2 full scans per day</span></li>
-            <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>AI potential analysis — see your projected best self</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>AI potential analysis - see your projected best self</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Full-detail AI facial analysis with 40+ biometric measurements</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Customized personal improvement protocols</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Celebrity lookalike matching & comparison</span></li>
@@ -3686,7 +3489,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
 
     <FadeUp delay={700}>
       <p className="mt-16 text-zinc-600 font-sans text-[10px] uppercase tracking-widest text-center relative z-10">
-        Secure payment via Lemon Squeezy · Cancel anytime · Instant access
+        Secure payment via Lemon Squeezy Â· Cancel anytime Â· Instant access
       </p>
     </FadeUp>
   </div>
@@ -3743,7 +3546,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
   };
 
   const fmtDuration = (ms) => {
-    if (!ms) return '—';
+    if (!ms) return '-';
     return ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(0)}s`;
   };
 
@@ -3782,7 +3585,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
               </button>
             </form>
             <button onClick={() => setCurrentPage('home')} className="w-full mt-3 py-2 text-zinc-600 text-[10px] font-sans uppercase tracking-widest hover:text-zinc-400 transition-colors">
-              ← Back to site
+              &larr; Back to site
             </button>
           </div>
         </div>
@@ -3975,11 +3778,11 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                           }
                         </td>
                         <td className="py-2.5 pr-4 text-[11px] font-sans text-zinc-300">
-                          {a.rating != null ? `${a.rating}/100` : '—'}
+                          {a.rating != null ? `${a.rating}/100` : '-'}
                           {a.sideRating != null && <span className="text-zinc-600 ml-1">| {a.sideRating}</span>}
                         </td>
                         <td className="py-2.5 pr-4 text-[11px] font-sans text-zinc-400">{fmtDuration(a.durationMs)}</td>
-                        <td className="py-2.5 text-[10px] font-sans text-zinc-600 max-w-[200px] truncate">{a.error || '—'}</td>
+                        <td className="py-2.5 text-[10px] font-sans text-zinc-600 max-w-[200px] truncate">{a.error || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -4021,18 +3824,18 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
   const isSurgical = /surgery|rhinoplasty|implant|genioplasty|osteotomy|blepharoplasty|buccal|liposuction|fat graft|filler|botox|lefort/i.test(protocol?.name + ' ' + protocol?.description);
 
   const timelinePhases = isSurgical ? [
-    { week: 'Month 1-2', title: 'Research & Consultation', icon: '🔍', tasks: ['Research board-certified surgeons in your area', 'Book 2-3 consultations for multiple opinions', 'Review before/after galleries of each surgeon', 'Ask about complication rates and revision rates', 'Get imaging/morphs done during consultations'] },
-    { week: 'Month 2-3', title: 'Pre-Operative Preparation', icon: '📋', tasks: ['Complete all required bloodwork and imaging', 'Stop blood thinners, supplements, and smoking', 'Arrange 1-2 weeks off work for recovery', 'Prepare recovery area at home (ice, soft foods, pillows)', 'Take standardized baseline photos (front, side, 45°)'] },
-    { week: 'Day of Surgery', title: 'Procedure Day', icon: '🏥', tasks: ['Follow NPO (nothing by mouth) instructions', 'Arrive with a responsible adult for transport', 'Confirm procedure details with your surgeon', 'Follow all pre-op nursing instructions'] },
-    { week: 'Week 1-2', title: 'Acute Recovery', icon: '🩹', tasks: ['Apply ice 20 min on / 20 min off for first 48 hours', 'Sleep elevated at 30-45 degrees to minimize swelling', 'Soft/liquid diet for the first week', 'Take prescribed medications on schedule', 'Attend your first post-op checkup'] },
-    { week: 'Week 3-6', title: 'Healing Phase', icon: '🔄', tasks: ['Swelling continues to reduce — be patient', 'Gradually reintroduce normal diet and activity', 'Avoid contact sports and strenuous exercise', 'Take weekly progress photos for comparison', 'Follow up with surgeon at 4-6 week mark'] },
-    { week: 'Month 3-12', title: 'Final Results', icon: '✅', tasks: ['Most swelling resolved by month 3; final form by month 12', 'Compare progress photos against pre-op baseline', 'Schedule 6-month and 12-month follow-up visits', 'Discuss any asymmetries or concerns with surgeon', 'Consider complementary protocols if needed'] },
+    { week: 'Month 1-2', title: 'Research & Consultation', icon: 'ðŸ”', tasks: ['Research board-certified surgeons in your area', 'Book 2-3 consultations for multiple opinions', 'Review before/after galleries of each surgeon', 'Ask about complication rates and revision rates', 'Get imaging/morphs done during consultations'] },
+    { week: 'Month 2-3', title: 'Pre-Operative Preparation', icon: 'ðŸ“‹', tasks: ['Complete all required bloodwork and imaging', 'Stop blood thinners, supplements, and smoking', 'Arrange 1-2 weeks off work for recovery', 'Prepare recovery area at home (ice, soft foods, pillows)', 'Take standardized baseline photos (front, side, 45Â°)'] },
+    { week: 'Day of Surgery', title: 'Procedure Day', icon: 'ðŸ¥', tasks: ['Follow NPO (nothing by mouth) instructions', 'Arrive with a responsible adult for transport', 'Confirm procedure details with your surgeon', 'Follow all pre-op nursing instructions'] },
+    { week: 'Week 1-2', title: 'Acute Recovery', icon: 'ðŸ©¹', tasks: ['Apply ice 20 min on / 20 min off for first 48 hours', 'Sleep elevated at 30-45 degrees to minimize swelling', 'Soft/liquid diet for the first week', 'Take prescribed medications on schedule', 'Attend your first post-op checkup'] },
+    { week: 'Week 3-6', title: 'Healing Phase', icon: 'ðŸ”„', tasks: ['Swelling continues to reduce â€” be patient', 'Gradually reintroduce normal diet and activity', 'Avoid contact sports and strenuous exercise', 'Take weekly progress photos for comparison', 'Follow up with surgeon at 4-6 week mark'] },
+    { week: 'Month 3-12', title: 'Final Results', icon: 'âœ…', tasks: ['Most swelling resolved by month 3; final form by month 12', 'Compare progress photos against pre-op baseline', 'Schedule 6-month and 12-month follow-up visits', 'Discuss any asymmetries or concerns with surgeon', 'Consider complementary protocols if needed'] },
   ] : [
-    { week: 'Week 1', title: 'Setup & Baseline', icon: '📸', tasks: ['Take standardized baseline photos (front, side, 45°)', 'Purchase all required products or equipment', 'Set daily reminders/alarms for consistency', 'Journal your starting measurements if applicable', 'Research proper technique and application methods'] },
-    { week: 'Week 2-4', title: 'Building the Habit', icon: '⚡', tasks: ['Apply the protocol daily without skipping', 'Track adherence in a habit tracker or journal', 'Note any skin sensitivity or adverse reactions', 'Take weekly progress photos in the same lighting', 'Adjust dosage/frequency if irritation occurs'] },
-    { week: 'Month 2-3', title: 'Early Adaptation', icon: '🔬', tasks: ['First subtle changes may become visible', 'Compare month 2 photos vs. baseline side-by-side', 'Increase intensity/frequency if well-tolerated', 'Re-evaluate product quality and consider upgrades', 'Stay consistent — this is where most people quit'] },
-    { week: 'Month 3-6', title: 'Visible Transformation', icon: '📈', tasks: ['Clear, measurable changes vs. baseline', 'Document with high-quality progress photos', 'Evaluate whether to continue, intensify, or maintain', 'Begin transitioning to maintenance dosage if applicable', 'Stack with complementary protocols for compound gains'] },
-    { week: 'Month 6+', title: 'Maintenance', icon: '🏆', tasks: ['Shift to maintenance frequency/dosage', 'Take monthly comparison photos', 'Focus on the next highest-impact protocol', 'Re-evaluate every 3 months for continued relevance', 'Share progress with your community for accountability'] },
+    { week: 'Week 1', title: 'Setup & Baseline', icon: 'ðŸ“¸', tasks: ['Take standardized baseline photos (front, side, 45Â°)', 'Purchase all required products or equipment', 'Set daily reminders/alarms for consistency', 'Journal your starting measurements if applicable', 'Research proper technique and application methods'] },
+    { week: 'Week 2-4', title: 'Building the Habit', icon: 'âš¡', tasks: ['Apply the protocol daily without skipping', 'Track adherence in a habit tracker or journal', 'Note any skin sensitivity or adverse reactions', 'Take weekly progress photos in the same lighting', 'Adjust dosage/frequency if irritation occurs'] },
+    { week: 'Month 2-3', title: 'Early Adaptation', icon: 'ðŸ”¬', tasks: ['First subtle changes may become visible', 'Compare month 2 photos vs. baseline side-by-side', 'Increase intensity/frequency if well-tolerated', 'Re-evaluate product quality and consider upgrades', 'Stay consistent â€” this is where most people quit'] },
+    { week: 'Month 3-6', title: 'Visible Transformation', icon: 'ðŸ“ˆ', tasks: ['Clear, measurable changes vs. baseline', 'Document with high-quality progress photos', 'Evaluate whether to continue, intensify, or maintain', 'Begin transitioning to maintenance dosage if applicable', 'Stack with complementary protocols for compound gains'] },
+    { week: 'Month 6+', title: 'Maintenance', icon: 'ðŸ†', tasks: ['Shift to maintenance frequency/dosage', 'Take monthly comparison photos', 'Focus on the next highest-impact protocol', 'Re-evaluate every 3 months for continued relevance', 'Share progress with your community for accountability'] },
   ];
 
   const totalTasks = timelinePhases.reduce((sum, p) => sum + p.tasks.length, 0);
@@ -4228,7 +4031,7 @@ const AllProtocolsPage = ({ protocols, setCurrentPage }) => {
         <ChevronLeft size={14} /> Back to Dashboard
       </button>
       <h1 className="text-3xl md:text-4xl font-black italic uppercase tracking-tight text-white mb-2">All Protocols</h1>
-      <p className="text-zinc-500 font-sans text-xs uppercase tracking-widest mb-10">Sorted by impact — highest first</p>
+      <p className="text-zinc-500 font-sans text-xs uppercase tracking-widest mb-10">Sorted by impact - highest first</p>
       <div className="space-y-3">
         {(protocols || []).map((p, i) => (
           <div key={p.id || i} onClick={() => { setCurrentPage(`protocol-${p.id}`); window.scrollTo(0, 0); }} className="flex items-center gap-4 px-5 py-4 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-cyan-500/30 hover:shadow-[0_0_15px_rgba(34,211,238,0.05)] cursor-pointer transition-all group">
@@ -4298,6 +4101,26 @@ const App = () => {
 
   useEffect(() => { window.scrollTo(0, 0); }, [currentPage]);
 
+  const hasScanData = useMemo(() => {
+    if (!dashboardData) return false;
+    return (
+      dashboardData.finalRating != null ||
+      !!dashboardData.frontImage ||
+      (Array.isArray(dashboardData.biometrics) && dashboardData.biometrics.length > 0)
+    );
+  }, [dashboardData]);
+
+  useEffect(() => {
+    if (currentPage !== 'dashboard') return;
+    if (!user) {
+      setCurrentPage('login');
+      return;
+    }
+    if (!hasScanData && !canAlwaysAccessDashboard(user)) {
+      setCurrentPage('upload-photo');
+    }
+  }, [currentPage, user, hasScanData]);
+
   const handleSignOut = async () => {
     await signOut(auth);
     setCurrentPage('home');
@@ -4306,7 +4129,14 @@ const App = () => {
   return (
     <div className="min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black">
       <NoiseOverlay />
-      <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} user={user} onSignOut={handleSignOut} userPlan={userPlan} />
+      <Navbar
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        user={user}
+        onSignOut={handleSignOut}
+        userPlan={userPlan}
+        showDashboard={Boolean(user && (hasScanData || canAlwaysAccessDashboard(user)))}
+      />
       <main className="flex flex-col min-h-screen">
         {currentPage === 'home' && <HomePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'photo-guide' && <PhotoGuidePage setCurrentPage={setCurrentPage} />}
@@ -4320,12 +4150,58 @@ const App = () => {
           />
         )}
         {currentPage === 'results' && <ResultsPage />}
-        {currentPage === 'dashboard' && <DashboardPage dashboardData={dashboardData} setCurrentPage={setCurrentPage} userPlan={userPlan} />}
+        {currentPage === 'dashboard' && (
+          hasEffectiveProAccess(user, userPlan)
+            ? <ProDashboardPage dashboardData={dashboardData} setCurrentPage={setCurrentPage} userPlan={userPlan} user={user} onSignOut={handleSignOut} DashboardComponent={DashboardPage} />
+            : <DashboardPage dashboardData={dashboardData} setCurrentPage={setCurrentPage} userPlan={userPlan} user={user} />
+        )}
         {currentPage === 'plans' && <PlansPage setCurrentPage={setCurrentPage} user={user} />}
-        {currentPage === 'mog-battles' && <MogBattlePage dashboardData={dashboardData} />}
+        {currentPage === 'mog-battles' && <MogBattlePage user={user} setCurrentPage={setCurrentPage} />}
         {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'news' && <NewsPage />}
+        {currentPage === 'settings' && (
+          <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center text-white pt-20">
+            <div className="p-8 text-center bg-zinc-900/50 rounded-3xl border border-zinc-800 flex flex-col gap-6">
+              <h2 className="text-2xl font-black italic tracking-tighter uppercase">Settings</h2>
+              
+              <div className="flex flex-col gap-4 border-t border-zinc-800/50 pt-6">
+                <h3 className="text-red-500 font-bold uppercase tracking-widest text-xs mb-2">Danger Zone</h3>
+                <p className="text-zinc-500 font-sans text-[10px] uppercase tracking-widest max-w-sm">
+                  Permanently delete your account and all associated data. This action cannot be undone.
+                </p>
+                <button 
+                  onClick={async () => {
+                    if (window.confirm("Are you sure you want to delete your account? This action cannot be undone and you will lose all scan history.")) {
+                      try {
+                        const { deleteUser } = await import('firebase/auth');
+                        if (user) {
+                          await deleteUser(user);
+                          setCurrentPage('home');
+                        }
+                      } catch (e) {
+                        console.error("Error deleting account:", e);
+                        alert("Error deleting account. For security reasons, you may need to sign out and sign back in before deleting your account.");
+                      }
+                    }
+                  }}
+                  className="px-6 py-3 bg-red-500/10 border border-red-500/30 text-red-500 rounded-xl hover:bg-red-500/20 hover:text-red-400 transition-colors uppercase tracking-widest text-xs font-bold w-full"
+                >
+                  Delete Account
+                </button>
+              </div>
+
+              <div className="border-t border-zinc-800/50 pt-6 mt-2">
+                <button 
+                  onClick={() => setCurrentPage('dashboard')}
+                  className="px-6 py-2 bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors uppercase tracking-widest text-xs font-bold"
+                >
+                  Back to Dashboard
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {currentPage === 'celebrity' && <CelebrityRatingPage setCurrentPage={setCurrentPage} setSelectedCelebrity={setSelectedCelebrity} />}
         {currentPage === 'celebrity-stats' && selectedCelebrity && <CelebrityStatsPage celeb={selectedCelebrity} setCurrentPage={setCurrentPage} />}
         {currentPage === 'admin' && <AdminDashboardPage setCurrentPage={setCurrentPage} />}
@@ -4339,7 +4215,7 @@ const App = () => {
       </main>
       <footer className="py-20 border-t border-zinc-900 flex flex-col items-center gap-8 bg-[#090a0b]">
         <AdminFooterTrigger setCurrentPage={setCurrentPage} />
-        <p className="text-zinc-600 text-[10px] font-sans uppercase tracking-[0.5em]">Peak Performance Aesthetics © 2024</p>
+        <p className="text-zinc-600 text-[10px] font-sans uppercase tracking-[0.5em]">Peak Performance Aesthetics (c) 2024</p>
       </footer>
     </div>
   );
