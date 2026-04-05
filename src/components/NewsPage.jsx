@@ -113,16 +113,36 @@ export default function NewsPage() {
   const [now, setNow] = useState(() => Date.now());
   const [newsImagesById, setNewsImagesById] = useState({});
 
+  const [lastFetchAt, setLastFetchAt] = useState(null);
+
   const loadYoutubePool = useCallback(async () => {
     const merged = await fetchYouTubeFeedFromChannels();
     setYoutubePool(merged.length ? merged : STATIC_VIDEO_FALLBACK);
     setYoutubeReady(true);
+    setLastFetchAt(Date.now());
   }, []);
 
   useEffect(() => {
     loadYoutubePool();
     const refresh = setInterval(loadYoutubePool, YOUTUBE_ROTATION_MS);
     return () => clearInterval(refresh);
+  }, [loadYoutubePool]);
+
+  /** Refetch when the tab wakes after a long idle (works on mogcheck.net + local). */
+  useEffect(() => {
+    let hiddenAt = null;
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+        return;
+      }
+      if (hiddenAt != null && Date.now() - hiddenAt > YOUTUBE_ROTATION_MS) {
+        loadYoutubePool();
+      }
+      hiddenAt = null;
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
   }, [loadYoutubePool]);
 
   useEffect(() => {
@@ -297,6 +317,12 @@ export default function NewsPage() {
             Videos pull from a broad set of looksmaxxing / aesthetics / style channels (YouTube Shorts are excluded).
             Articles use each story’s lead image when possible.
           </p>
+          {lastFetchAt && (
+            <p className="mt-2 text-[10px] font-mono uppercase tracking-widest text-zinc-600">
+              Feed refreshed ~every 10 min · last sync{' '}
+              {new Date(lastFetchAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          )}
 
           <div className="mt-10 flex flex-wrap gap-2">
             {TABS.map((tab) => {

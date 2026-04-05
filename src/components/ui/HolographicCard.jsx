@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 
-const HolographicCard = ({ celeb, onClick }) => {
+const HolographicCard = ({ celeb, onClick, compact = false }) => {
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
   const [isHovering, setIsHovering] = useState(false);
   const cardRef = useRef(null);
@@ -74,9 +74,15 @@ const HolographicCard = ({ celeb, onClick }) => {
     };
   }
 
+  const wrapCls = compact ? 'w-full max-w-[11rem] sm:max-w-[12.5rem] mx-auto' : 'w-full max-w-md mx-auto';
+  const cardAspect = compact ? 'aspect-[3/4] max-h-[min(52vh,320px)]' : 'aspect-[3/4]';
+  const titlePad = compact ? 'px-2 pb-2 pt-16' : 'px-4 pb-3 pt-28';
+  const nameSz = compact ? 'text-xs' : 'text-base';
+  const ratingSz = compact ? 'text-sm' : 'text-lg';
+
   return (
     <div 
-      className="w-full max-w-md mx-auto group cursor-pointer"
+      className={`${wrapCls} group cursor-pointer`}
       style={{ perspective: '1000px' }}
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
@@ -85,7 +91,7 @@ const HolographicCard = ({ celeb, onClick }) => {
     >
       <div 
         ref={cardRef}
-        className={`relative aspect-[3/4] rounded-2xl border ${rColors.border} bg-[#0c0d0e]/80 backdrop-blur-xl overflow-hidden transition-all duration-300 ease-out transform-gpu shadow-2xl ${isHovering ? rColors.shadowHov : 'shadow-black/50'}`}
+        className={`relative ${cardAspect} rounded-xl border ${rColors.border} bg-[#0c0d0e]/80 backdrop-blur-xl overflow-hidden transition-all duration-300 ease-out transform-gpu shadow-2xl ${isHovering ? rColors.shadowHov : 'shadow-black/50'}`}
         style={{
           transform: isHovering ? `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) scale3d(1.05, 1.05, 1.05)` : 'rotateX(0) rotateY(0) scale3d(1, 1, 1)'
         }}
@@ -97,33 +103,32 @@ const HolographicCard = ({ celeb, onClick }) => {
         
         {/* SEE WHY Overlay */}
         <div className={`absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] transition-all duration-300 pointer-events-none ${isHovering ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
-          <div className="flex items-center gap-2 bg-white/10 border border-white/20 px-6 py-3 rounded-full shadow-[0_0_30px_rgba(255,255,255,0.2)] backdrop-blur-md">
-            <span className="text-white font-black italic tracking-widest text-sm uppercase">See Why</span>
+          <div className={`flex items-center gap-2 bg-white/10 border border-white/20 rounded-full shadow-[0_0_30px_rgba(255,255,255,0.2)] backdrop-blur-md ${compact ? 'px-3 py-2' : 'px-6 py-3'}`}>
+            <span className={`text-white font-black italic tracking-widest uppercase ${compact ? 'text-[10px]' : 'text-sm'}`}>See Why</span>
             <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </div>
         </div>
         
-        {/* Card Info */}
-        <div className="absolute bottom-0 left-0 w-full px-6 pb-3 pt-28 z-30 transform-gpu transition-transform duration-500 bg-gradient-to-t from-[#0c0d0e]/50 via-transparent to-transparent">
-          <div className="flex justify-between items-end mb-1.5">
-            <h3 className="text-lg font-black italic tracking-tighter text-white uppercase leading-none flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              {celeb.name}
-              <span className={`text-xl font-black select-none text-transparent bg-clip-text bg-gradient-to-br ${rColors.text} ${rColors.dropConfig} transition-all duration-300`}>
+        <div className={`absolute inset-0 ${titlePad} z-30 transform-gpu transition-transform duration-500 bg-gradient-to-t from-[#0c0d0e]/50 via-transparent to-transparent flex flex-col justify-end`}>
+          <div className="flex justify-between items-end mb-1">
+            <h3 className={`${nameSz} font-black italic tracking-tighter text-white uppercase leading-none flex flex-wrap items-baseline gap-x-1 gap-y-0.5`}>
+              <span className="truncate max-w-[80%]">{celeb.name}</span>
+              <span className={`${ratingSz} font-black select-none text-transparent bg-clip-text bg-gradient-to-br ${rColors.text} ${rColors.dropConfig} transition-all duration-300`}>
                 {celeb.rating}
               </span>
               {celeb.flags && celeb.flags.length > 0 && (
-                <div className="flex items-center gap-1 ml-1 translate-y-[1px]">
+                <div className="flex items-center gap-0.5 ml-0.5 translate-y-[1px]">
                   {celeb.flags.map((code) => (
-                    <img key={code} src={`https://flagcdn.com/w20/${code}.png`} alt={`${code} flag`} className="w-5 h-[14px] object-cover rounded-[2px] opacity-90 shadow-sm border border-white/10" />
+                    <img key={code} src={`https://flagcdn.com/w20/${code}.png`} alt={`${code} flag`} className="w-3.5 h-[10px] object-cover rounded-[1px] opacity-90 shadow-sm border border-white/10" />
                   ))}
                 </div>
               )}
             </h3>
           </div>
-          <div className="flex items-center gap-3">
-            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-black/60 border backdrop-blur-md ${rColors.badge}`}>
+          <div className="flex items-center gap-2">
+            <span className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-black/60 border backdrop-blur-md ${rColors.badge}`}>
               {celeb.tier}
             </span>
           </div>

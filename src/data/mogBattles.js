@@ -35,6 +35,32 @@ export function getCurrentBattle() {
   };
 }
 
+/** Rotating featured celebrity-vs-celebrity slots (vote tallies in Firestore per `id`). */
+export const FEATURED_MOGBATTLE_IDS = [
+  CURRENT_MOGBATTLE_ID,
+  'adriana-vs-jordan',
+  'henry-vs-rege',
+  'dua-vs-tom',
+];
+
+export function getFeaturedBattleById(id) {
+  if (id === CURRENT_MOGBATTLE_ID) return getCurrentBattle();
+  const find = (name) => celebrityData.find((c) => c.name === name);
+  const pairs = {
+    'adriana-vs-jordan': [find('Adriana Lima'), find('Jordan Barrett')],
+    'henry-vs-rege': [find('Henry Cavill'), find('Regé-Jean Page')],
+    'dua-vs-tom': [find('Dua Lipa'), find('Tom Holland')],
+  };
+  const pr = pairs[id];
+  if (!pr || !pr[0] || !pr[1]) return null;
+  const [a, b] = pr;
+  return {
+    id,
+    fighterA: { ...a },
+    fighterB: { ...b },
+  };
+}
+
 /** Short labels for metric rows (first N stats from each celeb). */
 export function getMetricRowsForBattle(fighterA, fighterB, count = 5) {
   const rows = [];
