@@ -5,6 +5,10 @@
 @layer base {
   body {
     @apply bg-[#0c0d0e] text-white antialiased m-0 p-0 font-sans;
+    background-image: url('/plexus-bg.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
   }
   
   #root {

@@ -201,6 +201,12 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDa
                   )}
                 </div>
                 <button
+                  onClick={() => { setCurrentPage('profile'); setShowUserMenu(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800"
+                >
+                  <User size={14} /> Profile & Scans
+                </button>
+                <button
                   onClick={() => { onSignOut(); setShowUserMenu(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold"
                 >
@@ -659,6 +665,174 @@ const CelebrityStatsPage = ({ celeb, setCurrentPage }) => {
 };
 
 // --- Home Page ---
+const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
+  const [scans, setScans] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchScans = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/api/user/scans`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch history');
+      const data = await res.json();
+      setScans(data.scans || []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchScans();
+  }, [user]);
+
+  const handleDeleteScan = async (scanId) => {
+    if (!window.confirm("Are you sure you want to delete this scan and its images?")) return;
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/api/user/scans/${scanId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to delete scan');
+      setScans(scans.filter(s => s.id !== scanId));
+    } catch (e) {
+      alert("Error deleting scan: " + e.message);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (window.confirm("Are you sure you want to delete your account? This action cannot be undone and you will lose all scan history.")) {
+      try {
+        const { deleteUser } = await import('firebase/auth');
+        if (user) {
+          await deleteUser(user);
+          setCurrentPage('home');
+        }
+      } catch (e) {
+        console.error("Error deleting account:", e);
+        alert("Error deleting account. For security reasons, you may need to sign out and sign back in before deleting your account.");
+      }
+    }
+  };
+
+  // Compute daily scans
+  const todayScans = scans.filter(s => {
+    if (!s.timestamp) return false;
+    const d = new Date(s.timestamp.seconds * 1000);
+    return d.toDateString() === new Date().toDateString();
+  }).length;
+
+  return (
+    <div className="min-h-screen pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
+      <div className="flex flex-col md:flex-row gap-8">
+        
+        {/* Left Sidebar: Plan & Danger Zone */}
+        <div className="w-full md:w-80 shrink-0 space-y-6">
+          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+            <h2 className="text-lg font-black italic tracking-tighter uppercase mb-4 flex items-center gap-2"><User size={18}/> Profile</h2>
+            <div className="text-sm font-sans text-zinc-300 mb-1">{user?.email}</div>
+            <div className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest mb-6">UID: {user?.uid.substring(0,8)}...</div>
+            
+            <div className="border-t border-zinc-800 pt-4 mb-4">
+              <h3 className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest mb-2">Current Plan</h3>
+              <div className="flex items-center justify-between">
+                <span className="text-lg font-black uppercase text-cyan-400">{userPlan.plan}</span>
+                {userPlan.plan === 'single_scan' && (
+                  <span className="text-xs font-sans text-zinc-400 bg-zinc-800 px-2 py-1 rounded">{userPlan.scanCredits} credits</span>
+                )}
+              </div>
+            </div>
+
+            <button onClick={() => setCurrentPage('plans')} className="w-full py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded hover:bg-cyan-500/20 transition-colors uppercase tracking-widest text-[10px] font-bold mb-4">
+              Upgrade Plan
+            </button>
+            
+            <div className="border-t border-zinc-800 pt-4 mt-4">
+              <h3 className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest mb-2 text-red-500">Danger Zone</h3>
+              <button onClick={handleDeleteAccount} className="w-full py-2 bg-red-500/10 border border-red-500/30 text-red-500 rounded hover:bg-red-500/20 transition-colors uppercase tracking-widest text-[10px] font-bold">
+                Delete Account
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Area: Stats & History */}
+        <div className="flex-1 space-y-6">
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 relative overflow-hidden">
+              <BarChart3 size={20} className="text-cyan-400 mb-2" />
+              <p className="text-3xl font-black">{scans.length}</p>
+              <p className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest">Total Scans</p>
+            </div>
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 relative overflow-hidden">
+              <Activity size={20} className="text-emerald-400 mb-2" />
+              <p className="text-3xl font-black">{todayScans}</p>
+              <p className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest">Scans Today</p>
+            </div>
+          </div>
+
+          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
+            <h2 className="text-lg font-black italic tracking-tighter uppercase mb-4 flex items-center gap-2"><Clock size={18}/> Scan History</h2>
+            
+            {loading ? (
+              <div className="flex justify-center py-10"><Loader2 className="animate-spin text-cyan-400" /></div>
+            ) : error ? (
+              <div className="text-red-400 text-sm">{error}</div>
+            ) : scans.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-zinc-500 text-sm font-sans mb-4">No scan history available yet.</p>
+                <button onClick={() => setCurrentPage('upload-photo')} className="px-6 py-2 bg-cyan-500 text-black font-bold uppercase tracking-widest text-xs rounded-full">New Scan</button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {scans.map(scan => (
+                  <div key={scan.id} className="flex items-center justify-between p-4 bg-zinc-950/50 border border-zinc-800/80 rounded-xl hover:border-zinc-700 transition-colors">
+                    <div className="flex items-center gap-4">
+                      {scan.frontImageUrl ? (
+                        <div className="w-12 h-12 rounded overflow-hidden bg-zinc-800 shrink-0">
+                          <img src={scan.frontImageUrl} alt="Scan preview" className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded bg-zinc-800 shrink-0 flex items-center justify-center text-zinc-600 text-[10px]">No Img</div>
+                      )}
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-sm">{scan.finalRating ? `${scan.finalRating}/100` : 'N/A'}</span>
+                          {scan.model === '1' && <span className="bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Premium</span>}
+                          {scan.success === false && <span className="bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Failed</span>}
+                        </div>
+                        <div className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest">
+                          {scan.timestamp ? new Date(scan.timestamp.seconds * 1000).toLocaleString() : 'Unknown Time'}
+                        </div>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => handleDeleteScan(scan.id)}
+                      className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                      title="Delete Scan & Image"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
 const HomePage = ({ setCurrentPage }) => {
   const [analysisHeroCount, setAnalysisHeroCount] = useState(74);
   const [activeUsers, setActiveUsers] = useState(106);
@@ -3587,6 +3761,8 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
   const [authenticated, setAuthenticated] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [stats, setStats] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [activeTab, setActiveTab] = useState('stats'); // 'stats' | 'users'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [lastRefresh, setLastRefresh] = useState(null);
@@ -3607,6 +3783,13 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       }
       const data = await res.json();
       setStats(data);
+      
+      const usersRes = await fetch(`${API_BASE}/api/admin/users`, { headers: { 'x-admin-password': pw } });
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        setUsers(usersData.users || []);
+      }
+      
       setLastRefresh(new Date());
       setAuthenticated(true);
       return true;
@@ -3645,6 +3828,65 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
   };
 
   const modelLabel = (m) => ({ '1': 'Premium', '2': 'Fun mode', '3': 'Free' }[m] || m);
+
+  const handleDeleteUser = async (uid, email) => {
+    if (!window.confirm(`Are you sure you want to permanently delete user ${email}?`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/users/${uid}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-password': storedPw.current }
+      });
+      if (!res.ok) throw new Error('Failed to delete user');
+      setUsers(users.filter(u => u.uid !== uid));
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleUpdatePlan = async (uid, currentPlan) => {
+    const newPlan = window.prompt(`Update plan for user (current: ${currentPlan}). Options: free, pro, single_scan`, currentPlan);
+    if (!newPlan) return;
+    const creditsStr = window.prompt('Enter scan credits (e.g. 999 for pro, 1 for single_scan, 0 for free)', newPlan === 'pro' ? '999' : '0');
+    if (creditsStr === null) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/users/${uid}/plan`, {
+        method: 'POST',
+        headers: { 'x-admin-password': storedPw.current, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: newPlan, scanCredits: parseInt(creditsStr, 10) || 0 })
+      });
+      if (!res.ok) throw new Error('Failed to update plan');
+      fetchStats(storedPw.current); // refresh
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleViewScans = async (uid, email) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/users/${uid}/scans`, {
+        headers: { 'x-admin-password': storedPw.current }
+      });
+      if (!res.ok) throw new Error('Failed to fetch scans');
+      const data = await res.json();
+      if (!data.scans || data.scans.length === 0) {
+        alert('No scans found for this user.');
+        return;
+      }
+      const scanList = data.scans.map(s => `ID: ${s.id} | Rating: ${s.finalRating} | Model: ${s.model} | Time: ${new Date(s.timestamp?.seconds * 1000).toLocaleString()}`).join('\n');
+      const toDelete = window.prompt(`Scans for ${email}:\n${scanList}\n\nEnter a Scan ID to delete it, or leave blank to cancel.`);
+      if (toDelete) {
+        if (!window.confirm(`Delete scan ${toDelete}?`)) return;
+        const delRes = await fetch(`${API_BASE}/api/admin/users/${uid}/scans/${toDelete}`, {
+          method: 'DELETE',
+          headers: { 'x-admin-password': storedPw.current }
+        });
+        if (!delRes.ok) throw new Error('Failed to delete scan');
+        alert('Scan deleted.');
+      }
+    } catch (err) {
+      alert(err.message);
+    }
+  };
 
   if (!authenticated) {
     return (
@@ -3719,7 +3961,14 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
 
       {stats && (
         <>
-          {/* Overview Cards */}
+          <div className="flex items-center gap-4 border-b border-zinc-800 mb-6 pb-2">
+            <button onClick={() => setActiveTab('stats')} className={`text-xs font-sans uppercase tracking-widest font-bold pb-2 border-b-2 transition-colors ${activeTab === 'stats' ? 'text-cyan-400 border-cyan-400' : 'text-zinc-500 border-transparent hover:text-zinc-300'}`}>System Stats</button>
+            <button onClick={() => setActiveTab('users')} className={`text-xs font-sans uppercase tracking-widest font-bold pb-2 border-b-2 transition-colors ${activeTab === 'users' ? 'text-cyan-400 border-cyan-400' : 'text-zinc-500 border-transparent hover:text-zinc-300'}`}>User Management ({users.length})</button>
+          </div>
+
+          {activeTab === 'stats' && (
+            <>
+              {/* Overview Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             {[
               { label: 'Analyses Today', value: ov.totalToday, sub: `${ov.totalAll} total`, icon: BarChart3, color: 'cyan' },
@@ -3884,6 +4133,67 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
               </div>
             )}
           </div>
+            </>
+          )}
+
+          {activeTab === 'users' && (
+            <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Users size={14} className="text-cyan-400" />
+                  <h3 className="font-sans text-xs uppercase tracking-widest text-zinc-300">Registered Users</h3>
+                </div>
+                <span className="text-[9px] font-sans text-zinc-600">{users.length} users found</span>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full text-left whitespace-nowrap">
+                  <thead>
+                    <tr className="border-b border-zinc-800/50">
+                      <th className="text-[9px] font-sans text-zinc-500 uppercase tracking-widest pb-2 pr-4">User</th>
+                      <th className="text-[9px] font-sans text-zinc-500 uppercase tracking-widest pb-2 pr-4">Plan / Credits</th>
+                      <th className="text-[9px] font-sans text-zinc-500 uppercase tracking-widest pb-2 pr-4">Status / IP</th>
+                      <th className="text-[9px] font-sans text-zinc-500 uppercase tracking-widest pb-2 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map((u) => {
+                      const isActive = u.lastActive && (new Date() - new Date(u.lastActive)) < 5 * 60 * 1000;
+                      return (
+                        <tr key={u.uid} className="border-b border-zinc-800/30 hover:bg-zinc-800/20 transition-colors">
+                          <td className="py-3 pr-4">
+                            <div className="font-sans text-xs text-zinc-300">{u.email}</div>
+                            <div className="font-sans text-[10px] text-zinc-600 truncate max-w-[150px]">{u.uid}</div>
+                          </td>
+                          <td className="py-3 pr-4">
+                            <div className="font-sans text-[11px] text-cyan-400 uppercase tracking-wider">{u.plan}</div>
+                            <div className="font-sans text-[10px] text-zinc-500">{u.scanCredits} credits</div>
+                          </td>
+                          <td className="py-3 pr-4">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-zinc-600'}`}></span>
+                              <span className="font-sans text-[11px] text-zinc-400">{isActive ? 'Online' : (u.lastActive ? new Date(u.lastActive).toLocaleString() : 'Never')}</span>
+                            </div>
+                            <div className="font-sans text-[10px] text-zinc-600 mt-0.5">{u.lastIp}</div>
+                          </td>
+                          <td className="py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button onClick={() => handleViewScans(u.uid, u.email)} className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[10px] font-sans uppercase tracking-widest transition-colors">Scans</button>
+                              <button onClick={() => handleUpdatePlan(u.uid, u.plan)} className="px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded text-[10px] font-sans uppercase tracking-widest transition-colors">Plan</button>
+                              <button onClick={() => handleDeleteUser(u.uid, u.email)} className="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded text-[10px] font-sans uppercase tracking-widest transition-colors">Del</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {users.length === 0 && (
+                  <div className="text-center py-8 text-zinc-500 font-sans text-xs">No users found.</div>
+                )}
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -4206,6 +4516,8 @@ const App = () => {
 
   useEffect(() => {
     if (!user?.uid) { setUserPlan({ plan: 'free', scanCredits: 0 }); return; }
+    
+    // Setup Firestore listener for user plan
     const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -4218,7 +4530,25 @@ const App = () => {
         setUserPlan({ plan: 'free', scanCredits: 0 });
       }
     });
-    return () => unsubscribe();
+
+    // Session Heartbeat
+    const sendHeartbeat = async () => {
+      try {
+        const token = await user.getIdToken();
+        await fetch(`${API_BASE}/api/user/status`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } catch (e) {
+        console.error('Heartbeat failed', e);
+      }
+    };
+    sendHeartbeat(); // immediate first beat
+    const heartbeatInterval = setInterval(sendHeartbeat, 60000); // every minute
+
+    return () => {
+      unsubscribe();
+      clearInterval(heartbeatInterval);
+    };
   }, [user?.uid]);
 
   useEffect(() => { window.scrollTo(0, 0); }, [currentPage]);
@@ -4286,47 +4616,8 @@ const App = () => {
         {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'news' && <NewsPage />}
-        {currentPage === 'settings' && (
-          <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center text-white pt-20">
-            <div className="p-8 text-center bg-zinc-900/50 rounded-3xl border border-zinc-800 flex flex-col gap-6">
-              <h2 className="text-2xl font-black italic tracking-tighter uppercase">Settings</h2>
-              
-              <div className="flex flex-col gap-4 border-t border-zinc-800/50 pt-6">
-                <h3 className="text-red-500 font-bold uppercase tracking-widest text-xs mb-2">Danger Zone</h3>
-                <p className="text-zinc-500 font-sans text-[10px] uppercase tracking-widest max-w-sm">
-                  Permanently delete your account and all associated data. This action cannot be undone.
-                </p>
-                <button 
-                  onClick={async () => {
-                    if (window.confirm("Are you sure you want to delete your account? This action cannot be undone and you will lose all scan history.")) {
-                      try {
-                        const { deleteUser } = await import('firebase/auth');
-                        if (user) {
-                          await deleteUser(user);
-                          setCurrentPage('home');
-                        }
-                      } catch (e) {
-                        console.error("Error deleting account:", e);
-                        alert("Error deleting account. For security reasons, you may need to sign out and sign back in before deleting your account.");
-                      }
-                    }
-                  }}
-                  className="px-6 py-3 bg-red-500/10 border border-red-500/30 text-red-500 rounded-xl hover:bg-red-500/20 hover:text-red-400 transition-colors uppercase tracking-widest text-xs font-bold w-full"
-                >
-                  Delete Account
-                </button>
-              </div>
-
-              <div className="border-t border-zinc-800/50 pt-6 mt-2">
-                <button 
-                  onClick={() => setCurrentPage('dashboard')}
-                  className="px-6 py-2 bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors uppercase tracking-widest text-xs font-bold"
-                >
-                  Back to Dashboard
-                </button>
-              </div>
-            </div>
-          </div>
+        {currentPage === 'profile' && (
+          <UserProfilePage user={user} userPlan={userPlan} setCurrentPage={setCurrentPage} />
         )}
         {currentPage === 'celebrity' && <CelebrityRatingPage setCurrentPage={setCurrentPage} setSelectedCelebrity={setSelectedCelebrity} />}
         {currentPage === 'celebrity-stats' && selectedCelebrity && <CelebrityStatsPage celeb={selectedCelebrity} setCurrentPage={setCurrentPage} />}

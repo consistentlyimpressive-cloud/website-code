@@ -550,6 +550,23 @@ app.get('/health', (req, res) => {
   res.json(healthPayload());
 });
 
+app.get('/api/user/status', extractUserOptional, async (req, res) => {
+  if (!req.uid || !firestore) return res.json({ ok: false });
+  try {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+    // X-Forwarded-For could be a comma-separated list; we only want the first one
+    const clientIp = ip.split(',')[0].trim();
+    await firestore.collection('users').doc(req.uid).set({
+      lastActive: admin.firestore.FieldValue.serverTimestamp(),
+      lastIp: clientIp
+    }, { merge: true });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[status] Failed to update user status:', e.message);
+    res.json({ ok: false });
+  }
+});
+
 /** Deeper check: Firestore reachable (for orchestration readiness probes). */
 app.get('/api/ready', async (req, res) => {
   try {
@@ -697,24 +714,51 @@ function guessContentType(filePath) {
   return 'image/jpeg';
 }
 
-async function maybeUploadAndDeleteLocal(localPath) {
-  if (process.env.UPLOAD_TO_FIREBASE_STORAGE !== 'true') return;
-  if (!localPath || !fs.existsSync(localPath)) return;
+async function uploadImageToFirebase(localPath, uid, prefix = 'front') {
+  if (!localPath || !fs.existsSync(localPath)) return null;
+  if (!firestore) return null; // require firebase admin
   try {
     const bucket = admin.storage().bucket();
-    const dest = `uploads/${path.basename(localPath)}`;
+    const filename = path.basename(localPath);
+    // If user is authenticated, store in their folder, else store in anonymous folder
+    const destFolder = uid ? `users/${uid}/images` : `anonymous/images`;
+    const dest = `${destFolder}/${prefix}_${Date.now()}_${filename}`;
+    
     await bucket.upload(localPath, {
       destination: dest,
       metadata: {
         contentType: guessContentType(localPath),
-        cacheControl: 'public, max-age=3600',
+        cacheControl: 'public, max-age=31536000',
       },
     });
+    
+    // Make file publicly accessible to get public URL
+    const file = bucket.file(dest);
+    await file.makePublic();
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${dest}`;
+    
     fs.unlinkSync(localPath);
     console.log(`[storage] Uploaded and removed local: ${dest}`);
+    return { dest, url: publicUrl };
   } catch (e) {
     console.error('[storage] Upload failed (local file kept):', e.message);
+    return null;
   }
+}
+
+/** Optional middleware to extract user ID from token without requiring it */
+async function extractUserOptional(req, res, next) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!token) return next();
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.uid = decoded.uid;
+  } catch (e) {
+    // ignore invalid token for optional auth
+  }
+  next();
 }
 
 /** Ultra models (choice 1 / 2) require Firebase auth + Pro plan or Single Scan with credits. */
@@ -785,6 +829,7 @@ app.post(
     });
   },
   analyzeLimiter,
+  extractUserOptional,
   verifyUltraAccess,
   (req, res) => {
     // Check files immediately after upload parsing
@@ -946,15 +991,36 @@ app.post(
 
   res.json(payload);
 
-      setImmediate(() => {
-        maybeUploadAndDeleteLocal(imagePath).catch(() => {});
-        if (sideImagePath) maybeUploadAndDeleteLocal(sideImagePath).catch(() => {});
+      setImmediate(async () => {
+        let frontUpload = null;
+        let sideUpload = null;
+
+        if (imagePath) frontUpload = await uploadImageToFirebase(imagePath, req.uid, 'front');
+        if (sideImagePath) sideUpload = await uploadImageToFirebase(sideImagePath, req.uid, 'side');
+
+        if (success && req.uid && firestore) {
+          try {
+            await firestore.collection('users').doc(req.uid).collection('scans').add({
+              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+              model: modelChoice,
+              finalRating,
+              sideRating,
+              frontImageUrl: frontUpload ? frontUpload.url : null,
+              sideImageUrl: sideUpload ? sideUpload.url : null,
+              frontImageDest: frontUpload ? frontUpload.dest : null,
+              sideImageDest: sideUpload ? sideUpload.dest : null,
+              success: true
+            });
+          } catch (e) {
+            console.error('[analyze] Failed to record scan history:', e.message);
+          }
+        }
       });
     });
   }
 );
 
-app.post('/api/unlock-potential', unlockLimiter, upload.single('image'), (req, res) => {
+app.post('/api/unlock-potential', unlockLimiter, extractUserOptional, upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No image provided' });
   }
@@ -1008,8 +1074,9 @@ app.post('/api/unlock-potential', unlockLimiter, upload.single('image'), (req, r
       imageUrl: `data:image/png;base64,${base64Data}`,
     });
 
-    setImmediate(() => {
-      maybeUploadAndDeleteLocal(imagePath).catch(() => {});
+    setImmediate(async () => {
+      // For unlock potential, we just upload without recording to scan history for now
+      await uploadImageToFirebase(imagePath, req.uid, 'unlock');
     });
   });
 });
@@ -1022,6 +1089,173 @@ app.get('/api/admin/stats', (req, res) => {
     return res.status(401).json({ error: 'Invalid admin password' });
   }
   res.json(adminStore.getStats());
+});
+
+// GET all users for Admin
+app.get('/api/admin/users', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  try {
+    const authUsersResult = await admin.auth().listUsers(1000); // 1000 limit, ignoring pagination for now
+    const authUsers = authUsersResult.users;
+
+    const firestoreUsersSnap = await firestore.collection('users').get();
+    const firestoreData = {};
+    firestoreUsersSnap.forEach(doc => {
+      firestoreData[doc.id] = doc.data();
+    });
+
+    const users = authUsers.map(u => {
+      const fd = firestoreData[u.uid] || {};
+      const scansCount = 0; // We could fetch subcollections but it's slow for all users at once
+      return {
+        uid: u.uid,
+        email: u.email,
+        displayName: u.displayName || 'No Name',
+        plan: fd.plan || 'free',
+        scanCredits: fd.scanCredits || 0,
+        lastIp: fd.lastIp || 'Unknown',
+        lastActive: fd.lastActive ? fd.lastActive.toDate().toISOString() : null,
+      };
+    });
+
+    // Sort by last active descending
+    users.sort((a, b) => {
+      if (!a.lastActive) return 1;
+      if (!b.lastActive) return -1;
+      return new Date(b.lastActive) - new Date(a.lastActive);
+    });
+
+    res.json({ users });
+  } catch (e) {
+    console.error('[admin] Failed to fetch users:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Update user plan
+app.post('/api/admin/users/:uid/plan', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  const { uid } = req.params;
+  const { plan, scanCredits } = req.body;
+  
+  try {
+    await firestore.collection('users').doc(uid).set({
+      plan: String(plan || 'free'),
+      scanCredits: Number(scanCredits || 0),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[admin] Failed to update user plan:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Delete user account
+app.delete('/api/admin/users/:uid', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  const { uid } = req.params;
+
+  try {
+    // Delete from Firebase Auth
+    await admin.auth().deleteUser(uid);
+    
+    // Delete Firestore document
+    await firestore.collection('users').doc(uid).delete();
+
+    // Delete images in Storage
+    try {
+      const bucket = admin.storage().bucket();
+      await bucket.deleteFiles({ prefix: `users/${uid}/` });
+    } catch(e) {
+      console.log(`[admin] Warning: Failed to delete storage for ${uid}`, e.message);
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[admin] Failed to delete user:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Fetch user scans (images) for admin or user
+app.get('/api/admin/users/:uid/scans', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  try {
+    const snap = await firestore.collection('users').doc(req.params.uid).collection('scans').orderBy('timestamp', 'desc').get();
+    const scans = [];
+    snap.forEach(doc => scans.push({ id: doc.id, ...doc.data() }));
+    res.json({ scans });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Delete specific scan
+app.delete('/api/admin/users/:uid/scans/:scanId', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  const { uid, scanId } = req.params;
+  try {
+    const docRef = firestore.collection('users').doc(uid).collection('scans').doc(scanId);
+    const doc = await docRef.get();
+    if (doc.exists) {
+      const d = doc.data();
+      const bucket = admin.storage().bucket();
+      if (d.frontImageDest) await bucket.file(d.frontImageDest).delete().catch(() => {});
+      if (d.sideImageDest) await bucket.file(d.sideImageDest).delete().catch(() => {});
+      await docRef.delete();
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// User endpoints for scans
+app.get('/api/user/scans', extractUserOptional, async (req, res) => {
+  if (!req.uid || !firestore) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const snap = await firestore.collection('users').doc(req.uid).collection('scans').orderBy('timestamp', 'desc').get();
+    const scans = [];
+    snap.forEach(doc => scans.push({ id: doc.id, ...doc.data() }));
+    res.json({ scans });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
+  if (!req.uid || !firestore) return res.status(401).json({ error: 'Unauthorized' });
+  const { scanId } = req.params;
+  try {
+    const docRef = firestore.collection('users').doc(req.uid).collection('scans').doc(scanId);
+    const doc = await docRef.get();
+    if (doc.exists) {
+      const d = doc.data();
+      const bucket = admin.storage().bucket();
+      if (d.frontImageDest) await bucket.file(d.frontImageDest).delete().catch(() => {});
+      if (d.sideImageDest) await bucket.file(d.sideImageDest).delete().catch(() => {});
+      await docRef.delete();
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 if (fs.existsSync(distDir)) {

@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "description": "MogCheck — React frontend + Express API",
-  "homepage": "https://www.example.com",
+  "homepage": "https://www.mogcheck.net",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/consistentlyimpressive-cloud/website-code.git"

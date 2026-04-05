@@ -92,7 +92,7 @@ const TermsOfServicePage = ({ setCurrentPage }) => {
         <section>
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">9. Governing Law</h2>
           <p className="leading-relaxed text-sm">
-            These Terms shall be governed by and construed in accordance with the laws of Malaysia. Any legal action or proceeding arising under these Terms will be brought exclusively in the courts of Malaysia.
+            These Terms shall be governed by and construed in accordance with the laws of the United States. Any legal action or proceeding arising under these Terms will be brought exclusively in the courts of the United States.
           </p>
         </section>
 
@@ -100,7 +100,7 @@ const TermsOfServicePage = ({ setCurrentPage }) => {
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">10. Contact Information</h2>
           <p className="leading-relaxed text-sm">
             For support or questions regarding these Terms, please contact us at:<br/>
-            Email: <a href="mailto:support@mogcheck.com" className="text-cyan-400 hover:text-cyan-300 transition-colors">support@mogcheck.com</a>
+            Email: <a href="mailto:support@mogcheck.net" className="text-cyan-400 hover:text-cyan-300 transition-colors">support@mogcheck.net</a>
           </p>
         </section>
       </div>
