@@ -3066,12 +3066,6 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                          </div>
                        </div>
                        )}
-                       {showBestFlaw && (
-                         <>
-                           <FeatureHighlightCard type="best" feature={activeBestFeatures?.[0]} onHover={setActiveHover} />
-                           <FeatureHighlightCard type="flaw" feature={activePrimaryFlaws?.[0]} onHover={setActiveHover} />
-                         </>
-                       )}
                     </div>
                   </div>
                 </div>
@@ -3124,12 +3118,6 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                            <span className={`absolute bottom-2 left-0 right-0 text-center text-[10px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
                          </div>
                        </div>
-                       {showBestFlaw && (
-                         <>
-                           <FeatureHighlightCard type="best" feature={activeBestFeatures?.[0]} onHover={setActiveHover} />
-                           <FeatureHighlightCard type="flaw" feature={activePrimaryFlaws?.[0]} onHover={setActiveHover} />
-                         </>
-                       )}
                     </div>
                   </div>
                 </div>
