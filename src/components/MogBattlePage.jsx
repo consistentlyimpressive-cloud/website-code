@@ -4,9 +4,16 @@ import {
   getCurrentBattle,
   getMetricRowsForBattle,
   aiWinner,
-  CURRENT_MOGBATTLE_ID,
+  FEATURED_MOGBATTLE_IDS,
+  getFeaturedBattleById,
 } from '../data/mogBattles';
-import { fetchMogBattleTallies, fetchMyMogBattleVote, postMogBattleVote } from '../api/mogBattleVotes';
+import {
+  fetchMogBattleTallies,
+  fetchMyMogBattleVote,
+  postMogBattleVote,
+  fetchCommunityBattles,
+  fetchFeaturedVoteRankings,
+} from '../api/mogBattleVotes';
 
 const GENERIC_ERR = 'Something went wrong. Please try again later.';
 
@@ -24,9 +31,9 @@ const barClass = (scoreA, scoreB, side) => {
   return b >= a ? 'bg-emerald-500' : 'bg-red-500';
 };
 
-const WIN_SPARK_COUNT = 96;
-const WIN_SPARK_AMBIENT = 44;
-const WIN_SPARK_CELEBRATION_MS = 5200;
+const WIN_SPARK_COUNT = 6;
+const WIN_SPARK_AMBIENT = 6;
+const WIN_SPARK_CELEBRATION_MS = 2500;
 
 /** Deterministic 0–1 from index (stable across renders). */
 function hash01(i, salt) {
@@ -114,9 +121,20 @@ function usePrefersReducedMotion() {
   return reduced;
 }
 
-const MogBattlePage = ({ user, setCurrentPage }) => {
-  const battle = useMemo(() => getCurrentBattle(), []);
+function communityCreatedMs(b) {
+  const c = b?.createdAt;
+  if (c?.seconds != null) return c.seconds * 1000;
+  if (typeof c === 'string' || typeof c === 'number') return new Date(c).getTime();
+  return 0;
+}
+
+const MogBattlePage = ({ user, setCurrentPage, dashboardData, userPlan }) => {
   const prefersReduced = usePrefersReducedMotion();
+
+  const [activeBattle, setActiveBattle] = useState(null);
+  const [communityBattles, setCommunityBattles] = useState([]);
+  const [battleSort, setBattleSort] = useState('votes'); // 'votes' | 'recent'
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
 
   const [phase, setPhase] = useState('vote');
   const [userPick, setUserPick] = useState(null);
@@ -144,21 +162,103 @@ const MogBattlePage = ({ user, setCurrentPage }) => {
   const wipeCompleteRef = useRef(false);
   const wipeFallbackTimerRef = useRef(null);
   const myVoteHydratedRef = useRef(false);
+  const advanceFeaturedAfterRevealRef = useRef(false);
+
+  const loadCommunityBattles = useCallback(async () => {
+    try {
+      const res = await fetchCommunityBattles();
+      const { makeStats, tierFromRating100 } = await import('../data/celebrityData');
+      const formatted = res.battles.map((b) => ({
+        ...b,
+        fighterA: {
+          ...b.fighterA,
+          imgSrc: b.fighterA.frontImage,
+          name: b.fighterA.name || 'User A',
+          rating: b.fighterA.finalRating,
+          tier: tierFromRating100(b.fighterA.finalRating),
+          stats: makeStats(b.fighterA.finalRating, 5),
+        },
+        fighterB: {
+          ...b.fighterB,
+          imgSrc: b.fighterB.frontImage,
+          name: b.fighterB.name || 'User B',
+          rating: b.fighterB.finalRating,
+          tier: tierFromRating100(b.fighterB.finalRating),
+          stats: makeStats(b.fighterB.finalRating, 5),
+        },
+      }));
+      setCommunityBattles(formatted);
+    } catch (e) {
+      console.error('Failed to load community battles', e);
+    }
+  }, []);
 
   useEffect(() => {
+    loadCommunityBattles();
+    setActiveBattle(getCurrentBattle());
+    const id = setInterval(loadCommunityBattles, 90_000);
+    return () => clearInterval(id);
+  }, [loadCommunityBattles]);
+
+  const resetBattleState = useCallback(() => {
+    advanceFeaturedAfterRevealRef.current = false;
+    setPhase('vote');
+    setUserPick(null);
+    setVoteCounts({ a: 0, b: 0 });
+    setVoteError(null);
+    setVoteSubmitting(false);
+    setShowMetrics(false);
+    setGlitch(false);
+    setWipe(false);
+    setAfterWipe(false);
+    setDisplayA(0);
+    setDisplayB(0);
+    setCountDone(false);
+    setShowConfetti(false);
+    setCommunityFill(0);
+    setRipples([]);
+    setVsFast(false);
+    setSplitIntro(true);
+    wipeCompleteRef.current = false;
+    myVoteHydratedRef.current = false;
+    
+    if (countRaf.current) cancelAnimationFrame(countRaf.current);
+    revealTimers.current.forEach(clearTimeout);
+    revealTimers.current = [];
+    if (wipeFallbackTimerRef.current) clearTimeout(wipeFallbackTimerRef.current);
+  }, []);
+
+  const changeBattle = useCallback((newBattle) => {
+    resetBattleState();
+    setActiveBattle(newBattle);
+  }, [resetBattleState]);
+
+  const battle = activeBattle;
+
+  const sortedCommunityBattles = useMemo(() => {
+    return [...communityBattles].sort((a, b) => {
+      if (battleSort === 'votes') {
+        const totalA = (a.votesA || 0) + (a.votesB || 0);
+        const totalB = (b.votesA || 0) + (b.votesB || 0);
+        return totalB - totalA;
+      }
+      return communityCreatedMs(b) - communityCreatedMs(a);
+    });
+  }, [communityBattles, battleSort]);
+
+  const handleNextBattle = useCallback(() => {
+    const nextBattle = sortedCommunityBattles.find(b => {
+      const k = `mog-battle-vote-${user?.uid}-${b.id}`;
+      return !localStorage.getItem(k);
+    });
+    if (nextBattle) changeBattle(nextBattle);
+    else changeBattle(getCurrentBattle());
+  }, [sortedCommunityBattles, user, changeBattle]);
+
+  useEffect(() => {
+    if (!battle) return;
     myVoteHydratedRef.current = false;
     setIsBattleAdmin(false);
-    
-    // Check localStorage for previous vote when component mounts or user changes
-    if (user?.uid && battle) {
-      const storageKey = `mogcheck-vote-${user.uid}-${CURRENT_MOGBATTLE_ID}`;
-      const savedPick = localStorage.getItem(storageKey);
-      if (savedPick) {
-        setUserPick(savedPick);
-        setPhase('voted');
-        myVoteHydratedRef.current = true;
-      }
-    }
   }, [user?.uid, battle?.id]);
 
   const fighterA = battle?.fighterA;
@@ -316,53 +416,56 @@ const MogBattlePage = ({ user, setCurrentPage }) => {
 
   /** Live totals from Firestore (same for everyone; polled + after vote). */
   useEffect(() => {
-    if (!battle) return undefined;
+    if (!battle?.id) return undefined;
     let cancelled = false;
     const load = async () => {
       try {
-        const t = await fetchMogBattleTallies(CURRENT_MOGBATTLE_ID);
+        const t = await fetchMogBattleTallies(battle.id);
         if (!cancelled) setVoteCounts({ a: t.a, b: t.b });
       } catch {
         /* keep previous counts */
       }
     };
     load();
-    const id = setInterval(load, 12000);
+    const id = setInterval(load, 18_000);
     return () => {
       cancelled = true;
       clearInterval(id);
     };
-  }, [battle]);
+  }, [battle?.id]);
 
   /** Restore reveal state if this account already voted (one vote per Firebase user). */
   useEffect(() => {
     if (!user || !battle || myVoteHydratedRef.current) return undefined;
+    const battleId = battle.id;
+    const ratingSnapA = Number(battle.fighterA?.rating) || 0;
+    const ratingSnapB = Number(battle.fighterB?.rating) || 0;
     let cancelled = false;
     (async () => {
-      const localKey = `mog-battle-vote-${user.uid}-${CURRENT_MOGBATTLE_ID}`;
+      const localKey = `mog-battle-vote-${user.uid}-${battleId}`;
       const localVote = localStorage.getItem(localKey);
       let data = { voted: false, side: null };
-      
+
       try {
         const token = await user.getIdToken();
-        data = await fetchMyMogBattleVote(token, CURRENT_MOGBATTLE_ID);
+        data = await fetchMyMogBattleVote(token, battleId);
       } catch {
-        // Fallback below
+        /* fallback below */
       }
-      
+
       if (cancelled) return;
       myVoteHydratedRef.current = true;
-      
+
       if (data?.isBattleAdmin) {
         setIsBattleAdmin(true);
       }
-      
+
       const hasVoted = data?.voted || !!localVote;
       const votedSide = data?.side || localVote;
 
       if (hasVoted && !data?.isBattleAdmin) {
-        const ra = Number(fighterA?.rating) || 0;
-        const rb = Number(fighterB?.rating) || 0;
+        const ra = ratingSnapA;
+        const rb = ratingSnapB;
         setUserPick(votedSide);
         setPhase('revealed');
         setAfterWipe(true);
@@ -378,7 +481,35 @@ const MogBattlePage = ({ user, setCurrentPage }) => {
     return () => {
       cancelled = true;
     };
-  }, [user, battle, fighterA, fighterB]);
+  }, [user?.uid, battle?.id]);
+
+  /** After a vote on a featured celebrity battle, rotate to the next slot by global popularity. */
+  useEffect(() => {
+    if (phase !== 'revealed' || !countDone || !advanceFeaturedAfterRevealRef.current) return undefined;
+    const bid = battle?.id;
+    if (!bid || !FEATURED_MOGBATTLE_IDS.includes(bid)) {
+      advanceFeaturedAfterRevealRef.current = false;
+      return undefined;
+    }
+    const tid = setTimeout(async () => {
+      advanceFeaturedAfterRevealRef.current = false;
+      try {
+        const rankings = await fetchFeaturedVoteRankings(FEATURED_MOGBATTLE_IDS);
+        const sortedIds = rankings.map((r) => r.id);
+        if (!sortedIds.length) return;
+        const idx = Math.max(0, sortedIds.indexOf(bid));
+        const nextIdx = (idx + 1) % sortedIds.length;
+        const next = getFeaturedBattleById(sortedIds[nextIdx]);
+        if (next) {
+          resetBattleState();
+          setActiveBattle(next);
+        }
+      } catch {
+        /* ignore */
+      }
+    }, 2600);
+    return () => clearTimeout(tid);
+  }, [phase, countDone, battle?.id, resetBattleState]);
 
   const handlePick = async (side) => {
     if (phase !== 'vote') return;
@@ -388,12 +519,15 @@ const MogBattlePage = ({ user, setCurrentPage }) => {
     }
     setVoteSubmitting(true);
     setVoteError(null);
-    const localKey = `mog-battle-vote-${user.uid}-${CURRENT_MOGBATTLE_ID}`;
+    const localKey = `mog-battle-vote-${user.uid}-${battle.id}`;
+    if (FEATURED_MOGBATTLE_IDS.includes(battle.id)) {
+      advanceFeaturedAfterRevealRef.current = true;
+    }
 
     try {
       const token = await user.getIdToken();
-      const { ok, status, data } = await postMogBattleVote(token, side, CURRENT_MOGBATTLE_ID);
-      
+      const { ok, status, data } = await postMogBattleVote(token, side, battle.id);
+
       if (typeof data?.a === 'number' && typeof data?.b === 'number') {
         setVoteCounts({ a: data.a, b: data.b });
       }
@@ -410,13 +544,12 @@ const MogBattlePage = ({ user, setCurrentPage }) => {
       if (data?.isBattleAdmin) {
         setIsBattleAdmin(true);
       }
-      
+
       localStorage.setItem(localKey, side);
       setUserPick(side);
       setPhase('revealing');
       startRevealSequence();
     } catch (e) {
-      // Fallback to local storage
       localStorage.setItem(localKey, side);
       setUserPick(side);
       setPhase('revealing');
@@ -946,6 +1079,13 @@ const MogBattlePage = ({ user, setCurrentPage }) => {
               </div>
             </div>
 
+            <button 
+              onClick={handleNextBattle}
+              className="mt-8 mb-4 w-full md:w-auto px-12 py-4 rounded-full bg-gradient-to-r from-cyan-600 to-cyan-500 text-white font-black uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] hover:scale-105 transition-all mx-auto block"
+            >
+              Next Battle
+            </button>
+
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 backdrop-blur-md overflow-hidden">
               <button
                 type="button"
@@ -1022,6 +1162,199 @@ const MogBattlePage = ({ user, setCurrentPage }) => {
             </div>
           </div>
         )}
+      </div>
+
+      <div className="w-full max-w-5xl mx-auto mt-24 mb-16 relative z-10 px-4 md:px-0">
+        <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
+          <div>
+            <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white">Community Battles</h2>
+            <p className="text-zinc-400 text-xs uppercase tracking-widest mt-1">Vote on user-submitted matchups</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <select
+              value={battleSort}
+              onChange={(e) => setBattleSort(e.target.value)}
+              className="bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-xl outline-none"
+            >
+              <option value="votes">Most Voted</option>
+              <option value="recent">Most Recent</option>
+            </select>
+            <button
+              onClick={() => {
+                if (!user) return alert('Sign in to submit a battle');
+                // if (!user.scanHistory or something)... we handle modal later
+                setShowSubmitModal(true);
+              }}
+              className="w-10 h-10 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 flex items-center justify-center hover:bg-cyan-500/40 transition-colors shadow-[0_0_15px_rgba(34,211,238,0.2)]"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sortedCommunityBattles.map(b => (
+            <button
+              key={b.id}
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                changeBattle(b);
+              }}
+              className="group bg-[#0c0d0e] border border-zinc-800 rounded-2xl overflow-hidden hover:border-cyan-500/50 transition-colors shadow-lg hover:shadow-[0_0_20px_rgba(34,211,238,0.1)] text-left"
+            >
+              <div className="flex h-32">
+                <div className="w-1/2 h-full relative">
+                  <img src={b.fighterA.imgSrc} alt={b.fighterA.name} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                  <span className="absolute bottom-2 left-2 text-[10px] font-black uppercase text-white truncate w-11/12">{b.fighterA.name}</span>
+                </div>
+                <div className="w-1/2 h-full relative">
+                  <img src={b.fighterB.imgSrc} alt={b.fighterB.name} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                  <span className="absolute bottom-2 right-2 text-[10px] font-black uppercase text-white truncate text-right w-11/12">{b.fighterB.name}</span>
+                </div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black border border-zinc-800 flex items-center justify-center z-10 font-black italic text-zinc-500 text-xs uppercase group-hover:text-cyan-400 group-hover:border-cyan-500/50 transition-colors">
+                  VS
+                </div>
+              </div>
+              <div className="p-3 bg-zinc-900/50 flex justify-between items-center text-[10px] uppercase font-bold text-zinc-500">
+                <span>{(b.votesA || 0) + (b.votesB || 0)} Votes</span>
+                <span className="text-cyan-600 group-hover:text-cyan-400">Vote Now</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      {showSubmitModal && (
+        <SubmitBattleModal
+          show={showSubmitModal}
+          onClose={() => setShowSubmitModal(false)}
+          user={user}
+          userPlan={userPlan}
+          dashboardData={dashboardData}
+          onSuccess={(newBattle) => {
+            setShowSubmitModal(false);
+            setCommunityBattles((prev) => [newBattle, ...prev]);
+            loadCommunityBattles();
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+const SubmitBattleModal = ({ show, onClose, user, userPlan, dashboardData, onSuccess }) => {
+  const [fighterA, setFighterA] = useState(null);
+  const [fighterB, setFighterB] = useState(null);
+  const [includeSideA, setIncludeSideA] = useState(false);
+  const [includeSideB, setIncludeSideB] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  if (!show) return null;
+
+  const scans = dashboardData?.scanHistory || [];
+  const isPro = userPlan?.plan === 'pro';
+
+  const handleSubmit = async () => {
+    if (!fighterA || !fighterB) return alert('Select both fighters');
+    if (fighterA === fighterB) return alert('Select two different scans');
+
+    setSubmitting(true);
+    try {
+      const token = await user.getIdToken();
+      const { postCommunityBattle } = await import('../api/mogBattleVotes');
+
+      const idxA = scans.indexOf(fighterA) + 1;
+      const idxB = scans.indexOf(fighterB) + 1;
+      const payloadA = {
+        ...fighterA,
+        name: `Scan ${idxA}`,
+        frontImage: fighterA.frontImage,
+        finalRating: fighterA.finalRating,
+        ...(isPro && includeSideA && fighterA.sideImage ? { sideImage: fighterA.sideImage } : {}),
+      };
+      const payloadB = {
+        ...fighterB,
+        name: `Scan ${idxB}`,
+        frontImage: fighterB.frontImage,
+        finalRating: fighterB.finalRating,
+        ...(isPro && includeSideB && fighterB.sideImage ? { sideImage: fighterB.sideImage } : {}),
+      };
+
+      const { ok, data } = await postCommunityBattle(token, payloadA, payloadB);
+      if (!ok) throw new Error('Submission failed');
+      
+      const { makeStats, tierFromRating100 } = await import('../data/celebrityData');
+      const b = data.battle;
+      const formatted = {
+        ...b,
+        fighterA: { ...b.fighterA, imgSrc: b.fighterA.frontImage, tier: tierFromRating100(b.fighterA.finalRating), stats: makeStats(b.fighterA.finalRating, 5) },
+        fighterB: { ...b.fighterB, imgSrc: b.fighterB.frontImage, tier: tierFromRating100(b.fighterB.finalRating), stats: makeStats(b.fighterB.finalRating, 5) }
+      };
+      
+      onSuccess(formatted);
+    } catch(e) {
+      console.error(e);
+      alert('Failed to submit battle');
+    }
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+          <h2 className="text-xl font-black italic uppercase text-white">Create Community Battle</h2>
+          <button onClick={onClose} className="text-zinc-500 hover:text-white"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        </div>
+        <div className="p-6 overflow-y-auto flex-1">
+          {scans.length < 2 ? (
+            <p className="text-zinc-400 text-center py-10 text-sm uppercase tracking-widest">You need at least 2 scans in your history to create a battle.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <h3 className="text-cyan-400 font-black uppercase text-sm mb-4">Select Fighter A</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {scans.map((s, i) => (
+                    <div key={`a-${i}`} onClick={() => setFighterA(s)} className={`cursor-pointer rounded-xl overflow-hidden border-2 ${fighterA === s ? 'border-cyan-500' : 'border-zinc-800'} relative aspect-square`}>
+                      <img src={s.frontImage} className="w-full h-full object-cover" alt="" />
+                      <div className="absolute bottom-0 left-0 w-full bg-black/60 text-center text-[10px] font-bold text-white py-1">SCAN {i+1}</div>
+                    </div>
+                  ))}
+                </div>
+                {isPro && fighterA?.sideImage && (
+                  <label className="mt-3 flex items-center gap-2 text-[11px] text-zinc-400 font-sans cursor-pointer">
+                    <input type="checkbox" checked={includeSideA} onChange={(e) => setIncludeSideA(e.target.checked)} className="rounded border-zinc-600" />
+                    Include side profile (Pro)
+                  </label>
+                )}
+              </div>
+              <div>
+                <h3 className="text-red-400 font-black uppercase text-sm mb-4">Select Fighter B</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {scans.map((s, i) => (
+                    <div key={`b-${i}`} onClick={() => setFighterB(s)} className={`cursor-pointer rounded-xl overflow-hidden border-2 ${fighterB === s ? 'border-red-500' : 'border-zinc-800'} relative aspect-square`}>
+                      <img src={s.frontImage} className="w-full h-full object-cover" alt="" />
+                      <div className="absolute bottom-0 left-0 w-full bg-black/60 text-center text-[10px] font-bold text-white py-1">SCAN {i+1}</div>
+                    </div>
+                  ))}
+                </div>
+                {isPro && fighterB?.sideImage && (
+                  <label className="mt-3 flex items-center gap-2 text-[11px] text-zinc-400 font-sans cursor-pointer">
+                    <input type="checkbox" checked={includeSideB} onChange={(e) => setIncludeSideB(e.target.checked)} className="rounded border-zinc-600" />
+                    Include side profile (Pro)
+                  </label>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="p-6 border-t border-zinc-800 flex justify-end">
+          <button disabled={submitting || scans.length < 2} onClick={handleSubmit} className="px-8 py-3 rounded-full bg-cyan-500 text-black font-black uppercase tracking-widest text-xs hover:bg-cyan-400 disabled:opacity-50 transition-colors">
+            {submitting ? 'Submitting...' : 'Submit Battle'}
+          </button>
+        </div>
       </div>
     </div>
   );

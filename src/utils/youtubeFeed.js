@@ -1,8 +1,8 @@
 /** How many videos to show per rotation window */
 export const YOUTUBE_BATCH_SIZE = 8;
 
-/** Batch advances every N ms (3 hours) */
-export const YOUTUBE_ROTATION_MS = 3 * 60 * 60 * 1000;
+/** Batch advances every N ms (10 minutes) */
+export const YOUTUBE_ROTATION_MS = 10 * 60 * 1000;
 
 /**
  * If RSS provides duration (seconds) and it's at or below this, treat as YouTube Shorts and skip.
@@ -29,9 +29,11 @@ export const YOUTUBE_CHANNELS = [
 const RSS_TEMPLATE = (channelId) =>
   `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
 
-/** Public CORS proxy (same pattern as previously used in this project). */
+/** Public CORS proxy or our backend */
 function proxied(url) {
-  return `https://corsproxy.io/?${encodeURIComponent(url)}`;
+  // Use our backend instead of corsproxy.io to avoid blocks in production
+  const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  return `${apiBase}/api/proxy-rss?url=${encodeURIComponent(url)}`;
 }
 
 function getDurationSecondsFromEntry(entry) {

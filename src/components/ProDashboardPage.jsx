@@ -41,18 +41,13 @@ function stripCommunityDashboardData(dd) {
 
 const tierFromRating = (r) => {
   if (r == null || Number.isNaN(Number(r))) return '—';
-  const n = Number(r);
+  let n = Number(r);
+  if (n > 10) n = n / 10;
   if (n >= 9) return 'S-Tier';
   if (n >= 8) return 'A-Tier';
   if (n >= 7) return 'B-Tier';
   if (n >= 6) return 'C-Tier';
   return 'D-Tier';
-};
-
-const percentileFromRating = (r) => {
-  if (r == null || Number.isNaN(Number(r))) return null;
-  const n = Number(r);
-  return Math.min(99, Math.max(1, Math.round(35 + (n - 4.5) * 11)));
 };
 
 const formatLastScan = (d) => {
@@ -88,6 +83,36 @@ const buildSparklinePath = (values, w = 120, h = 44) => {
 
 const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSignOut, DashboardComponent }) => {
   const [activeSection, setActiveSection] = useState('overview'); // overview, analysis, protocols, news, mog-battles, community
+  const [selectedScanIndex, setSelectedScanIndex] = useState(null);
+
+  const effectiveDashboardData = useMemo(() => {
+    const base = dashboardData;
+    if (!base) return base;
+    if (selectedScanIndex == null) return base;
+    const hist = base.scanHistory;
+    if (!Array.isArray(hist) || hist[selectedScanIndex] == null) return base;
+    const scan = hist[selectedScanIndex];
+    return {
+      ...base,
+      frontImage: scan.frontImage ?? base.frontImage,
+      sideImage: scan.sideImage ?? base.sideImage,
+      finalRating: scan.finalRating != null ? scan.finalRating : base.finalRating,
+      categories:
+        scan.categories && typeof scan.categories === 'object' && !Array.isArray(scan.categories)
+          ? scan.categories
+          : null,
+      sideCategories:
+        scan.sideCategories && typeof scan.sideCategories === 'object' && !Array.isArray(scan.sideCategories)
+          ? scan.sideCategories
+          : base.sideCategories,
+    };
+  }, [dashboardData, selectedScanIndex]);
+
+  useEffect(() => {
+    setSelectedScanIndex(null);
+  }, [dashboardData?.scanHistory?.length, dashboardData?.finalRating]);
+
+  const viewData = effectiveDashboardData;
 
   /** Free-tier AI models for non-Pro users — show minimal overview + analysis only */
   const isFreeModelScan =
@@ -125,19 +150,22 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   }, [isFreeModelScan, activeSection]);
 
   const overviewRating = useMemo(() => {
-    const v = dashboardData?.finalRating;
+    const v = viewData?.finalRating;
     if (v == null || Number.isNaN(Number(v))) return null;
-    return Number(v);
-  }, [dashboardData?.finalRating]);
+    const n = Number(v);
+    return n > 10 ? n / 10 : n;
+  }, [viewData?.finalRating]);
 
   const categoryChips = useMemo(() => {
-    let c = dashboardData?.categories;
+    let c = viewData?.categories;
     if (Array.isArray(c) || !c || typeof c !== 'object') {
       c = null;
     }
     
     // If we have real categories, use them. Otherwise, generate realistic ones based on final rating.
-    const baseScore = dashboardData?.finalRating || 85;
+    const fr = viewData?.finalRating;
+    const baseScore =
+      fr == null || Number.isNaN(Number(fr)) ? 85 : Number(fr) > 10 ? Number(fr) : Number(fr) * 10;
     const defaults = { 
       Harmony: Math.round(baseScore), 
       Symmetry: Math.max(10, Math.round(baseScore - 3)), 
@@ -155,15 +183,15 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       ...x,
       display: typeof x.val === 'number' && !Number.isNaN(x.val) ? (x.val / 10).toFixed(1) : '—',
     }));
-  }, [dashboardData?.categories, dashboardData?.finalRating]);
+  }, [viewData?.categories, viewData?.finalRating]);
 
   const insightLine = useMemo(() => {
-    const summary = dashboardData?.technicalSummary;
+    const summary = viewData?.technicalSummary;
     if (summary && typeof summary === 'string' && summary.length > 24 && summary !== 'Could not generate technical summary.') {
       const t = summary.trim();
       return t.length > 220 ? `${t.slice(0, 220)}…` : t;
     }
-    const cats = dashboardData?.categories;
+    const cats = viewData?.categories;
     if (cats && typeof cats === 'object') {
       const entries = Object.entries(cats).filter(([, v]) => typeof v === 'number' && !Number.isNaN(v));
       if (entries.length) {
@@ -174,7 +202,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       }
     }
     return 'Run a fresh analysis to unlock personalized insights tailored to your facial metrics.';
-  }, [dashboardData?.technicalSummary, dashboardData?.categories]);
+  }, [viewData?.technicalSummary, viewData?.categories]);
 
   const protocolStreakDays = dashboardData?.protocolStreakDays ?? 12;
   const lastScanLabel = formatLastScan(dashboardData);
@@ -228,12 +256,35 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     return { hasPrev: true, best, worst };
   }, [dashboardData?.categories, dashboardData?.previousCategories]);
 
+  const directivesStorageKey = `mogcheck-active-directives:${user?.uid || 'local'}`;
+  const [addedDirectiveKeys, setAddedDirectiveKeys] = useState([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(directivesStorageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setAddedDirectiveKeys(parsed);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [directivesStorageKey]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(directivesStorageKey, JSON.stringify(addedDirectiveKeys));
+    } catch {
+      /* ignore */
+    }
+  }, [addedDirectiveKeys, directivesStorageKey]);
+
   /** Discrete milestones — progress is saved locally so the ladder is interactive */
   const goalMilestonesBase = useMemo(() => {
     const protocols = Array.isArray(dashboardData?.protocols) ? dashboardData.protocols : [];
     const p0 = protocols[0];
     const p1 = protocols[1];
-    return [
+    const base = [
       {
         id: 'g1',
         label: 'Baseline facial scan',
@@ -265,7 +316,18 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         description: 'Full metric comparison vs. baseline',
       },
     ];
-  }, [dashboardData?.protocols]);
+    const extras = addedDirectiveKeys.map((key) => {
+      const p = protocols.find((x, idx) => String(x.id ?? idx) === String(key));
+      return {
+        id: `directive-${key}`,
+        label: p?.name || 'Protocol',
+        description: p?.description
+          ? `${String(p.description).slice(0, 80)}${String(p.description).length > 80 ? '…' : ''}`
+          : 'Added from Active Directives',
+      };
+    });
+    return [...base, ...extras];
+  }, [dashboardData?.protocols, addedDirectiveKeys]);
 
   const ladderStorageKey = `mogcheck-goal-ladder:${user?.uid || 'local'}`;
   /** Number of milestones already completed (0-based exclusive upper bound on completed indices). */
@@ -325,17 +387,15 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
   // Provide a toggle function for milestones that can be completed manually
   const toggleMilestone = (index) => {
-    // Determine the next intended state.
-    // If the user clicks a milestone they've already completed (i < completedLadderCount),
-    // they want to uncheck it, so set count to that index.
-    // If they click the current one, they want to complete it, so increment.
     setCompletedLadderCount((prev) => {
+      const cap = goalMilestonesBase.length;
       if (index < prev) {
-        return index; // Uncheck this and all subsequent
-      } else if (index === prev) {
-        return prev + 1; // Check this one
+        return index;
       }
-      return prev; // Do nothing for locked milestones further up
+      if (index === prev) {
+        return Math.min(prev + 1, cap);
+      }
+      return prev;
     });
   };
 
@@ -488,7 +548,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
             <div className="min-w-0 flex-1">
               <p className="font-sans text-[10px] uppercase tracking-[0.35em] text-zinc-500">Community scan</p>
               <h2 id="community-scan-title" className="truncate font-black uppercase italic tracking-tight text-white">
-                {communityView.displayName}
+                Community Scan
               </h2>
             </div>
           </header>
@@ -622,11 +682,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                           {!isFreeModelScan && <Crown size={12} />}
                           {tierFromRating(overviewRating)}
                         </span>
-                        {percentileFromRating(overviewRating) != null && (
-                          <span className="font-sans text-xs text-zinc-400">
-                            Est. top <span className="text-zinc-200 font-semibold">{percentileFromRating(overviewRating)}%</span> vs. population model
-                          </span>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -717,15 +772,36 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col">
                   <h3 className="text-base md:text-lg font-black uppercase tracking-[0.28em] text-[#e4e4e7] font-sans">Face analysis</h3>
-                  <span className="text-zinc-500 font-sans text-xs tracking-widest">
-                    {lastScanLabel ? `Latest · ${lastScanLabel}` : 'No dated scan yet'}
-                  </span>
+                  {lastScanLabel && (
+                    <span className="text-zinc-500 font-sans text-xs tracking-widest">
+                      {`Latest · ${lastScanLabel}`}
+                    </span>
+                  )}
                 </div>
                 
                 <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
                   {/* Card 1 */}
-                  {dashboardData?.scanHistory && dashboardData.scanHistory.length > 0 && dashboardData.scanHistory.map((scan, i) => (
-                    <div key={i} className="shrink-0 w-40 md:w-48 h-24 md:h-28 bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex overflow-hidden shadow-lg relative group cursor-pointer" onClick={() => {/* Future implementation for viewing past scan */}}>
+                  {dashboardData?.scanHistory && dashboardData.scanHistory.length > 0 && dashboardData.scanHistory.map((scan, i) => {
+                    const hist = dashboardData.scanHistory;
+                    const isLatestCard = i === hist.length - 1;
+                    const isActive =
+                      selectedScanIndex === i || (selectedScanIndex === null && isLatestCard);
+                    return (
+                    <div
+                      key={i}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedScanIndex(i);
+                        }
+                      }}
+                      className={`shrink-0 w-40 md:w-48 h-24 md:h-28 bg-[#0c0d0e] rounded-2xl border flex overflow-hidden shadow-lg relative group cursor-pointer ${
+                        isActive ? 'border-cyan-500/70 ring-1 ring-cyan-500/40' : 'border-zinc-800'
+                      }`}
+                      onClick={() => setSelectedScanIndex(i)}
+                    >
                       <div 
                         className="flex-1 border-r border-zinc-900 relative overflow-hidden group ring-2 ring-inset ring-cyan-500 z-10"
                       >
@@ -745,10 +821,24 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                          <span className="text-white text-xs font-bold tracking-widest uppercase">View</span>
                       </div>
                     </div>
-                  ))}
+                  );
+                  })}
 
                   {(!dashboardData?.scanHistory || dashboardData?.scanHistory.length === 0) && (
-                  <div className="shrink-0 w-40 md:w-48 h-24 md:h-28 bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex overflow-hidden shadow-lg relative cursor-pointer" onClick={() => {/* Currently viewing */}}>
+                  <div
+                    className={`shrink-0 w-40 md:w-48 h-24 md:h-28 bg-[#0c0d0e] rounded-2xl border flex overflow-hidden shadow-lg relative cursor-pointer ${
+                      selectedScanIndex === null ? 'border-cyan-500/70 ring-1 ring-cyan-500/40' : 'border-zinc-800'
+                    }`}
+                    onClick={() => setSelectedScanIndex(null)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedScanIndex(null);
+                      }
+                    }}
+                  >
                   <div 
                     className="flex-1 border-r border-zinc-900 relative overflow-hidden ring-2 ring-inset ring-cyan-500 z-10"
                   >
@@ -951,7 +1041,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                   </div>
 
                   {/* (3) Goal ladder — vertical milestones + connector */}
-                  <div className="relative z-10 border-t border-zinc-800/80 pt-6">
+                  <div id="goal-ladder" className="relative z-10 border-t border-zinc-800/80 pt-6 scroll-mt-28">
                     <p className="font-sans text-[10px] uppercase tracking-[0.28em] text-zinc-500 mb-4">Goal ladder</p>
                     <div className="relative">
                       {goalMilestones.map((m, idx) => {
@@ -984,27 +1074,27 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                               )}
                             </div>
                             <div
-                              role={current ? 'button' : undefined}
-                              tabIndex={current ? 0 : undefined}
+                              role={!locked ? 'button' : undefined}
+                              tabIndex={!locked ? 0 : undefined}
                               onClick={() => {
-                                if (!current) return;
-                                setCompletedLadderCount((c) => Math.min(c + 1, goalMilestonesBase.length));
+                                if (locked) return;
+                                toggleMilestone(idx);
                               }}
                               onKeyDown={(e) => {
-                                if (!current) return;
+                                if (locked) return;
                                 if (e.key === 'Enter' || e.key === ' ') {
                                   e.preventDefault();
-                                  setCompletedLadderCount((c) => Math.min(c + 1, goalMilestonesBase.length));
+                                  toggleMilestone(idx);
                                 }
                               }}
                               className={`min-w-0 flex-1 rounded-xl border p-4 text-left ${
-                                current
-                                  ? 'border-cyan-500/35 bg-cyan-950/15 cursor-pointer hover:border-cyan-500/55 hover:bg-cyan-900/20'
-                                  : 'border-zinc-800/80 bg-zinc-950/25'
-                              }`}
+                                locked
+                                  ? 'border-zinc-800/80 bg-zinc-950/25'
+                                  : 'border-zinc-800/80 bg-zinc-950/25 cursor-pointer hover:border-zinc-600/80'
+                              } ${current ? 'border-cyan-500/35 bg-cyan-950/15 hover:border-cyan-500/55 hover:bg-cyan-900/20' : ''} ${done ? 'hover:border-emerald-500/30' : ''}`}
                             >
                               <p className={`font-sans text-[10px] uppercase tracking-widest mb-1 ${done ? 'text-emerald-500' : current ? 'text-cyan-400' : 'text-zinc-600'}`}>
-                                {done ? 'Done' : current ? 'Active — click to complete' : 'Locked'}
+                                {done ? 'Done — click to undo' : current ? 'Active — click to complete' : 'Locked'}
                               </p>
                               <p className={`text-sm font-bold uppercase tracking-wide leading-snug ${done || current ? 'text-zinc-100' : 'text-zinc-500'}`}>{m.label}</p>
                               <p className={`font-sans text-xs mt-1 leading-relaxed ${done || current ? 'text-zinc-400' : 'text-zinc-600'}`}>{m.description}</p>
@@ -1063,7 +1153,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
               
               <div className="relative z-10">
                 <DashboardComponent
-                  dashboardData={dashboardData}
+                  dashboardData={viewData}
                   setCurrentPage={setCurrentPage}
                   userPlan={userPlan}
                   user={user}
@@ -1151,10 +1241,15 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                           </div>
                           
                           <button 
+                            type="button"
                             className="mt-6 w-full py-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-bold text-xs uppercase tracking-widest hover:bg-cyan-500/20 transition-colors"
                             onClick={(e) => {
-                              e.stopPropagation(); // prevent collapsing
-                              alert('Protocol added to Active Directives.');
+                              e.stopPropagation();
+                              const key = String(p.id ?? i);
+                              setAddedDirectiveKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
+                              requestAnimationFrame(() => {
+                                document.getElementById('goal-ladder')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                              });
                             }}
                           >
                             Add to Active Directives
@@ -1294,7 +1389,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       type="button"
                       onClick={() =>
                         setCommunityView({
-                          displayName: scan.displayName,
                           data: stripCommunityDashboardData({ ...dd }),
                         })
                       }
@@ -1345,7 +1439,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       </div>
                       <div className="p-4 flex items-center justify-between bg-[#0a0a0b] relative z-20">
                         <span className="text-zinc-400 font-mono text-[10px] uppercase tracking-widest group-hover:text-white transition-colors truncate">
-                          {scan.displayName}
+                          View Scan
                         </span>
                         <ExternalLink size={12} className="text-zinc-600 group-hover:text-cyan-400 transition-colors shrink-0" />
                       </div>

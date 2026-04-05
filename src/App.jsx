@@ -4,6 +4,8 @@ import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import NewsPage from './components/NewsPage';
 import MogBattlePage from './components/MogBattlePage';
 import ProDashboardPage from './components/ProDashboardPage';
+import TermsOfServicePage from './components/TermsOfServicePage';
+import PrivacyPolicyPage from './components/PrivacyPolicyPage';
 import { getNavbarPlanChip, hasEffectiveProAccess, canAlwaysAccessDashboard } from './utils/planAccess';
 import { initializeApp } from 'firebase/app';
 import { celebrityData } from './data/celebrityData';
@@ -320,11 +322,13 @@ const BodyFatSlider = () => {
   const [duration, setDuration] = useState(0);
   const currentBF = (10 + (sliderValue / 100) * 25).toFixed(1);
 
+  /** Snap to 1% body-fat steps (10%–35% → 26 steps on the 0–100 slider). */
   const handleSliderChange = (e) => {
-    const val = Number(e.target.value);
-    setSliderValue(val);
+    const raw = Number(e.target.value);
+    const snapped = Math.round(raw / 4) * 4;
+    setSliderValue(snapped);
     if (videoRef.current && duration > 0) {
-      videoRef.current.currentTime = Math.min((val / 100) * duration, duration * 0.99);
+      videoRef.current.currentTime = Math.min((snapped / 100) * duration, duration * 0.99);
     }
   };
 
@@ -397,9 +401,11 @@ const BodyFatSlider = () => {
           type="range"
           min="0"
           max="100"
+          step="4"
           value={sliderValue}
           onChange={handleSliderChange}
           className="bf-slider w-full"
+          aria-valuetext={`${currentBF}% body fat`}
         />
       </div>
     </div>
@@ -478,15 +484,15 @@ const ReviewsCarousel = () => {
 
 const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
   return (
-    <div className="w-full flex-grow pt-32 pb-24 px-6 relative flex flex-col items-center overflow-hidden">
+    <div className="w-full flex-grow pt-28 pb-16 px-4 sm:px-6 relative flex flex-col items-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-[#0c0d0e] via-zinc-900/20 to-[#0c0d0e] -z-10" />
       <FadeUp>
-        <div className="text-center mb-20 relative">
+        <div className="text-center mb-10 md:mb-12 relative">
           <div className="absolute -top-[100%] left-1/2 -translate-x-1/2 w-[300px] h-[300px] bg-white/5 blur-[100px] rounded-full pointer-events-none" />
-          <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter text-white mb-6 drop-shadow-2xl">Elite Protocol</h1>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white mb-4 drop-shadow-2xl">Elite Protocol</h1>
           <div className="flex items-center justify-center gap-4">
             <div className="h-[1px] w-12 bg-zinc-800" />
-            <p className="text-white font-sans text-xs md:text-sm uppercase tracking-[0.2em] font-black text-center px-6 py-3 border border-white/20 bg-white/10 backdrop-blur-md rounded-full max-w-2xl leading-relaxed shadow-[0_0_20px_rgba(255,255,255,0.15)]">
+            <p className="text-white font-sans text-[10px] md:text-xs uppercase tracking-[0.2em] font-black text-center px-4 py-2 border border-white/20 bg-white/10 backdrop-blur-md rounded-full max-w-xl leading-relaxed shadow-[0_0_20px_rgba(255,255,255,0.15)]">
               The flags represent genetic ethnic backgrounds and not nationalities
             </p>
             <div className="h-[1px] w-12 bg-zinc-800" />
@@ -494,10 +500,11 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
         </div>
       </FadeUp>
 
-      <div className="w-full max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16">
+      <div className="w-full max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
         {celebrityData.map((celeb, idx) => (
-          <FlipIn key={idx} delay={idx * 150}>
+          <FlipIn key={idx} delay={Math.min(idx * 80, 400)}>
             <HolographicCard 
+              compact
               celeb={celeb} 
               onClick={() => {
                 setSelectedCelebrity(celeb);
@@ -1599,7 +1606,9 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                          newScanHistory.push({
                            frontImage: prev.frontImage,
                            sideImage: prev.sideImage,
-                           finalRating: prev.finalRating
+                           finalRating: prev.finalRating,
+                           categories: prev.categories,
+                           sideCategories: prev.sideCategories,
                          });
                       }
                       if (prev && prev.finalRating && newRatingHistory.length === 0) {
@@ -1610,7 +1619,9 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                         newScanHistory.push({
                            frontImage: frontImage,
                            sideImage: sideImage,
-                           finalRating: data.finalRating
+                           finalRating: data.finalRating,
+                           categories: data.categories,
+                           sideCategories: data.sideCategories,
                         });
                         newRatingHistory.push(data.finalRating);
                       }
@@ -1681,7 +1692,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                         </div>
                         <div className="p-4 flex items-center justify-between bg-[#0a0a0b] relative z-20">
                           <span className="text-zinc-400 font-mono text-[10px] uppercase tracking-widest truncate">
-                            {scan.displayName}
+                            Community Scan
                           </span>
                         </div>
                       </div>
@@ -2037,9 +2048,25 @@ const ResultsPage = () => (
   </div>
 );
 
+/** Category and overall scores may be stored as 0–100 or 0–10; UI shows 0–10. */
+const scoreToDisplay10 = (fs) => {
+  if (fs == null || fs === '' || Number.isNaN(Number(fs))) return null;
+  const n = Number(fs);
+  return n > 10 ? n / 10 : n;
+};
+
+const categoryToRadar10 = (v, fallbackRaw) => {
+  const fb = Number(fallbackRaw);
+  const fallback = Number.isNaN(fb) ? 5 : fb > 10 ? fb / 10 : fb;
+  if (v == null || Number.isNaN(Number(v))) return fallback;
+  const n = Number(v);
+  return n > 10 ? n / 10 : n;
+};
+
 // --- Radar Chart Component ---
 const RadarChart = ({ data, finalScore }) => {
   const [progress, setProgress] = useState(0);
+  const dataKey = data.map((d) => `${d.label}:${d.val}`).join('|');
   useEffect(() => {
     let start = Date.now();
     let frame;
@@ -2051,7 +2078,7 @@ const RadarChart = ({ data, finalScore }) => {
     };
     frame = requestAnimationFrame(update);
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [dataKey]);
 
   const points = data.map((d, i) => {
     const angle = (Math.PI / 2) + (2 * Math.PI * i / data.length);
@@ -2094,8 +2121,8 @@ const RadarChart = ({ data, finalScore }) => {
         </div>
       </div>
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white font-black italic text-xl drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
-        {finalScore != null && finalScore !== '' && !Number.isNaN(Number(finalScore))
-          ? ((Number(finalScore) / 10) * progress).toFixed(1)
+        {scoreToDisplay10(finalScore) != null
+          ? (scoreToDisplay10(finalScore) * progress).toFixed(1)
           : (data.reduce((a, b) => a + b.val * progress, 0) / data.length).toFixed(1)}
       </div>
     </div>
@@ -2779,19 +2806,23 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
     { label: 'Bone', val: 8.8 }
   ];
 
-  const radarData = activeCats ? [
-    { label: 'Harmony', val: (activeCats.Harmony ?? 50) / 10.0 },
-    { label: 'Symmetry', val: (activeCats.Symmetry != null ? activeCats.Symmetry : 50) / 10.0 },
-    { label: 'Dimorphism', val: (activeCats.Dimorphism ?? 50) / 10.0 },
-    { label: 'Skin', val: (activeCats.Skin ?? 50) / 10.0 },
-    { label: 'Bone', val: (activeCats.Bone ?? 50) / 10.0 }
-  ] : defaultRadar;
+  const frForRadar = dashboardData?.finalRating;
+  const radarData = activeCats
+    ? [
+        { label: 'Harmony', val: categoryToRadar10(activeCats.Harmony, frForRadar) },
+        { label: 'Symmetry', val: categoryToRadar10(activeCats.Symmetry, frForRadar) },
+        { label: 'Dimorphism', val: categoryToRadar10(activeCats.Dimorphism, frForRadar) },
+        { label: 'Skin', val: categoryToRadar10(activeCats.Skin, frForRadar) },
+        { label: 'Bone', val: categoryToRadar10(activeCats.Bone, frForRadar) },
+      ]
+    : defaultRadar;
 
   const getCatScore = (catName) => {
     if (!dashboardData?.categories) return null;
-    return typeof dashboardData.categories[catName] === 'number' 
-      ? (dashboardData.categories[catName] / 10).toFixed(1) 
-      : null;
+    const v = dashboardData.categories[catName];
+    if (typeof v !== 'number' || Number.isNaN(v)) return null;
+    const n = v > 10 ? v / 10 : v;
+    return n.toFixed(1);
   };
 
   const frontMetricData = [
@@ -2874,7 +2905,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             <div className="min-w-0 flex-1">
               <p className="font-sans text-[10px] uppercase tracking-[0.35em] text-zinc-500">Community scan</p>
               <h2 id="free-community-scan-title" className="truncate font-black uppercase italic tracking-tight text-white">
-                {communityPeek.displayName}
+                Community Scan
               </h2>
             </div>
           </header>
@@ -3275,7 +3306,6 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                         type="button"
                         onClick={() =>
                           setCommunityPeek({
-                            displayName: scan.displayName,
                             data: stripCommunityDashboardData({ ...dd }),
                           })
                         }
@@ -3308,7 +3338,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                         </div>
                         <div className="p-4 flex items-center justify-between bg-[#0a0a0b] relative z-20">
                           <span className="text-zinc-400 font-mono text-[10px] uppercase tracking-widest group-hover:text-white transition-colors truncate">
-                            {scan.displayName}
+                            Community scan
                           </span>
                           <ExternalLink size={12} className="text-zinc-600 group-hover:text-cyan-400 transition-colors shrink-0" />
                         </div>
@@ -3352,7 +3382,13 @@ const NoiseOverlay = () => (
 );
 
 const PlansPage = ({ setCurrentPage, user }) => {
+  const [tosAgreed, setTosAgreed] = useState(false);
+
   const handleCheckout = (plan) => {
+    if (!tosAgreed) {
+      alert("Please agree to the Terms of Service to proceed.");
+      return;
+    }
     if (!user) {
       setCurrentPage('login');
       return;
@@ -3456,9 +3492,22 @@ const PlansPage = ({ setCurrentPage, user }) => {
             <li className="flex items-start gap-3 text-zinc-600"><X size={15} className="text-zinc-700 mt-0.5 shrink-0" /> <span>No progress tracking</span></li>
           </ul>
 
-          <button onClick={() => handleCheckout('single_scan')} className="mt-auto w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[1.02] transition-transform shadow-[0_0_25px_rgba(34,211,238,0.25)] flex items-center justify-center gap-2">
-            <Zap size={14} /> Buy Single Scan
-          </button>
+          <div className="mt-auto flex flex-col gap-4">
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <input 
+                type="checkbox" 
+                className="mt-1 shrink-0 cursor-pointer accent-cyan-500" 
+                checked={tosAgreed}
+                onChange={(e) => setTosAgreed(e.target.checked)}
+              />
+              <span className="text-zinc-500 font-sans text-[10px] leading-tight group-hover:text-zinc-400 transition-colors">
+                I agree to the <a href="/tos" onClick={(e) => { e.preventDefault(); setCurrentPage('tos'); }} className="text-cyan-400 hover:text-cyan-300 underline">Terms of Service</a> and acknowledge that I lose my right to a refund once the AI analysis is generated.
+              </span>
+            </label>
+            <button onClick={() => handleCheckout('single_scan')} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[1.02] transition-transform shadow-[0_0_25px_rgba(34,211,238,0.25)] flex items-center justify-center gap-2">
+              <Zap size={14} /> Buy Single Scan
+            </button>
+          </div>
         </div>
       </FadeUp>
 
@@ -3496,9 +3545,22 @@ const PlansPage = ({ setCurrentPage, user }) => {
             <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Exact final rating with detailed ratio breakdown</span></li>
           </ul>
 
-          <button onClick={() => handleCheckout('pro')} className="mt-auto w-full py-3.5 rounded-xl bg-gradient-to-r from-yellow-600 to-yellow-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[1.02] transition-transform shadow-[0_0_25px_rgba(234,179,8,0.3)] flex items-center justify-center gap-2">
-            <Crown size={14} /> Upgrade to Pro
-          </button>
+          <div className="mt-auto flex flex-col gap-4">
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <input 
+                type="checkbox" 
+                className="mt-1 shrink-0 cursor-pointer accent-yellow-500" 
+                checked={tosAgreed}
+                onChange={(e) => setTosAgreed(e.target.checked)}
+              />
+              <span className="text-zinc-500 font-sans text-[10px] leading-tight group-hover:text-zinc-400 transition-colors">
+                I agree to the <a href="/tos" onClick={(e) => { e.preventDefault(); setCurrentPage('tos'); }} className="text-yellow-500 hover:text-yellow-400 underline">Terms of Service</a> and acknowledge that I lose my right to a refund once the AI analysis is generated.
+              </span>
+            </label>
+            <button onClick={() => handleCheckout('pro')} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-yellow-600 to-yellow-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[1.02] transition-transform shadow-[0_0_25px_rgba(234,179,8,0.3)] flex items-center justify-center gap-2">
+              <Crown size={14} /> Upgrade to Pro
+            </button>
+          </div>
         </div>
       </FadeUp>
     </div>
@@ -3548,14 +3610,22 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/stats`, { headers: { 'x-admin-password': pw } });
       if (!res.ok) {
-        if (res.status === 401) { setAuthenticated(false); setError('Invalid password'); return; }
+        if (res.status === 401) {
+          setAuthenticated(false);
+          setError('Invalid password');
+          return false;
+        }
         throw new Error(`HTTP ${res.status}`);
       }
       const data = await res.json();
       setStats(data);
       setLastRefresh(new Date());
+      setAuthenticated(true);
+      return true;
     } catch (e) {
       setError(e.message);
+      setAuthenticated(false);
+      return false;
     } finally {
       setLoading(false);
     }
@@ -3563,9 +3633,10 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    storedPw.current = password;
-    setAuthenticated(true);
-    fetchStats(password);
+    const pw = password.trim();
+    if (!pw) return;
+    storedPw.current = pw;
+    fetchStats(pw);
   };
 
   useEffect(() => {
@@ -4106,7 +4177,35 @@ const AdminFooterTrigger = ({ setCurrentPage }) => {
 
 // --- App Root ---
 const App = () => {
-  const [currentPage, setCurrentPage] = useState('home');
+  const [currentPage, _setCurrentPage] = useState(() => {
+    const path = window.location.pathname.replace(/^\//, '');
+    return path || 'home';
+  });
+
+  const setCurrentPage = (page) => {
+    _setCurrentPage(page);
+    const newPath = page === 'home' ? '/' : `/${page}`;
+    if (window.location.pathname !== newPath) {
+      window.history.pushState({ page }, '', newPath + window.location.search);
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = (e) => {
+      if (e.state && e.state.page) {
+        _setCurrentPage(e.state.page);
+      } else {
+        const path = window.location.pathname.replace(/^\//, '');
+        _setCurrentPage(path || 'home');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    if (!window.history.state?.page) {
+      window.history.replaceState({ page: currentPage }, '', window.location.pathname + window.location.search);
+    }
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [currentPage]);
+
   const [dashboardData, setDashboardData] = useState(null);
   const [selectedCelebrity, setSelectedCelebrity] = useState(null);
   const [user, setUser] = useState(null);
@@ -4193,7 +4292,9 @@ const App = () => {
             : <DashboardPage dashboardData={dashboardData} setCurrentPage={setCurrentPage} userPlan={userPlan} user={user} />
         )}
         {currentPage === 'plans' && <PlansPage setCurrentPage={setCurrentPage} user={user} />}
-        {currentPage === 'mog-battles' && <MogBattlePage user={user} setCurrentPage={setCurrentPage} />}
+        {currentPage === 'mog-battles' && (
+          <MogBattlePage user={user} userPlan={userPlan} setCurrentPage={setCurrentPage} dashboardData={dashboardData} />
+        )}
         {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'news' && <NewsPage />}
@@ -4243,6 +4344,8 @@ const App = () => {
         {currentPage === 'celebrity-stats' && selectedCelebrity && <CelebrityStatsPage celeb={selectedCelebrity} setCurrentPage={setCurrentPage} />}
         {currentPage === 'admin' && <AdminDashboardPage setCurrentPage={setCurrentPage} />}
         {currentPage === 'protocol-all' && <AllProtocolsPage protocols={dashboardData?.protocols || []} setCurrentPage={setCurrentPage} />}
+        {currentPage === 'tos' && <TermsOfServicePage setCurrentPage={setCurrentPage} />}
+        {currentPage === 'privacy' && <PrivacyPolicyPage setCurrentPage={setCurrentPage} />}
         {currentPage.startsWith('protocol-') && currentPage !== 'protocol-all' && (() => {
           const pid = parseInt(currentPage.split('-')[1]);
           const allProtos = dashboardData?.protocols || [];
@@ -4250,9 +4353,13 @@ const App = () => {
           return <ProtocolDetailPage protocol={proto} allProtocols={allProtos} setCurrentPage={setCurrentPage} />;
         })()}
       </main>
-      <footer className="py-20 border-t border-zinc-900 flex flex-col items-center gap-8 bg-[#090a0b]">
+      <footer className="py-12 border-t border-zinc-900 flex flex-col items-center gap-6 bg-[#090a0b]">
         <AdminFooterTrigger setCurrentPage={setCurrentPage} />
-        <p className="text-zinc-600 text-[10px] font-sans uppercase tracking-[0.5em]">Peak Performance Aesthetics (c) 2024</p>
+        <div className="flex gap-6">
+           <button onClick={() => setCurrentPage('tos')} className="text-zinc-500 hover:text-zinc-300 text-xs font-sans transition-colors uppercase tracking-widest">Terms of Service</button>
+           <button onClick={() => setCurrentPage('privacy')} className="text-zinc-500 hover:text-zinc-300 text-xs font-sans transition-colors uppercase tracking-widest">Privacy Policy</button>
+        </div>
+        <p className="text-zinc-600 text-[10px] font-sans uppercase tracking-[0.5em]">Peak Performance Aesthetics (c) 2026</p>
       </footer>
     </div>
   );

@@ -67,6 +67,8 @@ try {
 const SERVER_BOOT_AT = Date.now();
 
 const app = express();
+/** Required so express-rate-limit and secure client IP work behind Cloudflare / Vercel */
+app.set('trust proxy', 1);
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -76,6 +78,25 @@ const corsOptions = {
   credentials: true
 };
 app.use(cors(corsOptions));
+
+/** Proxy RSS for frontend (News page YouTube feeds on mogcheck.net) */
+app.get('/api/proxy-rss', async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).json({ error: 'Missing url param' });
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 28_000);
+    const response = await fetch(targetUrl, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const text = await response.text();
+    res.setHeader('Content-Type', 'text/xml; charset=utf-8');
+    res.send(text);
+  } catch (e) {
+    console.error('[proxy-rss] failed', e.message);
+    res.status(500).send('<error>Proxy failed</error>');
+  }
+});
 
 const analyzeLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -190,10 +211,14 @@ app.post(
 
 app.use(express.json({ limit: '2mb' }));
 
+/** In-memory fallback for mog battles if firestore is missing */
+const localMogBattles = {};
+const localMogVotes = {}; // { battleId: { uid: side } }
+const localCommunityBattles = []; // Array of community battles
+
 function requireFirestore(req, res, next) {
-  if (!firestore) {
-    return res.status(503).json({ error: 'Database unavailable' });
-  }
+  // If firestore is null, we will use the local fallback in the routes.
+  // We no longer block the request.
   next();
 }
 
@@ -227,6 +252,12 @@ app.get('/api/mog-battle/votes/:battleId', requireFirestore, async (req, res) =>
   if (!isValidMogBattleId(battleId)) {
     return res.status(400).json({ error: 'Invalid battle id' });
   }
+
+  if (!firestore) {
+    const d = localMogBattles[battleId] || { votesA: 0, votesB: 0 };
+    return res.json({ a: d.votesA, b: d.votesB });
+  }
+
   try {
     const snap = await firestore.collection('mogBattles').doc(battleId).get();
     if (!snap.exists) {
@@ -260,6 +291,14 @@ app.get('/api/mog-battle/my-vote/:battleId', requireFirestore, async (req, res) 
     if (isMogBattleAdminEmail(decoded.email)) {
       return res.json({ voted: false, isBattleAdmin: true });
     }
+
+    if (!firestore) {
+      const voteMap = localMogVotes[battleId] || {};
+      const side = voteMap[uid];
+      if (side) return res.json({ voted: true, side });
+      return res.json({ voted: false });
+    }
+
     const v = await firestore
       .collection('mogBattles')
       .doc(battleId)
@@ -274,6 +313,81 @@ app.get('/api/mog-battle/my-vote/:battleId', requireFirestore, async (req, res) 
   } catch (e) {
     console.error('[mog-battle] my-vote', e.message);
     return res.status(401).json({ voted: false, error: 'Invalid session' });
+  }
+});
+
+/** Community Mog Battles */
+app.get('/api/mog-battle/community', requireFirestore, async (req, res) => {
+  if (!firestore) {
+    return res.json({ battles: localCommunityBattles });
+  }
+  try {
+    let snap;
+    try {
+      snap = await firestore.collection('mogBattlesCommunity').orderBy('createdAt', 'desc').limit(50).get();
+    } catch (orderErr) {
+      console.warn('[mog-battle] community orderBy failed, falling back:', orderErr.message);
+      snap = await firestore.collection('mogBattlesCommunity').limit(50).get();
+    }
+    const battles = [];
+    snap.forEach((doc) => battles.push({ id: doc.id, ...doc.data() }));
+    const tallySnaps = await Promise.all(
+      battles.map((b) => firestore.collection('mogBattles').doc(b.id).get())
+    );
+    tallySnaps.forEach((tallySnap, i) => {
+      if (tallySnap.exists) {
+        const t = tallySnap.data() || {};
+        battles[i].votesA = Number(t.votesA) || 0;
+        battles[i].votesB = Number(t.votesB) || 0;
+      }
+    });
+    return res.json({ battles });
+  } catch (e) {
+    console.error('[mog-battle] GET community', e);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/mog-battle/community', requireFirestore, async (req, res) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!token) return res.status(401).json({ error: 'Sign in to submit a battle' });
+  
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    const { fighterA, fighterB } = req.body;
+    
+    if (!fighterA || !fighterB) return res.status(400).json({ error: 'Missing fighters' });
+
+    const battleData = {
+      creatorId: decoded.uid,
+      fighterA,
+      fighterB,
+      votesA: 0,
+      votesB: 0,
+      createdAt: firestore ? admin.firestore.FieldValue.serverTimestamp() : new Date().toISOString()
+    };
+
+    if (!firestore) {
+      const id = 'comm_' + Date.now();
+      const b = { id, ...battleData };
+      localCommunityBattles.unshift(b);
+      localMogBattles[id] = { votesA: 0, votesB: 0 };
+      return res.json({ success: true, battle: b });
+    }
+
+    const docRef = await firestore.collection('mogBattlesCommunity').add(battleData);
+    // Also create the tally doc
+    await firestore.collection('mogBattles').doc(docRef.id).set({
+      votesA: 0,
+      votesB: 0,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return res.json({ success: true, battle: { id: docRef.id, ...battleData } });
+  } catch (e) {
+    console.error('[mog-battle] POST community', e);
+    return res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -292,6 +406,36 @@ app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (
   if (side !== 'a' && side !== 'b') {
     return res.status(400).json({ error: 'Invalid side' });
   }
+  if (!firestore) {
+    try {
+      const decoded = await admin.auth().verifyIdToken(token);
+      const uid = decoded.uid;
+      
+      if (!localMogBattles[battleId]) localMogBattles[battleId] = { votesA: 0, votesB: 0 };
+      if (!localMogVotes[battleId]) localMogVotes[battleId] = {};
+      
+      if (!isMogBattleAdminEmail(decoded.email)) {
+        if (localMogVotes[battleId][uid]) {
+           return res.status(409).json({ error: 'Already voted' });
+        }
+        localMogVotes[battleId][uid] = side;
+      }
+      
+      if (side === 'a') localMogBattles[battleId].votesA++;
+      else localMogBattles[battleId].votesB++;
+      
+      const cb = localCommunityBattles.find(b => b.id === battleId);
+      if (cb) {
+         cb.votesA = localMogBattles[battleId].votesA;
+         cb.votesB = localMogBattles[battleId].votesB;
+      }
+      
+      return res.json({ success: true });
+    } catch(e) {
+      return res.status(401).json({ error: 'Invalid session' });
+    }
+  }
+
   const battleRef = firestore.collection('mogBattles').doc(battleId);
 
   try {
@@ -788,7 +932,7 @@ app.post(
     error: payload.error || null,
   });
 
-  if (success && req.ultraContext && req.ultraContext.plan === 'single_scan') {
+  if (success && req.ultraContext && req.ultraContext.plan === 'single_scan' && firestore) {
     try {
       await firestore.collection('users').doc(req.ultraContext.uid).update({
         scanCredits: admin.firestore.FieldValue.increment(-1),
