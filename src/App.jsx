@@ -4,8 +4,10 @@ import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import NewsPage from './components/NewsPage';
 import MogBattlePage from './components/MogBattlePage';
 import ProDashboardPage from './components/ProDashboardPage';
+import PublicProfilePage from './components/PublicProfilePage';
 import TermsOfServicePage from './components/TermsOfServicePage';
 import PrivacyPolicyPage from './components/PrivacyPolicyPage';
+import SettingsPage from './components/SettingsPage';
 import { getNavbarPlanChip, hasEffectiveProAccess, canAlwaysAccessDashboard } from './utils/planAccess';
 import { initializeApp } from 'firebase/app';
 import { celebrityData } from './data/celebrityData';
@@ -169,7 +171,7 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDa
         {showDashboard && (
         <button onClick={() => setCurrentPage('dashboard')} className={`${currentPage === 'dashboard' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}><Activity size={14} /> Dashboard</button>
         )}
-        <button onClick={() => setCurrentPage('celebrity')} className={`${currentPage === 'celebrity' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Celebrity Ratings</button>
+        <button onClick={() => setCurrentPage('celebrity')} className={`${currentPage === 'celebrity' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Scans</button>
         <button onClick={() => setCurrentPage('plans')} className={`${currentPage === 'plans' ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'text-yellow-500/70'} hover:text-yellow-400 transition-all uppercase tracking-widest flex items-center gap-1`}><Crown size={13} /> Plans</button>
       </div>
       <div className="hidden md:block">
@@ -489,6 +491,44 @@ const ReviewsCarousel = () => {
 };
 
 const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
+  const [communityScans, setCommunityScans] = useState([]);
+  const [showAllCommunity, setShowAllCommunity] = useState(false);
+
+  useEffect(() => {
+    const fetchCommunity = async () => {
+      try {
+        const { fetchCommunityBattles } = await import('./api/mogBattleVotes');
+        const res = await fetchCommunityBattles();
+        const scansMap = new Map();
+        res.battles.forEach(b => {
+          // If profileId exists it's from a real user, otherwise fallback to local mocked data from communityScans.js
+          if (b.fighterA) scansMap.set(b.fighterA.profileId || b.fighterA.name, { ...b.fighterA, isCommunity: true });
+          if (b.fighterB) scansMap.set(b.fighterB.profileId || b.fighterB.name, { ...b.fighterB, isCommunity: true });
+        });
+        
+        let loadedScans = Array.from(scansMap.values());
+        
+        // If the API doesn't return enough scans, let's load the mocked ones from data/communityScans.js
+        if (loadedScans.length === 0) {
+          const { COMMUNITY_SCANS } = await import('./data/communityScans');
+          loadedScans = COMMUNITY_SCANS.map((s, i) => ({
+            ...s,
+            name: `User ${i+1}`,
+            isCommunity: true,
+            frontImage: s.dashboardData?.frontImage || s.frontImage,
+            finalRating: s.dashboardData?.finalRating || s.finalRating,
+            profileId: `mock-${i}`
+          }));
+        }
+        
+        setCommunityScans(loadedScans);
+      } catch(e) {
+        console.error(e);
+      }
+    };
+    fetchCommunity();
+  }, []);
+
   return (
     <div className="w-full flex-grow pt-28 pb-16 px-4 sm:px-6 relative flex flex-col items-center overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-[#0c0d0e] via-zinc-900/20 to-[#0c0d0e] -z-10" />
@@ -506,7 +546,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
         </div>
       </FadeUp>
 
-      <div className="w-full max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+      <div className="w-full max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-24">
         {celebrityData.map((celeb, idx) => (
           <FlipIn key={idx} delay={Math.min(idx * 80, 400)}>
             <HolographicCard 
@@ -519,6 +559,62 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
             />
           </FlipIn>
         ))}
+      </div>
+
+      <div className="w-full max-w-5xl mx-auto flex flex-col items-center text-center">
+        <h2 className="text-3xl font-black italic uppercase tracking-widest text-white mb-2">Community Scans</h2>
+        <p className="text-zinc-500 uppercase tracking-widest text-xs mb-10">SEE HOW OTHERS IN THE COMMUNITY STACK UP.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 w-full">
+          {(showAllCommunity ? communityScans : communityScans.slice(0, 8)).map((scan, idx) => {
+            const scanTier = scan.tier || (Number(scan.finalRating) >= 90 ? 'S-Tier' : Number(scan.finalRating) >= 80 ? 'A-Tier' : Number(scan.finalRating) >= 70 ? 'B-Tier' : Number(scan.finalRating) >= 60 ? 'C-Tier' : 'D-Tier');
+            const tierUpper = String(scanTier).toUpperCase();
+            const tierBadgeClass =
+              tierUpper.includes('S') && tierUpper.includes('TIER')
+                ? 'bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+                : tierUpper.includes('A') && tierUpper.includes('TIER')
+                  ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.6)]'
+                  : 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
+
+            return (
+            <div 
+              key={idx}
+              onClick={() => {
+                if (scan.profileId?.startsWith('mock-')) return; // Can't click mock profiles
+                const url = `/users/${scan.userId || 'user'}/${scan.profileId}`;
+                window.history.pushState({}, '', url);
+                window.dispatchEvent(new Event('popstate'));
+              }}
+              className="bg-zinc-900/40 border border-zinc-800 rounded-2xl overflow-hidden cursor-pointer hover:border-cyan-500/50 transition-colors group relative"
+            >
+              <img src={scan.frontImage} className="w-full aspect-[3/4] object-cover object-top" alt="Community Scan" />
+              <div className="absolute top-3 left-3 z-20">
+                <span className={`border text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded backdrop-blur-md ${tierBadgeClass}`}>
+                  {scanTier}
+                </span>
+              </div>
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black via-black/80 to-transparent p-4 flex flex-col items-start">
+                <div className="flex items-baseline gap-1 mb-2">
+                  <span className="text-2xl font-black italic text-white drop-shadow-md">{Number(scan.finalRating || 0).toFixed(1)}</span>
+                  <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
+                </div>
+                <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-[0.2em]">COMMUNITY SCAN</span>
+              </div>
+            </div>
+          )})}
+        </div>
+        {communityScans.length === 0 && (
+          <p className="text-zinc-500 text-center py-12 w-full">No community scans available yet.</p>
+        )}
+        {communityScans.length > 8 && !showAllCommunity && (
+          <div className="mt-12 flex justify-center w-full">
+            <button 
+              onClick={() => setShowAllCommunity(true)}
+              className="px-8 py-3 rounded-xl bg-zinc-900 border border-zinc-700 text-white font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+            >
+              Show More
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -634,9 +730,7 @@ const CelebrityStatsPage = ({ celeb, setCurrentPage }) => {
             <section>
               <h2 className="text-2xl font-black uppercase tracking-widest mb-4 text-white italic">Overview</h2>
               <div className="p-6 bg-zinc-900/30 border border-zinc-800/50 rounded-xl shadow-lg">
-                <p className="text-zinc-300 font-sans leading-relaxed tracking-wide">
-                  {celeb.technicalSummary}
-                </p>
+                <p className="text-zinc-300 font-sans leading-relaxed tracking-wide" dangerouslySetInnerHTML={{ __html: String(celeb.technicalSummary || '').replace(/\*\*(.*?)\*\*/g, '<b class="text-white">$1</b>') }} />
               </div>
             </section>
 
@@ -1440,6 +1534,7 @@ const ScanningView = ({
   choice,
   onComplete,
   user,
+  profileId,
 }) => {
   const [statusText, setStatusText] = useState('Connecting to Backend Bridge...');
   const [videoUrl, setVideoUrl] = useState(null);
@@ -1513,6 +1608,7 @@ const ScanningView = ({
           formData.append('image', blob, 'upload.jpg');
         }
         formData.append('choice', choice || "3");
+        if (profileId) formData.append('profileId', profileId);
 
         const isUltra = choice === "1" || choice === "2";
         if (isUltra && !user) {
@@ -1645,6 +1741,35 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [scanningCeleb, setScanningCeleb] = useState(null);
   const modelMenuRef = useRef(null);
 
+  const [profiles, setProfiles] = useState([]);
+  const [selectedProfileId, setSelectedProfileId] = useState('default');
+  const [newProfileName, setNewProfileName] = useState('');
+
+  useEffect(() => {
+    const fetchProfiles = async () => {
+      if (!user) return;
+      try {
+        const token = await user.getIdToken();
+        const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${API_BASE}/api/user/profiles`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setProfiles(data.profiles || []);
+          if (data.profiles && data.profiles.length > 0) {
+            setSelectedProfileId(data.profiles[0].id);
+          } else {
+            setSelectedProfileId('new');
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch profiles', e);
+      }
+    };
+    fetchProfiles();
+  }, [user]);
+
   const models = [
     {
       id: "1",
@@ -1770,6 +1895,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                  sideMetricData={sideMetricDataGlobal} 
                  choice={selectedModel}
                  user={user}
+                 profileId={selectedProfileId}
                  onComplete={(data) => {
                     setScanningCeleb(null);
                     setDashboardData(prev => {
@@ -2123,11 +2249,62 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
             </div>
           </div>
 
-          <button 
-            onClick={() => setIsScanning(true)} 
-            disabled={isUltraModel ? (!frontImage || !sideImage || !canUseUltra) : !frontImage} 
-            className={`relative overflow-hidden px-20 py-6 bg-white text-black font-black uppercase tracking-widest text-lg md:text-xl flex items-center justify-center gap-5 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none ${justUnlocked ? 'animate-[buttonUnlock_1s_ease-out_forwards]' : 'shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}
-          >
+            {user && (
+              <div className="w-full max-w-md mx-auto mb-8 bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
+                <h3 className="text-zinc-300 font-bold uppercase tracking-widest text-sm mb-4">Select Profile</h3>
+                <select 
+                  value={selectedProfileId}
+                  onChange={(e) => setSelectedProfileId(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm font-sans text-zinc-200 focus:outline-none focus:border-cyan-500 mb-4"
+                >
+                  <option value="new">+ Create New Profile</option>
+                  {profiles.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                {selectedProfileId === 'new' && (
+                  <input 
+                    type="text"
+                    placeholder="Enter new profile name"
+                    value={newProfileName}
+                    onChange={(e) => setNewProfileName(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm font-sans text-zinc-200 focus:outline-none focus:border-cyan-500"
+                  />
+                )}
+              </div>
+            )}
+
+            <button 
+              onClick={async () => {
+                let actualProfileId = selectedProfileId;
+                if (selectedProfileId === 'new') {
+                  if (!newProfileName.trim()) {
+                    alert("Please enter a profile name");
+                    return;
+                  }
+                  try {
+                    const token = await user.getIdToken();
+                    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+                    const res = await fetch(`${API_BASE}/api/user/profiles`, {
+                      method: 'POST',
+                      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ name: newProfileName, visibility: 'private' })
+                    });
+                    if (res.ok) {
+                      const data = await res.json();
+                      actualProfileId = data.id;
+                    } else throw new Error("Failed to create profile");
+                  } catch (e) {
+                    alert(e.message);
+                    return;
+                  }
+                }
+                setSelectedProfileId(actualProfileId);
+                setIsScanning(true);
+              }} 
+              disabled={isUltraModel ? (!frontImage || !sideImage || !canUseUltra) : !frontImage} 
+              className={`relative overflow-hidden px-20 py-6 bg-white text-black font-black uppercase tracking-widest text-lg md:text-xl flex items-center justify-center gap-5 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none ${justUnlocked ? 'animate-[buttonUnlock_1s_ease-out_forwards]' : 'shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}
+            >
             {justUnlocked && <div className="absolute top-0 bottom-0 w-[50%] bg-gradient-to-r from-transparent via-white to-transparent opacity-80 mix-blend-overlay" style={{ animation: 'sweepGlow 1.5s ease-out forwards' }} />}
             <span className="relative z-10">Analyze Profiles</span>
             {justUnlocked ? <Unlock size={28} className="text-black relative z-10" style={{ animation: 'popOpen 0.5s ease-out forwards' }} /> : <ChevronRight size={28} className="text-black relative z-10" />}
@@ -4506,6 +4683,32 @@ const App = () => {
 
   const [dashboardData, setDashboardData] = useState(null);
   const [selectedCelebrity, setSelectedCelebrity] = useState(null);
+  const [routeParams, setRouteParams] = useState({});
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path.startsWith('/users/')) {
+        const parts = path.split('/');
+        if (parts.length >= 4) {
+          setRouteParams({ username: parts[2], profileId: parts[3] });
+          setCurrentPage('public-profile');
+        }
+      }
+    };
+    handlePopState();
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+  const [lowPerfMode, setLowPerfMode] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    if (lowPerfMode) {
+      document.body.classList.add('low-perf-mode');
+    } else {
+      document.body.classList.remove('low-perf-mode');
+    }
+  }, [lowPerfMode]);
   const [user, setUser] = useState(null);
   const [userPlan, setUserPlan] = useState({ plan: 'free', scanCredits: 0 });
 
@@ -4616,6 +4819,9 @@ const App = () => {
         {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'news' && <NewsPage />}
+        {currentPage === 'public-profile' && (
+          <PublicProfilePage routeParams={routeParams} user={user} />
+        )}
         {currentPage === 'profile' && (
           <UserProfilePage user={user} userPlan={userPlan} setCurrentPage={setCurrentPage} />
         )}
@@ -4625,6 +4831,7 @@ const App = () => {
         {currentPage === 'protocol-all' && <AllProtocolsPage protocols={dashboardData?.protocols || []} setCurrentPage={setCurrentPage} />}
         {currentPage === 'tos' && <TermsOfServicePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'privacy' && <PrivacyPolicyPage setCurrentPage={setCurrentPage} />}
+        {currentPage === 'settings' && <SettingsPage setCurrentPage={setCurrentPage} user={user} userPlan={userPlan} lowPerfMode={lowPerfMode} setLowPerfMode={setLowPerfMode} dashboardData={dashboardData} />}
         {currentPage.startsWith('protocol-') && currentPage !== 'protocol-all' && (() => {
           const pid = parseInt(currentPage.split('-')[1]);
           const allProtos = dashboardData?.protocols || [];

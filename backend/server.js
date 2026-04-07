@@ -941,6 +941,9 @@ app.post(
     sidePrimaryFlaws: parsed.sidePrimaryFlaws || [],
     categories: parsed.categories || null,
     sideCategories: parsed.sideCategories || null,
+    hexagonFront: parsed.hexagonFront || null,
+    hexagonSide: parsed.hexagonSide || null,
+    personalizedFeedback: parsed.personalizedFeedback || [],
     biometrics: parsed.biometrics?.length ? parsed.biometrics : undefined,
     sideBiometrics: parsed.sideBiometrics?.length ? parsed.sideBiometrics : undefined,
     protocols: parsed.protocols?.length ? parsed.protocols : undefined,
@@ -1009,7 +1012,9 @@ app.post(
               sideImageUrl: sideUpload ? sideUpload.url : null,
               frontImageDest: frontUpload ? frontUpload.dest : null,
               sideImageDest: sideUpload ? sideUpload.dest : null,
-              success: true
+              success: true,
+              payload: payload, // NEW: save the full payload so profiles can fetch it later
+              profileId: req.body.profileId || 'default' // NEW: associate with a profile
             });
           } catch (e) {
             console.error('[analyze] Failed to record scan history:', e.message);
@@ -1227,6 +1232,9 @@ app.delete('/api/admin/users/:uid/scans/:scanId', async (req, res) => {
 });
 
 // User endpoints for scans
+const profilesRoutes = require('./profiles-routes.js');
+profilesRoutes(app, firestore, admin, extractUserOptional);
+
 app.get('/api/user/scans', extractUserOptional, async (req, res) => {
   if (!req.uid || !firestore) return res.status(401).json({ error: 'Unauthorized' });
   try {

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Swords } from 'lucide-react';
+import { Swords, Crown } from 'lucide-react';
 import {
   getAllFeaturedBattles,
 } from '../data/mogBattles';
@@ -20,23 +20,23 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData, userPlan }) => {
     try {
       const res = await fetchCommunityBattles();
       const { makeStats, tierFromRating100 } = await import('../data/celebrityData');
-      const formatted = res.battles.map((b) => ({
+      const formatted = (res.battles || []).filter(b => b && b.fighterA && b.fighterB).map((b) => ({
         ...b,
         fighterA: {
           ...b.fighterA,
-          imgSrc: b.fighterA.frontImage,
+          imgSrc: b.fighterA.frontImage || b.fighterA.imgSrc,
           name: b.fighterA.name || 'User A',
-          rating: b.fighterA.finalRating,
-          tier: tierFromRating100(b.fighterA.finalRating),
-          stats: makeStats(b.fighterA.finalRating, 5),
+          rating: b.fighterA.finalRating || b.fighterA.rating,
+          tier: tierFromRating100(b.fighterA.finalRating || b.fighterA.rating),
+          stats: makeStats(b.fighterA.finalRating || b.fighterA.rating, 5),
         },
         fighterB: {
           ...b.fighterB,
-          imgSrc: b.fighterB.frontImage,
+          imgSrc: b.fighterB.frontImage || b.fighterB.imgSrc,
           name: b.fighterB.name || 'User B',
-          rating: b.fighterB.finalRating,
-          tier: tierFromRating100(b.fighterB.finalRating),
-          stats: makeStats(b.fighterB.finalRating, 5),
+          rating: b.fighterB.finalRating || b.fighterB.rating,
+          tier: tierFromRating100(b.fighterB.finalRating || b.fighterB.rating),
+          stats: makeStats(b.fighterB.finalRating || b.fighterB.rating, 5),
         },
       }));
       setCommunityBattles(formatted);
@@ -52,7 +52,7 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData, userPlan }) => {
   }, [loadCommunityBattles]);
 
   const feedItems = useMemo(() => {
-    const featured = getAllFeaturedBattles();
+    const featured = getAllFeaturedBattles().filter(b => b && b.fighterA && b.fighterB);
     const combined = [];
     
     // Interleave featured and community battles
@@ -128,13 +128,13 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData, userPlan }) => {
         }
       `}</style>
 
-      {/* Snap-Y Scroll Container */}
+      {/* Container without snap */}
       <div 
         ref={containerRef}
-        className="w-full h-[100dvh] overflow-y-auto snap-y snap-mandatory relative z-10"
+        className="w-full overflow-y-auto relative z-10 flex flex-col gap-24 pb-32 pt-48"
       >
-        {/* Header - Fixed but inside the scroll context visually */}
-        <div className="fixed top-24 left-0 w-full text-center z-50 pointer-events-none">
+        {/* Header */}
+        <div className="absolute top-20 left-0 w-full text-center z-50 pointer-events-none px-4">
           <h1 className="text-4xl sm:text-6xl md:text-7xl font-black italic uppercase tracking-tighter bg-gradient-to-b from-cyan-400 to-blue-600 bg-clip-text text-transparent flex justify-center items-center gap-3 sm:gap-4 flex-wrap drop-shadow-lg">
             <Swords className="text-cyan-500 w-10 h-10 sm:w-12 sm:h-12 shrink-0 drop-shadow-md" /> Mog Battles
           </h1>
@@ -143,8 +143,32 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData, userPlan }) => {
           </p>
         </div>
 
+        {/* Leaderboard */}
+        <div className="max-w-4xl mx-auto w-full px-4 mb-8">
+          <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 backdrop-blur-md">
+            <h2 className="text-2xl font-black italic uppercase tracking-widest text-cyan-400 mb-6 flex items-center gap-3">
+              <Crown size={24} /> Top Moggers Leaderboard
+            </h2>
+            <div className="flex flex-col gap-3">
+              {feedItems.slice(0, 3).map((battle, idx) => {
+                const winner = battle.fighterA.rating > battle.fighterB.rating ? battle.fighterA : battle.fighterB;
+                return (
+                  <div key={idx} className="flex items-center justify-between bg-black/40 border border-zinc-800/80 rounded-xl p-4">
+                    <div className="flex items-center gap-4">
+                      <span className="text-xl font-black text-zinc-600 italic">#{idx+1}</span>
+                      <img src={winner.imgSrc || winner.frontImage} className="w-12 h-12 rounded-lg object-cover border border-zinc-700" alt={winner.name} />
+                      <span className="text-white font-bold uppercase tracking-widest">{winner.name}</span>
+                    </div>
+                    <span className="text-cyan-400 font-black italic text-xl drop-shadow-md">{Number(winner.rating).toFixed(1)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         {feedItems.length === 0 ? (
-          <div className="w-full h-full flex items-center justify-center text-zinc-400 font-sans text-sm">
+          <div className="w-full h-48 flex items-center justify-center text-zinc-400 font-sans text-sm">
             Loading battles...
           </div>
         ) : (
@@ -152,12 +176,12 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData, userPlan }) => {
             <div 
               key={battle.id} 
               data-id={battle.id}
-              className="mog-battle-snap-item snap-start h-[100dvh] w-full shrink-0 flex items-center justify-center"
+              className="mog-battle-snap-item w-full shrink-0 flex items-center justify-center min-h-[70vh] px-4"
             >
               <BattleCard 
                 battle={battle} 
                 user={user} 
-                isActive={activeBattleId === battle.id} 
+                isActive={true} 
               />
             </div>
           ))
@@ -198,6 +222,8 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData, userPlan }) => {
 const SubmitBattleModal = ({ show, onClose, user, userPlan, dashboardData, onSuccess }) => {
   const [fighterA, setFighterA] = useState(null);
   const [fighterB, setFighterB] = useState(null);
+  const [nameA, setNameA] = useState('');
+  const [nameB, setNameB] = useState('');
   const [includeSideA, setIncludeSideA] = useState(false);
   const [includeSideB, setIncludeSideB] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -220,14 +246,14 @@ const SubmitBattleModal = ({ show, onClose, user, userPlan, dashboardData, onSuc
       const idxB = scans.indexOf(fighterB) + 1;
       const payloadA = {
         ...fighterA,
-        name: `Scan ${idxA}`,
+        name: nameA.trim() || `Scan ${idxA}`,
         frontImage: fighterA.frontImage,
         finalRating: fighterA.finalRating,
         ...(isPro && includeSideA && fighterA.sideImage ? { sideImage: fighterA.sideImage } : {}),
       };
       const payloadB = {
         ...fighterB,
-        name: `Scan ${idxB}`,
+        name: nameB.trim() || `Scan ${idxB}`,
         frontImage: fighterB.frontImage,
         finalRating: fighterB.finalRating,
         ...(isPro && includeSideB && fighterB.sideImage ? { sideImage: fighterB.sideImage } : {}),
@@ -280,6 +306,9 @@ const SubmitBattleModal = ({ show, onClose, user, userPlan, dashboardData, onSuc
                     Include side profile (Pro)
                   </label>
                 )}
+                {fighterA && (
+                  <input type="text" value={nameA} onChange={e => setNameA(e.target.value)} placeholder="Fighter A Name (optional)" className="mt-4 w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500" />
+                )}
               </div>
               <div>
                 <h3 className="text-red-400 font-black uppercase text-sm mb-4">Select Fighter B</h3>
@@ -296,6 +325,9 @@ const SubmitBattleModal = ({ show, onClose, user, userPlan, dashboardData, onSuc
                     <input type="checkbox" checked={includeSideB} onChange={(e) => setIncludeSideB(e.target.checked)} className="rounded border-zinc-600" />
                     Include side profile (Pro)
                   </label>
+                )}
+                {fighterB && (
+                  <input type="text" value={nameB} onChange={e => setNameB(e.target.value)} placeholder="Fighter B Name (optional)" className="mt-4 w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500" />
                 )}
               </div>
             </div>
