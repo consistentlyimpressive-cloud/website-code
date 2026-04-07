@@ -1539,6 +1539,9 @@ const ScanningView = ({
   const [statusText, setStatusText] = useState('Connecting to Backend Bridge...');
   const [videoUrl, setVideoUrl] = useState(null);
   const [landmarks, setLandmarks] = useState(null);
+  /** Parent passes an inline onComplete; keep a ref so the analyze effect does not re-run every render (duplicate requests). */
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
     let active = true;
@@ -1588,12 +1591,16 @@ const ScanningView = ({
           const healthRes = await fetch(`${API_BASE}/api/health`, { signal: healthCtrl.signal });
           clearTimeout(healthTimer);
           if (!healthRes.ok) {
-            setStatusText(GENERIC_ERROR);
+            setStatusText(
+              `Analysis server returned ${healthRes.status}. Check VITE_API_URL (currently ${API_BASE}) and that the backend is running.`
+            );
             return;
           }
         } catch (e) {
           console.error("API health check failed", e);
-          setStatusText(GENERIC_ERROR);
+          setStatusText(
+            `Can't reach the analysis server at ${API_BASE}. If you're on the live site, set VITE_API_URL to your tunnel URL and redeploy. Locally, run npm run dev and keep the backend terminal open.`
+          );
           return;
         }
 
@@ -1612,7 +1619,7 @@ const ScanningView = ({
 
         const isUltra = choice === "1" || choice === "2";
         if (isUltra && !user) {
-          setStatusText(GENERIC_ERROR);
+          setStatusText('Sign in required for Ultra / Fun mode scans. Use Basic scan while signed out, or log in and try again.');
           return;
         }
         if (isUltra && (sideImageUrl || sideImageFile)) {
@@ -1656,7 +1663,14 @@ const ScanningView = ({
         }
 
         if (!apiRes.ok) {
-          setStatusText(GENERIC_ERROR);
+          const msg =
+            (data && typeof data.error === 'string' && data.error.trim()) ||
+            (data && typeof data.message === 'string' && data.message.trim()) ||
+            null;
+          setStatusText(
+            msg ||
+              `Request failed (${apiRes.status}). ${isUltra ? 'For premium models, confirm you are signed in with Pro or a scan credit.' : ''} If this persists, check the backend logs.`
+          );
           return;
         }
 
@@ -1669,21 +1683,29 @@ const ScanningView = ({
         if (data.success) {
            setStatusText("Analysis Complete! Transitioning...");
            setVideoUrl(data.videoUrl);
-           if (active) onComplete(data);
+           if (active) onCompleteRef.current(data);
         } else {
            console.error('[analyze] success=false', data?.error || data);
-           setStatusText(GENERIC_ERROR);
+           const detail =
+             typeof data?.error === 'string' && data.error.trim()
+               ? data.error
+               : 'The AI engine did not return a valid analysis. Check the backend terminal for Python/API errors (missing API key, model error, or bad output format).';
+           setStatusText(detail);
         }
       } catch (err) {
         console.error("API failed", err);
-        setStatusText(GENERIC_ERROR);
+        setStatusText(
+          err?.name === 'AbortError'
+            ? 'Request timed out. Try again with a smaller image or check your connection.'
+            : `Network error: ${err?.message || 'failed to reach server'}. Confirm VITE_API_URL and that the backend is reachable.`
+        );
       }
     };
 
     startScan();
 
     return () => { active = false; };
-  }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, user, onComplete]);
+  }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, user, profileId]);
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center animate-[fadeIn_0.5s_ease-out]">
