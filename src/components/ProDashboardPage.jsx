@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Target, Newspaper, Swords, Users, Crown, Settings, ChevronRight, Plus, Trash2, Edit2 } from 'lucide-react';
 import { hasEffectiveProAccess } from '../utils/planAccess';
+import { getApiBase } from '../utils/apiBase';
+
+const API_BASE = getApiBase();
 
 const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSignOut }) => {
   const [profiles, setProfiles] = useState([]);
@@ -11,7 +14,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       if (!user) return;
       try {
         const token = await user.getIdToken();
-        const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
         const res = await fetch(`${API_BASE}/api/user/profiles`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -46,7 +48,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     if (!name) return;
     try {
       const token = await user.getIdToken();
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const res = await fetch(`${API_BASE}/api/user/profiles/${id}`, {
         method: 'PUT',
         headers: { 
@@ -68,7 +69,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     if (!window.confirm("Are you sure you want to delete this profile and ALL its scans?")) return;
     try {
       const token = await user.getIdToken();
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const res = await fetch(`${API_BASE}/api/user/profiles/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }

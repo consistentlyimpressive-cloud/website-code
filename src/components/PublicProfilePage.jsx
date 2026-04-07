@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Target, Activity, CheckCircle2, Hexagon, Shield, Globe, Lock, ArrowLeft, ArrowUpRight, TrendingUp } from 'lucide-react';
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import { getApiBase } from '../utils/apiBase';
+
+const API_BASE = getApiBase();
 
 const MetricBar = ({ label, score, max = 100, displayValue }) => (
   <div className="flex flex-col gap-2">
@@ -59,8 +62,7 @@ const PublicProfilePage = ({ routeParams, user }) => {
       try {
         const token = user ? await user.getIdToken() : null;
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-        
+
         // Let's assume we can fetch by username and profileId from public endpoint
         // Wait, the API endpoint I created was /api/public/profiles/:uid/:profileId
         // I need to resolve username -> uid first, or just pass uid in the URL.
@@ -104,7 +106,6 @@ const PublicProfilePage = ({ routeParams, user }) => {
   const handleUpdateVisibility = async (vis) => {
     try {
       const token = await user.getIdToken();
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       await fetch(`${API_BASE}/api/user/profiles/${profile.id}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -164,7 +165,6 @@ const PublicProfilePage = ({ routeParams, user }) => {
                     if (!window.confirm("Delete this scan?")) return;
                     try {
                       const token = await user.getIdToken();
-                      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
                       await fetch(`${API_BASE}/api/user/scans/${s.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` }});
                       const newScans = scans.filter(x => x.id !== s.id);
                       setScans(newScans);

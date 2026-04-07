@@ -27,6 +27,7 @@ import {
   browserSessionPersistence,
 } from 'firebase/auth';
 import { getFirestore, doc, onSnapshot } from 'firebase/firestore';
+import { getApiBase } from './utils/apiBase';
 
 const GENERIC_ERROR = 'Something went wrong. Please try again later.';
 
@@ -65,7 +66,7 @@ const getCheckoutUrl = (plan, user) => {
   return `${base}?${params.toString()}`;
 };
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE = getApiBase();
 
 const MOGCHECK_LOGO_SRC = '/mogcheck-logo.png';
 
@@ -1772,7 +1773,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       if (!user) return;
       try {
         const token = await user.getIdToken();
-        const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
         const res = await fetch(`${API_BASE}/api/user/profiles`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -2306,7 +2306,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                   }
                   try {
                     const token = await user.getIdToken();
-                    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
                     const res = await fetch(`${API_BASE}/api/user/profiles`, {
                       method: 'POST',
                       headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },

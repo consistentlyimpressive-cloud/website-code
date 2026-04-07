@@ -1,6 +1,7 @@
 import { CURRENT_MOGBATTLE_ID } from '../data/mogBattles';
+import { getApiBase } from '../utils/apiBase';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE = getApiBase();
 
 /** Vote totals for each featured battle id (for rotating the main slot). */
 export async function fetchFeaturedVoteRankings(battleIds) {

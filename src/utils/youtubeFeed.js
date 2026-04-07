@@ -1,3 +1,5 @@
+import { getApiBase } from './apiBase';
+
 /** How many videos to show per rotation window */
 export const YOUTUBE_BATCH_SIZE = 8;
 
@@ -32,7 +34,7 @@ const RSS_TEMPLATE = (channelId) =>
 /** Public CORS proxy or our backend */
 function proxied(url) {
   // Use our backend instead of corsproxy.io to avoid blocks in production
-  const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const apiBase = getApiBase();
   return `${apiBase}/api/proxy-rss?url=${encodeURIComponent(url)}`;
 }
 
