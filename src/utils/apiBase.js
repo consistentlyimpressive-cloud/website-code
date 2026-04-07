@@ -1,22 +1,26 @@
 /**
  * Base URL for API requests (no trailing slash).
  *
- * - Vite dev: if VITE_API_URL is unset or points at localhost, returns '' so requests use
- *   same-origin `/api/...` and the Vite proxy forwards to the backend (fixes many "Failed to fetch" cases).
- * - Dev with VITE_API_URL=https://….trycloudflare.com: uses that URL (test production API from local UI).
- * - Production: must set VITE_API_URL (e.g. https tunnel or real API host).
+ * Local dev: always talk to the Express API on 127.0.0.1:3001 (no reliance on Vite /api proxy).
+ * Set VITE_API_URL=https://….trycloudflare.com in .env.local only when you want the local UI to hit a remote tunnel.
+ * Production (Vercel): set VITE_API_URL to your public https API URL.
  */
+const LOCAL_API = 'http://127.0.0.1:3001';
+
 export function getApiBase() {
   const raw = import.meta.env.VITE_API_URL;
   const trimmed = typeof raw === 'string' ? raw.trim().replace(/\/$/, '') : '';
 
   if (import.meta.env.DEV) {
-    if (!trimmed || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(trimmed)) {
-      return '';
+    const isLocalUrl =
+      !trimmed ||
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(trimmed);
+    if (isLocalUrl) {
+      return LOCAL_API;
     }
     return trimmed;
   }
 
   if (trimmed) return trimmed;
-  return 'http://localhost:3001';
+  return LOCAL_API;
 }

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Swords, Crown } from 'lucide-react';
+import { Swords, Crown, ChevronDown } from 'lucide-react';
 import {
   getAllFeaturedBattles,
 } from '../data/mogBattles';
@@ -8,10 +8,57 @@ import {
 } from '../api/mogBattleVotes';
 import BattleCard from './BattleCard';
 
+/** Aggregate wins/losses from battle feed (higher AI rating wins). */
+function buildMogLeaderboard(feedItems) {
+  const map = new Map();
+  const keyOf = (f) => `${String(f?.name || 'Unknown').trim()}|${f?.imgSrc || f?.frontImage || ''}`;
+
+  const bump = (fighter, kind) => {
+    const k = keyOf(fighter);
+    if (!k || k === '|') return;
+    const cur = map.get(k) || {
+      key: k,
+      name: fighter?.name || 'Unknown',
+      img: fighter?.imgSrc || fighter?.frontImage,
+      wins: 0,
+      losses: 0,
+      rating: Number(fighter?.rating ?? fighter?.finalRating) || 0,
+    };
+    if (kind === 'win') cur.wins += 1;
+    else cur.losses += 1;
+    map.set(k, cur);
+  };
+
+  for (const battle of feedItems) {
+    if (!battle?.fighterA || !battle?.fighterB) continue;
+    const ra = Number(battle.fighterA.rating ?? battle.fighterA.finalRating);
+    const rb = Number(battle.fighterB.rating ?? battle.fighterB.finalRating);
+    if (Number.isNaN(ra) || Number.isNaN(rb)) continue;
+    if (ra === rb) continue;
+    if (ra > rb) {
+      bump(battle.fighterA, 'win');
+      bump(battle.fighterB, 'loss');
+    } else {
+      bump(battle.fighterB, 'win');
+      bump(battle.fighterA, 'loss');
+    }
+  }
+
+  return Array.from(map.values())
+    .map((row) => ({
+      ...row,
+      played: row.wins + row.losses,
+      winRate: row.wins + row.losses > 0 ? row.wins / (row.wins + row.losses) : 0,
+    }))
+    .sort((a, b) => b.wins - a.wins || b.winRate - a.winRate || b.rating - a.rating);
+}
+
 const MogBattlePage = ({ user, setCurrentPage, dashboardData, userPlan }) => {
   const [communityBattles, setCommunityBattles] = useState([]);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [activeBattleId, setActiveBattleId] = useState(null);
+  /** 5 | 15 | 50 — how many rows to show in the scroll area (always up to 50 in data). */
+  const [leaderboardCap, setLeaderboardCap] = useState(5);
 
   const containerRef = useRef(null);
   const observerRef = useRef(null);
@@ -64,6 +111,10 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData, userPlan }) => {
     
     return combined;
   }, [communityBattles]);
+
+  const leaderboardRows = useMemo(() => buildMogLeaderboard(feedItems), [feedItems]);
+  const leaderboardDisplay = useMemo(() => leaderboardRows.slice(0, 50), [leaderboardRows]);
+  const visibleRows = leaderboardDisplay.slice(0, leaderboardCap);
 
   useEffect(() => {
     if (feedItems.length > 0 && !activeBattleId) {
@@ -126,6 +177,9 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData, userPlan }) => {
           .mog-winner-stroke-rect { stroke-dashoffset: 0 !important; }
           .mog-metric-row-anim { animation: none !important; opacity: 1 !important; transform: none !important; }
         }
+        .mog-lb-scroll { scrollbar-width: thin; scrollbar-color: rgba(34,211,238,0.35) transparent; }
+        .mog-lb-scroll::-webkit-scrollbar { width: 6px; }
+        .mog-lb-scroll::-webkit-scrollbar-thumb { background: rgba(34,211,238,0.35); border-radius: 4px; }
       `}</style>
 
       {/* Container without snap */}
@@ -143,27 +197,76 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData, userPlan }) => {
           </p>
         </div>
 
-        {/* Leaderboard */}
-        <div className="max-w-4xl mx-auto w-full px-4 mb-8">
-          <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6 md:p-8 backdrop-blur-md">
-            <h2 className="text-2xl font-black italic uppercase tracking-widest text-cyan-400 mb-6 flex items-center gap-3">
-              <Crown size={24} /> Top Moggers Leaderboard
+        {/* Leaderboard — W/L from AI verdicts; scrollable up to top 50 */}
+        <div className="max-w-2xl mx-auto w-full px-4 mb-8">
+          <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-4 md:p-5 backdrop-blur-md">
+            <h2 className="text-lg md:text-xl font-black italic uppercase tracking-widest text-cyan-400 mb-1 flex items-center gap-2">
+              <Crown size={20} /> Top Moggers
             </h2>
-            <div className="flex flex-col gap-3">
-              {feedItems.slice(0, 3).map((battle, idx) => {
-                const winner = battle.fighterA.rating > battle.fighterB.rating ? battle.fighterA : battle.fighterB;
-                return (
-                  <div key={idx} className="flex items-center justify-between bg-black/40 border border-zinc-800/80 rounded-xl p-4">
-                    <div className="flex items-center gap-4">
-                      <span className="text-xl font-black text-zinc-600 italic">#{idx+1}</span>
-                      <img src={winner.imgSrc || winner.frontImage} className="w-12 h-12 rounded-lg object-cover border border-zinc-700" alt={winner.name} />
-                      <span className="text-white font-bold uppercase tracking-widest">{winner.name}</span>
+            <p className="text-[10px] text-zinc-500 font-sans uppercase tracking-widest mb-4">
+              Wins / losses inferred from higher AI rating per battle (featured + community).
+            </p>
+            {leaderboardDisplay.length === 0 ? (
+              <p className="text-zinc-500 text-sm py-6 text-center">No battles loaded yet.</p>
+            ) : (
+              <>
+                <div
+                  className={`space-y-1.5 ${leaderboardCap > 5 ? 'max-h-[min(70vh,420px)] overflow-y-auto pr-1 mog-lb-scroll' : ''}`}
+                >
+                  {visibleRows.map((row, idx) => (
+                    <div
+                      key={row.key}
+                      className="flex items-center justify-between gap-2 bg-black/50 border border-zinc-800/90 rounded-lg px-2.5 py-1.5 md:px-3 md:py-2"
+                    >
+                      <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+                        <span className="text-sm font-black text-zinc-500 italic w-7 shrink-0 tabular-nums">#{idx + 1}</span>
+                        <img
+                          src={row.img}
+                          alt=""
+                          className="w-8 h-8 md:w-9 md:h-9 rounded-md object-cover border border-zinc-700 shrink-0"
+                        />
+                        <span className="text-white font-bold uppercase tracking-wider text-[10px] md:text-xs truncate">{row.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-emerald-400 font-black text-xs tabular-nums">{row.wins}W</span>
+                        <span className="text-zinc-600 text-[10px]">/</span>
+                        <span className="text-rose-400/90 font-black text-xs tabular-nums">{row.losses}L</span>
+                        <span className="text-cyan-400/80 font-mono text-[10px] ml-1 hidden sm:inline tabular-nums">{row.rating ? Number(row.rating).toFixed(1) : '—'}</span>
+                      </div>
                     </div>
-                    <span className="text-cyan-400 font-black italic text-xl drop-shadow-md">{Number(winner.rating).toFixed(1)}</span>
-                  </div>
-                );
-              })}
-            </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+                  {leaderboardCap < 15 && leaderboardDisplay.length > 5 && (
+                    <button
+                      type="button"
+                      onClick={() => setLeaderboardCap(15)}
+                      className="text-[10px] font-bold uppercase tracking-widest text-cyan-400 border border-cyan-500/30 rounded-lg px-4 py-2 hover:bg-cyan-500/10 transition-colors"
+                    >
+                      Show top 15
+                    </button>
+                  )}
+                  {leaderboardCap >= 15 && leaderboardCap < 50 && leaderboardDisplay.length > 15 && (
+                    <button
+                      type="button"
+                      onClick={() => setLeaderboardCap(50)}
+                      className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 border border-zinc-700 rounded-lg px-4 py-2 hover:bg-zinc-800/80 transition-colors inline-flex items-center gap-1"
+                    >
+                      Expand to top 50 <ChevronDown size={14} />
+                    </button>
+                  )}
+                  {leaderboardCap > 5 && (
+                    <button
+                      type="button"
+                      onClick={() => setLeaderboardCap(5)}
+                      className="text-[10px] font-sans text-zinc-600 hover:text-zinc-400 uppercase tracking-widest"
+                    >
+                      Collapse to top 5
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 

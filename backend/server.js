@@ -18,6 +18,7 @@ const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const { parseAnalysisOutput } = require('./parse-analysis-output');
 const adminStore = require('./admin-store');
+const { shouldSkipFirebaseStorage } = require('./firebase-errors');
 const admin = require('firebase-admin');
 
 // 1. First, require firebase-admin/app and /auth at the top if needed, but the main admin object is fine.
@@ -30,6 +31,7 @@ function initFirebaseAdmin() {
     process.env.FIREBASE_STORAGE_BUCKET || 'mogcheck-net.firebasestorage.app';
   const projectId = process.env.FIREBASE_PROJECT_ID || 'mogcheck-net';
   const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  const firestoreEmulator = !!process.env.FIRESTORE_EMULATOR_HOST;
 
   if (json) {
     try {
@@ -46,11 +48,45 @@ function initFirebaseAdmin() {
     }
   }
 
+  /**
+   * Firestore emulator + no service account: use project-only init.
+   * Do NOT use applicationDefault() here — it loads partial ADC and then
+   * admin.storage().bucket() / some APIs throw "Could not load the default credentials"
+   * even though Firestore itself talks to the emulator.
+   */
+  if (firestoreEmulator && !process.env.FORCE_GOOGLE_ADC) {
+    admin.initializeApp({
+      projectId,
+      storageBucket: bucket,
+    });
+    console.log(
+      '[firebase] Emulator mode: project-only Admin init (no ADC). Firebase Storage uploads are skipped; Firestore uses the emulator.'
+    );
+    return;
+  }
+
+  // Production or dev with emulator + explicit ADC request
+  try {
+    admin.initializeApp({
+      credential: admin.credential.applicationDefault(),
+      projectId,
+      storageBucket: bucket,
+    });
+    console.log(
+      '[firebase] Initialized with Application Default Credentials (GOOGLE_APPLICATION_CREDENTIALS or gcloud auth application-default login)'
+    );
+    return;
+  } catch (e) {
+    console.warn('[firebase] applicationDefault() not available:', e.message);
+  }
+
   admin.initializeApp({
     projectId,
     storageBucket: bucket,
   });
-  console.log('[firebase] Initialized with projectId (use ADC or service account in production)');
+  console.warn(
+    '[firebase] Initialized with projectId only — set FIREBASE_SERVICE_ACCOUNT_JSON or FIRESTORE_EMULATOR_HOST for local dev.'
+  );
 }
 
 /** Shared Firestore instance for webhooks, mog-battle votes, and other routes */
@@ -72,10 +108,13 @@ app.set('trust proxy', 1);
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow all origins to connect (useful for dynamic Vercel preview links)
+    // Allow all origins (Vercel previews, localhost:5174 → 127.0.0.1:3001 cross-origin, etc.)
     callback(null, true);
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-admin-password'],
+  optionsSuccessStatus: 204,
 };
 app.use(cors(corsOptions));
 
@@ -717,6 +756,10 @@ function guessContentType(filePath) {
 async function uploadImageToFirebase(localPath, uid, prefix = 'front') {
   if (!localPath || !fs.existsSync(localPath)) return null;
   if (!firestore) return null; // require firebase admin
+  if (shouldSkipFirebaseStorage()) {
+    console.log('[storage] Skipped (emulator or SKIP_FIREBASE_STORAGE — no Google Cloud Storage credentials needed)');
+    return null;
+  }
   try {
     const bucket = admin.storage().bucket();
     const filename = path.basename(localPath);
@@ -787,7 +830,14 @@ async function verifyUltraAccess(req, res, next) {
     const plan = String(data.plan || 'free');
     const scanCredits = Number(data.scanCredits) || 0;
 
-    if (plan === 'pro') {
+    const email = (decoded.email || '').toLowerCase();
+    const isAdminEmail = 
+      email.endsWith('@looksmaxxing.com') ||
+      email === 'serenity.eyb@gmail.com' ||
+      email === 'laithbu07@gmail.com' ||
+      email === 'laithabuamsheh@gmail.com';
+
+    if (plan === 'pro' || data.isAdmin || isAdminEmail) {
       req.ultraContext = { uid, plan: 'pro' };
       return next();
     }
@@ -871,7 +921,21 @@ app.post(
       },
     });
 
+    /** Prevent hung Gemini/API calls from blocking the client forever (default 8 min). */
+    const PYTHON_MAX_MS = Number(process.env.ANALYZE_PYTHON_TIMEOUT_MS || 480000);
+    let analyzeTimedOut = false;
+    const killTimer = setTimeout(() => {
+      analyzeTimedOut = true;
+      console.error(`[api/analyze] Python exceeded ${PYTHON_MAX_MS}ms — terminating process`);
+      try {
+        py.kill('SIGKILL');
+      } catch (e) {
+        console.error('[api/analyze] Failed to kill Python:', e.message);
+      }
+    }, PYTHON_MAX_MS);
+
     py.on('error', (err) => {
+      clearTimeout(killTimer);
       console.error('Failed to start Python process:', err);
       if (!res.headersSent) {
         res.json({
@@ -897,7 +961,17 @@ app.post(
     });
 
     py.on('close', async (code) => {
+      clearTimeout(killTimer);
       if (res.headersSent) return;
+
+      if (analyzeTimedOut) {
+        console.log(`\n[api/analyze] Python closed after timeout (code=${code})`);
+        return res.status(504).json({
+          success: false,
+          error:
+            'Analysis timed out — the AI engine took too long. Check backend/.env for API keys, your network, or try a smaller image. See the backend terminal for Python errors.',
+        });
+      }
 
       console.log(`\n[api/analyze] Python process closed with exit code ${code}`);
 
@@ -944,9 +1018,9 @@ app.post(
     hexagonFront: parsed.hexagonFront || null,
     hexagonSide: parsed.hexagonSide || null,
     personalizedFeedback: parsed.personalizedFeedback || [],
-    biometrics: parsed.biometrics?.length ? parsed.biometrics : undefined,
-    sideBiometrics: parsed.sideBiometrics?.length ? parsed.sideBiometrics : undefined,
-    protocols: parsed.protocols?.length ? parsed.protocols : undefined,
+    biometrics: parsed.biometrics || [],
+    sideBiometrics: parsed.sideBiometrics || [],
+    protocols: parsed.protocols || [],
     videoUrl: getLoadingVideoUrl(),
     rawOutput:
       pythonStderr.trim().length > 0
@@ -1177,12 +1251,14 @@ app.delete('/api/admin/users/:uid', async (req, res) => {
     // Delete Firestore document
     await firestore.collection('users').doc(uid).delete();
 
-    // Delete images in Storage
-    try {
-      const bucket = admin.storage().bucket();
-      await bucket.deleteFiles({ prefix: `users/${uid}/` });
-    } catch(e) {
-      console.log(`[admin] Warning: Failed to delete storage for ${uid}`, e.message);
+    // Delete images in Storage (skip when emulating — no GCS credentials)
+    if (!shouldSkipFirebaseStorage()) {
+      try {
+        const bucket = admin.storage().bucket();
+        await bucket.deleteFiles({ prefix: `users/${uid}/` });
+      } catch (e) {
+        console.log(`[admin] Warning: Failed to delete storage for ${uid}`, e.message);
+      }
     }
 
     res.json({ ok: true });
@@ -1220,9 +1296,11 @@ app.delete('/api/admin/users/:uid/scans/:scanId', async (req, res) => {
     const doc = await docRef.get();
     if (doc.exists) {
       const d = doc.data();
-      const bucket = admin.storage().bucket();
-      if (d.frontImageDest) await bucket.file(d.frontImageDest).delete().catch(() => {});
-      if (d.sideImageDest) await bucket.file(d.sideImageDest).delete().catch(() => {});
+      if (!shouldSkipFirebaseStorage()) {
+        const bucket = admin.storage().bucket();
+        if (d.frontImageDest) await bucket.file(d.frontImageDest).delete().catch(() => {});
+        if (d.sideImageDest) await bucket.file(d.sideImageDest).delete().catch(() => {});
+      }
       await docRef.delete();
     }
     res.json({ ok: true });
@@ -1255,9 +1333,11 @@ app.delete('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
     const doc = await docRef.get();
     if (doc.exists) {
       const d = doc.data();
-      const bucket = admin.storage().bucket();
-      if (d.frontImageDest) await bucket.file(d.frontImageDest).delete().catch(() => {});
-      if (d.sideImageDest) await bucket.file(d.sideImageDest).delete().catch(() => {});
+      if (!shouldSkipFirebaseStorage()) {
+        const bucket = admin.storage().bucket();
+        if (d.frontImageDest) await bucket.file(d.frontImageDest).delete().catch(() => {});
+        if (d.sideImageDest) await bucket.file(d.sideImageDest).delete().catch(() => {});
+      }
       await docRef.delete();
     }
     res.json({ ok: true });

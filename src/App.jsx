@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Gauge } from 'lucide-react';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import NewsPage from './components/NewsPage';
 import MogBattlePage from './components/MogBattlePage';
@@ -8,6 +8,7 @@ import PublicProfilePage from './components/PublicProfilePage';
 import TermsOfServicePage from './components/TermsOfServicePage';
 import PrivacyPolicyPage from './components/PrivacyPolicyPage';
 import SettingsPage from './components/SettingsPage';
+import { DashboardHubPreviewsCompact } from './components/DashboardHubPreviews';
 import { getNavbarPlanChip, hasEffectiveProAccess, canAlwaysAccessDashboard } from './utils/planAccess';
 import { initializeApp } from 'firebase/app';
 import { celebrityData } from './data/celebrityData';
@@ -137,7 +138,7 @@ const FlipIn = ({ children, delay = 0 }) => {
 };
 
 // --- Navbar ---
-const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDashboard }) => {
+const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDashboard, lowPerfMode, setLowPerfMode }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef(null);
@@ -204,12 +205,33 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDa
                   )}
                 </div>
                 <button
+                  type="button"
+                  onClick={() => { setCurrentPage('settings'); setShowUserMenu(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800"
+                >
+                  <Settings size={14} /> Account &amp; settings
+                </button>
+                <button
+                  type="button"
                   onClick={() => { setCurrentPage('profile'); setShowUserMenu(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800"
                 >
-                  <User size={14} /> Profile & Scans
+                  <User size={14} /> Profile &amp; scans
                 </button>
                 <button
+                  type="button"
+                  onClick={() => setLowPerfMode((v) => !v)}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800"
+                >
+                  <span className="flex items-center gap-3">
+                    <Gauge size={14} /> Low performance
+                  </span>
+                  <span className={`text-[9px] px-2 py-0.5 rounded-md border ${lowPerfMode ? 'border-cyan-500/40 text-cyan-400 bg-cyan-500/10' : 'border-zinc-700 text-zinc-500'}`}>
+                    {lowPerfMode ? 'On' : 'Off'}
+                  </span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => { onSignOut(); setShowUserMenu(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold"
                 >
@@ -243,7 +265,16 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDa
                   </span>
                 )}
               </div>
-              <button onClick={() => { onSignOut(); setIsOpen(false); }} className="flex items-center gap-2 px-8 py-2 rounded-full border border-zinc-800 text-red-400 hover:text-red-300 font-bold text-xs uppercase tracking-widest">
+              <button type="button" onClick={() => { setCurrentPage('settings'); setIsOpen(false); }} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
+                <Settings size={14} /> Account &amp; settings
+              </button>
+              <button type="button" onClick={() => { setCurrentPage('profile'); setIsOpen(false); }} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
+                <User size={14} /> Profile &amp; scans
+              </button>
+              <button type="button" onClick={() => setLowPerfMode((v) => !v)} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
+                <Gauge size={14} /> Low perf: {lowPerfMode ? 'On' : 'Off'}
+              </button>
+              <button type="button" onClick={() => { onSignOut(); setIsOpen(false); }} className="flex items-center gap-2 px-8 py-2 rounded-full border border-zinc-800 text-red-400 hover:text-red-300 font-bold text-xs uppercase tracking-widest">
                 <LogOut size={14} /> Sign Out
               </button>
             </>
@@ -1534,15 +1565,20 @@ const ScanningView = ({
   sideMetricData,
   choice,
   onComplete,
+  onScanFailed,
   user,
   profileId,
 }) => {
   const [statusText, setStatusText] = useState('Connecting to Backend Bridge...');
   const [videoUrl, setVideoUrl] = useState(null);
   const [landmarks, setLandmarks] = useState(null);
+  const [hasError, setHasError] = useState(false);
+
   /** Parent passes an inline onComplete; keep a ref so the analyze effect does not re-run every render (duplicate requests). */
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+  const onScanFailedRef = useRef(onScanFailed);
+  onScanFailedRef.current = onScanFailed;
 
   useEffect(() => {
     let active = true;
@@ -1584,6 +1620,7 @@ const ScanningView = ({
     const startScan = async () => {
       const minScanMs = 3200;
       const scanStartedAt = Date.now();
+      let scanSucceeded = false;
       try {
         setStatusText("Checking analysis server...");
         try {
@@ -1595,6 +1632,7 @@ const ScanningView = ({
             setStatusText(
               `Analysis server returned ${healthRes.status}. Check VITE_API_URL (currently ${API_BASE}) and that the backend is running.`
             );
+            setHasError(true);
             return;
           }
         } catch (e) {
@@ -1602,6 +1640,7 @@ const ScanningView = ({
           setStatusText(
             `Can't reach the analysis server at ${API_BASE}. If you're on the live site, set VITE_API_URL to your tunnel URL and redeploy. Locally, run npm run dev and keep the backend terminal open.`
           );
+          setHasError(true);
           return;
         }
 
@@ -1621,6 +1660,7 @@ const ScanningView = ({
         const isUltra = choice === "1" || choice === "2";
         if (isUltra && !user) {
           setStatusText('Sign in required for Ultra / Fun mode scans. Use Basic scan while signed out, or log in and try again.');
+          setHasError(true);
           return;
         }
         if (isUltra && (sideImageUrl || sideImageFile)) {
@@ -1633,7 +1673,7 @@ const ScanningView = ({
           }
         }
 
-        setStatusText("Running vision pipeline & AI model (this often takes 30–120s)...");
+        setStatusText('Running AI analysis… 0:00 elapsed (usually 30s–3 min). Leave this tab open.');
 
         const headers = {};
         if (isUltra && user) {
@@ -1643,15 +1683,42 @@ const ScanningView = ({
           } catch (e) {
             console.error("Failed to get auth token", e);
             setStatusText(GENERIC_ERROR);
+            setHasError(true);
             return;
           }
         }
 
-        const apiRes = await fetch(`${API_BASE}/api/analyze`, {
-          method: "POST",
-          headers,
-          body: formData,
-        });
+        /** So the UI never sits on “Consulting AI” forever if Python/API hangs */
+        const analyzeAbort = new AbortController();
+        const ANALYZE_CLIENT_MAX_MS = 10 * 60 * 1000;
+        const analyzeHardStop = setTimeout(() => analyzeAbort.abort(), ANALYZE_CLIENT_MAX_MS);
+
+        const formatElapsed = () => {
+          const sec = Math.floor((Date.now() - scanStartedAt) / 1000);
+          const m = Math.floor(sec / 60);
+          const s = sec % 60;
+          return `${m}:${String(s).padStart(2, '0')}`;
+        };
+
+        const progressTick = setInterval(() => {
+          if (!active) return;
+          setStatusText(
+            `Running AI analysis… ${formatElapsed()} elapsed. If it passes ~8 min with no result, check the backend terminal (Python/API).`
+          );
+        }, 4000);
+
+        let apiRes;
+        try {
+          apiRes = await fetch(`${API_BASE}/api/analyze`, {
+            method: "POST",
+            headers,
+            body: formData,
+            signal: analyzeAbort.signal,
+          });
+        } finally {
+          clearTimeout(analyzeHardStop);
+          clearInterval(progressTick);
+        }
 
         if (!active) return;
         let data;
@@ -1660,6 +1727,7 @@ const ScanningView = ({
         } catch (parseErr) {
           console.error("Analyze response not JSON", parseErr);
           setStatusText(GENERIC_ERROR);
+          setHasError(true);
           return;
         }
 
@@ -1672,6 +1740,7 @@ const ScanningView = ({
             msg ||
               `Request failed (${apiRes.status}). ${isUltra ? 'For premium models, confirm you are signed in with Pro or a scan credit.' : ''} If this persists, check the backend logs.`
           );
+          setHasError(true);
           return;
         }
 
@@ -1682,6 +1751,7 @@ const ScanningView = ({
         if (!active) return;
         
         if (data.success) {
+           scanSucceeded = true;
            setStatusText("Analysis Complete! Transitioning...");
            setVideoUrl(data.videoUrl);
            if (active) onCompleteRef.current(data);
@@ -1692,14 +1762,21 @@ const ScanningView = ({
                ? data.error
                : 'The AI engine did not return a valid analysis. Check the backend terminal for Python/API errors (missing API key, model error, or bad output format).';
            setStatusText(detail);
+           setHasError(true);
         }
       } catch (err) {
         console.error("API failed", err);
         setStatusText(
           err?.name === 'AbortError'
-            ? 'Request timed out. Try again with a smaller image or check your connection.'
+            ? 'Analysis timed out (~10 min). Check the backend terminal for stuck Python or API errors; try a smaller image or verify keys/network.'
             : `Network error: ${err?.message || 'failed to reach server'}. Confirm VITE_API_URL and that the backend is reachable.`
         );
+        setHasError(true);
+      } finally {
+        // Remove automatic exit so the user can read the error!
+        // if (!scanSucceeded && active) {
+        //   onScanFailedRef.current?.();
+        // }
       }
     };
 
@@ -1745,6 +1822,15 @@ const ScanningView = ({
         <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-cyan-500/80 z-30" />
         <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-cyan-500/80 z-30" />
       </div>
+
+      {hasError && (
+        <button
+          onClick={() => onScanFailedRef.current?.()}
+          className="mt-8 px-8 py-3 rounded-full border border-zinc-700 bg-zinc-900 text-zinc-300 font-bold uppercase tracking-widest text-xs hover:bg-zinc-800 hover:text-white transition-colors"
+        >
+          Go Back
+        </button>
+      )}
     </div>
   );
 };
@@ -1763,10 +1849,12 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [isScanning, setIsScanning] = useState(false);
   const [scanningCeleb, setScanningCeleb] = useState(null);
   const modelMenuRef = useRef(null);
+  const scanTopRef = useRef(null);
 
   const [profiles, setProfiles] = useState([]);
-  const [selectedProfileId, setSelectedProfileId] = useState('default');
+  const [selectedProfileId, setSelectedProfileId] = useState('new');
   const [newProfileName, setNewProfileName] = useState('');
+  const [profilesUnavailable, setProfilesUnavailable] = useState(false);
 
   useEffect(() => {
     const fetchProfiles = async () => {
@@ -1778,15 +1866,26 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
         });
         if (res.ok) {
           const data = await res.json();
+          setProfilesUnavailable(Boolean(data.profilesUnavailable));
           setProfiles(data.profiles || []);
           if (data.profiles && data.profiles.length > 0) {
             setSelectedProfileId(data.profiles[0].id);
           } else {
             setSelectedProfileId('new');
           }
+        } else {
+          // 401 = token not accepted by server; 503 = Firestore off — avoid invalid <select> value
+          setProfiles([]);
+          setProfilesUnavailable(false);
+          setSelectedProfileId('new');
+          if (res.status !== 401 && res.status !== 503) {
+            console.warn('fetch profiles HTTP', res.status);
+          }
         }
       } catch (e) {
         console.error('Failed to fetch profiles', e);
+        setProfilesUnavailable(false);
+        setSelectedProfileId('new');
       }
     };
     fetchProfiles();
@@ -1901,9 +2000,21 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     };
   }, [isModelMenuOpen]);
 
+  useEffect(() => {
+    setSelectedModel(initialModel);
+  }, [initialModel]);
+
+  useEffect(() => {
+    if (!isScanning) return undefined;
+    const id = window.setTimeout(() => {
+      scanTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+    return () => clearTimeout(id);
+  }, [isScanning]);
+
   if (isScanning) {
     return (
-      <div className="flex-grow flex flex-col bg-[#0c0d0e]">
+      <div ref={scanTopRef} className="flex-grow flex flex-col bg-[#0c0d0e] scroll-mt-20">
         {scanningCeleb ? (
           <CelebrityStatsPage celeb={scanningCeleb} setCurrentPage={() => setScanningCeleb(null)} />
         ) : (
@@ -1918,8 +2029,10 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                  choice={selectedModel}
                  user={user}
                  profileId={selectedProfileId}
+                 onScanFailed={() => setIsScanning(false)}
                  onComplete={(data) => {
                     setScanningCeleb(null);
+                    setIsScanning(false);
                     setDashboardData(prev => {
                       const newScanHistory = prev?.scanHistory ? [...prev.scanHistory] : [];
                       const newRatingHistory = prev?.ratingHistory ? [...prev.ratingHistory] : [];
@@ -2272,27 +2385,47 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
           </div>
 
             {user && (
-              <div className="w-full max-w-md mx-auto mb-8 bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
-                <h3 className="text-zinc-300 font-bold uppercase tracking-widest text-sm mb-4">Select Profile</h3>
-                <select 
-                  value={selectedProfileId}
-                  onChange={(e) => setSelectedProfileId(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm font-sans text-zinc-200 focus:outline-none focus:border-cyan-500 mb-4"
-                >
-                  <option value="new">+ Create New Profile</option>
-                  {profiles.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-                {selectedProfileId === 'new' && (
-                  <input 
-                    type="text"
-                    placeholder="Enter new profile name"
-                    value={newProfileName}
-                    onChange={(e) => setNewProfileName(e.target.value)}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm font-sans text-zinc-200 focus:outline-none focus:border-cyan-500"
-                  />
-                )}
+              <div className="w-full max-w-md mx-auto mb-8 rounded-2xl p-[1px] bg-gradient-to-br from-cyan-500/40 via-zinc-700/50 to-violet-500/30 shadow-[0_0_40px_rgba(34,211,238,0.08)]">
+                <div className="bg-zinc-950/95 backdrop-blur-sm rounded-[15px] p-5 border border-zinc-800/80">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <h3 className="text-zinc-100 font-black uppercase tracking-[0.2em] text-xs flex items-center gap-2">
+                      <span className="inline-flex h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]" aria-hidden />
+                      Select profile
+                    </h3>
+                    <span className="text-[9px] font-sans text-zinc-600 uppercase tracking-widest">Saved scans</span>
+                  </div>
+                  {profilesUnavailable && (
+                    <p className="text-amber-500/90 font-sans text-xs leading-relaxed mb-3 normal-case tracking-normal">
+                      Profiles are disabled until the API has Firestore (set <code className="text-zinc-400">FIREBASE_SERVICE_ACCOUNT_JSON</code> or run the emulator). Scans still use a default slot.
+                    </p>
+                  )}
+                  <div className="relative group">
+                    <select
+                      value={selectedProfileId}
+                      onChange={(e) => setSelectedProfileId(e.target.value)}
+                      disabled={profilesUnavailable}
+                      className="mogcheck-profile-select w-full appearance-none bg-gradient-to-b from-zinc-900/90 to-zinc-950 border border-zinc-700/80 rounded-xl pl-4 pr-11 py-3.5 text-sm font-sans text-zinc-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500/50 mb-4 disabled:opacity-50 cursor-pointer shadow-inner"
+                    >
+                      <option value="new">+ Create new profile</option>
+                      {profiles.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-500/70 group-hover:text-cyan-400 transition-colors"
+                      aria-hidden
+                    />
+                  </div>
+                  {selectedProfileId === 'new' && !profilesUnavailable && (
+                    <input
+                      type="text"
+                      placeholder="New profile name"
+                      value={newProfileName}
+                      onChange={(e) => setNewProfileName(e.target.value)}
+                      className="w-full bg-zinc-900/80 border border-zinc-700/80 rounded-xl px-4 py-3 text-sm font-sans text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                    />
+                  )}
+                </div>
               </div>
             )}
 
@@ -2300,24 +2433,31 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
               onClick={async () => {
                 let actualProfileId = selectedProfileId;
                 if (selectedProfileId === 'new') {
-                  if (!newProfileName.trim()) {
-                    alert("Please enter a profile name");
-                    return;
-                  }
-                  try {
-                    const token = await user.getIdToken();
-                    const res = await fetch(`${API_BASE}/api/user/profiles`, {
-                      method: 'POST',
-                      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ name: newProfileName, visibility: 'private' })
-                    });
-                    if (res.ok) {
-                      const data = await res.json();
-                      actualProfileId = data.id;
-                    } else throw new Error("Failed to create profile");
-                  } catch (e) {
-                    alert(e.message);
-                    return;
+                  if (profilesUnavailable) {
+                    actualProfileId = 'default';
+                  } else {
+                    if (!newProfileName.trim()) {
+                      alert("Please enter a profile name");
+                      return;
+                    }
+                    try {
+                      const token = await user.getIdToken();
+                      const res = await fetch(`${API_BASE}/api/user/profiles`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: newProfileName, visibility: 'private' })
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        actualProfileId = data.id;
+                      } else {
+                        const errBody = await res.json().catch(() => ({}));
+                        throw new Error(errBody.error || 'Failed to create profile');
+                      }
+                    } catch (e) {
+                      alert(e.message);
+                      return;
+                    }
                   }
                 }
                 setSelectedProfileId(actualProfileId);
@@ -3710,6 +3850,8 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </section>
           )}
 
+          {!isEmbedded && <DashboardHubPreviewsCompact setCurrentPage={setCurrentPage} />}
+
         </div>
       </FadeUp>
     </div>
@@ -4703,6 +4845,8 @@ const App = () => {
   }, [currentPage]);
 
   const [dashboardData, setDashboardData] = useState(null);
+  /** When set from Pro dashboard “Run a new scan”, upload page pre-selects this model (1–5). */
+  const [pendingUploadModel, setPendingUploadModel] = useState(null);
   const [selectedCelebrity, setSelectedCelebrity] = useState(null);
   const [routeParams, setRouteParams] = useState({});
 
@@ -4777,6 +4921,12 @@ const App = () => {
 
   useEffect(() => { window.scrollTo(0, 0); }, [currentPage]);
 
+  useEffect(() => {
+    if (currentPage !== 'upload-photo' && currentPage !== 'upload-ultra') {
+      setPendingUploadModel(null);
+    }
+  }, [currentPage]);
+
   const hasScanData = useMemo(() => {
     if (!dashboardData) return false;
     return (
@@ -4788,11 +4938,13 @@ const App = () => {
 
   useEffect(() => {
     if (currentPage !== 'dashboard') return;
+    // Fresh scan results (guest or signed-in): always show dashboard when we have payload/images
+    if (hasScanData) return;
     if (!user) {
       setCurrentPage('login');
       return;
     }
-    if (!hasScanData && !canAlwaysAccessDashboard(user)) {
+    if (!canAlwaysAccessDashboard(user)) {
       setCurrentPage('upload-photo');
     }
   }, [currentPage, user, hasScanData]);
@@ -4812,25 +4964,37 @@ const App = () => {
         onSignOut={handleSignOut}
         userPlan={userPlan}
         showDashboard={Boolean(user && (hasScanData || canAlwaysAccessDashboard(user)))}
+        lowPerfMode={lowPerfMode}
+        setLowPerfMode={setLowPerfMode}
       />
       <main className="flex flex-col min-h-screen">
         {currentPage === 'home' && <HomePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'photo-guide' && <PhotoGuidePage setCurrentPage={setCurrentPage} />}
         {(currentPage === 'upload-photo' || currentPage === 'upload-ultra') && (
           <UploadPhotoPage
+            key={`upload-${currentPage}-${pendingUploadModel ?? 'default'}`}
             setCurrentPage={setCurrentPage}
             setDashboardData={setDashboardData}
             setSelectedCelebrity={setSelectedCelebrity}
             user={user}
             userPlan={userPlan}
-            initialModel={currentPage === 'upload-ultra' ? "1" : "3"}
+            initialModel={pendingUploadModel ?? (currentPage === 'upload-ultra' ? '1' : '3')}
             isLockedToUltra={currentPage === 'upload-ultra'}
           />
         )}
         {currentPage === 'results' && <ResultsPage />}
         {currentPage === 'dashboard' && (
           hasEffectiveProAccess(user, userPlan)
-            ? <ProDashboardPage dashboardData={dashboardData} setCurrentPage={setCurrentPage} userPlan={userPlan} user={user} onSignOut={handleSignOut} DashboardComponent={DashboardPage} />
+            ? (
+              <ProDashboardPage
+                dashboardData={dashboardData}
+                setCurrentPage={setCurrentPage}
+                userPlan={userPlan}
+                user={user}
+                onSignOut={handleSignOut}
+                setPendingUploadModel={setPendingUploadModel}
+              />
+            )
             : <DashboardPage dashboardData={dashboardData} setCurrentPage={setCurrentPage} userPlan={userPlan} user={user} />
         )}
         {currentPage === 'plans' && <PlansPage setCurrentPage={setCurrentPage} user={user} />}

@@ -1,14 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Clock, Monitor, User, Shield, Battery, Calendar } from 'lucide-react';
+import React from 'react';
+import { ArrowLeft, Clock, Monitor, User, Battery, Calendar, ChevronRight } from 'lucide-react';
 
 const SettingsPage = ({ setCurrentPage, user, userPlan, lowPerfMode, setLowPerfMode, dashboardData }) => {
-  const [profileVis, setProfileVis] = useState('private');
-
-  // Basic mock saving
-  const handleSave = () => {
-    alert("Settings saved!");
-  };
-
   const planName = userPlan?.plan === 'pro' ? 'Pro' : userPlan?.plan === 'single_scan' ? 'Single Scan' : 'Free';
   const credits = userPlan?.scanCredits || 0;
   let timeStr = 'N/A';
@@ -27,9 +20,27 @@ const SettingsPage = ({ setCurrentPage, user, userPlan, lowPerfMode, setLowPerfM
           <ArrowLeft size={16} /> Back to Dashboard
         </button>
 
-        <h1 className="text-3xl md:text-4xl font-black italic uppercase tracking-tighter text-white mb-8">
+        <h1 className="text-3xl md:text-4xl font-black italic uppercase tracking-tighter text-white mb-4">
           Account Settings
         </h1>
+        <p className="text-zinc-500 text-sm font-sans mb-8">Profile, scans, subscription, and performance in one place.</p>
+
+        <button
+          type="button"
+          onClick={() => setCurrentPage('profile')}
+          className="w-full mb-8 flex items-center justify-between gap-4 rounded-2xl border border-cyan-500/25 bg-cyan-500/5 hover:bg-cyan-500/10 hover:border-cyan-500/40 transition-all px-5 py-4 text-left group"
+        >
+          <span className="flex items-center gap-3 min-w-0">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-500/15 border border-cyan-500/20 text-cyan-400">
+              <User size={20} />
+            </span>
+            <span>
+              <span className="block text-white font-bold uppercase tracking-widest text-sm">Profile &amp; scans</span>
+              <span className="block text-zinc-500 text-xs font-sans mt-0.5 truncate">{user?.email || 'Sign in to manage scans'}</span>
+            </span>
+          </span>
+          <ChevronRight size={18} className="text-zinc-500 group-hover:text-cyan-400 shrink-0 transition-colors" />
+        </button>
 
         <div className="space-y-6">
           {/* Subscription & History */}

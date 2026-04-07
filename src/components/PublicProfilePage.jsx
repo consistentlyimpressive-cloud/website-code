@@ -63,19 +63,39 @@ const PublicProfilePage = ({ routeParams, user }) => {
         const token = user ? await user.getIdToken() : null;
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        // Let's assume we can fetch by username and profileId from public endpoint
-        // Wait, the API endpoint I created was /api/public/profiles/:uid/:profileId
-        // I need to resolve username -> uid first, or just pass uid in the URL.
-        // For now, let's use the first parameter as UID.
-        const uid = routeParams.username;
-        const res = await fetch(`${API_BASE}/api/public/profiles/${uid}/${routeParams.profileId}`, { headers });
-        if (!res.ok) throw new Error(await res.text() || 'Failed to fetch profile');
+        // Use uid if logged in and looking at own profile, otherwise we might need username lookup.
+        // For now, since the route is /profile/:profileId (if owner) or /users/:username/:profileId
+        // Assuming routeParams.profileId is the ID.
+        // If it's the owner checking their own profile from the dashboard, routeParams.username might be missing or match user
+        let uid = routeParams.username === user?.email?.split('@')[0] || !routeParams.username ? user?.uid : routeParams.username;
+        
+        const actualProfileId = routeParams.profileId || routeParams.username;
+        
+        if (!routeParams.profileId && user) {
+          uid = user.uid;
+        }
+
+        if (!uid) {
+           setError('Invalid profile link or not signed in');
+           setLoading(false);
+           return;
+        }
+
+        console.log(`[PublicProfilePage] Fetching profile for UID: ${uid}, ProfileID: ${actualProfileId}`);
+
+        const res = await fetch(`${API_BASE}/api/public/profiles/${uid}/${actualProfileId}`, { headers });
+        if (!res.ok) {
+           // Try parsing error
+           const errText = await res.json().catch(() => ({}));
+           throw new Error(errText.error || await res.text() || 'Failed to fetch profile');
+        }
+        
         const data = await res.json();
         setProfile(data.profile);
         setScans(data.scans || []);
         if (data.scans?.length > 0) setSelectedScanId(data.scans[0].id);
       } catch (e) {
-        setError(e.message);
+        setError(`{"error":"${e.message}"}`);
       } finally {
         setLoading(false);
       }
