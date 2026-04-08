@@ -115,7 +115,7 @@ module.exports = function(app, firestore, admin, extractUserOptional) {
       const scans = [];
       scansSnap.forEach(doc => scans.push({ id: doc.id, ...doc.data() }));
       
-      res.json({ profile: { id: profileDoc.id, ...profile }, scans });
+      res.json({ profile: { id: profileDoc.id, userId: uid, ...profile }, scans });
     } catch (e) {
       const { status, error } = sanitizeFirebaseError(e);
       console.error('[profiles] public GET failed:', e.message || e);

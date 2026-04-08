@@ -1,13 +1,5 @@
 require('dotenv').config();
 
-/** Must be set before admin.firestore() / auth — `npm run dev` sets Firestore emulator. */
-if (process.env.FIRESTORE_EMULATOR_HOST) {
-  console.log('[firebase] Firestore emulator:', process.env.FIRESTORE_EMULATOR_HOST);
-}
-if (process.env.FIREBASE_AUTH_EMULATOR_HOST) {
-  console.log('[firebase] Auth emulator:', process.env.FIREBASE_AUTH_EMULATOR_HOST);
-}
-
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
@@ -18,11 +10,38 @@ const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const { parseAnalysisOutput } = require('./parse-analysis-output');
 const adminStore = require('./admin-store');
-const { shouldSkipFirebaseStorage } = require('./firebase-errors');
+const {
+  shouldSkipFirebaseStorage,
+  sanitizeFirebaseError,
+  isCredentialsConfigError,
+  shouldUseFirebaseEmulator,
+} = require('./firebase-errors');
 const admin = require('firebase-admin');
 
-// 1. First, require firebase-admin/app and /auth at the top if needed, but the main admin object is fine.
-// 2. Overwrite the verifyUltraAccess to bypass auth check locally if no credentials exist:
+const USE_FIREBASE_EMULATOR = shouldUseFirebaseEmulator();
+
+/** Must be set before admin.firestore() / auth — `npm run dev` explicitly opts into emulator mode. */
+if (USE_FIREBASE_EMULATOR && process.env.FIRESTORE_EMULATOR_HOST) {
+  console.log('[firebase] Firestore emulator:', process.env.FIRESTORE_EMULATOR_HOST);
+} else if (process.env.FIRESTORE_EMULATOR_HOST) {
+  console.warn(
+    '[firebase] FIRESTORE_EMULATOR_HOST is set but ignored because USE_FIREBASE_EMULATOR is not 1.'
+  );
+}
+if (USE_FIREBASE_EMULATOR && process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+  console.log('[firebase] Auth emulator:', process.env.FIREBASE_AUTH_EMULATOR_HOST);
+}
+
+function firebaseConfigHelpMessage() {
+  return USE_FIREBASE_EMULATOR
+    ? 'This backend is in Firebase emulator mode. For live premium scans, start the API without USE_FIREBASE_EMULATOR and configure FIREBASE_SERVICE_ACCOUNT_JSON (or gcloud application-default credentials).'
+    : 'Firebase Admin is not configured on this machine. Add FIREBASE_SERVICE_ACCOUNT_JSON to backend/.env, or run gcloud auth application-default login, then restart the API.';
+}
+
+function isRemoteBrowserRequest(req) {
+  const haystack = `${req?.headers?.origin || ''} ${req?.headers?.host || ''}`.toLowerCase();
+  return !/(localhost|127\.0\.0\.1)/i.test(haystack);
+}
 
 
 function initFirebaseAdmin() {
@@ -31,7 +50,7 @@ function initFirebaseAdmin() {
     process.env.FIREBASE_STORAGE_BUCKET || 'mogcheck-net.firebasestorage.app';
   const projectId = process.env.FIREBASE_PROJECT_ID || 'mogcheck-net';
   const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  const firestoreEmulator = !!process.env.FIRESTORE_EMULATOR_HOST;
+  const firestoreEmulator = USE_FIREBASE_EMULATOR && !!process.env.FIRESTORE_EMULATOR_HOST;
 
   if (json) {
     try {
@@ -65,6 +84,12 @@ function initFirebaseAdmin() {
     return;
   }
 
+  if (USE_FIREBASE_EMULATOR && !process.env.FIRESTORE_EMULATOR_HOST) {
+    console.warn(
+      '[firebase] USE_FIREBASE_EMULATOR=1 but FIRESTORE_EMULATOR_HOST is missing. Falling back to live Firebase Admin init.'
+    );
+  }
+
   // Production or dev with emulator + explicit ADC request
   try {
     admin.initializeApp({
@@ -85,7 +110,7 @@ function initFirebaseAdmin() {
     storageBucket: bucket,
   });
   console.warn(
-    '[firebase] Initialized with projectId only — set FIREBASE_SERVICE_ACCOUNT_JSON or FIRESTORE_EMULATOR_HOST for local dev.'
+    '[firebase] Initialized with projectId only — set FIREBASE_SERVICE_ACCOUNT_JSON, run gcloud auth application-default login, or explicitly use USE_FIREBASE_EMULATOR=1 with FIRESTORE_EMULATOR_HOST for local dev.'
   );
 }
 
@@ -576,6 +601,7 @@ function healthPayload() {
   return {
     ok: true,
     service: 'mogcheck-backend',
+    firebaseMode: USE_FIREBASE_EMULATOR ? 'emulator' : 'live',
     uptimeMs: Date.now() - SERVER_BOOT_AT,
     timestamp: new Date().toISOString(),
   };
@@ -595,9 +621,21 @@ app.get('/api/user/status', extractUserOptional, async (req, res) => {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
     // X-Forwarded-For could be a comma-separated list; we only want the first one
     const clientIp = ip.split(',')[0].trim();
+    let decoded = null;
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    if (token) {
+      try {
+        decoded = await admin.auth().verifyIdToken(token);
+      } catch {
+        decoded = null;
+      }
+    }
     await firestore.collection('users').doc(req.uid).set({
       lastActive: admin.firestore.FieldValue.serverTimestamp(),
-      lastIp: clientIp
+      lastIp: clientIp,
+      email: decoded?.email || null,
+      displayName: decoded?.name || null,
     }, { merge: true });
     res.json({ ok: true });
   } catch (e) {
@@ -613,12 +651,14 @@ app.get('/api/ready', async (req, res) => {
     res.json({
       ok: true,
       checks: { firestore: true },
+      firebaseMode: USE_FIREBASE_EMULATOR ? 'emulator' : 'live',
       timestamp: new Date().toISOString(),
     });
   } catch (e) {
     res.status(503).json({
       ok: false,
       checks: { firestore: false },
+      firebaseMode: USE_FIREBASE_EMULATOR ? 'emulator' : 'live',
       error: e.message,
       timestamp: new Date().toISOString(),
     });
@@ -732,18 +772,36 @@ function getPythonExecutable() {
   return path.join(__dirname, 'venv', 'bin', 'python3');
 }
 
-function getPublicBackendBase() {
+function getRequestBase(req) {
+  if (!req) return '';
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '')
+    .split(',')[0]
+    .trim();
+  if (!host) return '';
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'http')
+    .split(',')[0]
+    .trim();
+  return `${proto}://${host}`.replace(/\/$/, '');
+}
+
+function getPublicBackendBase(req) {
+  const requestBase = getRequestBase(req);
   const raw = (process.env.PUBLIC_BACKEND_URL || '').trim().replace(/\/$/, '');
+  if (requestBase && process.env.FORCE_PUBLIC_BACKEND_URL !== '1') {
+    if (!raw) return requestBase;
+    if (process.env.NODE_ENV !== 'production') return requestBase;
+    if (/(localhost|127\.0\.0\.1|trycloudflare\.com)/i.test(raw)) return requestBase;
+  }
   if (raw) return raw;
   const port = Number(process.env.PORT || 3001);
   return `http://localhost:${port}`;
 }
 
 /** Full URL for loading scan video in analyze response (CDN or same-origin). */
-function getLoadingVideoUrl() {
+function getLoadingVideoUrl(req) {
   const custom = (process.env.LOADING_VIDEO_URL || '').trim();
   if (custom) return custom;
-  return `${getPublicBackendBase()}/loading_scan.mp4`;
+  return `${getPublicBackendBase(req)}/loading_scan.mp4`;
 }
 
 function guessContentType(filePath) {
@@ -822,10 +880,24 @@ async function verifyUltraAccess(req, res, next) {
     });
   }
 
+  if (!firestore) {
+    return res.status(503).json({
+      success: false,
+      error: firebaseConfigHelpMessage(),
+    });
+  }
+
   try {
     const decoded = await admin.auth().verifyIdToken(token);
     const uid = decoded.uid;
     const snap = await firestore.collection('users').doc(uid).get();
+    if (!snap.exists && USE_FIREBASE_EMULATOR && isRemoteBrowserRequest(req)) {
+      return res.status(503).json({
+        success: false,
+        error:
+          'This backend is still reading from the local Firebase emulator, so live premium plan checks cannot work. Start the API without USE_FIREBASE_EMULATOR and configure live Firebase Admin credentials.',
+      });
+    }
     const data = snap.exists ? snap.data() : {};
     const plan = String(data.plan || 'free');
     const scanCredits = Number(data.scanCredits) || 0;
@@ -852,11 +924,27 @@ async function verifyUltraAccess(req, res, next) {
         'Premium models require MogCheck Pro or an unused Single Scan credit. Open Plans to upgrade.',
     });
   } catch (e) {
-    // If running locally without service account, bypass this strictly for testing
-    if (e.message && e.message.includes('default credentials') && process.env.NODE_ENV !== 'production') {
+    // If running locally without service account, bypass this strictly for localhost testing.
+    if (isCredentialsConfigError(e?.message) && process.env.NODE_ENV !== 'production' && !isRemoteBrowserRequest(req)) {
       console.warn('[analyze] Bypassing Ultra auth locally because no Firebase credentials exist.');
       req.ultraContext = { uid: 'local-test-user', plan: 'pro' };
       return next();
+    }
+
+    if (USE_FIREBASE_EMULATOR && isRemoteBrowserRequest(req)) {
+      return res.status(503).json({
+        success: false,
+        error:
+          'This backend is in Firebase emulator mode. Live premium scans from mogcheck.net need real Firebase Admin credentials on this machine.',
+      });
+    }
+
+    if (isCredentialsConfigError(e?.message)) {
+      const { status, error } = sanitizeFirebaseError(e);
+      return res.status(status).json({
+        success: false,
+        error,
+      });
     }
 
     console.error('[analyze] Ultra auth failed:', e.message);
@@ -1021,7 +1109,7 @@ app.post(
     biometrics: parsed.biometrics || [],
     sideBiometrics: parsed.sideBiometrics || [],
     protocols: parsed.protocols || [],
-    videoUrl: getLoadingVideoUrl(),
+    videoUrl: getLoadingVideoUrl(req),
     rawOutput:
       pythonStderr.trim().length > 0
         ? `${pythonOutput}\n\n--- Python stderr ---\n${pythonStderr}`
@@ -1177,8 +1265,13 @@ app.get('/api/admin/users', async (req, res) => {
   if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
 
   try {
-    const authUsersResult = await admin.auth().listUsers(1000); // 1000 limit, ignoring pagination for now
-    const authUsers = authUsersResult.users;
+    let authUsers = [];
+    try {
+      const authUsersResult = await admin.auth().listUsers(1000); // 1000 limit, ignoring pagination for now
+      authUsers = authUsersResult.users || [];
+    } catch (authErr) {
+      console.error('[admin] Failed to list auth users:', authErr);
+    }
 
     const firestoreUsersSnap = await firestore.collection('users').get();
     const firestoreData = {};
@@ -1186,17 +1279,26 @@ app.get('/api/admin/users', async (req, res) => {
       firestoreData[doc.id] = doc.data();
     });
 
-    const users = authUsers.map(u => {
-      const fd = firestoreData[u.uid] || {};
-      const scansCount = 0; // We could fetch subcollections but it's slow for all users at once
+    const authUsersByUid = new Map(authUsers.map((u) => [u.uid, u]));
+    const allUserIds = Array.from(new Set([
+      ...authUsers.map((u) => u.uid),
+      ...Object.keys(firestoreData),
+    ]));
+
+    const users = allUserIds.map((uid) => {
+      const authUser = authUsersByUid.get(uid);
+      const fd = firestoreData[uid] || {};
       return {
-        uid: u.uid,
-        email: u.email,
-        displayName: u.displayName || 'No Name',
+        uid,
+        email: authUser?.email || fd.email || 'Unknown',
+        displayName: authUser?.displayName || fd.displayName || 'No Name',
         plan: fd.plan || 'free',
         scanCredits: fd.scanCredits || 0,
         lastIp: fd.lastIp || 'Unknown',
-        lastActive: fd.lastActive ? fd.lastActive.toDate().toISOString() : null,
+        lastActive:
+          fd.lastActive && typeof fd.lastActive.toDate === 'function'
+            ? fd.lastActive.toDate().toISOString()
+            : (fd.lastActive || null),
       };
     });
 
@@ -1353,7 +1455,7 @@ if (fs.existsSync(distDir)) {
   });
 }
 
-const PORT = Number(process.env.PORT || 10000);
+const PORT = Number(process.env.PORT || 3001);
 
 async function start() {
   await adminStore.init();

@@ -9,8 +9,13 @@ function isCredentialsConfigError(msg) {
     /Could not load/i.test(s) ||
     /application default credentials/i.test(s) ||
     /Could not refresh access token/i.test(s) ||
-    /invalid_grant/i.test(s)
+    /invalid_grant/i.test(s) ||
+    /project id/i.test(s)
   );
+}
+
+function shouldUseFirebaseEmulator() {
+  return process.env.USE_FIREBASE_EMULATOR === '1';
 }
 
 function sanitizeFirebaseError(err) {
@@ -33,7 +38,12 @@ function sanitizeFirebaseError(err) {
 
 /** Real GCS bucket() needs a service account; skip when using Firestore emulator locally. */
 function shouldSkipFirebaseStorage() {
-  return !!process.env.FIRESTORE_EMULATOR_HOST || process.env.SKIP_FIREBASE_STORAGE === '1';
+  return shouldUseFirebaseEmulator() || process.env.SKIP_FIREBASE_STORAGE === '1';
 }
 
-module.exports = { sanitizeFirebaseError, isCredentialsConfigError, shouldSkipFirebaseStorage };
+module.exports = {
+  sanitizeFirebaseError,
+  isCredentialsConfigError,
+  shouldSkipFirebaseStorage,
+  shouldUseFirebaseEmulator,
+};

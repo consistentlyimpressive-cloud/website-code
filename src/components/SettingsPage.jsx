@@ -1,14 +1,78 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Clock, Monitor, User, Battery, Calendar, ChevronRight } from 'lucide-react';
+import { getApiBase } from '../utils/apiBase';
+
+const API_BASE = getApiBase();
+
+const timestampToMillis = (value) => {
+  if (!value) return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const numeric = Number(value);
+    if (!Number.isNaN(numeric) && Number.isFinite(numeric)) return numeric;
+    const parsed = new Date(value).getTime();
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  if (typeof value?.toMillis === 'function') return value.toMillis();
+  if (typeof value?.seconds === 'number') {
+    const nanos = typeof value?.nanoseconds === 'number' ? value.nanoseconds / 1e6 : 0;
+    return value.seconds * 1000 + nanos;
+  }
+  const fallback = new Date(value).getTime();
+  return Number.isFinite(fallback) ? fallback : 0;
+};
 
 const SettingsPage = ({ setCurrentPage, user, userPlan, lowPerfMode, setLowPerfMode, dashboardData }) => {
   const planName = userPlan?.plan === 'pro' ? 'Pro' : userPlan?.plan === 'single_scan' ? 'Single Scan' : 'Free';
   const credits = userPlan?.scanCredits || 0;
+  const [userScans, setUserScans] = useState([]);
   let timeStr = 'N/A';
   if (userPlan?.updatedAt) {
     const d = new Date(userPlan.updatedAt.seconds ? userPlan.updatedAt.seconds * 1000 : userPlan.updatedAt);
     timeStr = d.toLocaleDateString();
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchScans = async () => {
+      if (!user) {
+        setUserScans([]);
+        return;
+      }
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch(`${API_BASE}/api/user/scans`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          setUserScans(Array.isArray(data.scans) ? data.scans : []);
+        }
+      } catch {
+        if (!cancelled) {
+          setUserScans([]);
+        }
+      }
+    };
+    fetchScans();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const effectiveScans = useMemo(() => {
+    if (userScans.length > 0) return userScans;
+    return Array.isArray(dashboardData?.scanHistory) ? dashboardData.scanHistory : [];
+  }, [dashboardData?.scanHistory, userScans]);
+
+  const scansToday = useMemo(() => {
+    const today = new Date().toDateString();
+    return effectiveScans.filter((scan) => {
+      const millis = timestampToMillis(scan.timestamp || scan.scannedAt || scan.createdAt);
+      return millis && new Date(millis).toDateString() === today;
+    }).length;
+  }, [effectiveScans]);
 
   return (
     <div className="min-h-screen bg-[#0c0d0e] pt-24 pb-12 px-4 sm:px-6">
@@ -67,7 +131,10 @@ const SettingsPage = ({ setCurrentPage, user, userPlan, lowPerfMode, setLowPerfM
                 <Clock size={14} /> Scan History Quick Stats
               </h3>
               <p className="text-zinc-500 text-sm">
-                Total Scans: <span className="text-white font-bold">{dashboardData?.scanHistory?.length || 0}</span>
+                Total Scans: <span className="text-white font-bold">{effectiveScans.length}</span>
+              </p>
+              <p className="text-zinc-500 text-sm mt-1">
+                Scans Today: <span className="text-white font-bold">{scansToday}</span>
               </p>
             </div>
           </section>

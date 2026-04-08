@@ -56,6 +56,30 @@ function parseFeatureBlock(block) {
   return out;
 }
 
+function parseSingleHighlight(raw, regex, fallbackTitle) {
+  const match = raw.match(regex);
+  if (!match) return null;
+
+  const clean = String(match[1] || '')
+    .replace(/\*\*/g, '')
+    .replace(/\r?\n+/g, ' ')
+    .trim();
+  if (!clean) return null;
+
+  const split = clean.match(/^([^:.]{3,80}?)(?:\s+-\s+|:\s+)(.+)$/);
+  if (split) {
+    return {
+      title: split[1].trim(),
+      description: split[2].trim(),
+    };
+  }
+
+  return {
+    title: fallbackTitle,
+    description: clean,
+  };
+}
+
 function parseSex(raw) {
   const match = raw.match(/###\s*ANALYSIS\s*\[?(MALE|FEMALE)\]?/i);
   if (match) return match[1].toUpperCase();
@@ -249,6 +273,24 @@ function parseAnalysisOutput(rawOutput, backendDir) {
         primaryFlaws.push(f);
       }
     }
+  }
+
+  if (bestFeatures.length === 0) {
+    const bestHighlight = parseSingleHighlight(
+      rawOutput,
+      /\*\*#1 BEST FEATURE:\*\*\s*([\s\S]*?)(?=\*\*#1 WORST FEATURE:\*\*|$)/i,
+      'Best Feature'
+    );
+    if (bestHighlight) bestFeatures.push(bestHighlight);
+  }
+
+  if (primaryFlaws.length === 0) {
+    const flawHighlight = parseSingleHighlight(
+      rawOutput,
+      /\*\*#1 WORST FEATURE:\*\*\s*([\s\S]*?)$/i,
+      'Primary Flaw'
+    );
+    if (flawHighlight) primaryFlaws.push(flawHighlight);
   }
 
   let categories = null;

@@ -55,7 +55,12 @@ const PublicProfilePage = ({ routeParams, user }) => {
   const [selectedScanId, setSelectedScanId] = useState(null);
   const [activeSide, setActiveSide] = useState('front'); // 'front' or 'side'
 
-  const isOwner = user?.uid && profile && user.uid === profile.userId; // we might need userId on profile
+  const isOwner = Boolean(user?.uid && profile?.userId && user.uid === profile.userId);
+
+  const navigateTo = (path) => {
+    window.history.pushState({}, '', path);
+    window.dispatchEvent(new Event('popstate'));
+  };
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -63,31 +68,20 @@ const PublicProfilePage = ({ routeParams, user }) => {
         const token = user ? await user.getIdToken() : null;
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-        // Use uid if logged in and looking at own profile, otherwise we might need username lookup.
-        // For now, since the route is /profile/:profileId (if owner) or /users/:username/:profileId
-        // Assuming routeParams.profileId is the ID.
-        // If it's the owner checking their own profile from the dashboard, routeParams.username might be missing or match user
-        let uid = routeParams.username === user?.email?.split('@')[0] || !routeParams.username ? user?.uid : routeParams.username;
-        
-        const actualProfileId = routeParams.profileId || routeParams.username;
-        
-        if (!routeParams.profileId && user) {
-          uid = user.uid;
+        const uid = routeParams.uid || routeParams.username || user?.uid || '';
+        const actualProfileId = routeParams.profileId || '';
+
+        if (!uid || !actualProfileId) {
+          throw new Error('Invalid profile link');
         }
 
-        if (!uid) {
-           setError('Invalid profile link or not signed in');
-           setLoading(false);
-           return;
-        }
-
-        console.log(`[PublicProfilePage] Fetching profile for UID: ${uid}, ProfileID: ${actualProfileId}`);
-
-        const res = await fetch(`${API_BASE}/api/public/profiles/${uid}/${actualProfileId}`, { headers });
+        const res = await fetch(
+          `${API_BASE}/api/public/profiles/${encodeURIComponent(uid)}/${encodeURIComponent(actualProfileId)}`,
+          { headers }
+        );
         if (!res.ok) {
-           // Try parsing error
-           const errText = await res.json().catch(() => ({}));
-           throw new Error(errText.error || await res.text() || 'Failed to fetch profile');
+          const errText = await res.json().catch(() => ({}));
+          throw new Error(errText.error || await res.text() || 'Failed to fetch profile');
         }
         
         const data = await res.json();
@@ -95,7 +89,7 @@ const PublicProfilePage = ({ routeParams, user }) => {
         setScans(data.scans || []);
         if (data.scans?.length > 0) setSelectedScanId(data.scans[0].id);
       } catch (e) {
-        setError(`{"error":"${e.message}"}`);
+        setError(e.message || 'Failed to load profile');
       } finally {
         setLoading(false);
       }
@@ -104,6 +98,13 @@ const PublicProfilePage = ({ routeParams, user }) => {
   }, [routeParams, user]);
 
   const activeScan = useMemo(() => scans.find(s => s.id === selectedScanId) || scans[0], [scans, selectedScanId]);
+  const hasSideScan = Boolean(activeScan?.sideImageUrl);
+
+  useEffect(() => {
+    if (activeSide === 'side' && !hasSideScan) {
+      setActiveSide('front');
+    }
+  }, [activeSide, hasSideScan, activeScan?.id]);
   
   const parsedData = useMemo(() => {
     if (!activeScan?.payload) return null;
@@ -143,8 +144,8 @@ const PublicProfilePage = ({ routeParams, user }) => {
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-zinc-200 py-24 px-4 sm:px-8 max-w-7xl mx-auto">
-      <button onClick={() => window.history.pushState({}, '', '/') && window.dispatchEvent(new Event('popstate'))} className="text-zinc-500 hover:text-zinc-300 uppercase tracking-widest text-xs mb-8 flex items-center gap-2">
-        <ArrowLeft size={16} /> Back to Dashboard
+      <button onClick={() => navigateTo(isOwner ? '/dashboard' : '/')} className="text-zinc-500 hover:text-zinc-300 uppercase tracking-widest text-xs mb-8 flex items-center gap-2">
+        <ArrowLeft size={16} /> {isOwner ? 'Back to Dashboard' : 'Back Home'}
       </button>
 
       <header className="mb-12 border-b border-zinc-900 pb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
@@ -206,16 +207,18 @@ const PublicProfilePage = ({ routeParams, user }) => {
           {/* LEFT: Photos & Rating */}
           <div className="lg:col-span-4 flex flex-col gap-6">
             <div className="relative rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl bg-zinc-950">
-              <img src={activeSide === 'front' ? activeScan.frontImageUrl : activeScan.sideImageUrl} className="w-full aspect-[3/4] object-cover" />
+              <img src={activeSide === 'side' && hasSideScan ? activeScan.sideImageUrl : activeScan.frontImageUrl} className="w-full aspect-[3/4] object-cover" />
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 pt-24 flex justify-between items-end">
                 <div>
                   <p className="text-[10px] text-cyan-400 uppercase tracking-widest font-bold mb-1">Overall Rating</p>
-                  <p className="text-6xl font-black italic tracking-tighter text-white">{activeSide === 'front' ? activeScan.finalRating : activeScan.sideRating}</p>
-                  <p className="text-zinc-500 text-xs uppercase tracking-widest mt-1">{activeSide === 'front' ? 'Front' : 'Side'} Profile</p>
+                  <p className="text-6xl font-black italic tracking-tighter text-white">{activeSide === 'side' && hasSideScan ? activeScan.sideRating : activeScan.finalRating}</p>
+                  <p className="text-zinc-500 text-xs uppercase tracking-widest mt-1">{activeSide === 'side' && hasSideScan ? 'Side' : 'Front'} Profile</p>
                 </div>
                 <div className="flex bg-zinc-900/80 rounded-lg p-1 border border-zinc-700/50 backdrop-blur-md">
                   <button onClick={() => setActiveSide('front')} className={`px-3 py-1.5 text-xs font-bold uppercase tracking-widest rounded ${activeSide === 'front' ? 'bg-cyan-500 text-black' : 'text-zinc-400 hover:text-white'}`}>Front</button>
-                  <button onClick={() => setActiveSide('side')} className={`px-3 py-1.5 text-xs font-bold uppercase tracking-widest rounded ${activeSide === 'side' ? 'bg-cyan-500 text-black' : 'text-zinc-400 hover:text-white'}`}>Side</button>
+                  {hasSideScan && (
+                    <button onClick={() => setActiveSide('side')} className={`px-3 py-1.5 text-xs font-bold uppercase tracking-widest rounded ${activeSide === 'side' ? 'bg-cyan-500 text-black' : 'text-zinc-400 hover:text-white'}`}>Side</button>
+                  )}
                 </div>
               </div>
             </div>
@@ -328,10 +331,10 @@ const PublicProfilePage = ({ routeParams, user }) => {
       <div className="mt-24 pt-12 border-t border-zinc-900">
         <h2 className="text-2xl font-black italic uppercase tracking-widest text-white mb-6 text-center">Explore Community</h2>
         <div className="flex justify-center gap-6">
-           <button onClick={() => window.history.pushState({}, '', '/') && window.dispatchEvent(new Event('popstate'))} className="text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-widest text-sm flex items-center gap-2 bg-cyan-500/10 px-6 py-3 rounded-xl border border-cyan-500/20 transition-all hover:bg-cyan-500/20">
+           <button onClick={() => navigateTo('/mog-battles')} className="text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-widest text-sm flex items-center gap-2 bg-cyan-500/10 px-6 py-3 rounded-xl border border-cyan-500/20 transition-all hover:bg-cyan-500/20">
              Mog Battles <ArrowUpRight size={16} />
            </button>
-           <button onClick={() => window.history.pushState({}, '', '/') && window.dispatchEvent(new Event('popstate'))} className="text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-widest text-sm flex items-center gap-2 bg-cyan-500/10 px-6 py-3 rounded-xl border border-cyan-500/20 transition-all hover:bg-cyan-500/20">
+           <button onClick={() => navigateTo('/celebrity')} className="text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-widest text-sm flex items-center gap-2 bg-cyan-500/10 px-6 py-3 rounded-xl border border-cyan-500/20 transition-all hover:bg-cyan-500/20">
              Community Scans <ArrowUpRight size={16} />
            </button>
         </div>

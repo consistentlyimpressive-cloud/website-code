@@ -5,12 +5,12 @@ import { COMMUNITY_SCANS } from '../data/communityScans';
 /**
  * Compact “explore” strip for the free-tier results dashboard.
  */
-export function DashboardHubPreviewsCompact({ setCurrentPage }) {
+export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = false, onOpenCommunityScan = null }) {
   const previewScans = COMMUNITY_SCANS.slice(0, 3);
   return (
     <div className="mt-12 pt-10 border-t border-zinc-800/80">
       <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-6">Explore MogCheck</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className={hideCommunity ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'grid grid-cols-1 md:grid-cols-3 gap-4'}>
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 flex flex-col gap-3">
           <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-widest">
             <Swords size={14} /> Mog Battles
@@ -24,25 +24,32 @@ export function DashboardHubPreviewsCompact({ setCurrentPage }) {
             Go to Mog Battles <ChevronRight size={14} />
           </button>
         </div>
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-emerald-400/90 text-xs font-bold uppercase tracking-widest">
-            <Users size={14} /> Community Scans
+        {!hideCommunity && (
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-emerald-400/90 text-xs font-bold uppercase tracking-widest">
+              <Users size={14} /> Community Scans
+            </div>
+            <div className="flex gap-1">
+              {previewScans.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => (onOpenCommunityScan ? onOpenCommunityScan(s) : setCurrentPage('celebrity'))}
+                  className="group relative flex-1 aspect-[3/4] rounded-lg overflow-hidden border border-zinc-700/50 text-left hover:border-emerald-400/40 transition-colors"
+                >
+                  <img src={s.dashboardData?.frontImage} alt="" className="w-full h-full object-cover object-top" />
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setCurrentPage('celebrity')}
+              className="mt-auto flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/15 transition-colors"
+            >
+              Go to Community Scans <ChevronRight size={14} />
+            </button>
           </div>
-          <div className="flex gap-1">
-            {previewScans.map((s) => (
-              <div key={s.id} className="flex-1 aspect-[3/4] rounded-lg overflow-hidden border border-zinc-700/50">
-                <img src={s.dashboardData?.frontImage} alt="" className="w-full h-full object-cover object-top" />
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() => setCurrentPage('celebrity')}
-            className="mt-auto flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/15 transition-colors"
-          >
-            Go to Community Scans <ChevronRight size={14} />
-          </button>
-        </div>
+        )}
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 flex flex-col gap-3">
           <div className="flex items-center gap-2 text-violet-400 text-xs font-bold uppercase tracking-widest">
             <Newspaper size={14} /> News &amp; Media

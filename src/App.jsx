@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Gauge } from 'lucide-react';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import NewsPage from './components/NewsPage';
@@ -36,6 +36,87 @@ function stripCommunityDashboardData(dd) {
   if (!dd || typeof dd !== 'object') return dd;
   const { bestFeatures, primaryFlaws, sideBestFeatures, sidePrimaryFlaws, ...rest } = dd;
   return rest;
+}
+
+function normalizeFeatureList(items, fallbackLabel) {
+  if (!Array.isArray(items)) return [];
+
+  const cleanText = (value) => {
+    if (typeof value !== 'string') return '';
+    return value.replace(/\s+/g, ' ').trim();
+  };
+
+  return items
+    .map((item, index) => {
+      if (typeof item === 'string') {
+        const description = cleanText(item);
+        if (!description) return null;
+        return {
+          title: `${fallbackLabel} ${index + 1}`,
+          description,
+        };
+      }
+
+      if (!item || typeof item !== 'object') return null;
+
+      const title = [
+        item.title,
+        item.name,
+        item.label,
+        item.feature,
+        item.heading,
+      ]
+        .map(cleanText)
+        .find(Boolean);
+
+      const description = [
+        item.description,
+        item.desc,
+        item.summary,
+        item.text,
+        item.details,
+        item.reason,
+        item.rationale,
+        item.value,
+      ]
+        .map(cleanText)
+        .find(Boolean);
+
+      if (!title && !description) return null;
+
+      return {
+        title: title || `${fallbackLabel} ${index + 1}`,
+        description:
+          description ||
+          (title
+            ? 'Included in the scan output without extra detail.'
+            : 'Included in the scan output.'),
+      };
+    })
+    .filter(Boolean);
+}
+
+function timestampToMillis(value) {
+  if (!value) return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const numeric = Number(value);
+    if (!Number.isNaN(numeric) && Number.isFinite(numeric)) return numeric;
+    const parsed = new Date(value).getTime();
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  if (typeof value?.toMillis === 'function') return value.toMillis();
+  if (typeof value?.seconds === 'number') {
+    const nanos = typeof value?.nanoseconds === 'number' ? value.nanoseconds / 1e6 : 0;
+    return value.seconds * 1000 + nanos;
+  }
+  const fallback = new Date(value).getTime();
+  return Number.isFinite(fallback) ? fallback : 0;
+}
+
+function formatTimestamp(value, fallback = 'Unknown Time') {
+  const millis = timestampToMillis(value);
+  return millis ? new Date(millis).toLocaleString() : fallback;
 }
 
 const firebaseConfig = {
@@ -616,9 +697,11 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
                 window.history.pushState({}, '', url);
                 window.dispatchEvent(new Event('popstate'));
               }}
-              className="bg-zinc-900/40 border border-zinc-800 rounded-2xl overflow-hidden cursor-pointer hover:border-cyan-500/50 transition-colors group relative"
+              className="bg-zinc-900/40 border border-zinc-800 rounded-[28px] overflow-hidden cursor-pointer hover:border-cyan-500/50 transition-colors group relative"
             >
-              <img src={scan.frontImage} className="w-full aspect-[3/4] object-cover object-top" alt="Community Scan" />
+              <div className="overflow-hidden rounded-[28px]">
+                <img src={scan.frontImage} className="w-full aspect-[3/4] object-cover object-top" alt="Community Scan" />
+              </div>
               <div className="absolute top-3 left-3 z-20">
                 <span className={`border text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded backdrop-blur-md ${tierBadgeClass}`}>
                   {scanTier}
@@ -849,10 +932,10 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
   };
 
   // Compute daily scans
-  const todayScans = scans.filter(s => {
-    if (!s.timestamp) return false;
-    const d = new Date(s.timestamp.seconds * 1000);
-    return d.toDateString() === new Date().toDateString();
+  const todayScans = scans.filter((scan) => {
+    const millis = timestampToMillis(scan.timestamp || scan.scannedAt || scan.createdAt);
+    if (!millis) return false;
+    return new Date(millis).toDateString() === new Date().toDateString();
   }).length;
 
   return (
@@ -936,7 +1019,7 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
                           {scan.success === false && <span className="bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Failed</span>}
                         </div>
                         <div className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest">
-                          {scan.timestamp ? new Date(scan.timestamp.seconds * 1000).toLocaleString() : 'Unknown Time'}
+                          {formatTimestamp(scan.timestamp || scan.scannedAt || scan.createdAt)}
                         </div>
                       </div>
                     </div>
@@ -1098,8 +1181,8 @@ const HomePage = ({ setCurrentPage }) => {
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
           <ComparisonCard beforeImgSrc={compBefore1} afterImgSrc={compAfter1} beforeScore="4.8" afterScore="7.4" review={reviewsData[0]} />
-          <ComparisonCard beforeImgSrc={compBefore2} afterImgSrc={compAfter2} beforeScore="5.2" afterScore="8.5" isActive={true} review={reviewsData[1]} />
-          <ComparisonCard beforeImgSrc={compBefore3} afterImgSrc={compAfter3} beforeScore="4.5" afterScore="7.1" review={reviewsData[2]} />
+          <ComparisonCard beforeImgSrc={compBefore2} afterImgSrc={compAfter2} beforeScore="5.2" afterScore="8.5" isActive={true} review={reviewsData[2]} />
+          <ComparisonCard beforeImgSrc={compBefore3} afterImgSrc={compAfter3} beforeScore="4.5" afterScore="7.1" review={reviewsData[1]} />
         </div>
       </FadeUp>
     </section>
@@ -1622,6 +1705,8 @@ const ScanningView = ({
       const scanStartedAt = Date.now();
       let scanSucceeded = false;
       try {
+        const isUltra = choice === "1" || choice === "2";
+
         setStatusText("Checking analysis server...");
         try {
           const healthCtrl = new AbortController();
@@ -1644,6 +1729,55 @@ const ScanningView = ({
           return;
         }
 
+        if (isUltra && !user) {
+          setStatusText('Sign in required for Ultra / Fun mode scans. Use Basic scan while signed out, or log in and try again.');
+          setHasError(true);
+          return;
+        }
+
+        let authToken = null;
+        if (isUltra) {
+          setStatusText("Checking premium access...");
+          try {
+            const readyCtrl = new AbortController();
+            const readyTimer = setTimeout(() => readyCtrl.abort(), 8000);
+            const readyRes = await fetch(`${API_BASE}/api/ready`, { signal: readyCtrl.signal });
+            clearTimeout(readyTimer);
+
+            let readyData = null;
+            try {
+              readyData = await readyRes.json();
+            } catch (e) {
+              readyData = null;
+            }
+
+            if (!readyRes.ok || readyData?.ok === false) {
+              const readyError =
+                (readyData && typeof readyData.error === 'string' && readyData.error.trim()) ||
+                'Premium scans are unavailable because the backend Firebase connection is not ready.';
+              setStatusText(readyError);
+              setHasError(true);
+              return;
+            }
+          } catch (e) {
+            console.error("Premium preflight failed", e);
+            setStatusText(
+              `Can't verify premium access on ${API_BASE}. If you're using mogcheck.net with your PC backend, make sure the tunnel is up and Firebase Admin is configured on this machine.`
+            );
+            setHasError(true);
+            return;
+          }
+
+          try {
+            authToken = await user.getIdToken(true);
+          } catch (e) {
+            console.error("Failed to refresh auth token", e);
+            setStatusText('Your session could not be refreshed. Sign out and sign back in, then try the premium scan again.');
+            setHasError(true);
+            return;
+          }
+        }
+
         setStatusText("Uploading image to secure AI server...");
 
         const formData = new FormData();
@@ -1657,12 +1791,6 @@ const ScanningView = ({
         formData.append('choice', choice || "3");
         if (profileId) formData.append('profileId', profileId);
 
-        const isUltra = choice === "1" || choice === "2";
-        if (isUltra && !user) {
-          setStatusText('Sign in required for Ultra / Fun mode scans. Use Basic scan while signed out, or log in and try again.');
-          setHasError(true);
-          return;
-        }
         if (isUltra && (sideImageUrl || sideImageFile)) {
           if (sideImageFile instanceof File) {
             formData.append('sideImage', sideImageFile, sideImageFile.name || 'side.jpg');
@@ -1676,16 +1804,8 @@ const ScanningView = ({
         setStatusText('Running AI analysis… 0:00 elapsed (usually 30s–3 min). Leave this tab open.');
 
         const headers = {};
-        if (isUltra && user) {
-          try {
-            const token = await user.getIdToken();
-            headers.Authorization = `Bearer ${token}`;
-          } catch (e) {
-            console.error("Failed to get auth token", e);
-            setStatusText(GENERIC_ERROR);
-            setHasError(true);
-            return;
-          }
+        if (authToken) {
+          headers.Authorization = `Bearer ${authToken}`;
         }
 
         /** So the UI never sits on “Consulting AI” forever if Python/API hangs */
@@ -1945,17 +2065,21 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     user.email.endsWith('@looksmaxxing.com')
   );
 
+  const planResolved = !user || userPlan?.loaded !== false;
+  const ultraAccessPending = !!user && !isAdmin && !planResolved;
   const canUseUltra =
     !!user &&
-    (userPlan?.plan === 'pro' ||
-      isAdmin ||
-      (userPlan?.plan === 'single_scan' && (userPlan?.scanCredits ?? 0) > 0));
+    (isAdmin ||
+      (planResolved &&
+        (userPlan?.plan === 'pro' ||
+          (userPlan?.plan === 'single_scan' && (userPlan?.scanCredits ?? 0) > 0))));
 
   useEffect(() => {
+    if (ultraAccessPending) return;
     if (!canUseUltra && (selectedModel === '1' || selectedModel === '2')) {
       setSelectedModel('3');
     }
-  }, [canUseUltra, selectedModel]);
+  }, [canUseUltra, selectedModel, ultraAccessPending]);
 
   useEffect(() => {
     if (!isUltraModel) {
@@ -2039,11 +2163,8 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                       
                       if (prev && prev.frontImage && prev.finalRating && newScanHistory.length === 0) {
                          newScanHistory.push({
-                           frontImage: prev.frontImage,
-                           sideImage: prev.sideImage,
-                           finalRating: prev.finalRating,
-                           categories: prev.categories,
-                           sideCategories: prev.sideCategories,
+                           ...prev,
+                           scannedAt: prev.scannedAt || new Date().toISOString(),
                          });
                       }
                       if (prev && prev.finalRating && newRatingHistory.length === 0) {
@@ -2052,12 +2173,12 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
                       if (data.finalRating) {
                         newScanHistory.push({
-                           frontImage: frontImage,
-                           sideImage: sideImage,
-                           finalRating: data.finalRating,
-                           categories: data.categories,
-                           sideCategories: data.sideCategories,
-                        });
+                           ...data,
+                           frontImage,
+                           sideImage,
+                           selectedModel,
+                           scannedAt: new Date().toISOString(),
+                         });
                         newRatingHistory.push(data.finalRating);
                       }
 
@@ -2079,61 +2200,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                   <span className="text-cyan-400 font-bold font-sans text-xs uppercase tracking-[0.3em]">Scroll down while you wait</span>
                 </div>
                 <ChevronRight size={24} className="text-cyan-400 rotate-90 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
-              </div>
-            </div>
-            <div className="border-t border-zinc-800/50 w-full pt-16 pb-12 px-6">
-              <div className="max-w-6xl mx-auto flex flex-col gap-6">
-                <div className="text-center">
-                  <h2 className="text-2xl font-black uppercase tracking-tighter italic text-white mb-2">Community Scans</h2>
-                  <p className="text-zinc-400 font-sans text-sm uppercase tracking-widest">See how others in the community stack up.</p>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {COMMUNITY_SCANS.map((scan) => {
-                    const dd = scan.dashboardData;
-                    const rating = dd?.finalRating ?? 0;
-                    const tierUpper = String(scan.tier || '').toUpperCase();
-                    const tierBadgeClass =
-                      tierUpper.includes('S') && tierUpper.includes('TIER')
-                        ? 'bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
-                        : tierUpper.includes('A') && tierUpper.includes('TIER')
-                          ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.6)]'
-                          : 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
-                    return (
-                      <div key={scan.id} className="text-left bg-[#0c0d0e] border border-zinc-800 rounded-2xl overflow-hidden relative">
-                        <div className="aspect-[3/4] bg-zinc-900 relative">
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-transparent to-transparent z-10 pointer-events-none" />
-                          {dd?.frontImage ? (
-                            <img
-                              src={dd.frontImage}
-                              alt=""
-                              className="absolute inset-0 w-full h-full object-cover object-top"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-zinc-700 opacity-50">
-                              <Users size={48} />
-                            </div>
-                          )}
-                          <div className="absolute top-3 left-3 z-20">
-                            <span className={`border text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${tierBadgeClass}`}>
-                              {scan.tier || '—'}
-                            </span>
-                          </div>
-                          <div className="absolute bottom-3 left-3 z-20 flex items-baseline gap-1">
-                            <span className="text-white font-black italic text-2xl drop-shadow-[0_0_10px_rgba(255,255,255,0.4)] tabular-nums">
-                              {Number(rating).toFixed(1)}
-                            </span>
-                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
-                          </div>
-                        </div>
-                        <div className="p-4 flex items-center justify-between bg-[#0a0a0b] relative z-20">
-                          <span className="text-zinc-400 font-mono text-[10px] uppercase tracking-widest truncate">
-                            Community Scan
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
               </div>
             </div>
             <div className="border-t border-zinc-800/50">
@@ -2253,7 +2319,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                           {active?.name ?? "Select a model"}
                         </span>
                         <span className="text-[10px] font-sans uppercase tracking-[0.22em] text-zinc-500 truncate">
-                          {isUltra ? "Premium tier" : "Specialized engine"}
+                          {isUltra ? "Premium model" : "Free model"}
                         </span>
                       </span>
                     </span>
@@ -2279,7 +2345,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                           <div key={`sep-${idx}`} className="px-3 py-2">
                             <div className="flex items-center gap-3">
                               <div className="h-px flex-1 bg-zinc-800/80" />
-                              <span className="text-[9px] font-sans uppercase tracking-[0.35em] text-zinc-600">Specialized</span>
+                              <span className="text-[9px] font-sans uppercase tracking-[0.35em] text-zinc-600">Free Models</span>
                               <div className="h-px flex-1 bg-zinc-800/80" />
                             </div>
                           </div>
@@ -2290,7 +2356,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                       const isUltra = m.tier === 'ultra';
                       const Icon = m.Icon ?? MogCheckLogoIcon;
 
-                      const ultraLocked = isUltra && !canUseUltra;
+                      const ultraLocked = isUltra && !ultraAccessPending && !canUseUltra;
 
                       return (
                         <button
@@ -2351,7 +2417,12 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                               </span>
                               {isUltra && (
                                 <span className="text-[9px] font-sans uppercase tracking-[0.3em] text-yellow-300/80 border border-yellow-500/20 bg-yellow-500/10 px-2 py-1 rounded-full">
-                                  {ultraLocked ? 'Pro / 1 scan' : 'Premium'}
+                                  {ultraAccessPending ? 'Checking...' : ultraLocked ? 'Pro / 1 scan' : 'Premium'}
+                                </span>
+                              )}
+                              {!isUltra && (
+                                <span className="text-[9px] font-sans uppercase tracking-[0.3em] text-cyan-300/80 border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 rounded-full">
+                                  Free
                                 </span>
                               )}
                               {isActive && (
@@ -2383,6 +2454,12 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
               )}
             </div>
           </div>
+
+            {ultraAccessPending && (
+              <p className="w-full max-w-sm -mt-8 mb-8 text-center text-[10px] font-sans uppercase tracking-[0.28em] text-zinc-500">
+                Checking your premium access...
+              </p>
+            )}
 
             {user && (
               <div className="w-full max-w-md mx-auto mb-8 rounded-2xl p-[1px] bg-gradient-to-br from-cyan-500/40 via-zinc-700/50 to-violet-500/30 shadow-[0_0_40px_rgba(34,211,238,0.08)]">
@@ -2463,7 +2540,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                 setSelectedProfileId(actualProfileId);
                 setIsScanning(true);
               }} 
-              disabled={isUltraModel ? (!frontImage || !sideImage || !canUseUltra) : !frontImage} 
+              disabled={isUltraModel ? (!frontImage || !sideImage || ultraAccessPending || !canUseUltra) : !frontImage} 
               className={`relative overflow-hidden px-20 py-6 bg-white text-black font-black uppercase tracking-widest text-lg md:text-xl flex items-center justify-center gap-5 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none ${justUnlocked ? 'animate-[buttonUnlock_1s_ease-out_forwards]' : 'shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}
             >
             {justUnlocked && <div className="absolute top-0 bottom-0 w-[50%] bg-gradient-to-r from-transparent via-white to-transparent opacity-80 mix-blend-overlay" style={{ animation: 'sweepGlow 1.5s ease-out forwards' }} />}
@@ -2573,6 +2650,19 @@ const categoryToRadar10 = (v, fallbackRaw) => {
   if (v == null || Number.isNaN(Number(v))) return fallback;
   const n = Number(v);
   return n > 10 ? n / 10 : n;
+};
+
+const hexagonToRadarData = (hexagon, fallbackRaw) => {
+  if (!hexagon || typeof hexagon !== 'object') return null;
+  const keys = ['Harmony', 'Symmetry', 'Dimorphism', 'Skin', 'Bone'];
+  const out = keys.map((label) => {
+    const raw = hexagon[label];
+    if (raw == null || raw === 'N/A' || Number.isNaN(Number(raw))) {
+      return { label, val: categoryToRadar10(null, fallbackRaw) };
+    }
+    return { label, val: categoryToRadar10(Number(raw), fallbackRaw) };
+  });
+  return out.some((item) => item.val != null) ? out : null;
 };
 
 // --- Radar Chart Component ---
@@ -2749,8 +2839,7 @@ const FeatureCard = ({ type = 'best', title, description }) => {
   );
 };
 
-const DashboardOverview = ({ dashboardData, isFreePlan, activeProfileView }) => {
-  const [isExpanded, setIsExpanded] = useState(isFreePlan || false);
+const DashboardOverview = ({ dashboardData, isRestrictedPreview, activeProfileView }) => {
   const summary =
     dashboardData?.technicalSummary &&
     dashboardData.technicalSummary !== 'Could not generate technical summary.'
@@ -2764,8 +2853,21 @@ const DashboardOverview = ({ dashboardData, isFreePlan, activeProfileView }) => 
   const rawFeatures = isSide && dashboardData?.sideBestFeatures?.length
     ? dashboardData.sideBestFeatures
     : dashboardData?.bestFeatures;
-  const displayFlaws = isFreePlan ? rawFlaws?.slice(0, 1) : rawFlaws;
-  const displayFeatures = isFreePlan ? rawFeatures?.slice(0, 1) : rawFeatures;
+  const displayFlaws = useMemo(() => normalizeFeatureList(rawFlaws, 'Primary flaw'), [rawFlaws]);
+  const displayFeatures = useMemo(() => normalizeFeatureList(rawFeatures, 'Best feature'), [rawFeatures]);
+  const shouldExpand = isRestrictedPreview || displayFlaws.length > 0 || displayFeatures.length > 0;
+  const [isExpanded, setIsExpanded] = useState(shouldExpand);
+
+  useEffect(() => {
+    setIsExpanded(shouldExpand);
+  }, [
+    shouldExpand,
+    activeProfileView,
+    dashboardData?.frontImage,
+    dashboardData?.sideImage,
+    dashboardData?.finalRating,
+    dashboardData?.sideRating,
+  ]);
 
   return (
     <div className="bg-zinc-900/30 p-8 rounded-3xl border border-zinc-800 flex flex-col relative overflow-hidden">
@@ -2792,9 +2894,18 @@ const DashboardOverview = ({ dashboardData, isFreePlan, activeProfileView }) => 
           <div className="flex flex-col gap-4">
             <h4 className="text-red-400 font-bold uppercase tracking-widest text-xs mb-2">PRIMARY FLAWS</h4>
             <div className="flex flex-col gap-4 z-10 w-full relative">
-              {displayFlaws?.map((flaw, idx) => (
-                 <FeatureCard key={idx} type="flaw" title={flaw.title} description={flaw.description} />
-              )) || <p className="text-zinc-500 italic">No flaws detected or backend disconnected.</p>}
+              {displayFlaws.length > 0 ? (
+                displayFlaws.map((flaw, idx) => (
+                  <FeatureCard
+                    key={`flaw-${idx}-${flaw.title}`}
+                    type="flaw"
+                    title={flaw.title}
+                    description={flaw.description}
+                  />
+                ))
+              ) : (
+                <p className="text-zinc-500 italic">No flaws detected or backend disconnected.</p>
+              )}
             </div>
           </div>
 
@@ -2802,9 +2913,18 @@ const DashboardOverview = ({ dashboardData, isFreePlan, activeProfileView }) => 
           <div className="flex flex-col gap-4">
             <h4 className="text-green-400 font-bold uppercase tracking-widest text-xs mb-2">BEST FEATURES</h4>
             <div className="flex flex-col gap-4 z-10 w-full relative">
-              {displayFeatures?.map((feature, idx) => (
-                 <FeatureCard key={idx} type="best" title={feature.title} description={feature.description} />
-              )) || <p className="text-zinc-500 italic">No features detected or backend disconnected.</p>}
+              {displayFeatures.length > 0 ? (
+                displayFeatures.map((feature, idx) => (
+                  <FeatureCard
+                    key={`feature-${idx}-${feature.title}`}
+                    type="best"
+                    title={feature.title}
+                    description={feature.description}
+                  />
+                ))
+              ) : (
+                <p className="text-zinc-500 italic">No features detected or backend disconnected.</p>
+              )}
             </div>
           </div>
         </div>
@@ -2814,7 +2934,7 @@ const DashboardOverview = ({ dashboardData, isFreePlan, activeProfileView }) => 
         )}
       </div>
 
-      {!isFreePlan && (
+      {!isRestrictedPreview && (
         <button 
           onClick={() => setIsExpanded(!isExpanded)}
           className="mt-6 self-start md:self-center px-6 py-2 border border-zinc-700 rounded-full text-zinc-400 text-[10px] font-sans uppercase tracking-widest hover:text-white hover:border-zinc-500 transition-colors"
@@ -3229,8 +3349,10 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover })
 };
 
 const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection }) => {
-  const paidPlan = hasEffectiveProAccess(user, userPlan);
-  const isFreePlan = paidPlan ? false : (dashboardData?.selectedModel ? ['3', '4', '5'].includes(dashboardData.selectedModel) : false);
+  const selectedModel = String(dashboardData?.selectedModel || '').trim();
+  const isFreeModelResult = ['3', '4', '5'].includes(selectedModel);
+  const hasFullProUnlock = userPlan?.plan === 'pro';
+  const isRestrictedPreview = isFreeModelResult && !hasFullProUnlock;
   const showBestFlaw = !hideBestFlawSection;
 
   const renderBlurredOverlay = (title) => (
@@ -3262,6 +3384,18 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
       document.body.style.overflow = prev;
     };
   }, [communityPeek]);
+
+  const openCommunityScan = useCallback((scan) => {
+    if (!scan?.dashboardData) return;
+    setCommunityPeek({
+      id: scan.id,
+      tier: scan.tier || null,
+      data: {
+        ...scan.dashboardData,
+        selectedModel: String(scan.dashboardData?.selectedModel || '1'),
+      },
+    });
+  }, []);
 
   const handleUnlock = async () => {
     setIsUnlocking(true);
@@ -3319,15 +3453,18 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   ];
 
   const frForRadar = dashboardData?.finalRating;
-  const radarData = activeCats
-    ? [
-        { label: 'Harmony', val: categoryToRadar10(activeCats.Harmony, frForRadar) },
-        { label: 'Symmetry', val: categoryToRadar10(activeCats.Symmetry, frForRadar) },
-        { label: 'Dimorphism', val: categoryToRadar10(activeCats.Dimorphism, frForRadar) },
-        { label: 'Skin', val: categoryToRadar10(activeCats.Skin, frForRadar) },
-        { label: 'Bone', val: categoryToRadar10(activeCats.Bone, frForRadar) },
-      ]
-    : defaultRadar;
+  const activeHexagon = isSideView ? dashboardData?.hexagonSide : dashboardData?.hexagonFront;
+  const radarData =
+    hexagonToRadarData(activeHexagon, frForRadar) ||
+    (activeCats
+      ? [
+          { label: 'Harmony', val: categoryToRadar10(activeCats.Harmony, frForRadar) },
+          { label: 'Symmetry', val: categoryToRadar10(activeCats.Symmetry, frForRadar) },
+          { label: 'Dimorphism', val: categoryToRadar10(activeCats.Dimorphism, frForRadar) },
+          { label: 'Skin', val: categoryToRadar10(activeCats.Skin, frForRadar) },
+          { label: 'Bone', val: categoryToRadar10(activeCats.Bone, frForRadar) },
+        ]
+      : defaultRadar);
 
   const getCatScore = (catName) => {
     if (!dashboardData?.categories) return null;
@@ -3373,24 +3510,40 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
     ? (dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png")
     : (dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png");
 
-  const activeBestFeatures = isSideView && dashboardData?.sideBestFeatures?.length
-    ? dashboardData.sideBestFeatures
-    : dashboardData?.bestFeatures;
-  const activePrimaryFlaws = isSideView && dashboardData?.sidePrimaryFlaws?.length
-    ? dashboardData.sidePrimaryFlaws
-    : dashboardData?.primaryFlaws;
+  const activeBestFeatures = useMemo(
+    () =>
+      normalizeFeatureList(
+        isSideView && dashboardData?.sideBestFeatures?.length
+          ? dashboardData.sideBestFeatures
+          : dashboardData?.bestFeatures,
+        'Best feature'
+      ),
+    [dashboardData?.bestFeatures, dashboardData?.sideBestFeatures, isSideView]
+  );
+  const activePrimaryFlaws = useMemo(
+    () =>
+      normalizeFeatureList(
+        isSideView && dashboardData?.sidePrimaryFlaws?.length
+          ? dashboardData.sidePrimaryFlaws
+          : dashboardData?.primaryFlaws,
+        'Primary flaw'
+      ),
+    [dashboardData?.primaryFlaws, dashboardData?.sidePrimaryFlaws, isSideView]
+  );
+  const primaryBestFeature = showBestFlaw ? activeBestFeatures[0] ?? null : null;
+  const primaryFlawFeature = showBestFlaw ? activePrimaryFlaws[0] ?? null : null;
 
   const [activeHover, setActiveHover] = useState(null);
 
   useEffect(() => {
-    if (!isFreePlan) return;
+    if (!isRestrictedPreview) return;
     const interval = setInterval(() => {
       setFreeRatingLoop((prev) => (prev >= 95 ? 70 : prev + 1));
     }, 120);
     return () => clearInterval(interval);
-  }, [isFreePlan]);
+  }, [isRestrictedPreview]);
 
-  const displayedFinalRating = isFreePlan
+  const displayedFinalRating = isRestrictedPreview
     ? freeRatingLoop
     : (isSideView
         ? (dashboardData?.sideRating ?? dashboardData?.finalRating ?? 85)
@@ -3415,7 +3568,9 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
               Community Scans
             </button>
             <div className="min-w-0 flex-1">
-              <p className="font-sans text-[10px] uppercase tracking-[0.35em] text-zinc-500">Community scan</p>
+              <p className="font-sans text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+                Community scan{communityPeek?.tier ? ` · ${communityPeek.tier}` : ''}
+              </p>
               <h2 id="free-community-scan-title" className="truncate font-black uppercase italic tracking-tight text-white">
                 Community Scan
               </h2>
@@ -3432,7 +3587,6 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
               hideActionableProtocols
               isEmbedded
               hideUnlockPotential
-              hideBestFlawSection
             />
           </div>
         </div>
@@ -3521,9 +3675,9 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           )}
 
           {/* Free vs Pro Adaptive Layout */}
-          {isFreePlan ? (
+          {isRestrictedPreview ? (
             <>
-              <DashboardOverview dashboardData={dashboardData} isFreePlan={isFreePlan} activeProfileView={activeProfileView} />
+              <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={activeProfileView} />
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
@@ -3559,12 +3713,12 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                   <div className="flex flex-col md:flex-row gap-8 items-center justify-center flex-grow">
                     <StructureMap 
                       activeImageUrl={activeImageUrl} 
-                      bestFeature={showBestFlaw ? activeBestFeatures?.[0] : null} 
-                      primaryFlaw={showBestFlaw ? activePrimaryFlaws?.[0] : null} 
+                      bestFeature={primaryBestFeature} 
+                      primaryFlaw={primaryFlawFeature} 
                       activeHover={showBestFlaw ? activeHover : null}
                     />
                     <div className="flex-grow space-y-4 w-full flex flex-col justify-center max-w-sm">
-                       {!isFreePlan && (
+                       {!isRestrictedPreview && (
                        <div className="flex gap-3 mb-2 w-full max-w-[16rem] mx-auto md:max-w-none">
                          <div onClick={() => setActiveProfileView('front')} className={`relative flex-1 aspect-square rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
                            <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" alt="Front" />
@@ -3578,6 +3732,21 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                          </div>
                        </div>
                        )}
+                      {showBestFlaw && (
+                        <div className="space-y-4">
+                          {primaryBestFeature && (
+                            <FeatureHighlightCard type="best" feature={primaryBestFeature} onHover={setActiveHover} />
+                          )}
+                          {primaryFlawFeature && (
+                            <FeatureHighlightCard type="flaw" feature={primaryFlawFeature} onHover={setActiveHover} />
+                          )}
+                          {!primaryBestFeature && !primaryFlawFeature && (
+                            <p className="text-zinc-500 text-xs font-sans leading-relaxed">
+                              Feature highlights will appear here once the scan returns best features and primary flaws.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -3613,8 +3782,8 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                   <div className="flex flex-col md:flex-row gap-8 items-center justify-center flex-grow">
                     <StructureMap 
                       activeImageUrl={activeImageUrl} 
-                      bestFeature={showBestFlaw ? activeBestFeatures?.[0] : null} 
-                      primaryFlaw={showBestFlaw ? activePrimaryFlaws?.[0] : null} 
+                      bestFeature={primaryBestFeature} 
+                      primaryFlaw={primaryFlawFeature} 
                       activeHover={showBestFlaw ? activeHover : null}
                     />
                     <div className="flex-grow space-y-4 w-full flex flex-col justify-center max-w-sm">
@@ -3630,6 +3799,21 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                            <span className={`absolute bottom-2 left-0 right-0 text-center text-[10px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
                          </div>
                        </div>
+                      {showBestFlaw && (
+                        <div className="space-y-4">
+                          {primaryBestFeature && (
+                            <FeatureHighlightCard type="best" feature={primaryBestFeature} onHover={setActiveHover} />
+                          )}
+                          {primaryFlawFeature && (
+                            <FeatureHighlightCard type="flaw" feature={primaryFlawFeature} onHover={setActiveHover} />
+                          )}
+                          {!primaryBestFeature && !primaryFlawFeature && (
+                            <p className="text-zinc-500 text-xs font-sans leading-relaxed">
+                              Feature highlights will appear here once the scan returns best features and primary flaws.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -3639,8 +3823,8 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
 
           {/* Detailed Ratios Section */}
           <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
-            {isFreePlan && renderBlurredOverlay("Detailed Ratios")}
-            <div className={`flex flex-col ${isFreePlan ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
+            {isRestrictedPreview && renderBlurredOverlay("Detailed Ratios")}
+            <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
               <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-10 flex items-center gap-2"><Activity size={14} className="text-zinc-500" /> Detailed Morphometric Ratios</h3>
               <div className="flex flex-col gap-10">
               {Object.entries(
@@ -3659,7 +3843,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                   <h4 className="text-cyan-500/80 font-bold uppercase tracking-widest text-xs mb-5 border-b border-zinc-800/80 pb-3">{cat}</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-12 gap-y-7">
                     {metrics.map((m, i) => (
-                      <MetricBar key={i} label={m.label} score={m.score} max={m.max || 100} displayValue={m.displayValue} isFreePlan={isFreePlan} />
+                      <MetricBar key={i} label={m.label} score={m.score} max={m.max || 100} displayValue={m.displayValue} isFreePlan={isRestrictedPreview} />
                     ))}
                   </div>
                 </div>
@@ -3668,13 +3852,13 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </div>
           </div>
 
-          {!isFreePlan && <DashboardOverview dashboardData={dashboardData} isFreePlan={isFreePlan} activeProfileView={activeProfileView} />}
+          {!isRestrictedPreview && <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={activeProfileView} />}
 
           {/* Actionable Protocol */}
           {!hideActionableProtocols && (
             <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 shadow-lg group hover:border-zinc-700 transition-colors">
-              {isFreePlan && renderBlurredOverlay("Actionable Protocol")}
-              <div className={`flex flex-col ${isFreePlan ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
+              {isRestrictedPreview && renderBlurredOverlay("Actionable Protocol")}
+              <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
                 <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-zinc-800 pb-4"><Target size={14} className="text-zinc-500" /> Actionable Protocol</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {(dashboardData?.protocols && dashboardData.protocols.length > 0
@@ -3705,7 +3889,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                         <ChevronDown size={14} className={`transition-transform duration-300 ${showAllProtocols ? 'rotate-180' : ''}`} />
                       </button>
                     )}
-                    {!dashboardData?.protocols?.length && !isFreePlan && (
+                    {!dashboardData?.protocols?.length && !isRestrictedPreview && (
                       <p className="text-zinc-600 font-sans text-[10px] uppercase tracking-widest mt-4 text-center">Run a premium analysis to get personalized protocols based on your weak points</p>
                     )}
               </div>
@@ -3714,8 +3898,8 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
 
           {!hideUnlockPotential && (
           <div className="bg-gradient-to-br from-zinc-900/80 to-black p-1 rounded-2xl overflow-hidden mt-4 relative shadow-[0_10px_50px_rgba(0,0,0,0.5)] border border-zinc-800/50 group hover:border-zinc-700 transition-colors">
-            {isFreePlan && renderBlurredOverlay("Analyze Potential")}
-            <div className={`bg-[#0a0a0b] p-8 md:p-12 rounded-[14px] flex flex-col md:flex-row items-center gap-12 relative overflow-hidden ${isFreePlan ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
+            {isRestrictedPreview && renderBlurredOverlay("Analyze Potential")}
+            <div className={`bg-[#0a0a0b] p-8 md:p-12 rounded-[14px] flex flex-col md:flex-row items-center gap-12 relative overflow-hidden ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
               
               {/* Glow effect behind the image */}
               {isUnlocked && <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-64 h-64 bg-cyan-500/20 blur-[100px] rounded-full pointer-events-none" />}
@@ -3782,7 +3966,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           </div>
           )}
 
-          {!isEmbedded && isFreePlan && (
+          {!isEmbedded && isRestrictedPreview && (
             <section className="w-full max-w-6xl mx-auto mt-8 scroll-mt-24">
               <div className="flex flex-col gap-6">
                 <div>
@@ -3804,14 +3988,10 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                       <button
                         key={scan.id}
                         type="button"
-                        onClick={() =>
-                          setCommunityPeek({
-                            data: stripCommunityDashboardData({ ...dd }),
-                          })
-                        }
-                        className="text-left bg-[#0c0d0e] border border-zinc-800 rounded-2xl overflow-hidden group cursor-pointer hover:border-cyan-500/50 hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] transition-all relative"
+                        onClick={() => openCommunityScan(scan)}
+                        className="text-left bg-[#0c0d0e] border border-zinc-800 rounded-[28px] overflow-hidden group cursor-pointer hover:border-cyan-500/50 hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] transition-all relative"
                       >
-                        <div className="aspect-[3/4] bg-zinc-900 relative">
+                        <div className="aspect-[3/4] bg-zinc-900 relative overflow-hidden rounded-[28px]">
                           <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-transparent to-transparent z-10 pointer-events-none" />
                           {dd?.frontImage ? (
                             <img
@@ -3837,8 +4017,8 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                           </div>
                         </div>
                         <div className="p-4 flex items-center justify-between bg-[#0a0a0b] relative z-20">
-                          <span className="text-zinc-400 font-mono text-[10px] uppercase tracking-widest group-hover:text-white transition-colors truncate">
-                            Community scan
+                          <span className="text-zinc-500 font-sans text-[9px] uppercase tracking-[0.25em]">
+                            View results & analysis
                           </span>
                           <ExternalLink size={12} className="text-zinc-600 group-hover:text-cyan-400 transition-colors shrink-0" />
                         </div>
@@ -3850,7 +4030,13 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </section>
           )}
 
-          {!isEmbedded && <DashboardHubPreviewsCompact setCurrentPage={setCurrentPage} />}
+          {!isEmbedded && (
+            <DashboardHubPreviewsCompact
+              setCurrentPage={setCurrentPage}
+              hideCommunity={isRestrictedPreview}
+              onOpenCommunityScan={openCommunityScan}
+            />
+          )}
 
         </div>
       </FadeUp>
@@ -4125,10 +4311,11 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       setStats(data);
       
       const usersRes = await fetch(`${API_BASE}/api/admin/users`, { headers: { 'x-admin-password': pw } });
-      if (usersRes.ok) {
-        const usersData = await usersRes.json();
-        setUsers(usersData.users || []);
+      const usersData = await usersRes.json().catch(() => ({}));
+      if (!usersRes.ok) {
+        throw new Error(usersData?.error || `Users endpoint failed (${usersRes.status})`);
       }
+      setUsers(Array.isArray(usersData.users) ? usersData.users : []);
       
       setLastRefresh(new Date());
       setAuthenticated(true);
@@ -4212,7 +4399,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
         alert('No scans found for this user.');
         return;
       }
-      const scanList = data.scans.map(s => `ID: ${s.id} | Rating: ${s.finalRating} | Model: ${s.model} | Time: ${new Date(s.timestamp?.seconds * 1000).toLocaleString()}`).join('\n');
+      const scanList = data.scans.map((s) => `ID: ${s.id} | Rating: ${s.finalRating} | Model: ${s.model} | Time: ${formatTimestamp(s.timestamp || s.scannedAt || s.createdAt)}`).join('\n');
       const toDelete = window.prompt(`Scans for ${email}:\n${scanList}\n\nEnter a Scan ID to delete it, or leave blank to cancel.`);
       if (toDelete) {
         if (!window.confirm(`Delete scan ${toDelete}?`)) return;
@@ -4849,6 +5036,8 @@ const App = () => {
   const [pendingUploadModel, setPendingUploadModel] = useState(null);
   const [selectedCelebrity, setSelectedCelebrity] = useState(null);
   const [routeParams, setRouteParams] = useState({});
+  const [user, setUser] = useState(null);
+  const [userPlan, setUserPlan] = useState({ plan: 'free', scanCredits: 0, loaded: false });
 
   useEffect(() => {
     const handlePopState = () => {
@@ -4856,15 +5045,23 @@ const App = () => {
       if (path.startsWith('/users/')) {
         const parts = path.split('/');
         if (parts.length >= 4) {
-          setRouteParams({ username: parts[2], profileId: parts[3] });
-          setCurrentPage('public-profile');
+          setRouteParams({ uid: parts[2], profileId: parts[3] });
+          _setCurrentPage('public-profile');
+        }
+        return;
+      }
+      if (path.startsWith('/profile/')) {
+        const parts = path.split('/');
+        if (parts.length >= 3) {
+          setRouteParams({ uid: user?.uid || null, profileId: parts[2] });
+          _setCurrentPage('public-profile');
         }
       }
     };
     handlePopState();
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [user?.uid]);
   const [lowPerfMode, setLowPerfMode] = useState(window.innerWidth < 768);
 
   useEffect(() => {
@@ -4874,30 +5071,36 @@ const App = () => {
       document.body.classList.remove('low-perf-mode');
     }
   }, [lowPerfMode]);
-  const [user, setUser] = useState(null);
-  const [userPlan, setUserPlan] = useState({ plan: 'free', scanCredits: 0 });
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (!user?.uid) { setUserPlan({ plan: 'free', scanCredits: 0 }); return; }
+    if (!user?.uid) { setUserPlan({ plan: 'free', scanCredits: 0, loaded: true }); return; }
+    setUserPlan((prev) => ({ ...prev, loaded: false }));
     
     // Setup Firestore listener for user plan
-    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        setUserPlan({
-          plan: data.plan || 'free',
-          scanCredits: data.scanCredits ?? 0,
-          subscriptionId: data.subscriptionId || null,
-        });
-      } else {
-        setUserPlan({ plan: 'free', scanCredits: 0 });
+    const unsubscribe = onSnapshot(
+      doc(db, 'users', user.uid),
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          setUserPlan({
+            plan: data.plan || 'free',
+            scanCredits: data.scanCredits ?? 0,
+            subscriptionId: data.subscriptionId || null,
+            loaded: true,
+          });
+        } else {
+          setUserPlan({ plan: 'free', scanCredits: 0, loaded: true });
+        }
+      },
+      (err) => {
+        console.error('User plan listener failed', err);
+        setUserPlan({ plan: 'free', scanCredits: 0, loaded: true });
       }
-    });
+    );
 
     // Session Heartbeat
     const sendHeartbeat = async () => {
@@ -4935,6 +5138,20 @@ const App = () => {
       (Array.isArray(dashboardData.biometrics) && dashboardData.biometrics.length > 0)
     );
   }, [dashboardData]);
+
+  const isFreeModelDashboard = useMemo(() => {
+    const model = String(dashboardData?.selectedModel || '').trim();
+    return model === '3' || model === '4' || model === '5';
+  }, [dashboardData?.selectedModel]);
+
+  const isPremiumModelDashboard = useMemo(() => {
+    const model = String(dashboardData?.selectedModel || '').trim();
+    return model === '1' || model === '2';
+  }, [dashboardData?.selectedModel]);
+
+  const useProDashboard = hasScanData
+    ? isPremiumModelDashboard
+    : hasEffectiveProAccess(user, userPlan) && !isFreeModelDashboard;
 
   useEffect(() => {
     if (currentPage !== 'dashboard') return;
@@ -4984,7 +5201,7 @@ const App = () => {
         )}
         {currentPage === 'results' && <ResultsPage />}
         {currentPage === 'dashboard' && (
-          hasEffectiveProAccess(user, userPlan)
+          useProDashboard
             ? (
               <ProDashboardPage
                 dashboardData={dashboardData}
@@ -4993,6 +5210,26 @@ const App = () => {
                 user={user}
                 onSignOut={handleSignOut}
                 setPendingUploadModel={setPendingUploadModel}
+                setDashboardData={setDashboardData}
+                hasActiveAnalysis={hasScanData}
+                analysisContent={
+                  hasScanData
+                    ? <DashboardPage dashboardData={dashboardData} setCurrentPage={setCurrentPage} userPlan={userPlan} user={user} hideTopSection isEmbedded />
+                    : null
+                }
+                renderCommunityDashboard={(communityData) => (
+                  <DashboardPage
+                    dashboardData={communityData}
+                    setCurrentPage={setCurrentPage}
+                    userPlan={userPlan}
+                    user={user}
+                    hideTopSection
+                    hideProtocols
+                    hideActionableProtocols
+                    isEmbedded
+                    hideUnlockPotential
+                  />
+                )}
               />
             )
             : <DashboardPage dashboardData={dashboardData} setCurrentPage={setCurrentPage} userPlan={userPlan} user={user} />

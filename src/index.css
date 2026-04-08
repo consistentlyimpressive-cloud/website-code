@@ -63,6 +63,17 @@
 .mogcheck-model-option:hover {
   transform: translateY(-1px) translateZ(0);
 }
+
+.mogcheck-profile-select {
+  color-scheme: dark;
+}
+
+.mogcheck-profile-select option,
+.mogcheck-profile-select optgroup {
+  background: #050608;
+  color: #f4f4f5;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mogcheck-model-option,
   .mogcheck-model-option:hover {

@@ -51,28 +51,30 @@ except ImportError:
 # ==========================================================
 # 🔑 API KEY VAULT
 # ==========================================================
-OR_KEY = "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"
-KIMI_KEY = "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"
+def env_key(name):
+    return (os.getenv(name) or "").strip()
 
-DEFAULT_GEMINI_KEYS = [
-    "AIzaSyAm-3t_Ct4YKGKhWYWyzFcsiBIGAtwTPNg", 
-    "AIzaSyBbSOqX-NlD4ruxKt52AXtIhAPi6CgjKdA", 
-    "AIzaSyCdCJD94NBBxIYohMKzdfKqep1W3hJ7Geg",
-    "AIzaSyCpAVTxcUfUdUHCPVM4lukrx-O5rRZ0Kzc",
-    "AIzaSyAybEzlJqP4-VBJaE9PTtgk1GECoLAAoJU"
-]
+
+def summarize_provider_error(err):
+    raw = str(err or "").strip().replace("\n", " ")
+    return raw[:220] if raw else "Unknown provider error"
+
 
 GEMINI_KEYS = [
-    os.getenv("GEMINI_KEY_1", DEFAULT_GEMINI_KEYS[0]),
-    os.getenv("GEMINI_KEY_2", DEFAULT_GEMINI_KEYS[1]),
-    os.getenv("GEMINI_KEY_3", DEFAULT_GEMINI_KEYS[2]),
-    os.getenv("GEMINI_KEY_4", DEFAULT_GEMINI_KEYS[3]),
-    os.getenv("GEMINI_KEY_5", DEFAULT_GEMINI_KEYS[4])
+    env_key("GEMINI_KEY_1"),
+    env_key("GEMINI_KEY_2"),
+    env_key("GEMINI_KEY_3"),
+    env_key("GEMINI_KEY_4"),
+    env_key("GEMINI_KEY_5"),
 ]
+GEMINI_KEYS = [k for k in GEMINI_KEYS if k]
+
+OPENROUTER_API_KEY = env_key("OPENROUTER_API_KEY")
+KIMI_API_KEY = env_key("KIMI_API_KEY")
 
 # Clients
-client_or = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OR_KEY)
-client_kimi = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=KIMI_KEY)
+client_or = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY) if OPENROUTER_API_KEY else None
+client_kimi = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=KIMI_API_KEY) if KIMI_API_KEY else None
 
 def encode_image(image_path):
     with open(image_path, "rb") as f:
@@ -98,7 +100,11 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
 
         if provider_type == "type_a":
             print(f"[DEBUG] Consulting {friendly_name}... (Press Ctrl+C to Cancel)")
-            for key in GEMINI_KEYS:
+            if not GEMINI_KEYS:
+                return "Error: No Gemini API keys are configured in backend/.env.", friendly_name, 0
+
+            gemini_errors = []
+            for index, key in enumerate(GEMINI_KEYS, start=1):
                 if not key: continue
                 try:
                     client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=240000))
@@ -115,12 +121,21 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
                     if res.text:
                         duration = round(time.time() - start_time, 2)
                         return res.text, friendly_name, duration
+                    gemini_errors.append(f"Key {index}: empty Gemini response")
                 except Exception as e:
                     if "User interrupted" in str(e): raise
-                    print(f"      [!] {friendly_name} failed on current key. Trying next...")
+                    msg = summarize_provider_error(e)
+                    gemini_errors.append(f"Key {index}: {msg}")
+                    print(f"      [!] {friendly_name} key {index} failed: {msg}")
                     continue
+
+            duration = round(time.time() - start_time, 2)
+            last_error = gemini_errors[-1] if gemini_errors else "Unknown Gemini error"
+            return f"Error: {friendly_name} failed on all configured Gemini keys. {last_error}", friendly_name, duration
         else:
             print(f"[DEBUG] Consulting {friendly_name}... (Press Ctrl+C to Cancel)")
+            if not client_or:
+                return "Error: OPENROUTER_API_KEY is not configured in backend/.env.", friendly_name, 0
             base64_img = encode_image(img_path)
             try:
                 res_or = client_or.chat.completions.create(
@@ -135,8 +150,13 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
                 if content:
                     duration = round(time.time() - start_time, 2)
                     return content, friendly_name, duration
+                duration = round(time.time() - start_time, 2)
+                return f"Error: {friendly_name} returned an empty response.", friendly_name, duration
             except Exception as e:
-                print(f"      [!] {friendly_name} failed: {e}")
+                msg = summarize_provider_error(e)
+                print(f"      [!] {friendly_name} failed: {msg}")
+                duration = round(time.time() - start_time, 2)
+                return f"Error: {friendly_name} failed. {msg}", friendly_name, duration
 
     except KeyboardInterrupt:
         print("\n[!] User Cancelled. Stopping request...")

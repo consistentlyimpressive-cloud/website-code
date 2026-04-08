@@ -284,7 +284,7 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData, userPlan }) => {
               <BattleCard 
                 battle={battle} 
                 user={user} 
-                isActive={true} 
+                isActive={activeBattleId === battle.id} 
               />
             </div>
           ))
