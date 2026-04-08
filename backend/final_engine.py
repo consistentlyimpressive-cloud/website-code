@@ -49,32 +49,30 @@ except ImportError:
     print("[DEBUG] WARNING: engineside.py not found. Side profile analysis will be skipped.")
 
 # ==========================================================
-# 🔑 API KEY VAULT
+# ðŸ”‘ API KEY VAULT
 # ==========================================================
-def env_key(name):
-    return (os.getenv(name) or "").strip()
+OR_KEY = "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"
+KIMI_KEY = "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"
 
-
-def summarize_provider_error(err):
-    raw = str(err or "").strip().replace("\n", " ")
-    return raw[:220] if raw else "Unknown provider error"
-
+DEFAULT_GEMINI_KEYS = [
+    "AIzaSyAm-3t_Ct4YKGKhWYWyzFcsiBIGAtwTPNg", 
+    "AIzaSyBbSOqX-NlD4ruxKt52AXtIhAPi6CgjKdA", 
+    "AIzaSyCdCJD94NBBxIYohMKzdfKqep1W3hJ7Geg",
+    "AIzaSyCpAVTxcUfUdUHCPVM4lukrx-O5rRZ0Kzc",
+    "AIzaSyAybEzlJqP4-VBJaE9PTtgk1GECoLAAoJU"
+]
 
 GEMINI_KEYS = [
-    env_key("GEMINI_KEY_1"),
-    env_key("GEMINI_KEY_2"),
-    env_key("GEMINI_KEY_3"),
-    env_key("GEMINI_KEY_4"),
-    env_key("GEMINI_KEY_5"),
+    os.getenv("GEMINI_KEY_1", DEFAULT_GEMINI_KEYS[0]),
+    os.getenv("GEMINI_KEY_2", DEFAULT_GEMINI_KEYS[1]),
+    os.getenv("GEMINI_KEY_3", DEFAULT_GEMINI_KEYS[2]),
+    os.getenv("GEMINI_KEY_4", DEFAULT_GEMINI_KEYS[3]),
+    os.getenv("GEMINI_KEY_5", DEFAULT_GEMINI_KEYS[4])
 ]
-GEMINI_KEYS = [k for k in GEMINI_KEYS if k]
-
-OPENROUTER_API_KEY = env_key("OPENROUTER_API_KEY")
-KIMI_API_KEY = env_key("KIMI_API_KEY")
 
 # Clients
-client_or = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY) if OPENROUTER_API_KEY else None
-client_kimi = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=KIMI_API_KEY) if KIMI_API_KEY else None
+client_or = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OR_KEY)
+client_kimi = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=KIMI_KEY)
 
 def encode_image(image_path):
     with open(image_path, "rb") as f:
@@ -100,11 +98,7 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
 
         if provider_type == "type_a":
             print(f"[DEBUG] Consulting {friendly_name}... (Press Ctrl+C to Cancel)")
-            if not GEMINI_KEYS:
-                return "Error: No Gemini API keys are configured in backend/.env.", friendly_name, 0
-
-            gemini_errors = []
-            for index, key in enumerate(GEMINI_KEYS, start=1):
+            for key in GEMINI_KEYS:
                 if not key: continue
                 try:
                     client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=240000))
@@ -121,21 +115,12 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
                     if res.text:
                         duration = round(time.time() - start_time, 2)
                         return res.text, friendly_name, duration
-                    gemini_errors.append(f"Key {index}: empty Gemini response")
                 except Exception as e:
                     if "User interrupted" in str(e): raise
-                    msg = summarize_provider_error(e)
-                    gemini_errors.append(f"Key {index}: {msg}")
-                    print(f"      [!] {friendly_name} key {index} failed: {msg}")
+                    print(f"      [!] {friendly_name} failed on current key. Trying next...")
                     continue
-
-            duration = round(time.time() - start_time, 2)
-            last_error = gemini_errors[-1] if gemini_errors else "Unknown Gemini error"
-            return f"Error: {friendly_name} failed on all configured Gemini keys. {last_error}", friendly_name, duration
         else:
             print(f"[DEBUG] Consulting {friendly_name}... (Press Ctrl+C to Cancel)")
-            if not client_or:
-                return "Error: OPENROUTER_API_KEY is not configured in backend/.env.", friendly_name, 0
             base64_img = encode_image(img_path)
             try:
                 res_or = client_or.chat.completions.create(
@@ -150,13 +135,8 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
                 if content:
                     duration = round(time.time() - start_time, 2)
                     return content, friendly_name, duration
-                duration = round(time.time() - start_time, 2)
-                return f"Error: {friendly_name} returned an empty response.", friendly_name, duration
             except Exception as e:
-                msg = summarize_provider_error(e)
-                print(f"      [!] {friendly_name} failed: {msg}")
-                duration = round(time.time() - start_time, 2)
-                return f"Error: {friendly_name} failed. {msg}", friendly_name, duration
+                print(f"      [!] {friendly_name} failed: {e}")
 
     except KeyboardInterrupt:
         print("\n[!] User Cancelled. Stopping request...")
@@ -164,12 +144,7 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
 
     return "Error: Model selection failed or invalid choice.", "None", 0
 
-def run_final_stack(img_path, clinical_data_json_str=None, choice_arg=None, side_image_path=None):
-    """
-    choice_arg: when set (e.g. from Node /api/analyze argv), used instead of input().
-    Never call input() in API mode — stdin is not a TTY and blocks forever.
-    side_image_path: optional path to lateral image for Ultra modes (from multer upload).
-    """
+def run_final_stack(img_path, clinical_data_json_str=None):
     print("\n" + "="*30)
     print("      MODEL SELECTOR")
     print("="*30)
@@ -179,39 +154,20 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_arg=None, side
     print("3. OPTIC (Balance & Alignment)")
     print("4. CORE (Objective Attractiveness)")
     print("5. GENEVA (Mathematical Beauty)")
-
-    valid = {"1", "2", "3", "4", "5"}
-    if choice_arg is not None and str(choice_arg).strip():
-        choice = str(choice_arg).strip()
-        if choice not in valid:
-            print(f"[FATAL] Invalid model choice from API: {choice!r}. Expected 1-5.")
-            return
-        print(f"\n[API] Using model choice {choice} (non-interactive).\n")
-    else:
-        try:
-            choice = input("\nSelect Model [1-5]: ").strip()
-        except (KeyboardInterrupt, EOFError):
-            print("\nExiting script...")
-            return
-        if choice not in valid:
-            print(f"[FATAL] Invalid choice: {choice!r}")
-            return
+    
+    try:
+        choice = input("\nSelect Model [1-5]: ").strip()
+    except KeyboardInterrupt:
+        print("\nExiting script...")
+        return
 
     # --- SIDE PROFILE DATA COLLECTION ---
     side_data = "IGNORE_SIDE_ANALYSIS"
     if choice in ["1", "2"]:
-        print("[🚀] Gathering Lateral Data from engineside.py...")
-        lateral_path = None
-        if side_image_path and os.path.exists(side_image_path):
-            lateral_path = side_image_path
-        elif os.path.exists("testside.jpg"):
-            lateral_path = "testside.jpg"
+        print("[ðŸš€] Gathering Lateral Data from engineside.py...")
         try:
-            if lateral_path:
-                side_data = engineside.get_profile_analysis(lateral_path)
-            else:
-                side_data = "Lateral metadata unavailable. Focus on frontal visuals and input."
-        except Exception:
+            side_data = engineside.get_profile_analysis("testside.jpg") 
+        except:
             side_data = "Lateral metadata unavailable. Focus on frontal visuals and input."
 
     print(f"\n--- ANALYZING: {img_path} ---")
@@ -345,6 +301,23 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_arg=None, side
         BEST FEATURES (10): [List 5 Frontal features and 5 Lateral features].
         PRIMARY FLAWS (10): [List 5 Frontal flaws and 5 Lateral flaws].
 
+        ### RATINGS (USE THIS)
+        [Look at the following data from INPUT A (mog_report) and rate them from 1-100 based on how close they are to the ideals of the subject's race:]
+        - Bigonial_Width_Index: [Score]/100
+        - IPD_Index (Geometric): [Score]/100
+        - Mouth_Width_Index: [Score]/100
+        - Nose_Width_Index: [Score]/100
+        - Upper_Third_Length: [Score]/100
+        - Middle_Third_Length: [Score]/100
+        - Lower_Third_Length: [Score]/100
+        - Eye_Height_Index: [Score]/100
+        - Brow_Compactness_Index: [Score]/100
+        - Philtrum_Height_Index: [Score]/100
+        - Total_Lip_Height_Index: [Score]/100
+        - fWHR (Zygo / Upper_Face): [Score]/100
+        - Midface_Ratio (Mid/IPD): [Score]/100
+        - Canthal_Tilt_Degrees: [Score]/100
+
         ### Personalised feedback
         [Provide exactly 5 pieces of personalized advice based on the user's submitted images. Format each as a numbered list item with a capitalized title. Each piece must be 1-3 paragraphs max. Focus strictly on real-world, physical issues and changes (e.g., facial fat, bone growth, surgical interventions) rather than surface fixes like posture or lighting. Be very explicit about what is causing the problem and the exact physical fix required. Answer all the user's unasked questions so they aren't left wondering.]
         Example formatting:
@@ -424,15 +397,5 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_arg=None, side
     return result
 
 if __name__ == "__main__":
-    # Node passes: script, imagePath, modelChoice, statsJsonOrEmpty, optional sideImagePath
     img_target = sys.argv[1] if len(sys.argv) > 1 else "test.jpg"
-    _valid_models = {"1", "2", "3", "4", "5"}
-    if len(sys.argv) >= 3:
-        _c = (sys.argv[2] or "").strip()
-        choice_from_api = _c if _c in _valid_models else "3"
-    else:
-        choice_from_api = None  # interactive CLI: prompt for model
-    stats_raw = sys.argv[3] if len(sys.argv) > 3 else ""
-    side_path = sys.argv[4] if len(sys.argv) > 4 else None
-    clinical = stats_raw.strip() if stats_raw and str(stats_raw).strip() else None
-    run_final_stack(img_target, clinical, choice_from_api, side_path)
+    run_final_stack(img_target)
