@@ -63,6 +63,17 @@
 .mogcheck-model-option:hover {
   transform: translateY(-1px) translateZ(0);
 }
+
+.mogcheck-profile-select {
+  color-scheme: dark;
+}
+
+.mogcheck-profile-select option,
+.mogcheck-profile-select optgroup {
+  background: #050608;
+  color: #f4f4f5;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mogcheck-model-option,
   .mogcheck-model-option:hover {
@@ -71,7 +82,7 @@
   }
 }
 
-/* Description only on hover — smooth height + fade (mobile / narrow) */
+/* Description only on hover â€” smooth height + fade (mobile / narrow) */
 .mogcheck-model-desc {
   max-height: 0;
   opacity: 0;
@@ -134,7 +145,7 @@
   }
 }
 
-/* --- Mog Battles — single curtain wipe (no flex strips = no gap/stuck artifacts) --- */
+/* --- Mog Battles - single curtain wipe (no flex strips = no gap/stuck artifacts) ---
 @keyframes mog-wipe-lift {
   from {
     transform: translateY(0);
@@ -239,7 +250,7 @@
   animation-fill-mode: forwards;
 }
 
-/* Loser portrait: muted, slightly cool — not harsh red */
+/* Loser portrait: muted, slightly cool â€” not harsh red */
 .mog-loser-photo {
   filter: grayscale(0.38) saturate(0.86) brightness(0.96);
 }
@@ -270,7 +281,7 @@
   opacity: 0;
 }
 
-/* Mog Battles — dense spark field: smooth fade-in → travel → fade-out (no opacity steps) */
+/* Mog Battles - dense spark field: smooth fade-in, travel, fade-out (no opacity steps) */
 @keyframes mog-spark-0 {
   0% {
     opacity: 0;
@@ -550,7 +561,7 @@
   pointer-events: none;
 }
 
-/* Looping micro-sparks — smooth opacity; ends match start for seamless loop */
+/* Looping micro-sparks â€” smooth opacity; ends match start for seamless loop */
 @keyframes mog-spark-ambient {
   0%,
   100% {
@@ -579,7 +590,7 @@
   }
 }
 
-/* Mog Battles — intro: panels split apart (center seam) */
+/* Mog Battles - intro: panels split apart (center seam) */
 @keyframes mog-card-split-left {
   to {
     transform: translateX(-102%);
@@ -604,4 +615,10 @@
     opacity: 0;
     pointer-events: none;
   }
+}
+
+/* Low Performance Mode */
+.low-perf-mode * {
+  animation-duration: 0.001s !important;
+  transition-duration: 0.001s !important;
 }

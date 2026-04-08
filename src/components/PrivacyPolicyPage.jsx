@@ -55,7 +55,7 @@ const PrivacyPolicyPage = ({ setCurrentPage }) => {
           <ul className="list-disc pl-5 space-y-3 text-sm">
             <li><strong className="text-zinc-100">Nature of Processing:</strong> We extract mathematical coordinates (ratios and distances) to provide symmetry and proportion scores.</li>
             <li><strong className="text-zinc-100">No Identification:</strong> We do not use your data for "Facial Recognition." We do not compare your photo against a database to identify who you are.</li>
-            <li><strong className="text-zinc-100">Transient Processing:</strong> Your images are processed in real-time. Once the analysis report is generated, the image is immediately deleted from our active servers. We do not maintain a permanent gallery or database of user faces.</li>
+            <li><strong className="text-zinc-100">Secure Storage:</strong> Your images are stored securely in your account profile. They are only deleted when you explicitly delete them from your dashboard or when you delete your account entirely. We do not maintain a public gallery or database of user faces.</li>
           </ul>
         </section>
 
@@ -84,7 +84,7 @@ const PrivacyPolicyPage = ({ setCurrentPage }) => {
         <section>
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">7. Data Retention</h2>
           <ul className="list-disc pl-5 space-y-3 text-sm">
-            <li><strong className="text-zinc-100">Images:</strong> Deleted immediately after processing (typically within seconds).</li>
+            <li><strong className="text-zinc-100">Images:</strong> Stored securely in your account until you explicitly delete them or delete your account.</li>
             <li><strong className="text-zinc-100">Reports:</strong> Stored in your dashboard for as long as your account is active so you can view your results.</li>
             <li><strong className="text-zinc-100">Subscription Records:</strong> Retained for the duration of your subscription and as required by tax law (handled primarily by Paddle).</li>
           </ul>
@@ -93,7 +93,7 @@ const PrivacyPolicyPage = ({ setCurrentPage }) => {
         <section>
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">8. Your Rights</h2>
           <p className="leading-relaxed text-sm mb-4">
-            Depending on your location (including Malaysia, EU, UK, or USA), you have the right to:
+            Depending on your location (including the United States, EU, or UK), you have the right to:
           </p>
           <ul className="list-disc pl-5 space-y-3 text-sm mb-4">
             <li><strong className="text-zinc-100">Access:</strong> Request a copy of the data we hold about you.</li>
@@ -101,14 +101,14 @@ const PrivacyPolicyPage = ({ setCurrentPage }) => {
             <li><strong className="text-zinc-100">Correction:</strong> Update your email or account details.</li>
           </ul>
           <p className="leading-relaxed text-sm">
-            To exercise these rights, email us at <a href="mailto:support@mogcheck.com" className="text-cyan-400 hover:text-cyan-300 transition-colors">support@mogcheck.com</a>.
+            To exercise these rights, email us at <a href="mailto:support@mogcheck.net" className="text-cyan-400 hover:text-cyan-300 transition-colors">support@mogcheck.net</a>.
           </p>
         </section>
 
         <section>
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">9. Security</h2>
           <p className="leading-relaxed text-sm">
-            We implement strict technical and organizational measures to protect your data. This includes end-to-end encryption for uploads and "Zero-Retention" protocols for facial images.
+            We implement strict technical and organizational measures to protect your data. This includes end-to-end encryption for uploads and secure cloud storage for your account data.
           </p>
         </section>
 

@@ -1,13 +1,5 @@
 require('dotenv').config();
 
-/** Must be set before admin.firestore() / auth — `npm run dev` sets Firestore emulator. */
-if (process.env.FIRESTORE_EMULATOR_HOST) {
-  console.log('[firebase] Firestore emulator:', process.env.FIRESTORE_EMULATOR_HOST);
-}
-if (process.env.FIREBASE_AUTH_EMULATOR_HOST) {
-  console.log('[firebase] Auth emulator:', process.env.FIREBASE_AUTH_EMULATOR_HOST);
-}
-
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
@@ -18,10 +10,38 @@ const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const { parseAnalysisOutput } = require('./parse-analysis-output');
 const adminStore = require('./admin-store');
+const {
+  shouldSkipFirebaseStorage,
+  sanitizeFirebaseError,
+  isCredentialsConfigError,
+  shouldUseFirebaseEmulator,
+} = require('./firebase-errors');
 const admin = require('firebase-admin');
 
-// 1. First, require firebase-admin/app and /auth at the top if needed, but the main admin object is fine.
-// 2. Overwrite the verifyUltraAccess to bypass auth check locally if no credentials exist:
+const USE_FIREBASE_EMULATOR = shouldUseFirebaseEmulator();
+
+/** Must be set before admin.firestore() / auth — `npm run dev` explicitly opts into emulator mode. */
+if (USE_FIREBASE_EMULATOR && process.env.FIRESTORE_EMULATOR_HOST) {
+  console.log('[firebase] Firestore emulator:', process.env.FIRESTORE_EMULATOR_HOST);
+} else if (process.env.FIRESTORE_EMULATOR_HOST) {
+  console.warn(
+    '[firebase] FIRESTORE_EMULATOR_HOST is set but ignored because USE_FIREBASE_EMULATOR is not 1.'
+  );
+}
+if (USE_FIREBASE_EMULATOR && process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+  console.log('[firebase] Auth emulator:', process.env.FIREBASE_AUTH_EMULATOR_HOST);
+}
+
+function firebaseConfigHelpMessage() {
+  return USE_FIREBASE_EMULATOR
+    ? 'This backend is in Firebase emulator mode. For live premium scans, start the API without USE_FIREBASE_EMULATOR and configure FIREBASE_SERVICE_ACCOUNT_JSON (or gcloud application-default credentials).'
+    : 'Firebase Admin is not configured on this machine. Add FIREBASE_SERVICE_ACCOUNT_JSON to backend/.env, or run gcloud auth application-default login, then restart the API.';
+}
+
+function isRemoteBrowserRequest(req) {
+  const haystack = `${req?.headers?.origin || ''} ${req?.headers?.host || ''}`.toLowerCase();
+  return !/(localhost|127\.0\.0\.1)/i.test(haystack);
+}
 
 
 function initFirebaseAdmin() {
@@ -30,6 +50,7 @@ function initFirebaseAdmin() {
     process.env.FIREBASE_STORAGE_BUCKET || 'mogcheck-net.firebasestorage.app';
   const projectId = process.env.FIREBASE_PROJECT_ID || 'mogcheck-net';
   const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  const firestoreEmulator = USE_FIREBASE_EMULATOR && !!process.env.FIRESTORE_EMULATOR_HOST;
 
   if (json) {
     try {
@@ -46,11 +67,51 @@ function initFirebaseAdmin() {
     }
   }
 
+  /**
+   * Firestore emulator + no service account: use project-only init.
+   * Do NOT use applicationDefault() here — it loads partial ADC and then
+   * admin.storage().bucket() / some APIs throw "Could not load the default credentials"
+   * even though Firestore itself talks to the emulator.
+   */
+  if (firestoreEmulator && !process.env.FORCE_GOOGLE_ADC) {
+    admin.initializeApp({
+      projectId,
+      storageBucket: bucket,
+    });
+    console.log(
+      '[firebase] Emulator mode: project-only Admin init (no ADC). Firebase Storage uploads are skipped; Firestore uses the emulator.'
+    );
+    return;
+  }
+
+  if (USE_FIREBASE_EMULATOR && !process.env.FIRESTORE_EMULATOR_HOST) {
+    console.warn(
+      '[firebase] USE_FIREBASE_EMULATOR=1 but FIRESTORE_EMULATOR_HOST is missing. Falling back to live Firebase Admin init.'
+    );
+  }
+
+  // Production or dev with emulator + explicit ADC request
+  try {
+    admin.initializeApp({
+      credential: admin.credential.applicationDefault(),
+      projectId,
+      storageBucket: bucket,
+    });
+    console.log(
+      '[firebase] Initialized with Application Default Credentials (GOOGLE_APPLICATION_CREDENTIALS or gcloud auth application-default login)'
+    );
+    return;
+  } catch (e) {
+    console.warn('[firebase] applicationDefault() not available:', e.message);
+  }
+
   admin.initializeApp({
     projectId,
     storageBucket: bucket,
   });
-  console.log('[firebase] Initialized with projectId (use ADC or service account in production)');
+  console.warn(
+    '[firebase] Initialized with projectId only — set FIREBASE_SERVICE_ACCOUNT_JSON, run gcloud auth application-default login, or explicitly use USE_FIREBASE_EMULATOR=1 with FIRESTORE_EMULATOR_HOST for local dev.'
+  );
 }
 
 /** Shared Firestore instance for webhooks, mog-battle votes, and other routes */
@@ -72,10 +133,13 @@ app.set('trust proxy', 1);
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow all origins to connect (useful for dynamic Vercel preview links)
+    // Allow all origins (Vercel previews, localhost:5174 → 127.0.0.1:3001 cross-origin, etc.)
     callback(null, true);
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-admin-password'],
+  optionsSuccessStatus: 204,
 };
 app.use(cors(corsOptions));
 
@@ -537,6 +601,7 @@ function healthPayload() {
   return {
     ok: true,
     service: 'mogcheck-backend',
+    firebaseMode: USE_FIREBASE_EMULATOR ? 'emulator' : 'live',
     uptimeMs: Date.now() - SERVER_BOOT_AT,
     timestamp: new Date().toISOString(),
   };
@@ -550,6 +615,35 @@ app.get('/health', (req, res) => {
   res.json(healthPayload());
 });
 
+app.get('/api/user/status', extractUserOptional, async (req, res) => {
+  if (!req.uid || !firestore) return res.json({ ok: false });
+  try {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+    // X-Forwarded-For could be a comma-separated list; we only want the first one
+    const clientIp = ip.split(',')[0].trim();
+    let decoded = null;
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    if (token) {
+      try {
+        decoded = await admin.auth().verifyIdToken(token);
+      } catch {
+        decoded = null;
+      }
+    }
+    await firestore.collection('users').doc(req.uid).set({
+      lastActive: admin.firestore.FieldValue.serverTimestamp(),
+      lastIp: clientIp,
+      email: decoded?.email || null,
+      displayName: decoded?.name || null,
+    }, { merge: true });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[status] Failed to update user status:', e.message);
+    res.json({ ok: false });
+  }
+});
+
 /** Deeper check: Firestore reachable (for orchestration readiness probes). */
 app.get('/api/ready', async (req, res) => {
   try {
@@ -557,12 +651,14 @@ app.get('/api/ready', async (req, res) => {
     res.json({
       ok: true,
       checks: { firestore: true },
+      firebaseMode: USE_FIREBASE_EMULATOR ? 'emulator' : 'live',
       timestamp: new Date().toISOString(),
     });
   } catch (e) {
     res.status(503).json({
       ok: false,
       checks: { firestore: false },
+      firebaseMode: USE_FIREBASE_EMULATOR ? 'emulator' : 'live',
       error: e.message,
       timestamp: new Date().toISOString(),
     });
@@ -676,18 +772,43 @@ function getPythonExecutable() {
   return path.join(__dirname, 'venv', 'bin', 'python3');
 }
 
-function getPublicBackendBase() {
+function getRequestBase(req) {
+  if (!req) return '';
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '')
+    .split(',')[0]
+    .trim();
+  if (!host) return '';
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'http')
+    .split(',')[0]
+    .trim();
+  return `${proto}://${host}`.replace(/\/$/, '');
+}
+
+function getPublicBackendBase(req) {
+  const requestBase = getRequestBase(req);
   const raw = (process.env.PUBLIC_BACKEND_URL || '').trim().replace(/\/$/, '');
+  if (requestBase && process.env.FORCE_PUBLIC_BACKEND_URL !== '1') {
+    if (!raw) return requestBase;
+    if (process.env.NODE_ENV !== 'production') return requestBase;
+    if (/(localhost|127\.0\.0\.1|trycloudflare\.com)/i.test(raw)) return requestBase;
+  }
   if (raw) return raw;
   const port = Number(process.env.PORT || 3001);
   return `http://localhost:${port}`;
 }
 
 /** Full URL for loading scan video in analyze response (CDN or same-origin). */
-function getLoadingVideoUrl() {
+function getLoadingVideoUrl(req) {
   const custom = (process.env.LOADING_VIDEO_URL || '').trim();
   if (custom) return custom;
-  return `${getPublicBackendBase()}/loading_scan.mp4`;
+  return `${getPublicBackendBase(req)}/loading_scan.mp4`;
+}
+
+function getLocalUploadUrl(req, localPath) {
+  if (!localPath) return null;
+  const filename = path.basename(localPath);
+  if (!filename) return null;
+  return `${getPublicBackendBase(req)}/uploads/${encodeURIComponent(filename)}`;
 }
 
 function guessContentType(filePath) {
@@ -697,24 +818,55 @@ function guessContentType(filePath) {
   return 'image/jpeg';
 }
 
-async function maybeUploadAndDeleteLocal(localPath) {
-  if (process.env.UPLOAD_TO_FIREBASE_STORAGE !== 'true') return;
-  if (!localPath || !fs.existsSync(localPath)) return;
+async function uploadImageToFirebase(localPath, uid, prefix = 'front') {
+  if (!localPath || !fs.existsSync(localPath)) return null;
+  if (!firestore) return null; // require firebase admin
+  if (shouldSkipFirebaseStorage()) {
+    console.log('[storage] Skipped (emulator or SKIP_FIREBASE_STORAGE — no Google Cloud Storage credentials needed)');
+    return null;
+  }
   try {
     const bucket = admin.storage().bucket();
-    const dest = `uploads/${path.basename(localPath)}`;
+    const filename = path.basename(localPath);
+    // If user is authenticated, store in their folder, else store in anonymous folder
+    const destFolder = uid ? `users/${uid}/images` : `anonymous/images`;
+    const dest = `${destFolder}/${prefix}_${Date.now()}_${filename}`;
+    
     await bucket.upload(localPath, {
       destination: dest,
       metadata: {
         contentType: guessContentType(localPath),
-        cacheControl: 'public, max-age=3600',
+        cacheControl: 'public, max-age=31536000',
       },
     });
+    
+    // Make file publicly accessible to get public URL
+    const file = bucket.file(dest);
+    await file.makePublic();
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${dest}`;
+    
     fs.unlinkSync(localPath);
     console.log(`[storage] Uploaded and removed local: ${dest}`);
+    return { dest, url: publicUrl };
   } catch (e) {
     console.error('[storage] Upload failed (local file kept):', e.message);
+    return null;
   }
+}
+
+/** Optional middleware to extract user ID from token without requiring it */
+async function extractUserOptional(req, res, next) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!token) return next();
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.uid = decoded.uid;
+  } catch (e) {
+    // ignore invalid token for optional auth
+  }
+  next();
 }
 
 /** Ultra models (choice 1 / 2) require Firebase auth + Pro plan or Single Scan with credits. */
@@ -735,15 +887,36 @@ async function verifyUltraAccess(req, res, next) {
     });
   }
 
+  if (!firestore) {
+    return res.status(503).json({
+      success: false,
+      error: firebaseConfigHelpMessage(),
+    });
+  }
+
   try {
     const decoded = await admin.auth().verifyIdToken(token);
     const uid = decoded.uid;
     const snap = await firestore.collection('users').doc(uid).get();
+    if (!snap.exists && USE_FIREBASE_EMULATOR && isRemoteBrowserRequest(req)) {
+      return res.status(503).json({
+        success: false,
+        error:
+          'This backend is still reading from the local Firebase emulator, so live premium plan checks cannot work. Start the API without USE_FIREBASE_EMULATOR and configure live Firebase Admin credentials.',
+      });
+    }
     const data = snap.exists ? snap.data() : {};
     const plan = String(data.plan || 'free');
     const scanCredits = Number(data.scanCredits) || 0;
 
-    if (plan === 'pro') {
+    const email = (decoded.email || '').toLowerCase();
+    const isAdminEmail = 
+      email.endsWith('@looksmaxxing.com') ||
+      email === 'serenity.eyb@gmail.com' ||
+      email === 'laithbu07@gmail.com' ||
+      email === 'laithabuamsheh@gmail.com';
+
+    if (plan === 'pro' || data.isAdmin || isAdminEmail) {
       req.ultraContext = { uid, plan: 'pro' };
       return next();
     }
@@ -758,11 +931,27 @@ async function verifyUltraAccess(req, res, next) {
         'Premium models require MogCheck Pro or an unused Single Scan credit. Open Plans to upgrade.',
     });
   } catch (e) {
-    // If running locally without service account, bypass this strictly for testing
-    if (e.message && e.message.includes('default credentials') && process.env.NODE_ENV !== 'production') {
+    // If running locally without service account, bypass this strictly for localhost testing.
+    if (isCredentialsConfigError(e?.message) && process.env.NODE_ENV !== 'production' && !isRemoteBrowserRequest(req)) {
       console.warn('[analyze] Bypassing Ultra auth locally because no Firebase credentials exist.');
       req.ultraContext = { uid: 'local-test-user', plan: 'pro' };
       return next();
+    }
+
+    if (USE_FIREBASE_EMULATOR && isRemoteBrowserRequest(req)) {
+      return res.status(503).json({
+        success: false,
+        error:
+          'This backend is in Firebase emulator mode. Live premium scans from mogcheck.net need real Firebase Admin credentials on this machine.',
+      });
+    }
+
+    if (isCredentialsConfigError(e?.message)) {
+      const { status, error } = sanitizeFirebaseError(e);
+      return res.status(status).json({
+        success: false,
+        error,
+      });
     }
 
     console.error('[analyze] Ultra auth failed:', e.message);
@@ -785,6 +974,7 @@ app.post(
     });
   },
   analyzeLimiter,
+  extractUserOptional,
   verifyUltraAccess,
   (req, res) => {
     // Check files immediately after upload parsing
@@ -826,7 +1016,21 @@ app.post(
       },
     });
 
+    /** Prevent hung Gemini/API calls from blocking the client forever (default 8 min). */
+    const PYTHON_MAX_MS = Number(process.env.ANALYZE_PYTHON_TIMEOUT_MS || 480000);
+    let analyzeTimedOut = false;
+    const killTimer = setTimeout(() => {
+      analyzeTimedOut = true;
+      console.error(`[api/analyze] Python exceeded ${PYTHON_MAX_MS}ms — terminating process`);
+      try {
+        py.kill('SIGKILL');
+      } catch (e) {
+        console.error('[api/analyze] Failed to kill Python:', e.message);
+      }
+    }, PYTHON_MAX_MS);
+
     py.on('error', (err) => {
+      clearTimeout(killTimer);
       console.error('Failed to start Python process:', err);
       if (!res.headersSent) {
         res.json({
@@ -852,7 +1056,17 @@ app.post(
     });
 
     py.on('close', async (code) => {
+      clearTimeout(killTimer);
       if (res.headersSent) return;
+
+      if (analyzeTimedOut) {
+        console.log(`\n[api/analyze] Python closed after timeout (code=${code})`);
+        return res.status(504).json({
+          success: false,
+          error:
+            'Analysis timed out — the AI engine took too long. Check backend/.env for API keys, your network, or try a smaller image. See the backend terminal for Python errors.',
+        });
+      }
 
       console.log(`\n[api/analyze] Python process closed with exit code ${code}`);
 
@@ -896,15 +1110,23 @@ app.post(
     sidePrimaryFlaws: parsed.sidePrimaryFlaws || [],
     categories: parsed.categories || null,
     sideCategories: parsed.sideCategories || null,
-    biometrics: parsed.biometrics?.length ? parsed.biometrics : undefined,
-    sideBiometrics: parsed.sideBiometrics?.length ? parsed.sideBiometrics : undefined,
-    protocols: parsed.protocols?.length ? parsed.protocols : undefined,
-    videoUrl: getLoadingVideoUrl(),
+    hexagonFront: parsed.hexagonFront || null,
+    hexagonSide: parsed.hexagonSide || null,
+    personalizedFeedback: parsed.personalizedFeedback || [],
+    biometrics: parsed.biometrics || [],
+    sideBiometrics: parsed.sideBiometrics || [],
+    protocols: parsed.protocols || [],
+    videoUrl: getLoadingVideoUrl(req),
     rawOutput:
       pythonStderr.trim().length > 0
         ? `${pythonOutput}\n\n--- Python stderr ---\n${pythonStderr}`
         : pythonOutput,
   };
+
+  const frontFallbackUrl = getLocalUploadUrl(req, imagePath);
+  const sideFallbackUrl = getLocalUploadUrl(req, sideImagePath);
+  if (frontFallbackUrl) payload.frontImage = frontFallbackUrl;
+  if (sideFallbackUrl) payload.sideImage = sideFallbackUrl;
 
   if (!success) {
     if (code !== 0) {
@@ -946,15 +1168,44 @@ app.post(
 
   res.json(payload);
 
-      setImmediate(() => {
-        maybeUploadAndDeleteLocal(imagePath).catch(() => {});
-        if (sideImagePath) maybeUploadAndDeleteLocal(sideImagePath).catch(() => {});
+      setImmediate(async () => {
+        let frontUpload = null;
+        let sideUpload = null;
+
+        if (imagePath) frontUpload = await uploadImageToFirebase(imagePath, req.uid, 'front');
+        if (sideImagePath) sideUpload = await uploadImageToFirebase(sideImagePath, req.uid, 'side');
+
+        if (success && req.uid && firestore) {
+          try {
+            const persistedFrontImage = frontUpload ? frontUpload.url : frontFallbackUrl;
+            const persistedSideImage = sideUpload ? sideUpload.url : sideFallbackUrl;
+            await firestore.collection('users').doc(req.uid).collection('scans').add({
+              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+              model: modelChoice,
+              finalRating,
+              sideRating,
+              frontImageUrl: persistedFrontImage || null,
+              sideImageUrl: persistedSideImage || null,
+              frontImageDest: frontUpload ? frontUpload.dest : null,
+              sideImageDest: sideUpload ? sideUpload.dest : null,
+              success: true,
+              payload: {
+                ...payload,
+                frontImage: persistedFrontImage || payload.frontImage || null,
+                sideImage: persistedSideImage || payload.sideImage || null,
+              }, // NEW: save the full payload so profiles can fetch it later
+              profileId: req.body.profileId || 'default' // NEW: associate with a profile
+            });
+          } catch (e) {
+            console.error('[analyze] Failed to record scan history:', e.message);
+          }
+        }
       });
     });
   }
 );
 
-app.post('/api/unlock-potential', unlockLimiter, upload.single('image'), (req, res) => {
+app.post('/api/unlock-potential', unlockLimiter, extractUserOptional, upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No image provided' });
   }
@@ -1008,8 +1259,9 @@ app.post('/api/unlock-potential', unlockLimiter, upload.single('image'), (req, r
       imageUrl: `data:image/png;base64,${base64Data}`,
     });
 
-    setImmediate(() => {
-      maybeUploadAndDeleteLocal(imagePath).catch(() => {});
+    setImmediate(async () => {
+      // For unlock potential, we just upload without recording to scan history for now
+      await uploadImageToFirebase(imagePath, req.uid, 'unlock');
     });
   });
 });
@@ -1024,6 +1276,198 @@ app.get('/api/admin/stats', (req, res) => {
   res.json(adminStore.getStats());
 });
 
+// GET all users for Admin
+app.get('/api/admin/users', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  try {
+    let authUsers = [];
+    try {
+      const authUsersResult = await admin.auth().listUsers(1000); // 1000 limit, ignoring pagination for now
+      authUsers = authUsersResult.users || [];
+    } catch (authErr) {
+      console.error('[admin] Failed to list auth users:', authErr);
+    }
+
+    const firestoreUsersSnap = await firestore.collection('users').get();
+    const firestoreData = {};
+    firestoreUsersSnap.forEach(doc => {
+      firestoreData[doc.id] = doc.data();
+    });
+
+    const authUsersByUid = new Map(authUsers.map((u) => [u.uid, u]));
+    const allUserIds = Array.from(new Set([
+      ...authUsers.map((u) => u.uid),
+      ...Object.keys(firestoreData),
+    ]));
+
+    const users = allUserIds.map((uid) => {
+      const authUser = authUsersByUid.get(uid);
+      const fd = firestoreData[uid] || {};
+      return {
+        uid,
+        email: authUser?.email || fd.email || 'Unknown',
+        displayName: authUser?.displayName || fd.displayName || 'No Name',
+        plan: fd.plan || 'free',
+        scanCredits: fd.scanCredits || 0,
+        lastIp: fd.lastIp || 'Unknown',
+        lastActive:
+          fd.lastActive && typeof fd.lastActive.toDate === 'function'
+            ? fd.lastActive.toDate().toISOString()
+            : (fd.lastActive || null),
+      };
+    });
+
+    // Sort by last active descending
+    users.sort((a, b) => {
+      if (!a.lastActive) return 1;
+      if (!b.lastActive) return -1;
+      return new Date(b.lastActive) - new Date(a.lastActive);
+    });
+
+    res.json({ users });
+  } catch (e) {
+    console.error('[admin] Failed to fetch users:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Update user plan
+app.post('/api/admin/users/:uid/plan', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  const { uid } = req.params;
+  const { plan, scanCredits } = req.body;
+  
+  try {
+    await firestore.collection('users').doc(uid).set({
+      plan: String(plan || 'free'),
+      scanCredits: Number(scanCredits || 0),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[admin] Failed to update user plan:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Delete user account
+app.delete('/api/admin/users/:uid', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  const { uid } = req.params;
+
+  try {
+    // Delete from Firebase Auth
+    await admin.auth().deleteUser(uid);
+    
+    // Delete Firestore document
+    await firestore.collection('users').doc(uid).delete();
+
+    // Delete images in Storage (skip when emulating — no GCS credentials)
+    if (!shouldSkipFirebaseStorage()) {
+      try {
+        const bucket = admin.storage().bucket();
+        await bucket.deleteFiles({ prefix: `users/${uid}/` });
+      } catch (e) {
+        console.log(`[admin] Warning: Failed to delete storage for ${uid}`, e.message);
+      }
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[admin] Failed to delete user:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Fetch user scans (images) for admin or user
+app.get('/api/admin/users/:uid/scans', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  try {
+    const snap = await firestore.collection('users').doc(req.params.uid).collection('scans').orderBy('timestamp', 'desc').get();
+    const scans = [];
+    snap.forEach(doc => scans.push({ id: doc.id, ...doc.data() }));
+    res.json({ scans });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Delete specific scan
+app.delete('/api/admin/users/:uid/scans/:scanId', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  const { uid, scanId } = req.params;
+  try {
+    const docRef = firestore.collection('users').doc(uid).collection('scans').doc(scanId);
+    const doc = await docRef.get();
+    if (doc.exists) {
+      const d = doc.data();
+      if (!shouldSkipFirebaseStorage()) {
+        const bucket = admin.storage().bucket();
+        if (d.frontImageDest) await bucket.file(d.frontImageDest).delete().catch(() => {});
+        if (d.sideImageDest) await bucket.file(d.sideImageDest).delete().catch(() => {});
+      }
+      await docRef.delete();
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// User endpoints for scans
+const profilesRoutes = require('./profiles-routes.js');
+profilesRoutes(app, firestore, admin, extractUserOptional);
+
+app.get('/api/user/scans', extractUserOptional, async (req, res) => {
+  if (!req.uid || !firestore) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const snap = await firestore.collection('users').doc(req.uid).collection('scans').orderBy('timestamp', 'desc').get();
+    const scans = [];
+    snap.forEach(doc => scans.push({ id: doc.id, ...doc.data() }));
+    res.json({ scans });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
+  if (!req.uid || !firestore) return res.status(401).json({ error: 'Unauthorized' });
+  const { scanId } = req.params;
+  try {
+    const docRef = firestore.collection('users').doc(req.uid).collection('scans').doc(scanId);
+    const doc = await docRef.get();
+    if (doc.exists) {
+      const d = doc.data();
+      if (!shouldSkipFirebaseStorage()) {
+        const bucket = admin.storage().bucket();
+        if (d.frontImageDest) await bucket.file(d.frontImageDest).delete().catch(() => {});
+        if (d.sideImageDest) await bucket.file(d.sideImageDest).delete().catch(() => {});
+      }
+      await docRef.delete();
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 if (fs.existsSync(distDir)) {
   app.get(/^(?!\/api\/).*/, (req, res) => {
     debugLog('H1', 'SPA fallback served', { path: req.path });
@@ -1031,7 +1475,7 @@ if (fs.existsSync(distDir)) {
   });
 }
 
-const PORT = Number(process.env.PORT || 10000);
+const PORT = Number(process.env.PORT || 3001);
 
 async function start() {
   await adminStore.init();

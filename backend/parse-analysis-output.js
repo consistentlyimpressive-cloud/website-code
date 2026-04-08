@@ -56,6 +56,30 @@ function parseFeatureBlock(block) {
   return out;
 }
 
+function parseSingleHighlight(raw, regex, fallbackTitle) {
+  const match = raw.match(regex);
+  if (!match) return null;
+
+  const clean = String(match[1] || '')
+    .replace(/\*\*/g, '')
+    .replace(/\r?\n+/g, ' ')
+    .trim();
+  if (!clean) return null;
+
+  const split = clean.match(/^([^:.]{3,80}?)(?:\s+-\s+|:\s+)(.+)$/);
+  if (split) {
+    return {
+      title: split[1].trim(),
+      description: split[2].trim(),
+    };
+  }
+
+  return {
+    title: fallbackTitle,
+    description: clean,
+  };
+}
+
 function parseSex(raw) {
   const match = raw.match(/###\s*ANALYSIS\s*\[?(MALE|FEMALE)\]?/i);
   if (match) return match[1].toUpperCase();
@@ -116,7 +140,7 @@ function parseSideRating(raw) {
 
 function parseTechnicalSummary(raw) {
   const terminators =
-    '(?=\\*\\*Appeal Assessment|\\*\\*CORE CATEGORY SCORES|\\*\\*CRITICAL MARKERS|###\\s*DASHBOARD_DATA|###\\s*MOG_REPORT|\\*\\*Max Natural Potential)';
+    '(?=\\*\\*Appeal Assessment|\\*\\*Hexagon Chart Ratings|\\*\\*CORE CATEGORY SCORES|\\*\\*CRITICAL MARKERS|###\\s*DASHBOARD_DATA|###\\s*MOG_REPORT|\\*\\*Max Natural Potential)';
 
   let m = raw.match(
     new RegExp(
@@ -133,6 +157,79 @@ function parseTechnicalSummary(raw) {
   if (m) return m[1].trim();
 
   return null;
+}
+
+function parseHexagonChart(raw, type) {
+  const regex = new RegExp(`\\*\\*Hexagon Chart Ratings \\(${type}\\)\\*\\*\\s*\\n([\\s\\S]*?)(?=\\n\\*\\*|\\n###|$)`, 'i');
+  const match = raw.match(regex);
+  if (!match) return null;
+
+  const hex = {
+    Skin: null,
+    Bone: null,
+    Harmony: null,
+    Symmetry: null,
+    Dimorphism: null
+  };
+
+  const lines = match[1].trim().split('\n');
+  for (let line of lines) {
+    const m = line.match(/-\s*([^:]+):\s*(.+)/);
+    if (m) {
+      const key = titleCaseKey(m[1]);
+      if (hex[key] !== undefined) {
+        const val = m[2].trim().toUpperCase();
+        if (val === 'N/A') {
+          hex[key] = 'N/A';
+        } else {
+          const num = parseInt(val.match(/\d+/)?.[0], 10);
+          hex[key] = !isNaN(num) ? num : null;
+        }
+      }
+    }
+  }
+  return hex;
+}
+
+function parsePersonalizedFeedback(raw) {
+  const match = raw.match(/###\s*Personalised feedback\s*\r?\n([\s\S]*?)(?=###\s*ACTIONABLE PROTOCOLS|###\s*MOG_REPORT_REVISION|$)/i);
+  if (!match) return [];
+
+  const text = match[1].trim();
+  const feedback = [];
+  
+  // Split by numbered list items "1. TITLE"
+  const parts = text.split(/(?=\n\s*\d+\.\s+[A-Z\s]+(?:\n|$))/i);
+  
+  // Handle case where split doesn't work perfectly on first item
+  const firstMatch = text.match(/^\s*(\d+)\.\s+([A-Z\s]+)(?:\r?\n|$)/i);
+  let processParts = parts;
+  if (firstMatch && parts[0] && !parts[0].match(/^\s*\d+\.\s+[A-Z\s]+/)) {
+      // The first split chunk might just be the whole text if regex failed, or preamble
+      // Better robust parsing: find all "1. TITLE \n body"
+      const itemsRegex = /(?:^|\n)\s*(\d+)\.\s+([^\n]+)\n([\s\S]*?)(?=(?:\n\s*\d+\.\s+[^\n]+)|$)/gi;
+      let itemMatch;
+      while ((itemMatch = itemsRegex.exec(text)) !== null) {
+          feedback.push({
+              id: parseInt(itemMatch[1]),
+              title: itemMatch[2].trim(),
+              description: itemMatch[3].trim()
+          });
+      }
+      return feedback;
+  }
+
+  for (let p of parts) {
+    const m = p.match(/^\s*(\d+)\.\s+([^\n]+)\n([\s\S]*)$/i);
+    if (m) {
+      feedback.push({
+        id: parseInt(m[1]),
+        title: m[2].trim(),
+        description: m[3].trim()
+      });
+    }
+  }
+  return feedback;
 }
 
 function parseAnalysisOutput(rawOutput, backendDir) {
@@ -178,10 +275,28 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     }
   }
 
+  if (bestFeatures.length === 0) {
+    const bestHighlight = parseSingleHighlight(
+      rawOutput,
+      /\*\*#1 BEST FEATURE:\*\*\s*([\s\S]*?)(?=\*\*#1 WORST FEATURE:\*\*|$)/i,
+      'Best Feature'
+    );
+    if (bestHighlight) bestFeatures.push(bestHighlight);
+  }
+
+  if (primaryFlaws.length === 0) {
+    const flawHighlight = parseSingleHighlight(
+      rawOutput,
+      /\*\*#1 WORST FEATURE:\*\*\s*([\s\S]*?)$/i,
+      'Primary Flaw'
+    );
+    if (flawHighlight) primaryFlaws.push(flawHighlight);
+  }
+
   let categories = null;
   let sideCategories = null;
   const catMatch = rawOutput.match(
-    /\*\*CORE CATEGORY SCORES.*?\n([\s\S]*?)(?=\*\*CRITICAL MARKERS|###\s*DASHBOARD_DATA|###\s*MOG_REPORT_REVISION|###\s*ACTIONABLE)/i
+    /\*\*CORE CATEGORY SCORES.*?\n([\s\S]*?)(?=\*\*CRITICAL MARKERS|###\s*DASHBOARD_DATA|###\s*MOG_REPORT_REVISION|###\s*Personalised|###\s*ACTIONABLE)/i
   );
   if (catMatch) {
     const allKeys = ['Harmony', 'Bone', 'Symmetry', 'Skin', 'Dimorphism',
@@ -217,6 +332,13 @@ function parseAnalysisOutput(rawOutput, backendDir) {
       }
     }
   }
+
+  // Parse Hexagon Chart Ratings
+  const hexagonFront = parseHexagonChart(rawOutput, 'front');
+  const hexagonSide = parseHexagonChart(rawOutput, 'side');
+
+  // Parse Personalized Feedback
+  const personalizedFeedback = parsePersonalizedFeedback(rawOutput);
 
   const sideBiometrics = [];
   const sideRawMatch = rawOutput.match(/### SIDE_BIOMETRICS_RAW\r?\n([\s\S]*?)\r?\n### END_SIDE_BIOMETRICS_RAW/);
@@ -305,7 +427,9 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     primaryFlaws.length > 0 ||
     biometrics.length > 0 ||
     (finalRating != null && !Number.isNaN(finalRating)) ||
-    categories != null;
+    categories != null ||
+    hexagonFront != null ||
+    personalizedFeedback.length > 0;
 
   return {
     sex,
@@ -318,6 +442,9 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     sidePrimaryFlaws,
     categories,
     sideCategories,
+    hexagonFront,
+    hexagonSide,
+    personalizedFeedback,
     biometrics,
     sideBiometrics,
     protocols,

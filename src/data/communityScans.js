@@ -7,22 +7,22 @@
 const user1 = {
   frontImage: '/community/user1-front.png',
   sideImage: '/community/user1-side.png',
-  finalRating: 46,
-  sideRating: 43,
+  finalRating: 74,
+  sideRating: 71,
   sex: 'Male',
   categories: {
-    Bone: 46,
-    Harmony: 46,
-    Symmetry: 46,
-    Dimorphism: 46,
-    Skin: 46
+    Bone: 74,
+    Harmony: 74,
+    Symmetry: 74,
+    Dimorphism: 74,
+    Skin: 74
   },
   sideCategories: {
-    Bone: 43,
-    Harmony: 43,
-    Symmetry: 43,
-    Dimorphism: 43,
-    Skin: 43
+    Bone: 71,
+    Harmony: 71,
+    Symmetry: 71,
+    Dimorphism: 71,
+    Skin: 71
   },
   biometrics: [
     { label: 'Bigonial Width Index (0.793)', score: 40, max: 100 },
@@ -154,22 +154,22 @@ const user2 = {
 const user3 = {
   frontImage: '/community/user3-front.png',
   sideImage: '/community/user3-side.png',
-  finalRating: 74,
-  sideRating: 71,
+  finalRating: 46,
+  sideRating: 43,
   sex: 'Male',
   categories: {
-    Bone: 74,
-    Harmony: 74,
-    Symmetry: 74,
-    Dimorphism: 74,
-    Skin: 74
+    Bone: 46,
+    Harmony: 46,
+    Symmetry: 46,
+    Dimorphism: 46,
+    Skin: 46
   },
   sideCategories: {
-    Bone: 71,
-    Harmony: 71,
-    Symmetry: 71,
-    Dimorphism: 71,
-    Skin: 71
+    Bone: 43,
+    Harmony: 43,
+    Symmetry: 43,
+    Dimorphism: 43,
+    Skin: 43
   },
   biometrics: [
     { label: 'Bigonial Width Index (0.815)', score: 80, max: 100 },
@@ -539,22 +539,22 @@ const whiteMale = {
 
 export const COMMUNITY_SCANS = [
   {
+    id: 'user3',
+    displayName: 'VoidWalker_992',
+    tier: 'B-Tier',
+    dashboardData: user3,
+  },
+  {
     id: 'user1',
     displayName: 'Zero_Dawn',
-    tier: 'B-Tier',
+    tier: 'A-Tier',
     dashboardData: user1,
   },
   {
     id: 'user2',
     displayName: 'NovaStar',
-    tier: 'A-Tier',
-    dashboardData: user2,
-  },
-  {
-    id: 'user3',
-    displayName: 'VoidWalker_992',
     tier: 'B-Tier',
-    dashboardData: user3,
+    dashboardData: user2,
   },
   {
     id: 'community-black-male',

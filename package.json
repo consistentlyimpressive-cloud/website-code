@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "description": "MogCheck — React frontend + Express API",
-  "homepage": "https://www.example.com",
+  "homepage": "https://www.mogcheck.net",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/consistentlyimpressive-cloud/website-code.git"
@@ -14,8 +14,9 @@
   },
   "scripts": {
     "dev": "npm run dev:local",
-    "dev:local": "concurrently -n fs,api,web -c yellow,cyan,magenta \"firebase emulators:start --only firestore --project demo-mogcheck\" \"wait-on tcp:8080 && cross-env FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm --prefix backend run dev\" \"wait-on tcp:8080 && vite --port 5174 --strictPort\"",
-    "dev:no-emulator": "concurrently -n api,web -c cyan,magenta \"npm --prefix backend run dev\" \"vite --port 5174 --strictPort\"",
+    "dev:local": "concurrently -n fs,api,web -c yellow,cyan,magenta \"firebase emulators:start --only firestore --project demo-mogcheck\" \"wait-on tcp:8080 && cross-env USE_FIREBASE_EMULATOR=1 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm --prefix backend run dev\" \"wait-on tcp:8080 && vite --port 5174 --strictPort\"",
+    "dev:no-emulator": "npm run dev:local",
+    "dev:api-web-only": "concurrently -n api,web -c cyan,magenta \"npm --prefix backend run dev\" \"vite --port 5174 --strictPort\"",
     "dev:web": "vite --port 5174 --strictPort",
     "dev:api": "npm --prefix backend run dev",
     "dev:stack": "npm run dev",
@@ -31,24 +32,25 @@
     "firebase": "^12.11.0",
     "lucide-react": "^0.577.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
-    "cross-env": "^7.0.3",
-    "firebase-tools": "^13.29.1",
-    "wait-on": "^8.0.1",
     "@eslint/js": "^9.39.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.27",
     "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "firebase-tools": "^13.29.1",
     "globals": "^17.4.0",
     "postcss": "^8.5.8",
     "tailwindcss": "^3.4.19",
-    "vite": "^8.0.1"
+    "vite": "^8.0.1",
+    "wait-on": "^8.0.1"
   }
 }

@@ -38,6 +38,7 @@ export function getCurrentBattle() {
 /** Rotating featured celebrity-vs-celebrity slots (vote tallies in Firestore per `id`). */
 export const FEATURED_MOGBATTLE_IDS = [
   CURRENT_MOGBATTLE_ID,
+  'jordan-vs-henry',
   'adriana-vs-jordan',
   'henry-vs-rege',
   'dua-vs-tom',
@@ -47,18 +48,24 @@ export function getFeaturedBattleById(id) {
   if (id === CURRENT_MOGBATTLE_ID) return getCurrentBattle();
   const find = (name) => celebrityData.find((c) => c.name === name);
   const pairs = {
+    'jordan-vs-henry': [find('Jordan Barrett'), find('Henry Cavill')],
     'adriana-vs-jordan': [find('Adriana Lima'), find('Jordan Barrett')],
     'henry-vs-rege': [find('Henry Cavill'), find('Regé-Jean Page')],
     'dua-vs-tom': [find('Dua Lipa'), find('Tom Holland')],
   };
   const pr = pairs[id];
   if (!pr || !pr[0] || !pr[1]) return null;
-  const [a, b] = pr;
+  
+  // Need to build the structure identical to getCurrentBattle
   return {
     id,
-    fighterA: { ...a },
-    fighterB: { ...b },
+    fighterA: { ...pr[0] },
+    fighterB: { ...pr[1] },
   };
+}
+
+export function getAllFeaturedBattles() {
+  return FEATURED_MOGBATTLE_IDS.map(getFeaturedBattleById).filter(Boolean);
 }
 
 /** Short labels for metric rows (first N stats from each celeb). */
