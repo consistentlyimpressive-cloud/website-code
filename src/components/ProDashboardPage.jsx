@@ -51,7 +51,30 @@ const hydrateScanForDashboard = (scan) => {
   };
 };
 
-const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSignOut, setPendingUploadModel, analysisContent = null, hasActiveAnalysis = false, setDashboardData, renderCommunityDashboard = null }) => {
+const mergeProfileHistory = (history, snapshot) => {
+  const items = Array.isArray(history) ? [...history] : [];
+  if (!snapshot) return items;
+
+  const snapshotKey = snapshot.scanId || snapshot.scannedAt || `${snapshot.frontImage || ''}-${snapshot.finalRating || ''}`;
+  const existingIndex = items.findIndex((item) => {
+    const itemKey = item?.scanId || item?.scannedAt || `${item?.frontImage || ''}-${item?.finalRating || ''}`;
+    return itemKey && itemKey === snapshotKey;
+  });
+
+  if (existingIndex >= 0) {
+    items[existingIndex] = {
+      ...items[existingIndex],
+      ...snapshot,
+      frontImage: snapshot.frontImage || items[existingIndex].frontImage || null,
+      sideImage: snapshot.sideImage || items[existingIndex].sideImage || null,
+    };
+    return items;
+  }
+
+  return [...items, snapshot];
+};
+
+const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSignOut, setPendingUploadModel, setPendingUploadProfileId, analysisContent = null, hasActiveAnalysis = false, setDashboardData, renderCommunityDashboard = null }) => {
   const [profiles, setProfiles] = useState([]);
   const [allScans, setAllScans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -137,6 +160,9 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
   const handleCreateProfileAndScan = (model) => {
     if (setPendingUploadModel) setPendingUploadModel(model);
+    if (setPendingUploadProfileId) {
+      setPendingUploadProfileId(dashboardData?.profileId || null);
+    }
     if (model === '1' || model === '2') {
       setCurrentPage('upload-ultra');
     } else {
@@ -336,7 +362,16 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
       if (scans.length === 0) return;
 
-      const history = scans.map(hydrateScanForDashboard).filter(Boolean);
+      let history = scans.map(hydrateScanForDashboard).filter(Boolean);
+      const currentSnapshot =
+        dashboardData?.profileId === profile.id && (dashboardData?.frontImage || dashboardData?.finalRating != null)
+          ? {
+              ...dashboardData,
+              scannedAt: dashboardData?.scannedAt || new Date().toISOString(),
+            }
+          : null;
+      history = mergeProfileHistory(history, currentSnapshot);
+      history.sort((a, b) => timestampToMillis(a?.scannedAt) - timestampToMillis(b?.scannedAt));
       const latestScan = history[history.length - 1];
       const ratingHistory = history
         .map((scan) => scan.finalRating)
@@ -510,10 +545,10 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
             Previous Page
           </button>
         )}
-        <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter italic text-white mb-2">
+        <h1 className="hidden text-3xl md:text-5xl font-black uppercase tracking-tighter italic text-white mb-2">
           Welcome Back, {username}
         </h1>
-        <p className="text-zinc-400 font-sans text-sm uppercase tracking-widest mb-12">
+        <p className="hidden text-zinc-400 font-sans text-sm uppercase tracking-widest mb-12">
           {hasActiveAnalysis
             ? 'Let’s check your progress.'
             : activeSection === 'profiles'

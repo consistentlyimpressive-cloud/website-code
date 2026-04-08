@@ -96,6 +96,58 @@ function normalizeFeatureList(items, fallbackLabel) {
     .filter(Boolean);
 }
 
+function extractFeatureHighlightsFromRawOutput(rawOutput) {
+  if (typeof rawOutput !== 'string' || !rawOutput.trim()) {
+    return { bestFeatures: [], primaryFlaws: [] };
+  }
+
+  const parseSingleHighlight = (regex, fallbackLabel) => {
+    const match = rawOutput.match(regex);
+    if (!match) return [];
+
+    const clean = String(match[1] || '')
+      .replace(/\*\*/g, '')
+      .replace(/\r?\n+/g, ' ')
+      .trim();
+
+    if (!clean) return [];
+
+    const split = clean.match(/^([^:.]{3,80}?)(?:\s+-\s+|:\s+)(.+)$/);
+    if (split) {
+      return [{ title: split[1].trim(), description: split[2].trim() }];
+    }
+
+    return [{ title: fallbackLabel, description: clean }];
+  };
+
+  return {
+    bestFeatures: parseSingleHighlight(
+      /\*\*#1 BEST FEATURE:\*\*\s*([\s\S]*?)(?=\*\*#1 WORST FEATURE:\*\*|$)/i,
+      'Best Feature'
+    ),
+    primaryFlaws: parseSingleHighlight(
+      /\*\*#1 WORST FEATURE:\*\*\s*([\s\S]*?)$/i,
+      'Primary Flaw'
+    ),
+  };
+}
+
+function resolveNormalizedFeatures(dashboardData, type, isSideView = false) {
+  const primaryItems = type === 'best'
+    ? (isSideView && dashboardData?.sideBestFeatures?.length
+        ? dashboardData.sideBestFeatures
+        : dashboardData?.bestFeatures)
+    : (isSideView && dashboardData?.sidePrimaryFlaws?.length
+        ? dashboardData.sidePrimaryFlaws
+        : dashboardData?.primaryFlaws);
+
+  const normalized = normalizeFeatureList(primaryItems, type === 'best' ? 'Best feature' : 'Primary flaw');
+  if (normalized.length > 0) return normalized;
+
+  const fallback = extractFeatureHighlightsFromRawOutput(dashboardData?.rawOutput || '');
+  return type === 'best' ? fallback.bestFeatures : fallback.primaryFlaws;
+}
+
 function timestampToMillis(value) {
   if (!value) return 0;
   if (typeof value === 'number') return value;
@@ -1827,14 +1879,30 @@ const ScanningView = ({
           );
         }, 4000);
 
+        const runAnalyzeRequest = async (attempt = 1) => {
+          try {
+            return await fetch(`${API_BASE}/api/analyze`, {
+              method: "POST",
+              headers,
+              body: formData,
+              signal: analyzeAbort.signal,
+            });
+          } catch (networkErr) {
+            if (networkErr?.name === 'AbortError' || attempt >= 2) {
+              throw networkErr;
+            }
+            console.warn(`[analyze] network failure on attempt ${attempt}, retrying`, networkErr);
+            if (active) {
+              setStatusText('Network hiccup detected. Retrying the analysis request...');
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1200));
+            return runAnalyzeRequest(attempt + 1);
+          }
+        };
+
         let apiRes;
         try {
-          apiRes = await fetch(`${API_BASE}/api/analyze`, {
-            method: "POST",
-            headers,
-            body: formData,
-            signal: analyzeAbort.signal,
-          });
+          apiRes = await runAnalyzeRequest();
         } finally {
           clearTimeout(analyzeHardStop);
           clearInterval(progressTick);
@@ -1957,7 +2025,7 @@ const ScanningView = ({
 
 
 // --- Upload Photo Page ---
-const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrity, user, userPlan, initialModel = "3", isLockedToUltra = false }) => {
+const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrity, user, userPlan, initialModel = "3", isLockedToUltra = false, initialProfileId = null }) => {
   const [frontImage, setFrontImage] = useState(null);
   const [frontFile, setFrontFile] = useState(null);
   const [sideImage, setSideImage] = useState(null);
@@ -1972,7 +2040,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const scanTopRef = useRef(null);
 
   const [profiles, setProfiles] = useState([]);
-  const [selectedProfileId, setSelectedProfileId] = useState('new');
+  const [selectedProfileId, setSelectedProfileId] = useState(initialProfileId || 'new');
   const [newProfileName, setNewProfileName] = useState('');
   const [profilesUnavailable, setProfilesUnavailable] = useState(false);
 
@@ -1984,15 +2052,20 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
         const res = await fetch(`${API_BASE}/api/user/profiles`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (res.ok) {
-          const data = await res.json();
-          setProfilesUnavailable(Boolean(data.profilesUnavailable));
-          setProfiles(data.profiles || []);
-          if (data.profiles && data.profiles.length > 0) {
-            setSelectedProfileId(data.profiles[0].id);
-          } else {
-            setSelectedProfileId('new');
-          }
+          if (res.ok) {
+            const data = await res.json();
+            const fetchedProfiles = data.profiles || [];
+            setProfilesUnavailable(Boolean(data.profilesUnavailable));
+            setProfiles(fetchedProfiles);
+            if (initialProfileId && fetchedProfiles.some((p) => p.id === initialProfileId)) {
+              setSelectedProfileId(initialProfileId);
+            } else if (fetchedProfiles.length > 0) {
+              setSelectedProfileId((prev) =>
+                fetchedProfiles.some((p) => p.id === prev) ? prev : fetchedProfiles[0].id
+              );
+            } else {
+              setSelectedProfileId('new');
+            }
         } else {
           // 401 = token not accepted by server; 503 = Firestore off — avoid invalid <select> value
           setProfiles([]);
@@ -2009,7 +2082,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       }
     };
     fetchProfiles();
-  }, [user]);
+  }, [user, initialProfileId]);
 
   const models = [
     {
@@ -2127,6 +2200,10 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   useEffect(() => {
     setSelectedModel(initialModel);
   }, [initialModel]);
+
+  useEffect(() => {
+    setSelectedProfileId(initialProfileId || 'new');
+  }, [initialProfileId]);
 
   useEffect(() => {
     if (!isScanning) return undefined;
@@ -2847,14 +2924,14 @@ const DashboardOverview = ({ dashboardData, isRestrictedPreview, activeProfileVi
       : 'The subject presents with a heavily midface-dominant structural profile, corroborated by a suboptimal fWHR...';
 
   const isSide = activeProfileView === 'side';
-  const rawFlaws = isSide && dashboardData?.sidePrimaryFlaws?.length
-    ? dashboardData.sidePrimaryFlaws
-    : dashboardData?.primaryFlaws;
-  const rawFeatures = isSide && dashboardData?.sideBestFeatures?.length
-    ? dashboardData.sideBestFeatures
-    : dashboardData?.bestFeatures;
-  const displayFlaws = useMemo(() => normalizeFeatureList(rawFlaws, 'Primary flaw'), [rawFlaws]);
-  const displayFeatures = useMemo(() => normalizeFeatureList(rawFeatures, 'Best feature'), [rawFeatures]);
+  const displayFlaws = useMemo(
+    () => resolveNormalizedFeatures(dashboardData, 'flaw', isSide),
+    [dashboardData, isSide]
+  );
+  const displayFeatures = useMemo(
+    () => resolveNormalizedFeatures(dashboardData, 'best', isSide),
+    [dashboardData, isSide]
+  );
   const shouldExpand = isRestrictedPreview || displayFlaws.length > 0 || displayFeatures.length > 0;
   const [isExpanded, setIsExpanded] = useState(shouldExpand);
 
@@ -3511,24 +3588,12 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
     : (dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png");
 
   const activeBestFeatures = useMemo(
-    () =>
-      normalizeFeatureList(
-        isSideView && dashboardData?.sideBestFeatures?.length
-          ? dashboardData.sideBestFeatures
-          : dashboardData?.bestFeatures,
-        'Best feature'
-      ),
-    [dashboardData?.bestFeatures, dashboardData?.sideBestFeatures, isSideView]
+    () => resolveNormalizedFeatures(dashboardData, 'best', isSideView),
+    [dashboardData, isSideView]
   );
   const activePrimaryFlaws = useMemo(
-    () =>
-      normalizeFeatureList(
-        isSideView && dashboardData?.sidePrimaryFlaws?.length
-          ? dashboardData.sidePrimaryFlaws
-          : dashboardData?.primaryFlaws,
-        'Primary flaw'
-      ),
-    [dashboardData?.primaryFlaws, dashboardData?.sidePrimaryFlaws, isSideView]
+    () => resolveNormalizedFeatures(dashboardData, 'flaw', isSideView),
+    [dashboardData, isSideView]
   );
   const primaryBestFeature = showBestFlaw ? activeBestFeatures[0] ?? null : null;
   const primaryFlawFeature = showBestFlaw ? activePrimaryFlaws[0] ?? null : null;
@@ -5034,6 +5099,7 @@ const App = () => {
   const [dashboardData, setDashboardData] = useState(null);
   /** When set from Pro dashboard “Run a new scan”, upload page pre-selects this model (1–5). */
   const [pendingUploadModel, setPendingUploadModel] = useState(null);
+  const [pendingUploadProfileId, setPendingUploadProfileId] = useState(null);
   const [selectedCelebrity, setSelectedCelebrity] = useState(null);
   const [routeParams, setRouteParams] = useState({});
   const [user, setUser] = useState(null);
@@ -5127,6 +5193,7 @@ const App = () => {
   useEffect(() => {
     if (currentPage !== 'upload-photo' && currentPage !== 'upload-ultra') {
       setPendingUploadModel(null);
+      setPendingUploadProfileId(null);
     }
   }, [currentPage]);
 
@@ -5197,6 +5264,7 @@ const App = () => {
             userPlan={userPlan}
             initialModel={pendingUploadModel ?? (currentPage === 'upload-ultra' ? '1' : '3')}
             isLockedToUltra={currentPage === 'upload-ultra'}
+            initialProfileId={pendingUploadProfileId}
           />
         )}
         {currentPage === 'results' && <ResultsPage />}
@@ -5210,6 +5278,7 @@ const App = () => {
                 user={user}
                 onSignOut={handleSignOut}
                 setPendingUploadModel={setPendingUploadModel}
+                setPendingUploadProfileId={setPendingUploadProfileId}
                 setDashboardData={setDashboardData}
                 hasActiveAnalysis={hasScanData}
                 analysisContent={

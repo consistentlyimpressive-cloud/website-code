@@ -804,6 +804,13 @@ function getLoadingVideoUrl(req) {
   return `${getPublicBackendBase(req)}/loading_scan.mp4`;
 }
 
+function getLocalUploadUrl(req, localPath) {
+  if (!localPath) return null;
+  const filename = path.basename(localPath);
+  if (!filename) return null;
+  return `${getPublicBackendBase(req)}/uploads/${encodeURIComponent(filename)}`;
+}
+
 function guessContentType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   if (ext === '.png') return 'image/png';
@@ -1116,6 +1123,11 @@ app.post(
         : pythonOutput,
   };
 
+  const frontFallbackUrl = getLocalUploadUrl(req, imagePath);
+  const sideFallbackUrl = getLocalUploadUrl(req, sideImagePath);
+  if (frontFallbackUrl) payload.frontImage = frontFallbackUrl;
+  if (sideFallbackUrl) payload.sideImage = sideFallbackUrl;
+
   if (!success) {
     if (code !== 0) {
       payload.error = `Python exited with code ${code}. Check this terminal for [FATAL] or API errors above.`;
@@ -1165,17 +1177,23 @@ app.post(
 
         if (success && req.uid && firestore) {
           try {
+            const persistedFrontImage = frontUpload ? frontUpload.url : frontFallbackUrl;
+            const persistedSideImage = sideUpload ? sideUpload.url : sideFallbackUrl;
             await firestore.collection('users').doc(req.uid).collection('scans').add({
               timestamp: admin.firestore.FieldValue.serverTimestamp(),
               model: modelChoice,
               finalRating,
               sideRating,
-              frontImageUrl: frontUpload ? frontUpload.url : null,
-              sideImageUrl: sideUpload ? sideUpload.url : null,
+              frontImageUrl: persistedFrontImage || null,
+              sideImageUrl: persistedSideImage || null,
               frontImageDest: frontUpload ? frontUpload.dest : null,
               sideImageDest: sideUpload ? sideUpload.dest : null,
               success: true,
-              payload: payload, // NEW: save the full payload so profiles can fetch it later
+              payload: {
+                ...payload,
+                frontImage: persistedFrontImage || payload.frontImage || null,
+                sideImage: persistedSideImage || payload.sideImage || null,
+              }, // NEW: save the full payload so profiles can fetch it later
               profileId: req.body.profileId || 'default' // NEW: associate with a profile
             });
           } catch (e) {
@@ -1447,6 +1465,8 @@ app.delete('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 if (fs.existsSync(distDir)) {
   app.get(/^(?!\/api\/).*/, (req, res) => {
