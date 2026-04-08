@@ -86,9 +86,9 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
         mapping = {
             "1": ("gemini-3.1-pro-preview", "ULTRA - Highest Quality", "type_a"),
             "2": ("gemini-2.5-flash", "ULTRA - Fast", "type_a"),
-            "3": ("openai/gpt-5.4-mini", "OPTIC", "type_b"),
-            "4": ("anthropic/claude-3.7-sonnet", "CORE", "type_b"),
-            "5": ("z-ai/glm-4.6v", "GENEVA", "type_b")
+            "3": ("openai/gpt-4o-mini", "OPTIC", "type_b"),
+            "4": ("google/gemini-2.5-flash", "CORE", "type_b"),
+            "5": ("google/gemini-2.5-flash", "GENEVA", "type_b")
         }
 
         if choice not in mapping:

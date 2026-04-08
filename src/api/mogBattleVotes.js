@@ -23,6 +23,26 @@ export async function fetchFeaturedVoteRankings(battleIds) {
   return results.sort((x, y) => y.total - x.total);
 }
 
+/** Vote totals for each featured battle id (for rotating the main slot). */
+export async function fetchFeaturedVoteRankings(battleIds) {
+  if (!battleIds?.length) return [];
+  const results = await Promise.all(
+    battleIds.map(async (id) => {
+      try {
+        const r = await fetch(`${API_BASE}/api/mog-battle/votes/${encodeURIComponent(id)}`);
+        if (!r.ok) return { id, a: 0, b: 0, total: 0 };
+        const j = await r.json();
+        const a = Number(j.a) || 0;
+        const b = Number(j.b) || 0;
+        return { id, a, b, total: a + b };
+      } catch {
+        return { id, a: 0, b: 0, total: 0 };
+      }
+    })
+  );
+  return results.sort((x, y) => y.total - x.total);
+}
+
 export async function fetchMogBattleTallies(battleId = CURRENT_MOGBATTLE_ID) {
   const r = await fetch(`${API_BASE}/api/mog-battle/votes/${encodeURIComponent(battleId)}`);
   if (!r.ok) throw new Error('Could not load vote totals');
