@@ -288,6 +288,70 @@ function formatTimestamp(value, fallback = 'Unknown Time') {
   return millis ? new Date(millis).toLocaleString() : fallback;
 }
 
+function normalizeMarkedText(value) {
+  return String(value || '')
+    .replace(/\*\*([\s\S]*?)\*\*/g, '*$1*')
+    .replace(/\r\n/g, '\n');
+}
+
+function stripInlineMarkers(value) {
+  return normalizeMarkedText(value)
+    .replace(/&(red|green|blue|white|yellow)\s+([^&]+)&/gi, '$2')
+    .replace(/\*/g, '')
+    .trim();
+}
+
+const INLINE_COLOR_CLASSES = {
+  red: 'text-red-300',
+  green: 'text-emerald-300',
+  blue: 'text-cyan-300',
+  white: 'text-white',
+  yellow: 'text-yellow-300',
+};
+
+function renderMarkedText(value, options = {}) {
+  const text = normalizeMarkedText(value);
+  if (!text) return null;
+
+  const boldClassName = options.boldClassName || 'font-semibold text-white';
+  const nodes = [];
+  const pattern = /&(red|green|blue|white|yellow)\s+([^&]+)&|\*([^*]+)\*/gi;
+  let cursor = 0;
+  let key = 0;
+
+  const pushPlain = (chunk) => {
+    if (!chunk) return;
+    const parts = chunk.split('\n');
+    parts.forEach((part, index) => {
+      if (part) nodes.push(part);
+      if (index < parts.length - 1) nodes.push(<br key={`br-${key++}`} />);
+    });
+  };
+
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    pushPlain(text.slice(cursor, match.index));
+    if (match[1]) {
+      const colorKey = String(match[1]).toLowerCase();
+      nodes.push(
+        <span key={`color-${key++}`} className={INLINE_COLOR_CLASSES[colorKey] || ''}>
+          {match[2]}
+        </span>
+      );
+    } else {
+      nodes.push(
+        <strong key={`bold-${key++}`} className={boldClassName}>
+          {match[3]}
+        </strong>
+      );
+    }
+    cursor = pattern.lastIndex;
+  }
+
+  pushPlain(text.slice(cursor));
+  return nodes.length ? nodes : text;
+}
+
 const firebaseConfig = {
   apiKey: "AIzaSyDg9bES9zvmfvsjS6FLjCOKzBb9b6Mm0Ts",
   authDomain: "mogcheck-net.firebaseapp.com",
@@ -3026,12 +3090,12 @@ const MetricBar = ({ label, score, max = 100, displayValue, isFreePlan = false }
   }
 
   return (
-    <div className="flex flex-col mb-4 relative group">
-      <div className="flex justify-between items-end text-xs uppercase font-sans text-zinc-400 mb-2">
-        <span className="tracking-widest font-bold">{label}</span>
+    <div className="flex flex-col relative group">
+      <div className="flex justify-between items-end gap-3 text-[10px] uppercase font-sans text-zinc-400 mb-1.5">
+        <span className="tracking-[0.22em] font-bold leading-tight">{label}</span>
         <span className="font-black text-white text-sm bg-zinc-900/80 px-2 py-0.5 rounded shadow-sm border border-zinc-800">{isFreePlan ? `${Math.round(progress)}/100` : (displayValue ? displayValue : `${progress.toFixed(1)}${max === 100 ? '%' : ''}`)}</span>
       </div>
-      <div className="w-full h-3 bg-zinc-800/80 rounded-full relative overflow-hidden flex items-center shadow-inner">
+      <div className="w-full h-2.5 bg-zinc-800/80 rounded-full relative overflow-hidden flex items-center shadow-inner">
         <div 
           className={`h-full rounded-full ${colorClass} ${shadowClass} transition-all duration-1000 ease-out`} 
           style={{ width: `${percentage}%` }} 
@@ -3097,8 +3161,8 @@ const FeatureCard = ({ type = 'best', title, description }) => {
       
       <div className="relative z-10 flex flex-col h-full transition-colors duration-700">
         <span className={`${textLabel} text-[10px] uppercase font-black tracking-widest mb-1 block`}>{label}</span>
-        <h4 className={`${textTitle} font-bold uppercase text-sm tracking-widest mb-3 drop-shadow-md`}>{title}</h4>
-        <p className="text-zinc-300 text-[11px] font-sans leading-relaxed mt-auto drop-shadow">{description}</p>
+        <h4 className={`${textTitle} font-bold uppercase text-sm tracking-widest mb-3 drop-shadow-md`}>{stripInlineMarkers(title)}</h4>
+        <p className="text-zinc-300 text-[11px] font-sans leading-relaxed mt-auto drop-shadow">{renderMarkedText(description)}</p>
       </div>
     </div>
   );
@@ -3135,12 +3199,12 @@ const DashboardOverview = ({ dashboardData, isRestrictedPreview, activeProfileVi
   ]);
 
   return (
-    <div className="bg-zinc-900/30 p-8 rounded-3xl border border-zinc-800 flex flex-col relative overflow-hidden">
+    <div id="dashboard-structural-overview" className="bg-zinc-900/30 p-8 rounded-3xl border border-zinc-800 flex flex-col relative overflow-hidden scroll-mt-28">
       <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 border-b border-zinc-800/50 pb-4"><Activity size={14} className="inline mr-2" /> Structural Overview</h3>
       
       <div className={`relative transition-all duration-500 overflow-hidden ${isExpanded ? 'max-h-[2000px]' : 'max-h-[64px]'}`}>
         <p className="text-zinc-300 font-sans text-sm leading-relaxed tracking-wide text-justify mb-6">
-          {summary}
+          {renderMarkedText(summary)}
         </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mt-8 mb-4" style={{ zoom: 0.92 }}>
@@ -3289,11 +3353,31 @@ const FeatureHighlightCard = ({ type, feature, onHover }) => {
     >
       <div className={railClass} />
       <span className={labelClass}>{isBest ? 'Best Feature' : 'Primary Flaw'}</span>
-      <h4 className={titleClass}>{feature.title}</h4>
-      <p className="text-zinc-400 text-xs font-sans leading-relaxed">{feature.description}</p>
+      <h4 className={titleClass}>{stripInlineMarkers(feature.title)}</h4>
+      <p className="text-zinc-400 text-xs font-sans leading-relaxed">{renderMarkedText(feature.description)}</p>
     </div>
   );
 };
+
+const PersonalizedFeedbackCard = ({ item, delay = 0 }) => (
+  <div
+    className="group relative overflow-hidden rounded-2xl border border-cyan-500/15 bg-cyan-500/5 p-5 shadow-[0_0_24px_rgba(34,211,238,0.04)] transition-all duration-500 hover:-translate-y-1 hover:border-cyan-500/35 hover:shadow-[0_0_30px_rgba(34,211,238,0.12)]"
+    style={{ animation: `fadeInUp 0.55s ease ${delay}ms both` }}
+  >
+    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
+    <div className="mb-4 flex items-center gap-3">
+      <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-500/25 bg-cyan-500/10 text-[11px] font-black text-cyan-300">
+        {String(item?.id ?? '').padStart(2, '0')}
+      </div>
+      <h4 className="text-sm font-black uppercase tracking-[0.22em] text-white">
+        {stripInlineMarkers(item?.title || 'Feedback')}
+      </h4>
+    </div>
+    <div className="text-sm font-sans leading-relaxed text-zinc-300">
+      {renderMarkedText(item?.description)}
+    </div>
+  </div>
+);
 
 const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover }) => {
   const [landmarker, setLandmarker] = useState(null);
@@ -3788,6 +3872,10 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   );
   const primaryBestFeature = showBestFlaw ? activeBestFeatures[0] ?? null : null;
   const primaryFlawFeature = showBestFlaw ? activePrimaryFlaws[0] ?? null : null;
+  const appealAssessment = String(dashboardData?.appealAssessment || '').trim();
+  const personalizedFeedback = Array.isArray(dashboardData?.personalizedFeedback)
+    ? dashboardData.personalizedFeedback.filter((item) => item && (item.title || item.description))
+    : [];
 
   const [activeHover, setActiveHover] = useState(null);
 
@@ -3807,6 +3895,12 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
 
   return (
     <div className={`w-full flex-grow flex flex-col items-center relative font-sans overflow-hidden bg-[#0a0a0b] ${isEmbedded ? '' : 'pt-16 pb-24 px-4 sm:px-6'}`}>
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(18px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
       {communityPeek && (
         <div
           className="fixed inset-0 z-[200] flex flex-col bg-[#0a0a0b] overflow-y-auto"
@@ -4077,12 +4171,26 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </>
           )}
 
+          {!!appealAssessment && (
+            <div className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-6 shadow-lg transition-colors hover:border-emerald-500/35">
+              <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-emerald-300 to-emerald-600" />
+              <div className="relative pl-3">
+                <h3 className="mb-3 flex items-center gap-2 text-xs font-sans uppercase tracking-widest text-emerald-300">
+                  <Sparkles size={14} className="text-emerald-400" /> Appeal Assessment
+                </h3>
+                <div className="text-sm font-sans leading-relaxed text-zinc-200">
+                  {renderMarkedText(appealAssessment)}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Detailed Ratios Section */}
-          <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
+          <div className="relative bg-[#0c0d0e] p-6 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
             {isRestrictedPreview && renderBlurredOverlay("Detailed Ratios")}
             <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
-              <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-10 flex items-center gap-2"><Activity size={14} className="text-zinc-500" /> Detailed Morphometric Ratios</h3>
-              <div className="flex flex-col gap-10">
+              <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2"><Activity size={14} className="text-zinc-500" /> Detailed Morphometric Ratios</h3>
+              <div className="flex flex-col gap-6">
               {Object.entries(
                 metricData.reduce((acc, m) => {
                   const labelLow = m.label.toLowerCase();
@@ -4096,8 +4204,8 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                 }, {})
               ).map(([cat, metrics]) => (
                 <div key={cat} className="flex flex-col">
-                  <h4 className="text-cyan-500/80 font-bold uppercase tracking-widest text-xs mb-5 border-b border-zinc-800/80 pb-3">{cat}</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-12 gap-y-7">
+                  <h4 className="text-cyan-500/80 font-bold uppercase tracking-widest text-xs mb-3 border-b border-zinc-800/80 pb-2">{cat}</h4>
+                  <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 md:grid-cols-3">
                     {metrics.map((m, i) => (
                       <MetricBar key={i} label={m.label} score={m.score} max={m.max || 100} displayValue={m.displayValue} isFreePlan={isRestrictedPreview} />
                     ))}
@@ -4151,6 +4259,30 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
               </div>
             </div>
           )}
+
+          <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 shadow-lg group hover:border-zinc-700 transition-colors">
+            {isRestrictedPreview && renderBlurredOverlay("Personalized Feedback")}
+            <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
+              <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-zinc-800 pb-4">
+                <Sparkles size={14} className="text-zinc-500" /> Personalized Feedback
+              </h3>
+              {personalizedFeedback.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {personalizedFeedback.map((item, index) => (
+                    <PersonalizedFeedbackCard
+                      key={`${item.id || index}-${item.title || 'feedback'}`}
+                      item={item}
+                      delay={index * 70}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-zinc-500 text-sm font-sans leading-relaxed">
+                  Personalized feedback will appear here once the scan returns individualized tips.
+                </p>
+              )}
+            </div>
+          </div>
 
           {!hideUnlockPotential && (
           <div className="bg-gradient-to-br from-zinc-900/80 to-black p-1 rounded-2xl overflow-hidden mt-4 relative shadow-[0_10px_50px_rgba(0,0,0,0.5)] border border-zinc-800/50 group hover:border-zinc-700 transition-colors">

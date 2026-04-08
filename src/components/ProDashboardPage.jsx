@@ -16,6 +16,44 @@ const clampTextStyle = {
 
 const communityCardRadiusClass = 'rounded-[28px]';
 
+const normalizeMarkedText = (value) =>
+  String(value || '')
+    .replace(/\*\*([\s\S]*?)\*\*/g, '*$1*')
+    .replace(/\r\n/g, '\n');
+
+const renderMarkedText = (value, boldClassName = 'font-semibold text-white') => {
+  const text = normalizeMarkedText(value);
+  if (!text) return null;
+
+  const nodes = [];
+  const pattern = /\*([^*]+)\*/g;
+  let cursor = 0;
+  let key = 0;
+
+  const pushPlain = (chunk) => {
+    if (!chunk) return;
+    const parts = chunk.split('\n');
+    parts.forEach((part, index) => {
+      if (part) nodes.push(part);
+      if (index < parts.length - 1) nodes.push(<br key={`br-${key++}`} />);
+    });
+  };
+
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    pushPlain(text.slice(cursor, match.index));
+    nodes.push(
+      <strong key={`bold-${key++}`} className={boldClassName}>
+        {match[1]}
+      </strong>
+    );
+    cursor = pattern.lastIndex;
+  }
+
+  pushPlain(text.slice(cursor));
+  return nodes.length ? nodes : text;
+};
+
 const timestampToMillis = (value) => {
   if (!value) return 0;
   if (typeof value === 'number') return value;
@@ -314,6 +352,25 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     }
   };
 
+  const scrollToStructuralOverview = () => {
+    setActiveSection('analysis');
+    analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    const tryScroll = () => {
+      const node = document.getElementById('dashboard-structural-overview');
+      if (node) {
+        node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return true;
+      }
+      return false;
+    };
+
+    if (!tryScroll()) {
+      window.setTimeout(tryScroll, 240);
+      window.setTimeout(tryScroll, 650);
+    }
+  };
+
   const handleSelectScan = (scan) => {
     if (!scan || !setDashboardData) return;
     setDashboardData((prev) => ({
@@ -609,15 +666,19 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                   Lock in the routine and use your next scan to measure progress.
                 </p>
               </div>
-              <div className="rounded-3xl border border-cyan-500/20 bg-cyan-500/5 p-5">
+              <button
+                type="button"
+                onClick={scrollToStructuralOverview}
+                className="rounded-3xl border border-cyan-500/20 bg-cyan-500/5 p-5 text-left transition-all hover:border-cyan-400/35 hover:bg-cyan-500/10 hover:shadow-[0_0_24px_rgba(34,211,238,0.12)]"
+              >
                 <div className="mb-4 flex items-center gap-3 text-cyan-300">
                   <Sparkles size={18} />
-                  <p className="text-[10px] font-sans uppercase tracking-[0.28em]">Insight</p>
+                  <p className="text-[10px] font-sans uppercase tracking-[0.28em]">Latest Insight</p>
                 </div>
                 <p className="text-sm font-sans leading-relaxed text-zinc-300" style={{ ...clampTextStyle, WebkitLineClamp: 6 }}>
-                  {dashboardData?.technicalSummary || 'Run a scan to surface your strongest traits and biggest improvement opportunities.'}
+                  {renderMarkedText(dashboardData?.technicalSummary || 'Run a scan to surface your strongest traits and biggest improvement opportunities.')}
                 </p>
-              </div>
+              </button>
               <div className="rounded-3xl border border-zinc-800 bg-zinc-900/45 p-5">
                 <div className="mb-4 flex items-center gap-3 text-zinc-300">
                   <Newspaper size={18} />

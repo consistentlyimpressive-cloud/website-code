@@ -144,7 +144,7 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
 
     return "Error: Model selection failed or invalid choice.", "None", 0
 
-def run_final_stack(img_path, clinical_data_json_str=None):
+def run_final_stack(img_path, clinical_data_json_str=None, choice_arg=None, side_image_path=None):
     print("\n" + "="*30)
     print("      MODEL SELECTOR")
     print("="*30)
@@ -154,20 +154,39 @@ def run_final_stack(img_path, clinical_data_json_str=None):
     print("3. OPTIC (Balance & Alignment)")
     print("4. CORE (Objective Attractiveness)")
     print("5. GENEVA (Mathematical Beauty)")
-    
-    try:
-        choice = input("\nSelect Model [1-5]: ").strip()
-    except KeyboardInterrupt:
-        print("\nExiting script...")
-        return
+
+    valid_choices = {"1", "2", "3", "4", "5"}
+    if choice_arg is not None and str(choice_arg).strip():
+        choice = str(choice_arg).strip()
+        if choice not in valid_choices:
+            print(f"[FATAL] Invalid model choice from API: {choice!r}. Expected 1-5.")
+            return
+        print(f"\n[API] Using model choice {choice} (non-interactive).\n")
+    else:
+        try:
+            choice = input("\nSelect Model [1-5]: ").strip()
+        except (KeyboardInterrupt, EOFError):
+            print("\nExiting script...")
+            return
+        if choice not in valid_choices:
+            print(f"[FATAL] Invalid choice: {choice!r}")
+            return
 
     # --- SIDE PROFILE DATA COLLECTION ---
     side_data = "IGNORE_SIDE_ANALYSIS"
     if choice in ["1", "2"]:
         print("[ðŸš€] Gathering Lateral Data from engineside.py...")
+        lateral_path = None
+        if side_image_path and os.path.exists(side_image_path):
+            lateral_path = side_image_path
+        elif os.path.exists("testside.jpg"):
+            lateral_path = "testside.jpg"
         try:
-            side_data = engineside.get_profile_analysis("testside.jpg") 
-        except:
+            if lateral_path:
+                side_data = engineside.get_profile_analysis(lateral_path)
+            else:
+                side_data = "Lateral metadata unavailable. Focus on frontal visuals and input."
+        except Exception:
             side_data = "Lateral metadata unavailable. Focus on frontal visuals and input."
 
     print(f"\n--- ANALYZING: {img_path} ---")
@@ -398,4 +417,14 @@ def run_final_stack(img_path, clinical_data_json_str=None):
 
 if __name__ == "__main__":
     img_target = sys.argv[1] if len(sys.argv) > 1 else "test.jpg"
-    run_final_stack(img_target)
+    valid_models = {"1", "2", "3", "4", "5"}
+    if len(sys.argv) >= 3:
+        raw_choice = (sys.argv[2] or "").strip()
+        choice_from_api = raw_choice if raw_choice in valid_models else "3"
+    else:
+        choice_from_api = None
+
+    stats_raw = sys.argv[3] if len(sys.argv) > 3 else ""
+    side_path = sys.argv[4] if len(sys.argv) > 4 else None
+    clinical = stats_raw.strip() if stats_raw and str(stats_raw).strip() else None
+    run_final_stack(img_target, clinical, choice_from_api, side_path)

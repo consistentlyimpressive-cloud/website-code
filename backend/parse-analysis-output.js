@@ -159,6 +159,24 @@ function parseTechnicalSummary(raw) {
   return null;
 }
 
+function parseAppealAssessment(raw) {
+  const terminators =
+    '(?=\\*\\*Hexagon Chart Ratings|\\*\\*CORE CATEGORY SCORES|\\*\\*CRITICAL MARKERS|###\\s*DASHBOARD_DATA|###\\s*MOG_REPORT|\\*\\*Max Natural Potential)';
+
+  let m = raw.match(
+    new RegExp(
+      '\\*\\*Appeal Assessment:\\*\\*\\s*([\\s\\S]*?)' + terminators,
+      'i'
+    )
+  );
+  if (m) return m[1].trim();
+
+  m = raw.match(/Appeal Assessment:\s*\*?\*?\s*\n?([\s\S]*?)(?=\n\*\*[A-Z]|\n###\s|$)/i);
+  if (m) return m[1].trim();
+
+  return null;
+}
+
 function parseHexagonChart(raw, type) {
   const regex = new RegExp(`\\*\\*Hexagon Chart Ratings \\(${type}\\)\\*\\*\\s*\\n([\\s\\S]*?)(?=\\n\\*\\*|\\n###|$)`, 'i');
   const match = raw.match(regex);
@@ -232,6 +250,34 @@ function parsePersonalizedFeedback(raw) {
   return feedback;
 }
 
+function parseRatingsUseThis(raw, rawValues) {
+  const biometrics = [];
+  const ratingsMatch = raw.match(
+    /###\s*RATINGS\s*\(USE THIS\)\s*\r?\n([\s\S]*?)(?=###\s*Personalised feedback|###\s*ACTIONABLE PROTOCOLS|###\s*MOG_REPORT_REVISION|$)/i
+  );
+  if (!ratingsMatch) return biometrics;
+
+  for (const line of ratingsMatch[1].trim().split('\n')) {
+    const match = line.match(/[-*]*\s*([^:]+):\s*(\d+(?:\.\d+)?)\s*\/\s*100/i);
+    if (!match) continue;
+    const baseLabel = titleCaseKey(match[1]);
+    const score = Math.min(100, Math.max(0, parseFloat(match[2], 10)));
+    let finalLabel = baseLabel;
+    if (rawValues[baseLabel] !== undefined) {
+      const rawValue = rawValues[baseLabel];
+      if (/Degree|Angle|Tilt/i.test(baseLabel)) finalLabel = `${baseLabel} (${rawValue}°)`;
+      else finalLabel = `${baseLabel} (${rawValue})`;
+    }
+    biometrics.push({
+      label: finalLabel,
+      displayValue: `${Math.round(score)}/100`,
+      score
+    });
+  }
+
+  return biometrics;
+}
+
 function parseAnalysisOutput(rawOutput, backendDir) {
   let finalRating = parseFinalRating(rawOutput);
   let sideRating = parseSideRating(rawOutput);
@@ -241,6 +287,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   if (!technicalSummary || technicalSummary.length < 8) {
     technicalSummary = DEFAULT_SUMMARY;
   }
+  const appealAssessment = parseAppealAssessment(rawOutput);
 
   const bestFeatures = [];
   const primaryFlaws = [];
@@ -370,10 +417,14 @@ function parseAnalysisOutput(rawOutput, backendDir) {
 
   const biometrics = [];
   const rawValues = readMogReportRawValues(backendDir);
+  const ratingsBiometrics = parseRatingsUseThis(rawOutput, rawValues);
+  if (ratingsBiometrics.length > 0) {
+    biometrics.push(...ratingsBiometrics);
+  }
   const reportMatch = rawOutput.match(
     /###\s*MOG_REPORT_REVISION([\s\S]*?)(?:\*\*JUSTIFICATION|$)/i
   );
-  if (reportMatch) {
+  if (reportMatch && biometrics.length === 0) {
     for (const line of reportMatch[1].trim().split('\n')) {
       const m = line.match(/[-*]*\s*([^:]+):\s*(\d+(?:\.\d+)?)/);
       if (!m) continue;
@@ -436,6 +487,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     finalRating,
     sideRating,
     technicalSummary,
+    appealAssessment,
     bestFeatures,
     primaryFlaws,
     sideBestFeatures,
