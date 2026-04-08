@@ -96,6 +96,123 @@ function normalizeFeatureList(items, fallbackLabel) {
     .filter(Boolean);
 }
 
+function getCommunityImageToken(value) {
+  if (typeof value !== 'string') return '';
+  const base = value.split('?')[0].split('#')[0].split('/').pop() || '';
+  return base.trim().toLowerCase();
+}
+
+function findCommunityScanTemplate(scan) {
+  if (!scan) return null;
+
+  const idCandidates = [
+    scan.id,
+    scan.profileId,
+    scan.userId,
+    scan.displayName,
+    scan.name,
+  ]
+    .map((value) => (typeof value === 'string' ? value.trim().toLowerCase() : ''))
+    .filter(Boolean);
+
+  const imageCandidates = [
+    scan.frontImage,
+    scan.sideImage,
+    scan.dashboardData?.frontImage,
+    scan.dashboardData?.sideImage,
+  ]
+    .map(getCommunityImageToken)
+    .filter(Boolean);
+
+  return (
+    COMMUNITY_SCANS.find((entry) => {
+      const entryIds = [
+        entry.id,
+        entry.displayName,
+      ]
+        .map((value) => (typeof value === 'string' ? value.trim().toLowerCase() : ''))
+        .filter(Boolean);
+
+      if (idCandidates.some((candidate) => entryIds.includes(candidate))) {
+        return true;
+      }
+
+      const entryImages = [
+        entry.dashboardData?.frontImage,
+        entry.dashboardData?.sideImage,
+      ]
+        .map(getCommunityImageToken)
+        .filter(Boolean);
+
+      return imageCandidates.some((candidate) => entryImages.includes(candidate));
+    }) || null
+  );
+}
+
+function hydrateCommunityScanEntry(scan, index = 0) {
+  const template = findCommunityScanTemplate(scan);
+  const payload = scan?.dashboardData && typeof scan.dashboardData === 'object'
+    ? scan.dashboardData
+    : template?.dashboardData || null;
+
+  const frontImage =
+    payload?.frontImage ||
+    scan?.frontImage ||
+    template?.dashboardData?.frontImage ||
+    null;
+  const sideImage =
+    payload?.sideImage ||
+    scan?.sideImage ||
+    template?.dashboardData?.sideImage ||
+    frontImage ||
+    null;
+  const finalRating =
+    payload?.finalRating ??
+    scan?.finalRating ??
+    template?.dashboardData?.finalRating ??
+    0;
+  const sideRating =
+    payload?.sideRating ??
+    scan?.sideRating ??
+    template?.dashboardData?.sideRating ??
+    finalRating;
+
+  const dashboardData = payload
+    ? {
+        ...payload,
+        frontImage,
+        sideImage,
+        finalRating,
+        sideRating,
+        selectedModel: String(payload.selectedModel || scan?.selectedModel || '1'),
+      }
+    : null;
+
+  return {
+    ...template,
+    ...scan,
+    id: scan?.id || template?.id || `community-${index}`,
+    displayName: scan?.displayName || template?.displayName || scan?.name || `Community Scan ${index + 1}`,
+    tier:
+      scan?.tier ||
+      template?.tier ||
+      (Number(finalRating) >= 90
+        ? 'S-Tier'
+        : Number(finalRating) >= 80
+          ? 'A-Tier'
+          : Number(finalRating) >= 70
+            ? 'B-Tier'
+            : Number(finalRating) >= 60
+              ? 'C-Tier'
+              : 'D-Tier'),
+    frontImage,
+    sideImage,
+    finalRating,
+    sideRating,
+    dashboardData,
+  };
+}
+
 function extractFeatureHighlightsFromRawOutput(rawOutput) {
   if (typeof rawOutput !== 'string' || !rawOutput.trim()) {
     return { bestFeatures: [], primaryFlaws: [] };
@@ -466,8 +583,16 @@ const ComparisonCard = ({ beforeImgSrc, afterImgSrc, beforeScore, afterScore, is
       <div className="absolute inset-0 pointer-events-none z-20 bg-blue-500/10 mix-blend-color" />
       <div className="absolute inset-0 pointer-events-none z-20 bg-[radial-gradient(circle,transparent_40%,rgba(0,5,20,0.9)_120%)]" />
 
-      <div className="absolute top-4 left-4 flex gap-1 items-center z-30 pointer-events-none"><div className="bg-black/60 backdrop-blur px-2 py-1 rounded text-[8px] font-sans text-zinc-400 uppercase tracking-tighter border border-white/5">BEFORE - {beforeScore}</div></div>
-      <div className="absolute top-4 right-4 flex gap-1 items-center z-30 pointer-events-none"><div className="bg-blue-900/80 backdrop-blur px-2 py-1 rounded text-[8px] font-sans text-blue-200 uppercase tracking-tighter border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.5)]">AFTER - {afterScore}</div></div>
+      <div className="absolute top-4 left-4 z-30 pointer-events-none">
+        <div className="rounded-md border border-white/10 bg-black/72 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-200 shadow-[0_8px_20px_rgba(0,0,0,0.28)]">
+          Before-{beforeScore}
+        </div>
+      </div>
+      <div className="absolute top-4 right-4 z-30 pointer-events-none">
+        <div className="rounded-md border border-blue-400/35 bg-blue-950/82 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-blue-100 shadow-[0_0_16px_rgba(96,165,250,0.28)]">
+          After-{afterScore}
+        </div>
+      </div>
       <div className="absolute top-1/2 -translate-y-1/2 z-30 pointer-events-none" style={{ left: `calc(${sliderPosition}% - 12px)` }}>
         <div className={`w-6 h-6 bg-black/80 backdrop-blur border border-white/20 rounded flex items-center justify-center rotate-45 shadow-xl transition-transform ${isDragging ? 'scale-125 bg-white/20' : 'group-hover:scale-110'}`}><div className="-rotate-45 flex items-center justify-center"><ChevronRight size={14} className="text-white ml-0.5" /></div></div>
       </div>
@@ -658,6 +783,16 @@ const ReviewsCarousel = () => {
 const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
   const [communityScans, setCommunityScans] = useState([]);
   const [showAllCommunity, setShowAllCommunity] = useState(false);
+  const [communityPeek, setCommunityPeek] = useState(null);
+
+  useEffect(() => {
+    if (!communityPeek) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [communityPeek]);
 
   useEffect(() => {
     const fetchCommunity = async () => {
@@ -671,19 +806,21 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
           if (b.fighterB) scansMap.set(b.fighterB.profileId || b.fighterB.name, { ...b.fighterB, isCommunity: true });
         });
         
-        let loadedScans = Array.from(scansMap.values());
+        let loadedScans = Array.from(scansMap.values()).map((scan, idx) => hydrateCommunityScanEntry(scan, idx));
         
         // If the API doesn't return enough scans, let's load the mocked ones from data/communityScans.js
         if (loadedScans.length === 0) {
-          const { COMMUNITY_SCANS } = await import('./data/communityScans');
-          loadedScans = COMMUNITY_SCANS.map((s, i) => ({
-            ...s,
-            name: `User ${i+1}`,
-            isCommunity: true,
-            frontImage: s.dashboardData?.frontImage || s.frontImage,
-            finalRating: s.dashboardData?.finalRating || s.finalRating,
-            profileId: `mock-${i}`
-          }));
+          loadedScans = COMMUNITY_SCANS.map((s, i) =>
+            hydrateCommunityScanEntry(
+              {
+                ...s,
+                name: `User ${i + 1}`,
+                isCommunity: true,
+                profileId: `mock-${i}`,
+              },
+              i
+            )
+          );
         }
         
         setCommunityScans(loadedScans);
@@ -696,6 +833,46 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
 
   return (
     <div className="w-full flex-grow pt-28 pb-16 px-4 sm:px-6 relative flex flex-col items-center overflow-hidden">
+      {communityPeek && communityPeek.dashboardData && (
+        <div
+          className="fixed inset-0 z-[220] flex flex-col bg-[#0a0a0b] overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="community-scan-page-title"
+        >
+          <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-zinc-800 bg-[#0a0a0b]/95 px-4 py-3 backdrop-blur-md md:px-8">
+            <button
+              type="button"
+              onClick={() => setCommunityPeek(null)}
+              className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 font-sans text-xs font-bold uppercase tracking-widest text-zinc-200 hover:border-cyan-500/50 hover:text-cyan-300 transition-colors"
+            >
+              <ArrowLeft size={16} />
+              Community Scans
+            </button>
+            <div className="min-w-0 flex-1">
+              <p className="font-sans text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+                Community scan{communityPeek?.tier ? ` · ${communityPeek.tier}` : ''}
+              </p>
+              <h2 id="community-scan-page-title" className="truncate font-black uppercase italic tracking-tight text-white">
+                {communityPeek.displayName || 'Community Scan'}
+              </h2>
+            </div>
+          </header>
+          <div className="flex-1 px-4 pb-16 pt-6 md:px-8">
+            <DashboardPage
+              dashboardData={communityPeek.dashboardData}
+              setCurrentPage={setCurrentPage}
+              userPlan={{ plan: 'pro', scanCredits: 0 }}
+              user={null}
+              hideTopSection
+              hideProtocols
+              hideActionableProtocols
+              hideUnlockPotential
+              isEmbedded
+            />
+          </div>
+        </div>
+      )}
       <div className="absolute inset-0 bg-gradient-to-b from-[#0c0d0e] via-zinc-900/20 to-[#0c0d0e] -z-10" />
       <FadeUp>
         <div className="text-center mb-10 md:mb-12 relative">
@@ -730,7 +907,8 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
         <h2 className="text-3xl font-black italic uppercase tracking-widest text-white mb-2">Community Scans</h2>
         <p className="text-zinc-500 uppercase tracking-widest text-xs mb-10">SEE HOW OTHERS IN THE COMMUNITY STACK UP.</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 w-full">
-          {(showAllCommunity ? communityScans : communityScans.slice(0, 8)).map((scan, idx) => {
+          {(showAllCommunity ? communityScans : communityScans.slice(0, 8)).map((rawScan, idx) => {
+            const scan = hydrateCommunityScanEntry(rawScan, idx);
             const scanTier = scan.tier || (Number(scan.finalRating) >= 90 ? 'S-Tier' : Number(scan.finalRating) >= 80 ? 'A-Tier' : Number(scan.finalRating) >= 70 ? 'B-Tier' : Number(scan.finalRating) >= 60 ? 'C-Tier' : 'D-Tier');
             const tierUpper = String(scanTier).toUpperCase();
             const tierBadgeClass =
@@ -741,13 +919,12 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
                   : 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
 
             return (
-            <div 
-              key={idx}
+            <button 
+              type="button"
+              key={scan.id || idx}
               onClick={() => {
-                if (scan.profileId?.startsWith('mock-')) return; // Can't click mock profiles
-                const url = `/users/${scan.userId || 'user'}/${scan.profileId}`;
-                window.history.pushState({}, '', url);
-                window.dispatchEvent(new Event('popstate'));
+                if (!scan.dashboardData) return;
+                setCommunityPeek(scan);
               }}
               className="bg-zinc-900/40 border border-zinc-800 rounded-[28px] overflow-hidden cursor-pointer hover:border-cyan-500/50 transition-colors group relative"
             >
@@ -766,7 +943,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
                 </div>
                 <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-[0.2em]">COMMUNITY SCAN</span>
               </div>
-            </div>
+            </button>
           )})}
         </div>
         {communityScans.length === 0 && (
@@ -2731,15 +2908,26 @@ const categoryToRadar10 = (v, fallbackRaw) => {
 
 const hexagonToRadarData = (hexagon, fallbackRaw) => {
   if (!hexagon || typeof hexagon !== 'object') return null;
-  const keys = ['Harmony', 'Symmetry', 'Dimorphism', 'Skin', 'Bone'];
-  const out = keys.map((label) => {
-    const raw = hexagon[label];
+  const keyOrder = ['Skin', 'Dimorphism', 'Symmetry', 'Harmony', 'Bone'];
+  const normalizedHexagon = Object.fromEntries(
+    Object.entries(hexagon).map(([key, value]) => [String(key).trim().toLowerCase(), value])
+  );
+
+  let validCount = 0;
+  const out = keyOrder.map((label) => {
+    const raw = normalizedHexagon[label.toLowerCase()];
     if (raw == null || raw === 'N/A' || Number.isNaN(Number(raw))) {
-      return { label, val: categoryToRadar10(null, fallbackRaw) };
+      return { label, val: null };
     }
+    validCount += 1;
     return { label, val: categoryToRadar10(Number(raw), fallbackRaw) };
   });
-  return out.some((item) => item.val != null) ? out : null;
+
+  if (validCount === 0) return null;
+  return out.map((item) => ({
+    label: item.label,
+    val: item.val == null ? categoryToRadar10(null, fallbackRaw) : item.val,
+  }));
 };
 
 // --- Radar Chart Component ---
@@ -3463,13 +3651,14 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   }, [communityPeek]);
 
   const openCommunityScan = useCallback((scan) => {
-    if (!scan?.dashboardData) return;
+    const hydrated = hydrateCommunityScanEntry(scan);
+    if (!hydrated?.dashboardData) return;
     setCommunityPeek({
-      id: scan.id,
-      tier: scan.tier || null,
+      id: hydrated.id,
+      tier: hydrated.tier || null,
       data: {
-        ...scan.dashboardData,
-        selectedModel: String(scan.dashboardData?.selectedModel || '1'),
+        ...hydrated.dashboardData,
+        selectedModel: String(hydrated.dashboardData?.selectedModel || '1'),
       },
     });
   }, []);
@@ -3522,23 +3711,25 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
     : dashboardData?.categories;
 
   const defaultRadar = [
-    { label: 'Harmony', val: 8.5 },
-    { label: 'Symmetry', val: 9.2 },
-    { label: 'Dimorphism', val: 7.8 },
     { label: 'Skin', val: 6.4 },
+    { label: 'Dimorphism', val: 7.8 },
+    { label: 'Symmetry', val: 9.2 },
+    { label: 'Harmony', val: 8.5 },
     { label: 'Bone', val: 8.8 }
   ];
 
-  const frForRadar = dashboardData?.finalRating;
+  const frForRadar = isSideView
+    ? (dashboardData?.sideRating ?? dashboardData?.finalRating)
+    : dashboardData?.finalRating;
   const activeHexagon = isSideView ? dashboardData?.hexagonSide : dashboardData?.hexagonFront;
   const radarData =
     hexagonToRadarData(activeHexagon, frForRadar) ||
     (activeCats
       ? [
-          { label: 'Harmony', val: categoryToRadar10(activeCats.Harmony, frForRadar) },
-          { label: 'Symmetry', val: categoryToRadar10(activeCats.Symmetry, frForRadar) },
-          { label: 'Dimorphism', val: categoryToRadar10(activeCats.Dimorphism, frForRadar) },
           { label: 'Skin', val: categoryToRadar10(activeCats.Skin, frForRadar) },
+          { label: 'Dimorphism', val: categoryToRadar10(activeCats.Dimorphism, frForRadar) },
+          { label: 'Symmetry', val: categoryToRadar10(activeCats.Symmetry, frForRadar) },
+          { label: 'Harmony', val: categoryToRadar10(activeCats.Harmony, frForRadar) },
           { label: 'Bone', val: categoryToRadar10(activeCats.Bone, frForRadar) },
         ]
       : defaultRadar);
@@ -4357,6 +4548,14 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [lastRefresh, setLastRefresh] = useState(null);
+  const [expandedUserId, setExpandedUserId] = useState(null);
+  const [expandedPlanUserId, setExpandedPlanUserId] = useState(null);
+  const [userScansByUser, setUserScansByUser] = useState({});
+  const [userScansLoading, setUserScansLoading] = useState({});
+  const [userScansError, setUserScansError] = useState({});
+  const [planDrafts, setPlanDrafts] = useState({});
+  const [planSaveLoading, setPlanSaveLoading] = useState({});
+  const [planSaveError, setPlanSaveError] = useState({});
   const storedPw = useRef('');
 
   const fetchStats = async (pw) => {
@@ -4435,48 +4634,108 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     }
   };
 
-  const handleUpdatePlan = async (uid, currentPlan) => {
-    const newPlan = window.prompt(`Update plan for user (current: ${currentPlan}). Options: free, pro, single_scan`, currentPlan);
-    if (!newPlan) return;
-    const creditsStr = window.prompt('Enter scan credits (e.g. 999 for pro, 1 for single_scan, 0 for free)', newPlan === 'pro' ? '999' : '0');
-    if (creditsStr === null) return;
+  const handleToggleUserPlan = (uid, currentPlan, currentCredits) => {
+    if (expandedPlanUserId === uid) {
+      setExpandedPlanUserId(null);
+      return;
+    }
+
+    setExpandedPlanUserId(uid);
+    setPlanSaveError((prev) => ({ ...prev, [uid]: '' }));
+    setPlanDrafts((prev) => ({
+      ...prev,
+      [uid]: prev[uid] || {
+        plan: currentPlan || 'free',
+        scanCredits: Number.isFinite(Number(currentCredits)) ? Number(currentCredits) : 0,
+      },
+    }));
+  };
+
+  const handlePlanDraftChange = (uid, field, value) => {
+    setPlanDrafts((prev) => {
+      const existing = prev[uid] || { plan: 'free', scanCredits: 0 };
+      return {
+        ...prev,
+        [uid]: {
+          ...existing,
+          [field]: field === 'scanCredits' ? value : value,
+        },
+      };
+    });
+  };
+
+  const handleUpdatePlan = async (uid) => {
+    const draft = planDrafts[uid] || { plan: 'free', scanCredits: 0 };
+    const normalizedPlan = String(draft.plan || 'free').trim().toLowerCase();
+    const normalizedCredits = Math.max(0, parseInt(draft.scanCredits, 10) || 0);
+    if (!['free', 'pro', 'single_scan'].includes(normalizedPlan)) {
+      setPlanSaveError((prev) => ({ ...prev, [uid]: 'Plan must be free, pro, or single_scan.' }));
+      return;
+    }
+
+    setPlanSaveLoading((prev) => ({ ...prev, [uid]: true }));
+    setPlanSaveError((prev) => ({ ...prev, [uid]: '' }));
     try {
       const res = await fetch(`${API_BASE}/api/admin/users/${uid}/plan`, {
         method: 'POST',
         headers: { 'x-admin-password': storedPw.current, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: newPlan, scanCredits: parseInt(creditsStr, 10) || 0 })
+        body: JSON.stringify({ plan: normalizedPlan, scanCredits: normalizedCredits })
       });
       if (!res.ok) throw new Error('Failed to update plan');
-      fetchStats(storedPw.current); // refresh
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.uid === uid
+            ? { ...user, plan: normalizedPlan, scanCredits: normalizedCredits }
+            : user
+        )
+      );
+      setExpandedPlanUserId(null);
+      fetchStats(storedPw.current);
     } catch (err) {
-      alert(err.message);
+      setPlanSaveError((prev) => ({ ...prev, [uid]: err.message }));
+    } finally {
+      setPlanSaveLoading((prev) => ({ ...prev, [uid]: false }));
     }
   };
 
-  const handleViewScans = async (uid, email) => {
+  const handleToggleUserScans = async (uid) => {
+    if (expandedUserId === uid) {
+      setExpandedUserId(null);
+      return;
+    }
+
+    setExpandedUserId(uid);
+    if (userScansByUser[uid]) return;
+
+    setUserScansLoading((prev) => ({ ...prev, [uid]: true }));
+    setUserScansError((prev) => ({ ...prev, [uid]: '' }));
     try {
       const res = await fetch(`${API_BASE}/api/admin/users/${uid}/scans`, {
         headers: { 'x-admin-password': storedPw.current }
       });
       if (!res.ok) throw new Error('Failed to fetch scans');
       const data = await res.json();
-      if (!data.scans || data.scans.length === 0) {
-        alert('No scans found for this user.');
-        return;
-      }
-      const scanList = data.scans.map((s) => `ID: ${s.id} | Rating: ${s.finalRating} | Model: ${s.model} | Time: ${formatTimestamp(s.timestamp || s.scannedAt || s.createdAt)}`).join('\n');
-      const toDelete = window.prompt(`Scans for ${email}:\n${scanList}\n\nEnter a Scan ID to delete it, or leave blank to cancel.`);
-      if (toDelete) {
-        if (!window.confirm(`Delete scan ${toDelete}?`)) return;
-        const delRes = await fetch(`${API_BASE}/api/admin/users/${uid}/scans/${toDelete}`, {
-          method: 'DELETE',
-          headers: { 'x-admin-password': storedPw.current }
-        });
-        if (!delRes.ok) throw new Error('Failed to delete scan');
-        alert('Scan deleted.');
-      }
+      setUserScansByUser((prev) => ({ ...prev, [uid]: data.scans || [] }));
     } catch (err) {
-      alert(err.message);
+      setUserScansError((prev) => ({ ...prev, [uid]: err.message }));
+    } finally {
+      setUserScansLoading((prev) => ({ ...prev, [uid]: false }));
+    }
+  };
+
+  const handleDeleteUserScan = async (uid, scanId) => {
+    try {
+      const delRes = await fetch(`${API_BASE}/api/admin/users/${uid}/scans/${scanId}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-password': storedPw.current }
+      });
+      if (!delRes.ok) throw new Error('Failed to delete scan');
+      setUserScansByUser((prev) => ({
+        ...prev,
+        [uid]: Array.isArray(prev[uid]) ? prev[uid].filter((scan) => scan.id !== scanId) : [],
+      }));
+    } catch (err) {
+      setUserScansError((prev) => ({ ...prev, [uid]: err.message }));
     }
   };
 
@@ -4751,31 +5010,158 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                   <tbody>
                     {users.map((u) => {
                       const isActive = u.lastActive && (new Date() - new Date(u.lastActive)) < 5 * 60 * 1000;
+                      const isExpanded = expandedUserId === u.uid;
+                      const isPlanExpanded = expandedPlanUserId === u.uid;
+                      const scans = userScansByUser[u.uid] || [];
+                      const scansLoading = !!userScansLoading[u.uid];
+                      const scansError = userScansError[u.uid];
+                      const planDraft = planDrafts[u.uid] || { plan: u.plan || 'free', scanCredits: u.scanCredits ?? 0 };
+                      const isSavingPlan = !!planSaveLoading[u.uid];
+                      const planError = planSaveError[u.uid];
                       return (
-                        <tr key={u.uid} className="border-b border-zinc-800/30 hover:bg-zinc-800/20 transition-colors">
-                          <td className="py-3 pr-4">
-                            <div className="font-sans text-xs text-zinc-300">{u.email}</div>
-                            <div className="font-sans text-[10px] text-zinc-600 truncate max-w-[150px]">{u.uid}</div>
-                          </td>
-                          <td className="py-3 pr-4">
-                            <div className="font-sans text-[11px] text-cyan-400 uppercase tracking-wider">{u.plan}</div>
-                            <div className="font-sans text-[10px] text-zinc-500">{u.scanCredits} credits</div>
-                          </td>
-                          <td className="py-3 pr-4">
-                            <div className="flex items-center gap-1.5">
-                              <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-zinc-600'}`}></span>
-                              <span className="font-sans text-[11px] text-zinc-400">{isActive ? 'Online' : (u.lastActive ? new Date(u.lastActive).toLocaleString() : 'Never')}</span>
-                            </div>
-                            <div className="font-sans text-[10px] text-zinc-600 mt-0.5">{u.lastIp}</div>
-                          </td>
-                          <td className="py-3 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button onClick={() => handleViewScans(u.uid, u.email)} className="px-2 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[10px] font-sans uppercase tracking-widest transition-colors">Scans</button>
-                              <button onClick={() => handleUpdatePlan(u.uid, u.plan)} className="px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded text-[10px] font-sans uppercase tracking-widest transition-colors">Plan</button>
-                              <button onClick={() => handleDeleteUser(u.uid, u.email)} className="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded text-[10px] font-sans uppercase tracking-widest transition-colors">Del</button>
-                            </div>
-                          </td>
-                        </tr>
+                        <React.Fragment key={u.uid}>
+                          <tr className="border-b border-zinc-800/30 hover:bg-zinc-800/20 transition-colors">
+                            <td className="py-3 pr-4">
+                              <div className="font-sans text-xs text-zinc-300">{u.email}</div>
+                              <div className="font-sans text-[10px] text-zinc-600 truncate max-w-[150px]">{u.uid}</div>
+                            </td>
+                            <td className="py-3 pr-4">
+                              <div className="font-sans text-[11px] text-cyan-400 uppercase tracking-wider">{u.plan}</div>
+                              <div className="font-sans text-[10px] text-zinc-500">{u.scanCredits} credits</div>
+                            </td>
+                            <td className="py-3 pr-4">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-zinc-600'}`}></span>
+                                <span className="font-sans text-[11px] text-zinc-400">{isActive ? 'Online' : (u.lastActive ? new Date(u.lastActive).toLocaleString() : 'Never')}</span>
+                              </div>
+                              <div className="font-sans text-[10px] text-zinc-600 mt-0.5">{u.lastIp}</div>
+                            </td>
+                            <td className="py-3 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => handleToggleUserScans(u.uid)} className={`px-2 py-1 rounded text-[10px] font-sans uppercase tracking-widest transition-colors ${isExpanded ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'}`}>{isExpanded ? 'Hide' : 'Scans'}</button>
+                                <button onClick={() => handleToggleUserPlan(u.uid, u.plan, u.scanCredits)} className={`px-2 py-1 rounded text-[10px] font-sans uppercase tracking-widest transition-colors ${isPlanExpanded ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300' : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'}`}>{isPlanExpanded ? 'Hide' : 'Plan'}</button>
+                                <button onClick={() => handleDeleteUser(u.uid, u.email)} className="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded text-[10px] font-sans uppercase tracking-widest transition-colors">Del</button>
+                              </div>
+                            </td>
+                          </tr>
+                          {isPlanExpanded && (
+                            <tr className="border-b border-zinc-800/30 bg-zinc-950/40">
+                              <td colSpan={4} className="px-4 py-4">
+                                <div className="rounded-2xl border border-zinc-800 bg-black/30 p-4">
+                                  <div className="mb-4 flex items-center justify-between gap-3">
+                                    <div>
+                                      <p className="text-[10px] font-sans uppercase tracking-[0.28em] text-zinc-500">Plan editor</p>
+                                      <h4 className="mt-1 text-sm font-black uppercase tracking-widest text-zinc-100">{u.email}</h4>
+                                    </div>
+                                    <span className="text-[10px] font-sans uppercase tracking-widest text-zinc-600">Update access</span>
+                                  </div>
+                                  <div className="grid gap-4 md:grid-cols-[minmax(0,220px)_minmax(0,180px)_auto] md:items-end">
+                                    <label className="block">
+                                      <span className="mb-2 block text-[10px] font-sans uppercase tracking-[0.24em] text-zinc-500">Plan</span>
+                                      <select
+                                        value={planDraft.plan}
+                                        onChange={(e) => handlePlanDraftChange(u.uid, 'plan', e.target.value)}
+                                        className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm font-sans text-zinc-100 outline-none transition-colors focus:border-cyan-500/50"
+                                      >
+                                        <option value="free">free</option>
+                                        <option value="pro">pro</option>
+                                        <option value="single_scan">single_scan</option>
+                                      </select>
+                                    </label>
+                                    <label className="block">
+                                      <span className="mb-2 block text-[10px] font-sans uppercase tracking-[0.24em] text-zinc-500">Scan credits</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        value={planDraft.scanCredits}
+                                        onChange={(e) => handlePlanDraftChange(u.uid, 'scanCredits', e.target.value)}
+                                        className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm font-sans text-zinc-100 outline-none transition-colors focus:border-cyan-500/50"
+                                      />
+                                    </label>
+                                    <div className="flex gap-2 md:justify-end">
+                                      <button
+                                        onClick={() => setExpandedPlanUserId(null)}
+                                        className="rounded-xl border border-zinc-700 bg-zinc-900/70 px-4 py-3 text-[10px] font-sans uppercase tracking-[0.24em] text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+                                      >
+                                        Cancel
+                                      </button>
+                                      <button
+                                        onClick={() => handleUpdatePlan(u.uid)}
+                                        disabled={isSavingPlan}
+                                        className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-[10px] font-sans uppercase tracking-[0.24em] text-cyan-300 transition-colors hover:bg-cyan-500/20 disabled:opacity-50"
+                                      >
+                                        {isSavingPlan ? 'Saving...' : 'Save plan'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                  {planError && (
+                                    <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs font-sans text-red-400">
+                                      {planError}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          {isExpanded && (
+                            <tr className="border-b border-zinc-800/30 bg-zinc-950/50">
+                              <td colSpan={4} className="px-4 py-4">
+                                <div className="rounded-2xl border border-zinc-800 bg-black/30 p-4">
+                                  <div className="mb-4 flex items-center justify-between gap-3">
+                                    <div>
+                                      <p className="text-[10px] font-sans uppercase tracking-[0.28em] text-zinc-500">User scans</p>
+                                      <h4 className="mt-1 text-sm font-black uppercase tracking-widest text-zinc-100">{u.email}</h4>
+                                    </div>
+                                    <span className="text-[10px] font-sans uppercase tracking-widest text-zinc-600">{scans.length} records</span>
+                                  </div>
+                                  {scansLoading ? (
+                                    <div className="py-8 text-center text-zinc-500 text-xs font-sans uppercase tracking-widest">Loading scans...</div>
+                                  ) : scansError ? (
+                                    <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs font-sans text-red-400">{scansError}</div>
+                                  ) : scans.length === 0 ? (
+                                    <div className="py-8 text-center text-zinc-500 text-xs font-sans uppercase tracking-widest">No scans found for this user.</div>
+                                  ) : (
+                                    <div className="space-y-3">
+                                      {scans.map((scan) => {
+                                        const frontImage = scan.frontImageUrl || scan.payload?.frontImage || null;
+                                        const sideImage = scan.sideImageUrl || scan.payload?.sideImage || frontImage || null;
+                                        return (
+                                          <div key={scan.id} className="grid grid-cols-[auto_1fr_auto] gap-4 rounded-xl border border-zinc-800 bg-zinc-900/35 p-3">
+                                            <div className="flex gap-2">
+                                              <div className="h-16 w-12 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+                                                {frontImage ? <img src={frontImage} alt="" className="h-full w-full object-cover object-top" /> : <div className="flex h-full w-full items-center justify-center text-zinc-700"><Users size={16} /></div>}
+                                              </div>
+                                              <div className="h-16 w-12 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+                                                {sideImage ? <img src={sideImage} alt="" className="h-full w-full object-cover object-top" /> : <div className="flex h-full w-full items-center justify-center text-zinc-700"><Users size={16} /></div>}
+                                              </div>
+                                            </div>
+                                            <div className="min-w-0">
+                                              <div className="flex flex-wrap items-center gap-2">
+                                                <span className="text-sm font-black text-zinc-100">{scan.finalRating ?? '—'}/100</span>
+                                                <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] text-cyan-300">{modelLabel(scan.model)}</span>
+                                                {scan.profileId && <span className="rounded-full border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] text-zinc-400">{scan.profileId}</span>}
+                                              </div>
+                                              <p className="mt-2 text-[10px] font-sans uppercase tracking-[0.24em] text-zinc-500">{formatTimestamp(scan.timestamp || scan.scannedAt || scan.createdAt)}</p>
+                                              {scan.payload?.technicalSummary && (
+                                                <p className="mt-2 line-clamp-2 text-xs font-sans leading-relaxed text-zinc-400">{scan.payload.technicalSummary}</p>
+                                              )}
+                                            </div>
+                                            <div className="flex items-start">
+                                              <button onClick={() => handleDeleteUserScan(u.uid, scan.id)} className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-[10px] font-sans uppercase tracking-[0.22em] text-red-300 transition-colors hover:bg-red-500/20">
+                                                Delete
+                                              </button>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
