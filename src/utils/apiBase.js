@@ -7,9 +7,30 @@
  */
 const LOCAL_API = 'http://127.0.0.1:3001';
 
+function normalizeApiBase(raw) {
+  if (typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+
+  try {
+    const url = new URL(trimmed);
+
+    // Guard against accidentally pasting health/ready endpoints into Vercel env vars.
+    url.pathname = url.pathname
+      .replace(/\/+$/, '')
+      .replace(/\/api\/(health|ready)$/i, '')
+      .replace(/\/+$/, '');
+    url.search = '';
+    url.hash = '';
+
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return trimmed.replace(/\/$/, '');
+  }
+}
+
 export function getApiBase() {
-  const raw = import.meta.env.VITE_API_URL;
-  const trimmed = typeof raw === 'string' ? raw.trim().replace(/\/$/, '') : '';
+  const trimmed = normalizeApiBase(import.meta.env.VITE_API_URL);
 
   if (import.meta.env.DEV) {
     const isLocalUrl =
