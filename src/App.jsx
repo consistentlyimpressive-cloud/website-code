@@ -34,6 +34,86 @@ function stripCommunityDashboardData(dd) {
   return rest;
 }
 
+function buildStoredScanSnapshot(scan, overrides = {}) {
+  if (!scan || typeof scan !== 'object') return null;
+  return {
+    ...scan,
+    ...overrides,
+    categories:
+      scan.categories && typeof scan.categories === 'object' && !Array.isArray(scan.categories)
+        ? scan.categories
+        : null,
+    sideCategories:
+      scan.sideCategories && typeof scan.sideCategories === 'object' && !Array.isArray(scan.sideCategories)
+        ? scan.sideCategories
+        : null,
+    bestFeatures: Array.isArray(scan.bestFeatures) ? scan.bestFeatures : [],
+    primaryFlaws: Array.isArray(scan.primaryFlaws) ? scan.primaryFlaws : [],
+    sideBestFeatures: Array.isArray(scan.sideBestFeatures) ? scan.sideBestFeatures : [],
+    sidePrimaryFlaws: Array.isArray(scan.sidePrimaryFlaws) ? scan.sidePrimaryFlaws : [],
+    biometrics: Array.isArray(scan.biometrics) ? scan.biometrics : [],
+    sideBiometrics: Array.isArray(scan.sideBiometrics) ? scan.sideBiometrics : [],
+    technicalSummary: typeof scan.technicalSummary === 'string' ? scan.technicalSummary : '',
+  };
+}
+
+function normalizeFeatureList(items, fallbackLabel) {
+  if (!Array.isArray(items)) return [];
+
+  const cleanText = (value) => {
+    if (typeof value !== 'string') return '';
+    return value.replace(/\s+/g, ' ').trim();
+  };
+
+  return items
+    .map((item, index) => {
+      if (typeof item === 'string') {
+        const description = cleanText(item);
+        if (!description) return null;
+        return {
+          title: `${fallbackLabel} ${index + 1}`,
+          description,
+        };
+      }
+
+      if (!item || typeof item !== 'object') return null;
+
+      const title = [
+        item.title,
+        item.name,
+        item.label,
+        item.feature,
+        item.heading,
+      ]
+        .map(cleanText)
+        .find(Boolean);
+
+      const description = [
+        item.description,
+        item.summary,
+        item.text,
+        item.details,
+        item.reason,
+        item.rationale,
+        item.value,
+      ]
+        .map(cleanText)
+        .find(Boolean);
+
+      if (!title && !description) return null;
+
+      return {
+        title: title || `${fallbackLabel} ${index + 1}`,
+        description:
+          description ||
+          (title
+            ? 'Included in the scan output without extra detail.'
+            : 'Included in the scan output.'),
+      };
+    })
+    .filter(Boolean);
+}
+
 const firebaseConfig = {
   apiKey: "AIzaSyDg9bES9zvmfvsjS6FLjCOKzBb9b6Mm0Ts",
   authDomain: "mogcheck-net.firebaseapp.com",
@@ -1603,26 +1683,28 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                       const newRatingHistory = prev?.ratingHistory ? [...prev.ratingHistory] : [];
                       
                       if (prev && prev.frontImage && prev.finalRating && newScanHistory.length === 0) {
-                         newScanHistory.push({
+                         const previousSnapshot = buildStoredScanSnapshot(prev, {
                            frontImage: prev.frontImage,
                            sideImage: prev.sideImage,
-                           finalRating: prev.finalRating,
-                           categories: prev.categories,
-                           sideCategories: prev.sideCategories,
+                           selectedModel: prev.selectedModel ?? selectedModel,
                          });
+                         if (previousSnapshot) {
+                           newScanHistory.push(previousSnapshot);
+                         }
                       }
                       if (prev && prev.finalRating && newRatingHistory.length === 0) {
                          newRatingHistory.push(prev.finalRating);
                       }
 
                       if (data.finalRating) {
-                        newScanHistory.push({
-                           frontImage: frontImage,
-                           sideImage: sideImage,
-                           finalRating: data.finalRating,
-                           categories: data.categories,
-                           sideCategories: data.sideCategories,
+                        const latestSnapshot = buildStoredScanSnapshot(data, {
+                          frontImage,
+                          sideImage,
+                          selectedModel,
                         });
+                        if (latestSnapshot) {
+                          newScanHistory.push(latestSnapshot);
+                        }
                         newRatingHistory.push(data.finalRating);
                       }
 
@@ -2238,7 +2320,6 @@ const FeatureCard = ({ type = 'best', title, description }) => {
 };
 
 const DashboardOverview = ({ dashboardData, isFreePlan, activeProfileView }) => {
-  const [isExpanded, setIsExpanded] = useState(isFreePlan || false);
   const summary =
     dashboardData?.technicalSummary &&
     dashboardData.technicalSummary !== 'Could not generate technical summary.'
@@ -2252,8 +2333,21 @@ const DashboardOverview = ({ dashboardData, isFreePlan, activeProfileView }) => 
   const rawFeatures = isSide && dashboardData?.sideBestFeatures?.length
     ? dashboardData.sideBestFeatures
     : dashboardData?.bestFeatures;
-  const displayFlaws = isFreePlan ? rawFlaws?.slice(0, 1) : rawFlaws;
-  const displayFeatures = isFreePlan ? rawFeatures?.slice(0, 1) : rawFeatures;
+  const displayFlaws = useMemo(() => normalizeFeatureList(rawFlaws, 'Primary flaw'), [rawFlaws]);
+  const displayFeatures = useMemo(() => normalizeFeatureList(rawFeatures, 'Best feature'), [rawFeatures]);
+  const shouldExpand = isFreePlan || displayFlaws.length > 0 || displayFeatures.length > 0;
+  const [isExpanded, setIsExpanded] = useState(shouldExpand);
+
+  useEffect(() => {
+    setIsExpanded(shouldExpand);
+  }, [
+    shouldExpand,
+    activeProfileView,
+    dashboardData?.frontImage,
+    dashboardData?.sideImage,
+    dashboardData?.finalRating,
+    dashboardData?.sideRating,
+  ]);
 
   return (
     <div className="bg-zinc-900/30 p-8 rounded-3xl border border-zinc-800 flex flex-col relative overflow-hidden">
@@ -2280,9 +2374,18 @@ const DashboardOverview = ({ dashboardData, isFreePlan, activeProfileView }) => 
           <div className="flex flex-col gap-4">
             <h4 className="text-red-400 font-bold uppercase tracking-widest text-xs mb-2">PRIMARY FLAWS</h4>
             <div className="flex flex-col gap-4 z-10 w-full relative">
-              {displayFlaws?.map((flaw, idx) => (
-                 <FeatureCard key={idx} type="flaw" title={flaw.title} description={flaw.description} />
-              )) || <p className="text-zinc-500 italic">No flaws detected or backend disconnected.</p>}
+              {displayFlaws.length > 0 ? (
+                displayFlaws.map((flaw, idx) => (
+                  <FeatureCard
+                    key={`flaw-${idx}-${flaw.title}`}
+                    type="flaw"
+                    title={flaw.title}
+                    description={flaw.description}
+                  />
+                ))
+              ) : (
+                <p className="text-zinc-500 italic">No flaws detected or backend disconnected.</p>
+              )}
             </div>
           </div>
 
@@ -2290,9 +2393,18 @@ const DashboardOverview = ({ dashboardData, isFreePlan, activeProfileView }) => 
           <div className="flex flex-col gap-4">
             <h4 className="text-green-400 font-bold uppercase tracking-widest text-xs mb-2">BEST FEATURES</h4>
             <div className="flex flex-col gap-4 z-10 w-full relative">
-              {displayFeatures?.map((feature, idx) => (
-                 <FeatureCard key={idx} type="best" title={feature.title} description={feature.description} />
-              )) || <p className="text-zinc-500 italic">No features detected or backend disconnected.</p>}
+              {displayFeatures.length > 0 ? (
+                displayFeatures.map((feature, idx) => (
+                  <FeatureCard
+                    key={`feature-${idx}-${feature.title}`}
+                    type="best"
+                    title={feature.title}
+                    description={feature.description}
+                  />
+                ))
+              ) : (
+                <p className="text-zinc-500 italic">No features detected or backend disconnected.</p>
+              )}
             </div>
           </div>
         </div>

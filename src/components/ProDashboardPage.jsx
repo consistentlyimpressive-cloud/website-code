@@ -94,6 +94,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     const scan = hist[selectedScanIndex];
     return {
       ...base,
+      ...scan,
       frontImage: scan.frontImage ?? base.frontImage,
       sideImage: scan.sideImage ?? base.sideImage,
       finalRating: scan.finalRating != null ? scan.finalRating : base.finalRating,
