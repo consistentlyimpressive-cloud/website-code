@@ -6,6 +6,320 @@ const fs = require('fs');
 const path = require('path');
 
 const DEFAULT_SUMMARY = 'Could not generate technical summary.';
+const SCORE_OFFSET_100 = -5;
+const SCORE_OFFSET_10 = -0.5;
+const BENCHMARK_FEATURE_KEYS = [
+  'Bigonial',
+  'IPD',
+  'Mouth',
+  'Nose',
+  'Upper',
+  'Middle',
+  'Lower',
+  'Eye',
+  'Brow',
+  'Philtrum',
+  'Lip',
+  'fWHR',
+  'Midface',
+  'Canthal',
+];
+const BENCHMARK_DISTANCE_WEIGHTS = {
+  Bigonial: 1.0,
+  IPD: 0.7,
+  Mouth: 0.6,
+  Nose: 0.8,
+  Upper: 0.9,
+  Middle: 1.25,
+  Lower: 0.9,
+  Eye: 0.8,
+  Brow: 0.8,
+  Philtrum: 1.0,
+  Lip: 0.7,
+  fWHR: 1.4,
+  Midface: 1.5,
+  Canthal: 1.0,
+};
+
+function loadGeminiBenchmarkCalibration() {
+  const calibrationPath = path.join(__dirname, 'gemini-benchmark-calibration.json');
+  if (!fs.existsSync(calibrationPath)) return [];
+  try {
+    const data = JSON.parse(fs.readFileSync(calibrationPath, 'utf8'));
+    if (!Array.isArray(data)) return [];
+    return data.filter((entry) => entry && typeof entry === 'object' && entry.metrics && Number.isFinite(Number(entry.target)));
+  } catch (error) {
+    console.error('[parse-analysis] benchmark calibration load error:', error.message);
+    return [];
+  }
+}
+
+function buildBenchmarkStats(entries) {
+  const stats = {};
+  for (const key of BENCHMARK_FEATURE_KEYS) {
+    const values = entries
+      .map((entry) => Number(entry?.metrics?.[key]))
+      .filter((value) => Number.isFinite(value));
+    const mean = average(values);
+    if (mean == null) {
+      stats[key] = { mean: 0, std: 1 };
+      continue;
+    }
+    const variance = average(values.map((value) => (value - mean) ** 2)) || 0;
+    stats[key] = {
+      mean,
+      std: Math.sqrt(variance) || 1,
+    };
+  }
+  return stats;
+}
+
+const GEMINI_BENCHMARKS = loadGeminiBenchmarkCalibration();
+const GEMINI_BENCHMARK_STATS = buildBenchmarkStats(GEMINI_BENCHMARKS);
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function applyOffset100(value) {
+  if (value == null || Number.isNaN(Number(value))) return value;
+  return clamp(Number(value) + SCORE_OFFSET_100, 0, 100);
+}
+
+function applyOffset10(value) {
+  if (value == null || value === 'N/A' || Number.isNaN(Number(value))) return value;
+  return clamp(Number(value) + SCORE_OFFSET_10, 0, 10);
+}
+
+function offsetScoreMap(map, scale = 100) {
+  if (!map || typeof map !== 'object') return map;
+  const apply = scale === 10 ? applyOffset10 : applyOffset100;
+  const out = {};
+  for (const [key, value] of Object.entries(map)) {
+    out[key] = apply(value);
+  }
+  return out;
+}
+
+function average(values) {
+  const nums = values
+    .map((v) => Number(v))
+    .filter((v) => Number.isFinite(v));
+  if (!nums.length) return null;
+  return nums.reduce((sum, v) => sum + v, 0) / nums.length;
+}
+
+function scoreMapFromBiometrics(biometrics) {
+  const map = {};
+  for (const item of biometrics || []) {
+    if (!item?.label) continue;
+    const key = String(item.label).replace(/\s*\([^)]*\)\s*$/, '').trim();
+    const score = Number(item.score);
+    if (!Number.isFinite(score)) continue;
+    map[key] = score;
+  }
+  return map;
+}
+
+function normalizeMetricName(label) {
+  return String(label || '')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '');
+}
+
+function extractCalibrationMetrics(rawValues) {
+  const metrics = {};
+  for (const [label, raw] of Object.entries(rawValues || {})) {
+    const value = Number(raw);
+    if (!Number.isFinite(value)) continue;
+    const normalized = normalizeMetricName(label);
+
+    if (normalized.includes('bigonialwidthindex')) metrics.Bigonial = value;
+    else if (normalized.includes('ipdindex')) metrics.IPD = value;
+    else if (normalized.includes('mouthwidthindex')) metrics.Mouth = value;
+    else if (normalized.includes('nosewidthindex')) metrics.Nose = value;
+    else if (normalized.includes('upperthirdlength')) metrics.Upper = value;
+    else if (normalized.includes('middlethirdlength')) metrics.Middle = value;
+    else if (normalized.includes('lowerthirdlength')) metrics.Lower = value;
+    else if (normalized.includes('eyeheightindex')) metrics.Eye = value;
+    else if (normalized.includes('browcompactnessindex')) metrics.Brow = value;
+    else if (normalized.includes('philtrumheightindex')) metrics.Philtrum = value;
+    else if (normalized.includes('totallipheightindex')) metrics.Lip = value;
+    else if (normalized.startsWith('fwhr')) metrics.fWHR = value;
+    else if (normalized.includes('midfaceratio')) metrics.Midface = value;
+    else if (normalized.includes('canthaltiltdegrees')) metrics.Canthal = value;
+  }
+  return metrics;
+}
+
+function computeBenchmarkDistance(inputMetrics, benchmarkMetrics) {
+  let weightedDistance = 0;
+  let totalWeight = 0;
+  let compared = 0;
+
+  for (const key of BENCHMARK_FEATURE_KEYS) {
+    const inputValue = Number(inputMetrics?.[key]);
+    const benchmarkValue = Number(benchmarkMetrics?.[key]);
+    if (!Number.isFinite(inputValue) || !Number.isFinite(benchmarkValue)) continue;
+
+    const std = Number(GEMINI_BENCHMARK_STATS?.[key]?.std) || 1;
+    const weight = BENCHMARK_DISTANCE_WEIGHTS[key] || 1;
+    const delta = (inputValue - benchmarkValue) / std;
+    weightedDistance += weight * delta * delta;
+    totalWeight += weight;
+    compared += 1;
+  }
+
+  if (compared < 6 || !totalWeight) return null;
+  return Math.sqrt(weightedDistance / totalWeight);
+}
+
+function computeBenchmarkCalibratedRating(rawMetrics, baselineRating = null) {
+  if (!rawMetrics || !GEMINI_BENCHMARKS.length) return null;
+
+  const neighbors = GEMINI_BENCHMARKS
+    .map((entry) => ({
+      entry,
+      distance: computeBenchmarkDistance(rawMetrics, entry.metrics),
+    }))
+    .filter((item) => Number.isFinite(item.distance))
+    .sort((a, b) => a.distance - b.distance);
+
+  if (!neighbors.length) return null;
+
+  const nearest = neighbors[0];
+  const topNeighbors = neighbors.slice(0, Math.min(4, neighbors.length));
+  let weightedTargetSum = 0;
+  let weightedTargetTotal = 0;
+
+  for (const neighbor of topNeighbors) {
+    const weight = 1 / (Math.max(neighbor.distance, 0.08) ** 2);
+    weightedTargetSum += Number(neighbor.entry.target) * weight;
+    weightedTargetTotal += weight;
+  }
+
+  if (!weightedTargetTotal) return null;
+
+  const benchmarkAverage = weightedTargetSum / weightedTargetTotal;
+  const confidence = clamp(1 - nearest.distance / 1.75, 0, 1);
+
+  if (!Number.isFinite(Number(baselineRating))) {
+    return Math.round(clamp(benchmarkAverage, 25, 92) * 10) / 10;
+  }
+
+  const benchmarkWeight = 0.15 + confidence * 0.7;
+  let rating = benchmarkAverage * benchmarkWeight + Number(baselineRating) * (1 - benchmarkWeight);
+
+  if (confidence >= 0.85) {
+    rating = clamp(rating, Number(nearest.entry.target) - 2, Number(nearest.entry.target) + 2);
+  } else if (confidence >= 0.65) {
+    if (Number(nearest.entry.target) < 60) {
+      rating = Math.min(rating, Number(nearest.entry.target) + 3);
+    }
+    if (Number(nearest.entry.target) > 80) {
+      rating = Math.max(rating, Number(nearest.entry.target) - 3);
+    }
+  }
+
+  return Math.round(clamp(rating, 25, 92) * 10) / 10;
+}
+
+const OBJECTIVE_METRIC_WEIGHTS = {
+  'Bigonial Width Index': 0.9,
+  'Ipd Index': 0.7,
+  'Ipd Index (Geometric)': 0.7,
+  'Mouth Width Index': 0.45,
+  'Nose Width Index': 0.65,
+  'Upper Third Length': 0.75,
+  'Middle Third Length': 1.15,
+  'Lower Third Length': 0.7,
+  'Eye Height Index': 0.9,
+  'Brow Compactness Index': 1.05,
+  'Philtrum Height Index': 1.15,
+  'Total Lip Height Index': 0.8,
+  'Fwhr': 1.3,
+  'Midface Ratio': 1.45,
+  'Canthal Tilt Degrees': 1.1,
+};
+
+function matchMetricWeight(label) {
+  const normalized = String(label).toLowerCase();
+  for (const [key, weight] of Object.entries(OBJECTIVE_METRIC_WEIGHTS)) {
+    if (normalized.startsWith(key.toLowerCase())) return weight;
+  }
+  return 0.5;
+}
+
+function weightedAverageFromScoreMap(scoreMap) {
+  const pairs = Object.entries(scoreMap || {}).filter(([, score]) => Number.isFinite(Number(score)));
+  if (!pairs.length) return null;
+
+  let weightedSum = 0;
+  let totalWeight = 0;
+  for (const [label, score] of pairs) {
+    const weight = matchMetricWeight(label);
+    weightedSum += Number(score) * weight;
+    totalWeight += weight;
+  }
+  if (!totalWeight) return null;
+  return weightedSum / totalWeight;
+}
+
+function mapObjectiveAverageToFaceRating(avg) {
+  if (!Number.isFinite(avg)) return null;
+  if (avg <= 40) return 27 + (avg - 20) * 0.55;
+  if (avg <= 50) return 38 + (avg - 40) * 0.7;
+  if (avg <= 60) return 45 + (avg - 50) * 0.95;
+  if (avg <= 70) return 54.5 + (avg - 60) * 1.1;
+  if (avg <= 80) return 65.5 + (avg - 70) * 1.5;
+  return 80.5 + (avg - 80) * 1.35;
+}
+
+function computeObjectiveFaceRating(metricScoreMap, categories) {
+  const metricScores = Object.values(metricScoreMap || {})
+    .map((v) => Number(v))
+    .filter((v) => Number.isFinite(v));
+
+  const metricAvg = weightedAverageFromScoreMap(metricScoreMap);
+  const categoryAvg = average([
+    categories?.Harmony,
+    categories?.Bone,
+    categories?.Symmetry,
+    categories?.Skin,
+    categories?.Dimorphism,
+    categories?.['Maxillary/Cheekbone Projection'],
+    categories?.['Nose Projection'],
+    categories?.['Facial Fat'],
+    categories?.['Eye Depth'],
+  ]);
+
+  const combinedAvg =
+    metricAvg != null && categoryAvg != null
+      ? metricAvg * 0.78 + categoryAvg * 0.22
+      : metricAvg ?? categoryAvg;
+
+  if (combinedAvg == null) return null;
+
+  let rating = mapObjectiveAverageToFaceRating(combinedAvg);
+  const severeCount = metricScores.filter((score) => score < 45).length;
+  const weakCount = metricScores.filter((score) => score < 55).length;
+  const softCount = metricScores.filter((score) => score < 65).length;
+  const eliteCount = metricScores.filter((score) => score >= 80).length;
+
+  rating -= severeCount * 2.7;
+  rating -= Math.max(0, weakCount - severeCount) * 0.95;
+  rating -= Math.max(0, softCount - weakCount) * 0.2;
+  rating += eliteCount * 0.35;
+
+  if (combinedAvg < 60) rating = Math.min(rating, 58);
+  if (combinedAvg < 55) rating = Math.min(rating, 52);
+  if (severeCount >= 3) rating = Math.min(rating, 56);
+  if (severeCount >= 4) rating = Math.min(rating, 52);
+  if (combinedAvg >= 78 && severeCount === 0) rating += 2;
+  if (combinedAvg >= 84 && weakCount <= 1) rating += 3;
+
+  return Math.round(clamp(rating, 25, 92) * 10) / 10;
+}
 
 function titleCaseKey(s) {
   return s
@@ -261,7 +575,7 @@ function parseRatingsUseThis(raw, rawValues) {
     const match = line.match(/[-*]*\s*([^:]+):\s*(\d+(?:\.\d+)?)\s*\/\s*100/i);
     if (!match) continue;
     const baseLabel = titleCaseKey(match[1]);
-    const score = Math.min(100, Math.max(0, parseFloat(match[2], 10)));
+    const score = applyOffset100(parseFloat(match[2], 10));
     let finalLabel = baseLabel;
     if (rawValues[baseLabel] !== undefined) {
       const rawValue = rawValues[baseLabel];
@@ -282,6 +596,9 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   let finalRating = parseFinalRating(rawOutput);
   let sideRating = parseSideRating(rawOutput);
   let sex = parseSex(rawOutput);
+
+  finalRating = applyOffset100(finalRating);
+  sideRating = applyOffset100(sideRating);
 
   let technicalSummary = parseTechnicalSummary(rawOutput);
   if (!technicalSummary || technicalSummary.length < 8) {
@@ -364,16 +681,16 @@ function parseAnalysisOutput(rawOutput, backendDir) {
           if (isDualFormat) {
             const pipeMatch = line.match(/(?::\s*)?\b(\d+)\b(?:\/\d+)?\s*\|\s*\b(\d+|N\/A)\b/i);
             if (pipeMatch) {
-              categories[key] = Math.min(100, Math.max(0, parseInt(pipeMatch[1], 10)));
+              categories[key] = applyOffset100(parseInt(pipeMatch[1], 10));
               if (pipeMatch[2].toUpperCase() !== 'N/A') {
-                sideCategories[key] = Math.min(100, Math.max(0, parseInt(pipeMatch[2], 10)));
+                sideCategories[key] = applyOffset100(parseInt(pipeMatch[2], 10));
               } else {
                 sideCategories[key] = null;
               }
             }
           } else {
             const num = line.match(/(?::\s*)?\b(\d+)\b/);
-            if (num) categories[key] = Math.min(100, Math.max(0, parseInt(num[1], 10)));
+            if (num) categories[key] = applyOffset100(parseInt(num[1], 10));
           }
         }
       }
@@ -381,8 +698,8 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   }
 
   // Parse Hexagon Chart Ratings
-  const hexagonFront = parseHexagonChart(rawOutput, 'front');
-  const hexagonSide = parseHexagonChart(rawOutput, 'side');
+  const hexagonFront = offsetScoreMap(parseHexagonChart(rawOutput, 'front'), 10);
+  const hexagonSide = offsetScoreMap(parseHexagonChart(rawOutput, 'side'), 10);
 
   // Parse Personalized Feedback
   const personalizedFeedback = parsePersonalizedFeedback(rawOutput);
@@ -397,7 +714,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
         if (typeof value === 'object' && value !== null) {
           const rawVal = value.val;
           let score = typeof value.score === 'number' ? value.score : 50;
-          score = Math.min(100, Math.max(0, score));
+          score = applyOffset100(score);
           const baseName = titleCaseKey(key);
           const isAngle = /angle|convexity|plane/i.test(baseName);
           const displayLabel = rawVal != null
@@ -432,7 +749,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
       let score = parseFloat(m[2], 10);
       // If the AI wrote the raw measurement (e.g. 0.822) instead of a 1-100 score, skip it
       if (score < 2) continue;
-      score = Math.min(100, Math.max(0, score));
+      score = applyOffset100(score);
       let finalLabel = baseLabel;
       if (rawValues[baseLabel] !== undefined) {
         const val = rawValues[baseLabel];
@@ -445,6 +762,25 @@ function parseAnalysisOutput(rawOutput, backendDir) {
         score
       });
     }
+  }
+
+  const frontScoreMap = scoreMapFromBiometrics(biometrics);
+  const sideScoreMap = scoreMapFromBiometrics(sideBiometrics);
+  const objectiveFrontRating = computeObjectiveFaceRating(frontScoreMap, categories);
+  const objectiveSideRating = computeObjectiveFaceRating(sideScoreMap, sideCategories);
+  const rawCalibrationMetrics = extractCalibrationMetrics(rawValues);
+  const benchmarkFrontRating = computeBenchmarkCalibratedRating(
+    rawCalibrationMetrics,
+    objectiveFrontRating ?? finalRating
+  );
+
+  if (benchmarkFrontRating != null) {
+    finalRating = benchmarkFrontRating;
+  } else if (objectiveFrontRating != null) {
+    finalRating = objectiveFrontRating;
+  }
+  if (objectiveSideRating != null) {
+    sideRating = objectiveSideRating;
   }
 
   const protocols = [];

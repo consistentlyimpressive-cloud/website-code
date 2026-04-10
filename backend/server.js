@@ -480,7 +480,12 @@ app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (
       
       if (!isMogBattleAdminEmail(decoded.email)) {
         if (localMogVotes[battleId][uid]) {
-           return res.status(409).json({ error: 'Already voted' });
+           return res.status(409).json({
+             error: 'already_voted',
+             side: localMogVotes[battleId][uid],
+             a: Number(localMogBattles[battleId].votesA) || 0,
+             b: Number(localMogBattles[battleId].votesB) || 0,
+           });
         }
         localMogVotes[battleId][uid] = side;
       }
@@ -574,9 +579,17 @@ app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (
     };
 
     if (outcome.status === 'duplicate') {
+      let existingSide = null;
+      try {
+        const existingVote = await realVoterRef.get();
+        existingSide = existingVote.exists ? (existingVote.data()?.side === 'b' ? 'b' : 'a') : null;
+      } catch {
+        existingSide = null;
+      }
       return res.status(409).json({
         ok: false,
         error: 'already_voted',
+        ...(existingSide ? { side: existingSide } : {}),
         ...tallies,
       });
     }
@@ -1401,6 +1414,43 @@ app.get('/api/admin/users/:uid/scans', async (req, res) => {
     const scans = [];
     snap.forEach(doc => scans.push({ id: doc.id, ...doc.data() }));
     res.json({ scans });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/users/:uid/mog-battles', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  try {
+    const snap = await firestore
+      .collection('mogBattlesCommunity')
+      .where('creatorId', '==', req.params.uid)
+      .limit(50)
+      .get();
+
+    const battles = [];
+    snap.forEach((doc) => battles.push({ id: doc.id, ...doc.data() }));
+    battles.sort((a, b) => {
+      const aMs = a?.createdAt?.toMillis?.() || (typeof a?.createdAt?.seconds === 'number' ? a.createdAt.seconds * 1000 : new Date(a?.createdAt || 0).getTime() || 0);
+      const bMs = b?.createdAt?.toMillis?.() || (typeof b?.createdAt?.seconds === 'number' ? b.createdAt.seconds * 1000 : new Date(b?.createdAt || 0).getTime() || 0);
+      return bMs - aMs;
+    });
+
+    const tallySnaps = await Promise.all(
+      battles.map((battle) => firestore.collection('mogBattles').doc(battle.id).get())
+    );
+
+    tallySnaps.forEach((tallySnap, index) => {
+      if (!tallySnap.exists) return;
+      const data = tallySnap.data() || {};
+      battles[index].votesA = Number(data.votesA) || 0;
+      battles[index].votesB = Number(data.votesB) || 0;
+    });
+
+    res.json({ battles });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

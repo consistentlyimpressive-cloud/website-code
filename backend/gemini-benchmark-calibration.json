@@ -1,0 +1,262 @@
+[
+  {
+    "id": "Scan_001",
+    "target": 42,
+    "metrics": {
+      "Bigonial": 0.793,
+      "IPD": 0.429,
+      "Mouth": 0.354,
+      "Nose": 0.224,
+      "Upper": 0.366,
+      "Middle": 0.556,
+      "Lower": 0.52,
+      "Eye": 0.056,
+      "Brow": 0.222,
+      "Philtrum": 0.127,
+      "Lip": 0.153,
+      "fWHR": 1.463,
+      "Midface": 1.088,
+      "Canthal": 0.79
+    }
+  },
+  {
+    "id": "Scan_002",
+    "target": 74,
+    "metrics": {
+      "Bigonial": 0.77,
+      "IPD": 0.477,
+      "Mouth": 0.412,
+      "Nose": 0.292,
+      "Upper": 0.424,
+      "Middle": 0.49,
+      "Lower": 0.466,
+      "Eye": 0.059,
+      "Brow": 0.149,
+      "Philtrum": 0.092,
+      "Lip": 0.211,
+      "fWHR": 1.718,
+      "Midface": 0.908,
+      "Canthal": 4.76
+    }
+  },
+  {
+    "id": "Scan_003",
+    "target": 87,
+    "metrics": {
+      "Bigonial": 0.817,
+      "IPD": 0.461,
+      "Mouth": 0.427,
+      "Nose": 0.284,
+      "Upper": 0.426,
+      "Middle": 0.5,
+      "Lower": 0.52,
+      "Eye": 0.075,
+      "Brow": 0.159,
+      "Philtrum": 0.101,
+      "Lip": 0.206,
+      "fWHR": 1.666,
+      "Midface": 0.956,
+      "Canthal": 5.56
+    }
+  },
+  {
+    "id": "Scan_004",
+    "target": 82,
+    "metrics": {
+      "Bigonial": 0.815,
+      "IPD": 0.446,
+      "Mouth": 0.354,
+      "Nose": 0.239,
+      "Upper": 0.435,
+      "Middle": 0.455,
+      "Lower": 0.519,
+      "Eye": 0.07,
+      "Brow": 0.121,
+      "Philtrum": 0.108,
+      "Lip": 0.143,
+      "fWHR": 1.777,
+      "Midface": 0.995,
+      "Canthal": 2.48
+    }
+  },
+  {
+    "id": "Scan_005",
+    "target": 47,
+    "metrics": {
+      "Bigonial": 0.773,
+      "IPD": 0.423,
+      "Mouth": 0.304,
+      "Nose": 0.232,
+      "Upper": 0.417,
+      "Middle": 0.476,
+      "Lower": 0.467,
+      "Eye": 0.058,
+      "Brow": 0.142,
+      "Philtrum": 0.108,
+      "Lip": 0.137,
+      "fWHR": 1.713,
+      "Midface": 1.047,
+      "Canthal": 6.5
+    }
+  },
+  {
+    "id": "Scan_006",
+    "target": 54,
+    "metrics": {
+      "Bigonial": 0.793,
+      "IPD": 0.443,
+      "Mouth": 0.419,
+      "Nose": 0.244,
+      "Upper": 0.389,
+      "Middle": 0.497,
+      "Lower": 0.443,
+      "Eye": 0.052,
+      "Brow": 0.168,
+      "Philtrum": 0.074,
+      "Lip": 0.178,
+      "fWHR": 1.752,
+      "Midface": 0.915,
+      "Canthal": 9.88
+    }
+  },
+  {
+    "id": "Scan_007",
+    "target": 58,
+    "metrics": {
+      "Bigonial": 0.814,
+      "IPD": 0.461,
+      "Mouth": 0.441,
+      "Nose": 0.271,
+      "Upper": 0.391,
+      "Middle": 0.433,
+      "Lower": 0.53,
+      "Eye": 0.05,
+      "Brow": 0.158,
+      "Philtrum": 0.076,
+      "Lip": 0.212,
+      "fWHR": 1.966,
+      "Midface": 0.753,
+      "Canthal": 1.64
+    }
+  },
+  {
+    "id": "Scan_008",
+    "target": 64,
+    "metrics": {
+      "Bigonial": 0.823,
+      "IPD": 0.443,
+      "Mouth": 0.465,
+      "Nose": 0.274,
+      "Upper": 0.441,
+      "Middle": 0.469,
+      "Lower": 0.455,
+      "Eye": 0.052,
+      "Brow": 0.126,
+      "Philtrum": 0.059,
+      "Lip": 0.173,
+      "fWHR": 1.892,
+      "Midface": 0.899,
+      "Canthal": 8.47
+    }
+  },
+  {
+    "id": "Scan_009",
+    "target": 68,
+    "metrics": {
+      "Bigonial": 0.801,
+      "IPD": 0.429,
+      "Mouth": 0.337,
+      "Nose": 0.213,
+      "Upper": 0.386,
+      "Middle": 0.404,
+      "Lower": 0.489,
+      "Eye": 0.057,
+      "Brow": 0.111,
+      "Philtrum": 0.118,
+      "Lip": 0.098,
+      "fWHR": 1.918,
+      "Midface": 0.934,
+      "Canthal": 1.11
+    }
+  },
+  {
+    "id": "Scan_010",
+    "target": 78,
+    "metrics": {
+      "Bigonial": 0.802,
+      "IPD": 0.456,
+      "Mouth": 0.396,
+      "Nose": 0.237,
+      "Upper": 0.456,
+      "Middle": 0.502,
+      "Lower": 0.408,
+      "Eye": 0.071,
+      "Brow": 0.122,
+      "Philtrum": 0.086,
+      "Lip": 0.151,
+      "fWHR": 1.698,
+      "Midface": 1.01,
+      "Canthal": 10.09
+    }
+  },
+  {
+    "id": "Scan_011",
+    "target": 84,
+    "metrics": {
+      "Bigonial": 0.788,
+      "IPD": 0.447,
+      "Mouth": 0.358,
+      "Nose": 0.216,
+      "Upper": 0.431,
+      "Middle": 0.53,
+      "Lower": 0.56,
+      "Eye": 0.073,
+      "Brow": 0.182,
+      "Philtrum": 0.083,
+      "Lip": 0.237,
+      "fWHR": 1.632,
+      "Midface": 0.936,
+      "Canthal": 6.75
+    }
+  },
+  {
+    "id": "Scan_012",
+    "target": 85,
+    "metrics": {
+      "Bigonial": 0.834,
+      "IPD": 0.429,
+      "Mouth": 0.345,
+      "Nose": 0.24,
+      "Upper": 0.442,
+      "Middle": 0.436,
+      "Lower": 0.492,
+      "Eye": 0.064,
+      "Brow": 0.117,
+      "Philtrum": 0.113,
+      "Lip": 0.101,
+      "fWHR": 1.823,
+      "Midface": 1.019,
+      "Canthal": 4.37
+    }
+  },
+  {
+    "id": "Scan_013",
+    "target": 58,
+    "metrics": {
+      "Bigonial": 0.791,
+      "IPD": 0.438,
+      "Mouth": 0.352,
+      "Nose": 0.226,
+      "Upper": 0.421,
+      "Middle": 0.509,
+      "Lower": 0.503,
+      "Eye": 0.077,
+      "Brow": 0.152,
+      "Philtrum": 0.118,
+      "Lip": 0.129,
+      "fWHR": 1.597,
+      "Midface": 1.077,
+      "Canthal": 3.69
+    }
+  }
+]

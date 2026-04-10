@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Target, Newspaper, Swords, Users, Crown, ChevronRight, Plus, Trash2, Edit2, Activity, Flame, Sparkles, Lock, ArrowLeft } from 'lucide-react';
+import { Target, Newspaper, Swords, Users, Crown, ChevronRight, Plus, Trash2, Edit2, Activity, Flame, Sparkles, Lock, ArrowLeft, TrendingUp, TrendingDown, CheckCircle2 } from 'lucide-react';
 import { getApiBase } from '../utils/apiBase';
 import { COMMUNITY_SCANS } from '../data/communityScans';
 import { DashboardHubPreviewsCompact } from './DashboardHubPreviews';
@@ -15,6 +15,17 @@ const clampTextStyle = {
 };
 
 const communityCardRadiusClass = 'rounded-[28px]';
+
+const slugifyProfileName = (value) => {
+  const slug = String(value || 'profile')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+  return slug || 'profile';
+};
+
+const buildProfileDashboardPath = (profile) => `/dashboard/${slugifyProfileName(profile?.name)}/${encodeURIComponent(profile?.id || '')}`;
 
 const normalizeMarkedText = (value) =>
   String(value || '')
@@ -68,6 +79,36 @@ const timestampToIso = (value) => {
   return millis ? new Date(millis).toISOString() : new Date().toISOString();
 };
 
+const buildSparklinePath = (values, w = 120, h = 44) => {
+  if (!values?.length) return { line: '', last: null, pts: [] };
+  const pad = 4;
+  const nums = values.map((v) => Number(v)).filter((v) => !Number.isNaN(v));
+  if (!nums.length) return { line: '', last: null, pts: [] };
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  const range = max - min || 0.01;
+  const n = nums.length;
+  const pts = nums.map((v, i) => {
+    const x = pad + (n === 1 ? (w - 2 * pad) / 2 : (i / (n - 1)) * (w - 2 * pad));
+    const y = pad + (1 - (v - min) / range) * (h - 2 * pad);
+    return [x, y];
+  });
+  const line = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'} ${x} ${y}`).join(' ');
+  const last = pts[pts.length - 1];
+  return { line, last, pts };
+};
+
+const getScanMatchKey = (scan) => {
+  if (!scan) return '';
+  return [
+    scan.scanId || '',
+    scan.scannedAt || '',
+    scan.frontImage || '',
+    scan.sideImage || '',
+    scan.finalRating ?? '',
+  ].join('|');
+};
+
 const modelUsesProDashboard = (model) => {
   const normalized = String(model || '').trim();
   return normalized === '1' || normalized === '2';
@@ -112,7 +153,7 @@ const mergeProfileHistory = (history, snapshot) => {
   return [...items, snapshot];
 };
 
-const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSignOut, setPendingUploadModel, setPendingUploadProfileId, analysisContent = null, hasActiveAnalysis = false, setDashboardData, renderCommunityDashboard = null }) => {
+const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSignOut, setPendingUploadModel, setPendingUploadProfileId, analysisContent = null, hasActiveAnalysis = false, setDashboardData, renderCommunityDashboard = null, initialDashboardProfileId = null }) => {
   const [profiles, setProfiles] = useState([]);
   const [allScans, setAllScans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -303,6 +344,104 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   }, [dashboardData]);
   const protocolPreview = (dashboardData?.protocols || []).slice(0, 3);
   const scanHistory = dashboardData?.scanHistory || [];
+  const overviewRating = useMemo(() => {
+    const v = dashboardData?.finalRating;
+    if (v == null || Number.isNaN(Number(v))) return null;
+    return Number(v);
+  }, [dashboardData?.finalRating]);
+  const categoryDeltaStats = useMemo(() => {
+    const curr = dashboardData?.categories;
+    const prev = dashboardData?.previousCategories;
+    if (!curr || typeof curr !== 'object' || !prev || typeof prev !== 'object') {
+      return { hasPrev: false, best: null, worst: null };
+    }
+    const keys = ['Harmony', 'Dimorphism', 'Skin', 'Symmetry', 'Bone'];
+    let best = { key: '', delta: -Infinity };
+    let worst = { key: '', delta: Infinity };
+    for (const k of keys) {
+      const c = curr[k];
+      const p = prev[k];
+      if (typeof c !== 'number' || typeof p !== 'number') continue;
+      const d = c - p;
+      if (d > best.delta) best = { key: k, delta: d };
+      if (d < worst.delta) worst = { key: k, delta: d };
+    }
+    if (best.delta === -Infinity) return { hasPrev: false, best: null, worst: null };
+    return { hasPrev: true, best, worst };
+  }, [dashboardData?.categories, dashboardData?.previousCategories]);
+  const goalMilestonesBase = useMemo(() => {
+    const protocols = Array.isArray(dashboardData?.protocols) ? dashboardData.protocols : [];
+    const p0 = protocols[0];
+    const p1 = protocols[1];
+    return [
+      { id: 'g1', label: 'Baseline facial scan', description: 'Initial metrics captured' },
+      {
+        id: 'g2',
+        label: p0?.name || 'Primary protocol block',
+        description: p0?.description ? `${String(p0.description).slice(0, 72)}${String(p0.description).length > 72 ? '...' : ''}` : 'Execute your highest-impact protocol',
+      },
+      { id: 'g3', label: 'Mid-point check-in', description: 'Log progress around week 4-6' },
+      {
+        id: 'g4',
+        label: p1?.name || 'Secondary focus',
+        description: p1?.description ? `${String(p1.description).slice(0, 60)}${String(p1.description).length > 60 ? '...' : ''}` : 'Tackle the next ranked flaw',
+      },
+      { id: 'g5', label: 'Re-scan & compare', description: 'New front + side captures for trajectory' },
+      { id: 'g6', label: 'Goal review', description: 'Full metric comparison vs. baseline' },
+    ];
+  }, [dashboardData?.protocols]);
+  const ladderStorageKey = `mogcheck-goal-ladder:${user?.uid || 'local'}`;
+  const [completedLadderCount, setCompletedLadderCount] = useState(1);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(ladderStorageKey);
+      if (raw != null) {
+        const n = parseInt(raw, 10);
+        if (!Number.isNaN(n)) {
+          setCompletedLadderCount(Math.max(0, Math.min(n, goalMilestonesBase.length)));
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [ladderStorageKey, goalMilestonesBase.length]);
+  useEffect(() => {
+    if (dashboardData?.ratingHistory?.length >= 2) {
+      setCompletedLadderCount((prev) => Math.max(prev, 3));
+    } else if (dashboardData?.protocols?.length > 0 || dashboardData?.categories || dashboardData?.finalRating != null) {
+      setCompletedLadderCount((prev) => Math.max(prev, 1));
+    } else {
+      setCompletedLadderCount((prev) => Math.max(prev, 0));
+    }
+  }, [dashboardData?.ratingHistory?.length, dashboardData?.protocols, dashboardData?.categories, dashboardData?.finalRating]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(ladderStorageKey, String(completedLadderCount));
+    } catch {
+      /* ignore */
+    }
+  }, [completedLadderCount, ladderStorageKey]);
+  const goalMilestones = useMemo(
+    () =>
+      goalMilestonesBase.map((m, i) => ({
+        ...m,
+        status:
+          i < completedLadderCount
+            ? 'completed'
+            : i === completedLadderCount && completedLadderCount < goalMilestonesBase.length
+              ? 'current'
+              : 'locked',
+      })),
+    [goalMilestonesBase, completedLadderCount]
+  );
+  const canMoveGoalBackward = completedLadderCount > 0;
+  const canMoveGoalForward = completedLadderCount < goalMilestonesBase.length;
+  const stepGoalBackward = useCallback(() => {
+    setCompletedLadderCount((count) => Math.max(count - 1, 0));
+  }, []);
+  const stepGoalForward = useCallback(() => {
+    setCompletedLadderCount((count) => Math.min(count + 1, goalMilestonesBase.length));
+  }, [goalMilestonesBase.length]);
   const historyCards = useMemo(() => {
     const items = Array.isArray(scanHistory) ? [...scanHistory] : [];
     const currentSnapshot = dashboardData?.frontImage || dashboardData?.finalRating != null
@@ -326,6 +465,40 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       .slice(-4)
       .reverse();
   }, [dashboardData, scanHistory]);
+
+  const trajectoryPoints = useMemo(() => (
+    historyCards
+      .map((scan) => ({
+        key: getScanMatchKey(scan),
+        rating: Number(scan?.finalRating),
+      }))
+      .filter((item) => !Number.isNaN(item.rating))
+  ), [historyCards]);
+
+  const selectedTrajectoryIndex = useMemo(() => {
+    if (!trajectoryPoints.length) return -1;
+    const currentKey = getScanMatchKey(dashboardData);
+    const matchIndex = trajectoryPoints.findIndex((item) => item.key === currentKey);
+    if (matchIndex >= 0) return matchIndex;
+    return 0;
+  }, [dashboardData, trajectoryPoints]);
+
+  const scoreHistory = useMemo(() => {
+    if (trajectoryPoints.length) return trajectoryPoints.map((item) => item.rating);
+    const cur = overviewRating;
+    if (cur != null && !Number.isNaN(Number(cur))) return [Number(cur)];
+    return [];
+  }, [overviewRating, trajectoryPoints]);
+
+  const sparkline = useMemo(() => buildSparklinePath(scoreHistory, 140, 48), [scoreHistory]);
+
+  const deltaSinceLastScan = useMemo(() => {
+    if (selectedTrajectoryIndex < 0 || selectedTrajectoryIndex >= scoreHistory.length - 1) return null;
+    const current = scoreHistory[selectedTrajectoryIndex];
+    const nextPoint = scoreHistory[selectedTrajectoryIndex + 1];
+    if (typeof current !== 'number' || typeof nextPoint !== 'number') return null;
+    return Number((nextPoint - current).toFixed(2));
+  }, [scoreHistory, selectedTrajectoryIndex]);
 
   const tierLabel = useMemo(() => {
     if (finalRating >= 90) return 'S+ TIER';
@@ -397,7 +570,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     });
   }, []);
 
-  const openProfile = async (profile) => {
+  const openProfile = useCallback(async (profile) => {
     if (!profile?.id || !setDashboardData) return;
     setOpeningProfileId(profile.id);
     try {
@@ -441,7 +614,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         scanHistory: history,
         ratingHistory,
       });
-      setCurrentPage('dashboard');
+      setCurrentPage('dashboard', buildProfileDashboardPath(profile));
       setActiveSection('analysis');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
@@ -450,14 +623,33 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     } finally {
       setOpeningProfileId(null);
     }
-  };
+  }, [dashboardData, scansByProfile, setCurrentPage, setDashboardData, user]);
 
   const handleBackToProfiles = () => {
     if (!setDashboardData) return;
     setDashboardData({});
+    setCurrentPage('dashboard');
     setActiveSection('profiles');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    if (!initialDashboardProfileId || loading || openingProfileId) return;
+    if (dashboardData?.profileId === initialDashboardProfileId && hasActiveAnalysis) return;
+
+    const targetProfile = profilesWithMeta.find((profile) => profile.id === initialDashboardProfileId);
+    if (targetProfile) {
+      openProfile(targetProfile);
+    }
+  }, [
+    dashboardData?.profileId,
+    hasActiveAnalysis,
+    initialDashboardProfileId,
+    loading,
+    openProfile,
+    openingProfileId,
+    profilesWithMeta,
+  ]);
 
   const navTabs = hasActiveAnalysis
     ? [
@@ -741,6 +933,220 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
             <div className="border-t border-zinc-900 pt-8">
               {analysisContent}
             </div>
+
+            {!isFreeModelScan && (
+              <section className="border-t border-zinc-900 pt-8">
+                <div className="rounded-2xl border border-zinc-800 bg-[#0c0d0e] p-6 md:p-8 relative overflow-hidden shadow-lg group hover:border-zinc-700 transition-colors flex flex-col gap-8">
+                  <div className="absolute top-0 left-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-[80px] -translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between relative z-10">
+                    <div>
+                      <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest flex items-center gap-2">
+                        <Target size={14} className="text-zinc-500" /> Trajectory &amp; Goals
+                      </h3>
+                      <p className="text-zinc-600 font-sans text-[10px] uppercase tracking-widest mt-2 max-w-md">
+                        Track score movement across scans and mark off your current improvement ladder.
+                      </p>
+                    </div>
+                    <div className="text-left sm:text-right shrink-0">
+                      <span className="font-sans text-[10px] uppercase tracking-widest text-zinc-500 block mb-1">Target goal</span>
+                      <span className="text-2xl font-black italic text-white drop-shadow-md tabular-nums">
+                        {overviewRating != null ? Math.min(99, Number(overviewRating) + 5).toFixed(1) : '—'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="relative z-10 grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-10">
+                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-4">
+                      <p className="font-sans text-[10px] uppercase tracking-[0.2em] text-zinc-500 mb-3">Overall score — last {scoreHistory.length} points</p>
+                      <div className="flex items-end gap-4">
+                        <svg viewBox="0 0 140 48" className="h-28 w-full max-w-[200px] text-cyan-400" preserveAspectRatio="xMidYMid meet" aria-hidden>
+                          <defs>
+                            <linearGradient id="sparkFillPro" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="rgb(34,211,238)" stopOpacity="0.25" />
+                              <stop offset="100%" stopColor="rgb(34,211,238)" stopOpacity="0" />
+                            </linearGradient>
+                          </defs>
+                          <line x1="4" y1="4" x2="136" y2="4" stroke="currentColor" strokeOpacity="0.08" strokeWidth="0.5" />
+                          <line x1="4" y1="24" x2="136" y2="24" stroke="currentColor" strokeOpacity="0.08" strokeWidth="0.5" />
+                          <line x1="4" y1="44" x2="136" y2="44" stroke="currentColor" strokeOpacity="0.08" strokeWidth="0.5" />
+                          {sparkline.line && sparkline.pts?.length ? (
+                            <>
+                              <path
+                                d={`${sparkline.line} L ${sparkline.pts[sparkline.pts.length - 1][0]} 48 L ${sparkline.pts[0][0]} 48 Z`}
+                                fill="url(#sparkFillPro)"
+                                className="opacity-90"
+                              />
+                              <path
+                                d={sparkline.line}
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="drop-shadow-[0_0_10px_rgba(34,211,238,0.45)]"
+                              />
+                              {sparkline.pts.map(([x, y], i) => (
+                                <circle
+                                  key={i}
+                                  cx={x}
+                                  cy={y}
+                                  r={i === selectedTrajectoryIndex ? 3.5 : 2}
+                                  fill={i === selectedTrajectoryIndex ? '#22d3ee' : '#64748b'}
+                                  className={i === selectedTrajectoryIndex ? 'drop-shadow-[0_0_8px_rgba(34,211,238,0.9)]' : ''}
+                                />
+                              ))}
+                            </>
+                          ) : null}
+                        </svg>
+                        <div className="pb-1">
+                          <p className="font-sans text-[10px] uppercase tracking-widest text-zinc-500">Current</p>
+                          <p className="text-3xl font-black italic text-white tabular-nums">
+                            {overviewRating != null ? overviewRating.toFixed(1) : '—'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-4 flex flex-col justify-center gap-4">
+                      <p className="font-sans text-[10px] uppercase tracking-[0.2em] text-zinc-500">Since last point</p>
+                      <div className="flex items-center gap-3">
+                        {deltaSinceLastScan != null ? (
+                          <>
+                            {deltaSinceLastScan > 0 ? (
+                              <TrendingUp className="text-emerald-400 shrink-0" size={22} />
+                            ) : deltaSinceLastScan < 0 ? (
+                              <TrendingDown className="text-rose-400 shrink-0" size={22} />
+                            ) : (
+                              <Activity className="text-zinc-500 shrink-0" size={22} />
+                            )}
+                            <div>
+                              <span className={`text-2xl font-black tabular-nums ${
+                                deltaSinceLastScan > 0 ? 'text-emerald-400' : deltaSinceLastScan < 0 ? 'text-rose-400' : 'text-zinc-400'
+                              }`}>
+                                {deltaSinceLastScan > 0 ? '+' : ''}
+                                {deltaSinceLastScan.toFixed(2)}
+                              </span>
+                              <span className="text-zinc-500 font-sans text-xs ml-2">vs prior</span>
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-zinc-500 font-sans text-sm">
+                            {scoreHistory.length >= 2
+                              ? 'Select a newer scan card to compare against its prior point.'
+                              : 'Run another scan to compare trajectory.'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="border-t border-zinc-800/80 pt-4 space-y-3">
+                        {categoryDeltaStats.hasPrev && categoryDeltaStats.best && categoryDeltaStats.worst ? (
+                          <>
+                            <div className="flex justify-between gap-2 text-sm">
+                              <span className="text-zinc-500 font-sans">Best category gain</span>
+                              <span className="text-emerald-400 font-mono font-bold tabular-nums">
+                                {categoryDeltaStats.best.key} {categoryDeltaStats.best.delta > 0 ? '+' : ''}{(categoryDeltaStats.best.delta / 10).toFixed(1)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-2 text-sm">
+                              <span className="text-zinc-500 font-sans">Largest dip</span>
+                              <span className={`font-mono font-bold tabular-nums ${categoryDeltaStats.worst.delta < 0 ? 'text-rose-400' : 'text-zinc-400'}`}>
+                                {categoryDeltaStats.worst.key} {(categoryDeltaStats.worst.delta / 10).toFixed(1)}
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-zinc-500 font-sans text-xs leading-relaxed">
+                            Run another saved scan on this profile to unlock live category gains and dips here.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="relative z-10 border-t border-zinc-800/80 pt-6">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                      <p className="font-sans text-[10px] uppercase tracking-[0.28em] text-zinc-500">Goal ladder</p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={stepGoalBackward}
+                          disabled={!canMoveGoalBackward}
+                          className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-950/70 px-3 py-1.5 text-[10px] font-sans uppercase tracking-[0.24em] text-zinc-300 transition-colors hover:border-zinc-700 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-900 disabled:text-zinc-700"
+                        >
+                          <ArrowLeft size={12} />
+                          Back
+                        </button>
+                        <button
+                          type="button"
+                          onClick={stepGoalForward}
+                          disabled={!canMoveGoalForward}
+                          className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-950/20 px-3 py-1.5 text-[10px] font-sans uppercase tracking-[0.24em] text-cyan-300 transition-colors hover:border-cyan-400/60 hover:text-cyan-200 disabled:cursor-not-allowed disabled:border-zinc-900 disabled:bg-zinc-950/60 disabled:text-zinc-700"
+                        >
+                          Forward
+                          <ChevronRight size={12} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      {goalMilestones.map((m, idx) => {
+                        const done = m.status === 'completed';
+                        const current = m.status === 'current';
+                        const locked = m.status === 'locked';
+                        return (
+                          <div key={m.id} className="relative flex gap-4 pb-8 last:pb-2">
+                            {idx < goalMilestones.length - 1 && (
+                              <div className="absolute left-[15px] top-10 bottom-0 w-px bg-gradient-to-b from-zinc-600 to-zinc-800" aria-hidden="true" />
+                            )}
+                            <div className="relative z-10 shrink-0">
+                              {done && (
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/50 bg-emerald-500/15">
+                                  <CheckCircle2 size={16} className="text-emerald-400" />
+                                </div>
+                              )}
+                              {current && (
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-cyan-500 bg-cyan-500/20 shadow-[0_0_14px_rgba(34,211,238,0.35)]">
+                                  <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.9)]" />
+                                </div>
+                              )}
+                              {locked && (
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900/80">
+                                  <Lock size={14} className="text-zinc-600" />
+                                </div>
+                              )}
+                            </div>
+                            <div
+                              role={current ? 'button' : undefined}
+                              tabIndex={current ? 0 : undefined}
+                              onClick={() => {
+                                if (!current) return;
+                                stepGoalForward();
+                              }}
+                              onKeyDown={(e) => {
+                                if (!current) return;
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  stepGoalForward();
+                                }
+                              }}
+                              className={`min-w-0 flex-1 rounded-xl border p-4 text-left ${
+                                current
+                                  ? 'border-cyan-500/35 bg-cyan-950/15 cursor-pointer hover:border-cyan-500/55 hover:bg-cyan-900/20'
+                                  : 'border-zinc-800/80 bg-zinc-950/25'
+                              }`}
+                            >
+                              <p className={`font-sans text-[10px] uppercase tracking-widest mb-1 ${done ? 'text-emerald-500' : current ? 'text-cyan-400' : 'text-zinc-600'}`}>
+                                {done ? 'Done' : current ? 'Active — click to complete' : 'Locked'}
+                              </p>
+                              <p className={`text-sm font-bold uppercase tracking-wide leading-snug ${done || current ? 'text-zinc-100' : 'text-zinc-500'}`}>{m.label}</p>
+                              <p className={`font-sans text-xs mt-1 leading-relaxed ${done || current ? 'text-zinc-400' : 'text-zinc-600'}`}>{m.description}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
 
             <section ref={mogBattlesRef} className="scroll-mt-28 space-y-6 border-t border-zinc-900 pt-8">
               <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-6">

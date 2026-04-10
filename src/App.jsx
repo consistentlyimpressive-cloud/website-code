@@ -32,6 +32,52 @@ import { getApiBase } from './utils/apiBase';
 
 const GENERIC_ERROR = 'Something went wrong. Please try again later.';
 
+function parseAppLocation(pathname, userUid = null) {
+  const cleanPath = String(pathname || '/').split('?')[0].replace(/\/+$/, '') || '/';
+  const parts = cleanPath.split('/').filter(Boolean).map((part) => decodeURIComponent(part));
+
+  if (!parts.length) {
+    return {
+      page: 'home',
+      routeParams: {},
+      dashboardRoute: { slug: null, profileId: null },
+    };
+  }
+
+  if (parts[0] === 'users' && parts.length >= 3) {
+    return {
+      page: 'public-profile',
+      routeParams: { uid: parts[1], profileId: parts[2] },
+      dashboardRoute: { slug: null, profileId: null },
+    };
+  }
+
+  if (parts[0] === 'profile' && parts.length >= 2) {
+    return {
+      page: 'public-profile',
+      routeParams: { uid: userUid || null, profileId: parts[1] },
+      dashboardRoute: { slug: null, profileId: null },
+    };
+  }
+
+  if (parts[0] === 'dashboard') {
+    return {
+      page: 'dashboard',
+      routeParams: {},
+      dashboardRoute: {
+        slug: parts[1] || null,
+        profileId: parts[2] || null,
+      },
+    };
+  }
+
+  return {
+    page: parts.join('/'),
+    routeParams: {},
+    dashboardRoute: { slug: null, profileId: null },
+  };
+}
+
 function stripCommunityDashboardData(dd) {
   if (!dd || typeof dd !== 'object') return dd;
   const { bestFeatures, primaryFlaws, sideBestFeatures, sidePrimaryFlaws, ...rest } = dd;
@@ -647,16 +693,6 @@ const ComparisonCard = ({ beforeImgSrc, afterImgSrc, beforeScore, afterScore, is
       <div className="absolute inset-0 pointer-events-none z-20 bg-blue-500/10 mix-blend-color" />
       <div className="absolute inset-0 pointer-events-none z-20 bg-[radial-gradient(circle,transparent_40%,rgba(0,5,20,0.9)_120%)]" />
 
-      <div className="absolute top-4 left-4 z-30 pointer-events-none">
-        <div className="rounded-md border border-white/10 bg-black/72 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-200 shadow-[0_8px_20px_rgba(0,0,0,0.28)]">
-          Before-{beforeScore}
-        </div>
-      </div>
-      <div className="absolute top-4 right-4 z-30 pointer-events-none">
-        <div className="rounded-md border border-blue-400/35 bg-blue-950/82 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-blue-100 shadow-[0_0_16px_rgba(96,165,250,0.28)]">
-          After-{afterScore}
-        </div>
-      </div>
       <div className="absolute top-1/2 -translate-y-1/2 z-30 pointer-events-none" style={{ left: `calc(${sliderPosition}% - 12px)` }}>
         <div className={`w-6 h-6 bg-black/80 backdrop-blur border border-white/20 rounded flex items-center justify-center rotate-45 shadow-xl transition-transform ${isDragging ? 'scale-125 bg-white/20' : 'group-hover:scale-110'}`}><div className="-rotate-45 flex items-center justify-center"><ChevronRight size={14} className="text-white ml-0.5" /></div></div>
       </div>
@@ -1473,7 +1509,7 @@ const HomePage = ({ setCurrentPage }) => {
           <p className="text-zinc-400 font-sans text-sm max-w-2xl mx-auto uppercase tracking-widest">Join the many who cracked the aesthetic code</p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
-          <ComparisonCard beforeImgSrc={compBefore1} afterImgSrc={compAfter1} beforeScore="4.8" afterScore="7.4" review={reviewsData[0]} />
+          <ComparisonCard beforeImgSrc={compAfter1} afterImgSrc={compBefore1} beforeScore="4.8" afterScore="7.4" review={reviewsData[0]} />
           <ComparisonCard beforeImgSrc={compBefore2} afterImgSrc={compAfter2} beforeScore="5.2" afterScore="8.5" isActive={true} review={reviewsData[2]} />
           <ComparisonCard beforeImgSrc={compBefore3} afterImgSrc={compAfter3} beforeScore="4.5" afterScore="7.1" review={reviewsData[1]} />
         </div>
@@ -4685,6 +4721,9 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
   const [userScansByUser, setUserScansByUser] = useState({});
   const [userScansLoading, setUserScansLoading] = useState({});
   const [userScansError, setUserScansError] = useState({});
+  const [userMogBattlesByUser, setUserMogBattlesByUser] = useState({});
+  const [userMogBattlesLoading, setUserMogBattlesLoading] = useState({});
+  const [userMogBattlesError, setUserMogBattlesError] = useState({});
   const [planDrafts, setPlanDrafts] = useState({});
   const [planSaveLoading, setPlanSaveLoading] = useState({});
   const [planSaveError, setPlanSaveError] = useState({});
@@ -4837,21 +4876,47 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     }
 
     setExpandedUserId(uid);
-    if (userScansByUser[uid]) return;
+    if (userScansByUser[uid] && userMogBattlesByUser[uid]) return;
 
-    setUserScansLoading((prev) => ({ ...prev, [uid]: true }));
+    setUserScansLoading((prev) => ({ ...prev, [uid]: !userScansByUser[uid] }));
     setUserScansError((prev) => ({ ...prev, [uid]: '' }));
+    setUserMogBattlesLoading((prev) => ({ ...prev, [uid]: !userMogBattlesByUser[uid] }));
+    setUserMogBattlesError((prev) => ({ ...prev, [uid]: '' }));
     try {
-      const res = await fetch(`${API_BASE}/api/admin/users/${uid}/scans`, {
-        headers: { 'x-admin-password': storedPw.current }
-      });
-      if (!res.ok) throw new Error('Failed to fetch scans');
-      const data = await res.json();
-      setUserScansByUser((prev) => ({ ...prev, [uid]: data.scans || [] }));
+      const requests = [];
+
+      if (!userScansByUser[uid]) {
+        requests.push(
+          fetch(`${API_BASE}/api/admin/users/${uid}/scans`, {
+            headers: { 'x-admin-password': storedPw.current }
+          }).then(async (res) => {
+            if (!res.ok) throw new Error('Failed to fetch scans');
+            const data = await res.json();
+            setUserScansByUser((prev) => ({ ...prev, [uid]: data.scans || [] }));
+          })
+        );
+      }
+
+      if (!userMogBattlesByUser[uid]) {
+        requests.push(
+          fetch(`${API_BASE}/api/admin/users/${uid}/mog-battles`, {
+            headers: { 'x-admin-password': storedPw.current }
+          }).then(async (res) => {
+            if (!res.ok) throw new Error('Failed to fetch Mog Battles');
+            const data = await res.json();
+            setUserMogBattlesByUser((prev) => ({ ...prev, [uid]: data.battles || [] }));
+          })
+        );
+      }
+
+      await Promise.all(requests);
     } catch (err) {
-      setUserScansError((prev) => ({ ...prev, [uid]: err.message }));
+      const message = err.message || 'Failed to fetch user data';
+      setUserScansError((prev) => ({ ...prev, [uid]: message }));
+      setUserMogBattlesError((prev) => ({ ...prev, [uid]: message }));
     } finally {
       setUserScansLoading((prev) => ({ ...prev, [uid]: false }));
+      setUserMogBattlesLoading((prev) => ({ ...prev, [uid]: false }));
     }
   };
 
@@ -5147,6 +5212,9 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                       const scans = userScansByUser[u.uid] || [];
                       const scansLoading = !!userScansLoading[u.uid];
                       const scansError = userScansError[u.uid];
+                      const mogBattles = userMogBattlesByUser[u.uid] || [];
+                      const mogBattlesLoading = !!userMogBattlesLoading[u.uid];
+                      const mogBattlesError = userMogBattlesError[u.uid];
                       const planDraft = planDrafts[u.uid] || { plan: u.plan || 'free', scanCredits: u.scanCredits ?? 0 };
                       const isSavingPlan = !!planSaveLoading[u.uid];
                       const planError = planSaveError[u.uid];
@@ -5289,6 +5357,79 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                                       })}
                                     </div>
                                   )}
+
+                                  <div className="mt-6 border-t border-zinc-800/70 pt-5">
+                                    <div className="mb-4 flex items-center justify-between gap-3">
+                                      <div>
+                                        <p className="text-[10px] font-sans uppercase tracking-[0.28em] text-zinc-500">Mog battle submissions</p>
+                                        <h4 className="mt-1 text-sm font-black uppercase tracking-widest text-zinc-100">{u.email}</h4>
+                                      </div>
+                                      <span className="text-[10px] font-sans uppercase tracking-widest text-zinc-600">{mogBattles.length} battles</span>
+                                    </div>
+                                    {mogBattlesLoading ? (
+                                      <div className="py-8 text-center text-zinc-500 text-xs font-sans uppercase tracking-widest">Loading battles...</div>
+                                    ) : mogBattlesError ? (
+                                      <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs font-sans text-red-400">{mogBattlesError}</div>
+                                    ) : mogBattles.length === 0 ? (
+                                      <div className="py-6 text-center text-zinc-500 text-xs font-sans uppercase tracking-widest">No Mog Battles found for this user.</div>
+                                    ) : (
+                                      <div className="space-y-3">
+                                        {mogBattles.map((battle) => {
+                                          const fighterA = battle.fighterA || {};
+                                          const fighterB = battle.fighterB || {};
+                                          const frontA = fighterA.frontImage || fighterA.imgSrc || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png';
+                                          const frontB = fighterB.frontImage || fighterB.imgSrc || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png';
+                                          const scoreA = Number(fighterA.finalRating ?? fighterA.rating);
+                                          const scoreB = Number(fighterB.finalRating ?? fighterB.rating);
+                                          const winnerName =
+                                            Number.isFinite(scoreA) && Number.isFinite(scoreB)
+                                              ? scoreA === scoreB
+                                                ? 'Tie'
+                                                : scoreA > scoreB
+                                                  ? (fighterA.name || fighterA.displayName || 'Scan')
+                                                  : (fighterB.name || fighterB.displayName || 'Scan')
+                                              : 'Unknown';
+                                          return (
+                                            <div key={battle.id} className="grid gap-4 rounded-xl border border-zinc-800 bg-zinc-900/35 p-3 md:grid-cols-[auto_1fr_auto]">
+                                              <div className="flex gap-2">
+                                                <div className="h-20 w-14 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+                                                  <img src={frontA} alt="" className="h-full w-full object-cover object-top" />
+                                                </div>
+                                                <div className="h-20 w-14 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+                                                  <img src={frontB} alt="" className="h-full w-full object-cover object-top" />
+                                                </div>
+                                              </div>
+                                              <div className="min-w-0">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                  <span className="text-sm font-black uppercase tracking-widest text-zinc-100">
+                                                    {fighterA.name || fighterA.displayName || 'Scan'}
+                                                  </span>
+                                                  <span className="text-[10px] font-sans uppercase tracking-[0.24em] text-zinc-500">VS</span>
+                                                  <span className="text-sm font-black uppercase tracking-widest text-zinc-100">
+                                                    {fighterB.name || fighterB.displayName || 'Scan'}
+                                                  </span>
+                                                </div>
+                                                <div className="mt-2 flex flex-wrap items-center gap-2">
+                                                  {Number.isFinite(scoreA) ? <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] text-cyan-300">{scoreA.toFixed(1)}</span> : null}
+                                                  {Number.isFinite(scoreB) ? <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] text-emerald-300">{scoreB.toFixed(1)}</span> : null}
+                                                  <span className="rounded-full border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] text-zinc-400">
+                                                    {Number(battle.votesA || 0) + Number(battle.votesB || 0)} votes
+                                                  </span>
+                                                  <span className="rounded-full border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] text-zinc-400">
+                                                    {formatTimestamp(battle.createdAt)}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                              <div className="flex flex-col items-start gap-2 md:items-end">
+                                                <span className="text-[10px] font-sans uppercase tracking-[0.24em] text-zinc-500">AI winner</span>
+                                                <span className="text-xs font-black uppercase tracking-widest text-cyan-300">{winnerName}</span>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </td>
                             </tr>
@@ -5585,66 +5726,49 @@ const AdminFooterTrigger = ({ setCurrentPage }) => {
 
 // --- App Root ---
 const App = () => {
-  const [currentPage, _setCurrentPage] = useState(() => {
-    const path = window.location.pathname.replace(/^\//, '');
-    return path || 'home';
-  });
-
-  const setCurrentPage = (page) => {
-    _setCurrentPage(page);
-    const newPath = page === 'home' ? '/' : `/${page}`;
-    if (window.location.pathname !== newPath) {
-      window.history.pushState({ page }, '', newPath + window.location.search);
-    }
-  };
-
-  useEffect(() => {
-    const handlePopState = (e) => {
-      if (e.state && e.state.page) {
-        _setCurrentPage(e.state.page);
-      } else {
-        const path = window.location.pathname.replace(/^\//, '');
-        _setCurrentPage(path || 'home');
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    if (!window.history.state?.page) {
-      window.history.replaceState({ page: currentPage }, '', window.location.pathname + window.location.search);
-    }
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [currentPage]);
+  const initialLocation = parseAppLocation(window.location.pathname);
+  const [currentPage, _setCurrentPage] = useState(initialLocation.page);
 
   const [dashboardData, setDashboardData] = useState(null);
   /** When set from Pro dashboard “Run a new scan”, upload page pre-selects this model (1–5). */
   const [pendingUploadModel, setPendingUploadModel] = useState(null);
   const [pendingUploadProfileId, setPendingUploadProfileId] = useState(null);
   const [selectedCelebrity, setSelectedCelebrity] = useState(null);
-  const [routeParams, setRouteParams] = useState({});
+  const [routeParams, setRouteParams] = useState(initialLocation.routeParams);
+  const [dashboardRoute, setDashboardRoute] = useState(initialLocation.dashboardRoute);
   const [user, setUser] = useState(null);
+  const [authResolved, setAuthResolved] = useState(false);
   const [userPlan, setUserPlan] = useState({ plan: 'free', scanCredits: 0, loaded: false });
 
+  const setCurrentPage = useCallback((page, pathOverride = null) => {
+    const newPath = pathOverride || (page === 'home' ? '/' : `/${page}`);
+    const parsed = parseAppLocation(newPath, user?.uid);
+
+    _setCurrentPage(parsed.page || page);
+    setRouteParams(parsed.routeParams || {});
+    setDashboardRoute(parsed.dashboardRoute || { slug: null, profileId: null });
+
+    const targetPath = `${newPath}${window.location.search}`;
+    if (window.location.pathname + window.location.search !== targetPath) {
+      window.history.pushState({ page: parsed.page || page }, '', targetPath);
+    } else if (window.history.state?.page !== (parsed.page || page)) {
+      window.history.replaceState({ page: parsed.page || page }, '', targetPath);
+    }
+  }, [user?.uid]);
+
   useEffect(() => {
-    const handlePopState = () => {
-      const path = window.location.pathname;
-      if (path.startsWith('/users/')) {
-        const parts = path.split('/');
-        if (parts.length >= 4) {
-          setRouteParams({ uid: parts[2], profileId: parts[3] });
-          _setCurrentPage('public-profile');
-        }
-        return;
-      }
-      if (path.startsWith('/profile/')) {
-        const parts = path.split('/');
-        if (parts.length >= 3) {
-          setRouteParams({ uid: user?.uid || null, profileId: parts[2] });
-          _setCurrentPage('public-profile');
-        }
+    const syncLocationState = () => {
+      const parsed = parseAppLocation(window.location.pathname, user?.uid);
+      _setCurrentPage(parsed.page);
+      setRouteParams(parsed.routeParams || {});
+      setDashboardRoute(parsed.dashboardRoute || { slug: null, profileId: null });
+      if (window.history.state?.page !== parsed.page) {
+        window.history.replaceState({ page: parsed.page }, '', window.location.pathname + window.location.search);
       }
     };
-    handlePopState();
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    syncLocationState();
+    window.addEventListener('popstate', syncLocationState);
+    return () => window.removeEventListener('popstate', syncLocationState);
   }, [user?.uid]);
   const [lowPerfMode, setLowPerfMode] = useState(window.innerWidth < 768);
 
@@ -5656,7 +5780,10 @@ const App = () => {
     }
   }, [lowPerfMode]);
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthResolved(true);
+    });
     return () => unsubscribe();
   }, []);
 
@@ -5740,16 +5867,13 @@ const App = () => {
 
   useEffect(() => {
     if (currentPage !== 'dashboard') return;
+    if (!authResolved) return;
     // Fresh scan results (guest or signed-in): always show dashboard when we have payload/images
     if (hasScanData) return;
     if (!user) {
       setCurrentPage('login');
-      return;
     }
-    if (!canAlwaysAccessDashboard(user)) {
-      setCurrentPage('upload-photo');
-    }
-  }, [currentPage, user, hasScanData]);
+  }, [authResolved, currentPage, user, hasScanData, setCurrentPage]);
 
   const handleSignOut = async () => {
     await signOut(auth);
@@ -5798,6 +5922,7 @@ const App = () => {
                 setPendingUploadModel={setPendingUploadModel}
                 setPendingUploadProfileId={setPendingUploadProfileId}
                 setDashboardData={setDashboardData}
+                initialDashboardProfileId={dashboardRoute?.profileId || null}
                 hasActiveAnalysis={hasScanData}
                 analysisContent={
                   hasScanData
