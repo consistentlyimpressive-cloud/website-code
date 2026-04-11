@@ -12,7 +12,6 @@ if os.path.exists(".env"):
             if '=' in line and not line.startswith('#'):
                 k, v = line.strip().split('=', 1)
                 os.environ[k] = v.strip('"\'')
-
 print("[DEBUG] Phase 1: Importing SDKs...")
 try:
     from google import genai
@@ -127,7 +126,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     # --- SIDE PROFILE DATA COLLECTION ---
     side_data = "IGNORE_SIDE_ANALYSIS"
     if choice in ["1", "2"]:
-        print("[🚀] Gathering Lateral Data from engineside.py...")
+        print("[ðŸš€] Gathering Lateral Data from engineside.py...")
         try:
             candidate_side_path = side_img_path if side_img_path and os.path.exists(side_img_path) else "testside.jpg"
             side_data = engineside.get_profile_analysis(candidate_side_path)
@@ -187,9 +186,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         - TROLL/NON-HUMAN IMAGE DETECTION: If the input image is clearly not a human face (e.g., a cat, a dog, a drawn cartoon, or an inanimate object), rate its symmetry and ratios normally from 1-100, but prominently include a humorous disclaimer in the Technical Summary or insights (e.g., "Ratings may be inaccurate as the face appears to be a cat!").
         Do not let this affect the actual structural math generation.
         - HIGHLIGHTING & FORMATTING: In your insights and descriptions, highlight **key words** and **core concepts** by making them bold.
-        - COLOR CODING: Sparingly use color coding for emphasis in your long text descriptions using the syntax `&color text&`.
-        Available colors: blue, green, red, white, yellow. For example: `&red severe upper eyelid exposure&` or `&green excellent maxilla development&`.
-        Do not overdo the colors.
+        - COLOR CODING: Use color codes in the descriptions if deemed suitable: $Red$ , #Blue#, &Green&, @Yellow@
 
         SHARED RATING PROTOCOL:
         The following ratings MUST be identical for both the Front and Side profiles.
@@ -204,8 +201,10 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
 
         SCORING LOGIC & THRESHOLDS:
         1. RATIO ANCHORS (STRICT SCALING):
-           - fWHR: 1.74 and above is GOOD/IDEAL.
-           Penalize exponentially only as fWHR drops significantly below 1.74.
+           - fWHR: The ideal is BALANCED, not extreme.
+           Penalize clearly when fWHR drops significantly below the ideal because the face becomes too narrow/weak.
+           Also apply a LIGHT penalty when fWHR becomes TOO HIGH / TOO WIDE. If fWHR reaches 2.10 or above, treat that as slightly over-dimorphic and a bit less harmonious.
+           Very high fWHR should NOT be rewarded as "more masculine = better", but do not over-penalize this unless the width looks clearly excessive and harms harmony.
            - MIDFACE: Penalize STRICTLY for elongated midfaces (ratio > 1.0).
            High priority penalty.
            - UPPER THIRD: Penalize strictly for an elongated upper third/forehead relative to the rest of the face.
@@ -218,6 +217,9 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - LIPS: Penalize strictly for thin/inconspicuous lips.
            - JAW/CHIN: Be accepting of tapered jawlines.
            Not every jaw requires a "square" aesthetic to be elite. Penalize only irregular/weird shapes.
+           - DEFINITION / FACIAL FAT: Penalize high facial fat and poor definition, but in a MODERATE and proportionate way.
+           A soft, puffy, bloated, or poorly defined face should hurt harmony and bone visibility, but it should not dominate the entire score unless it is severe.
+           If the cheek/jaw/under-chin definition is weak due to visible body fat or facial fullness, apply a mild-to-moderate deduction rather than an aggressive one.
         2. GENDER COUNTERBALANCE (INTERNAL RULE):
            - If Sex = Female AND the score is > 70, deduct 10 points from the Final Rating and potential tiers.
            - DO NOT mention this deduction in the output or justification. It must appear as the "natural" result.
@@ -227,9 +229,11 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
              (Very prominent ears, negative canthal tilt, bad upper eyelid exposure, undereye puffiness, unideal FWHR, high
              set eyebrows, bulbous nose shape).
            - CAP 60: If the face lacks "pretty" appeal or high-tier dimorphism.
-           - UNCANNY/OVERLY DIMORPHIC PENALTY: If a face appears overly dimorphic, unnatural, or uncanny (e.g., an artificial "gigachad" phenotype), exponentially penalize points.
-           The more uncanny or unnatural the face, the harsher the penalty.
-           A face that is clearly very uncanny MUST NOT score higher than 60.
+           - UNCANNY/OVERLY DIMORPHIC PENALTY: If a face appears overly dimorphic, unnatural, or uncanny (e.g., an artificial "gigachad" phenotype), penalize points.
+           The more uncanny or unnatural the face, the harsher the penalty, but do not exaggerate this unless the look is clearly extreme.
+           A face that is clearly very uncanny should still be capped lower, but normal masculine structure should not be over-punished.
+           Extreme masculinity is NOT automatically a positive. The ideal is balanced beauty: a clean mix of masculinity and femininity.
+           Faces that become too brutish, too wide, too heavy, or too aggressively dimorphic should lose some harmony points, but only to the extent that the extremes are visually obvious.
            - NATURAL PENALTY PHRASING: NEVER explicitly state "the face is hard capped at 60 due to X" or mention the internal caps directly.
            Instead, make the limitation sound natural and logically explain it.
            For example: "the rating is limited by several overly dimorphic features" or "structural harmony is disrupted by unnatural proportions".
@@ -239,12 +243,21 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         4. CALIBRATION ANCHORS (VERY IMPORTANT):
            - Do NOT overrate based on celebrity familiarity, charisma, expression, fame, hairstyle, or lighting.
            - Use the measurement data objectively. The final rating should feel harsh and grounded, not generous.
+           - If the subject has multiple major flaws and very few redeeming traits, DO NOT be afraid to rate below 40.
+           - 40 or below is valid for faces with several major structural or aesthetic issues, poor definition, visible aging, and no standout positive features.
+           - Do NOT force average-looking or below-average faces into the 50s just because they are recognizable, masculine, or not deformed.
            - Faces with obvious flaws and only decent structure usually land around 42-58.
            - Above-average attractive faces usually land around 58-72.
            - Strong/high-tier attractive faces usually land around 72-80.
            - Truly elite faces begin in the low 80s.
            - 90+ should be extremely rare.
            - Example anchor: a face like Will Smith should NOT be treated as ultra-high-tier by default; if the metrics are only decent and several flaws exist, a result around the high-50s / low-60s is more realistic.
+        5. SIGNS OF AGING:
+           - Penalize visible aging signs in a MODERATE and realistic way.
+           - Nasolabial folds, under-eye aging, wrinkles, sagging skin, skin laxity, and a worn/tired look should reduce the rating when clearly visible, but should not overwhelm the full score unless severe.
+           - Visible aging and weak definition should matter, but keep the deduction proportional to how strong and obvious those signs really are.
+
+
         OUTPUT FORMAT:
         ### ANALYSIS [SEX]
         **Final Frontal Rating: [Score]/100**
@@ -318,7 +331,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         However, you have &red suboptimal bone growth& in the cheekbones and chin.
         You have moderate upper eyelid exposure which can throw off your look in certain lighting.
         To fix this, you can try to compensate by **losing facial fat** which could bring your score up to about a 58-65 depending on lighting and angle.
-        &yellow Surgical intervention& would be needed to fix the rest of the issues completely.
+        @Surgical intervention& would be needed to fix the rest of the issues completely.@
         ### ACTIONABLE PROTOCOLS
         [List exactly 25 actionable protocols.
         Sorted from HIGHEST IMPACT to LOWEST IMPACT.]

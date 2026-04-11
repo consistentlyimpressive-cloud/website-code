@@ -404,8 +404,14 @@ const VoteBattleModal = ({ battle, user, onClose, onVoteComplete }) => {
     >
       <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2">
-          <FighterMiniCard fighter={battle.fighterA} />
-          <FighterMiniCard fighter={battle.fighterB} scoreTone="text-emerald-300" />
+          <FighterMiniCard
+            fighter={battle.fighterA}
+            scoreTone={winner === 'a' ? 'text-emerald-300' : winner === 'b' ? 'text-rose-300' : 'text-cyan-300'}
+          />
+          <FighterMiniCard
+            fighter={battle.fighterB}
+            scoreTone={winner === 'b' ? 'text-emerald-300' : winner === 'a' ? 'text-rose-300' : 'text-cyan-300'}
+          />
         </div>
 
         <div className="rounded-[28px] border border-zinc-800 bg-black/25 p-4">
@@ -414,15 +420,25 @@ const VoteBattleModal = ({ battle, user, onClose, onVoteComplete }) => {
             <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">{totalVotes} total</p>
           </div>
           <div className="flex h-3 overflow-hidden rounded-full bg-zinc-800">
-            <div className="h-full bg-cyan-400 transition-all duration-500" style={{ width: `${pctA}%` }} />
-            <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${pctB}%` }} />
+            <div
+              className={`h-full transition-all duration-500 ${
+                winner === 'b' ? 'bg-rose-400' : winner === 'a' ? 'bg-emerald-400' : 'bg-cyan-400'
+              }`}
+              style={{ width: `${pctA}%` }}
+            />
+            <div
+              className={`h-full transition-all duration-500 ${
+                winner === 'a' ? 'bg-rose-400' : winner === 'b' ? 'bg-emerald-400' : 'bg-emerald-400'
+              }`}
+              style={{ width: `${pctB}%` }}
+            />
           </div>
           <div className="mt-2 flex justify-between text-[11px] font-mono text-zinc-400">
             <span>
-              {fighterLabel(battle.fighterA)} {voteCounts.a} • {pctA}%
+              <span className={`${winner === 'a' ? 'text-emerald-300' : winner === 'b' ? 'text-rose-300' : 'text-zinc-300'}`}>{fighterLabel(battle.fighterA)}</span> {voteCounts.a} • {pctA}%
             </span>
             <span>
-              {fighterLabel(battle.fighterB)} {voteCounts.b} • {pctB}%
+              <span className={`${winner === 'b' ? 'text-emerald-300' : winner === 'a' ? 'text-rose-300' : 'text-zinc-300'}`}>{fighterLabel(battle.fighterB)}</span> {voteCounts.b} • {pctB}%
             </span>
           </div>
         </div>
@@ -435,7 +451,7 @@ const VoteBattleModal = ({ battle, user, onClose, onVoteComplete }) => {
             className="rounded-[24px] border border-cyan-500/35 bg-cyan-500/8 px-4 py-4 text-left transition-all duration-300 hover:scale-[1.01] hover:border-cyan-400/60 hover:bg-cyan-500/12 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300">Vote for</p>
-            <p className="mt-1 text-lg font-black uppercase tracking-[0.12em] text-white">{fighterLabel(battle.fighterA)}</p>
+            <p className="mt-1 text-[13px] font-black uppercase tracking-[0.08em] text-white md:text-[14px]">{fighterLabel(battle.fighterA)}</p>
             {myVote === 'a' ? <p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Vote locked</p> : null}
           </button>
           <button
@@ -445,7 +461,7 @@ const VoteBattleModal = ({ battle, user, onClose, onVoteComplete }) => {
             className="rounded-[24px] border border-emerald-500/35 bg-emerald-500/8 px-4 py-4 text-left transition-all duration-300 hover:scale-[1.01] hover:border-emerald-400/60 hover:bg-emerald-500/12 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-300">Vote for</p>
-            <p className="mt-1 text-lg font-black uppercase tracking-[0.12em] text-white">{fighterLabel(battle.fighterB)}</p>
+            <p className="mt-1 text-[13px] font-black uppercase tracking-[0.08em] text-white md:text-[14px]">{fighterLabel(battle.fighterB)}</p>
             {myVote === 'b' ? <p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">Vote locked</p> : null}
           </button>
         </div>
@@ -475,11 +491,11 @@ const VoteBattleModal = ({ battle, user, onClose, onVoteComplete }) => {
           <div className="mb-4 grid gap-3 md:grid-cols-2">
             <div className="rounded-2xl border border-zinc-800 bg-zinc-950/75 p-4">
               <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">{fighterLabel(battle.fighterA)}</p>
-              <p className="mt-2 text-3xl font-black italic text-cyan-300">{fighterScore(battle.fighterA)?.toFixed(1) ?? '--'}</p>
+              <p className={`mt-2 text-3xl font-black italic ${winner === 'a' ? 'text-emerald-300' : winner === 'b' ? 'text-rose-300' : 'text-cyan-300'}`}>{fighterScore(battle.fighterA)?.toFixed(1) ?? '--'}</p>
             </div>
             <div className="rounded-2xl border border-zinc-800 bg-zinc-950/75 p-4">
               <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">{fighterLabel(battle.fighterB)}</p>
-              <p className="mt-2 text-3xl font-black italic text-emerald-300">{fighterScore(battle.fighterB)?.toFixed(1) ?? '--'}</p>
+              <p className={`mt-2 text-3xl font-black italic ${winner === 'b' ? 'text-emerald-300' : winner === 'a' ? 'text-rose-300' : 'text-emerald-300'}`}>{fighterScore(battle.fighterB)?.toFixed(1) ?? '--'}</p>
             </div>
           </div>
           <MetricBreakdown battle={battle} />
@@ -747,14 +763,19 @@ const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, onOpen }) 
           <div className="flex items-end justify-between gap-4">
             <div className="min-w-0">
               <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-cyan-200/45">Fighter A</p>
-              <h3 className="mt-2 truncate text-[22px] font-black uppercase tracking-[0.08em] text-white md:text-[26px] [font-family:Orbitron,ui-sans-serif,system-ui]">
+              <h3 className="mt-2 truncate text-[11px] font-black uppercase tracking-[0.16em] text-white md:text-[12px]">
                 {labelA}
               </h3>
             </div>
             <button
               type="button"
               onClick={() => onOpen(battle)}
-              className="rounded-full border border-[#f7c400]/60 bg-[linear-gradient(180deg,#ffd42a_0%,#f7c400_55%,#dba400_100%)] px-7 py-3 text-[12px] font-black uppercase tracking-[0.24em] text-black shadow-[0_0_22px_rgba(247,196,0,0.28),0_0_52px_rgba(247,196,0,0.10)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_28px_rgba(247,196,0,0.34),0_0_62px_rgba(247,196,0,0.16)]"
+              disabled={hasVoted}
+              className={`rounded-full px-7 py-3 text-[12px] font-black uppercase tracking-[0.24em] transition-all duration-300 ${
+                hasVoted
+                  ? 'cursor-not-allowed border border-zinc-700 bg-zinc-800 text-zinc-500 shadow-none opacity-60'
+                  : 'border border-[#f7c400]/60 bg-[linear-gradient(180deg,#ffd42a_0%,#f7c400_55%,#dba400_100%)] text-black shadow-[0_0_22px_rgba(247,196,0,0.28),0_0_52px_rgba(247,196,0,0.10)] hover:scale-[1.02] hover:shadow-[0_0_28px_rgba(247,196,0,0.34),0_0_62px_rgba(247,196,0,0.16)]'
+              }`}
             >
               Vote
             </button>
@@ -838,13 +859,18 @@ const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, onOpen }) 
             <button
               type="button"
               onClick={() => onOpen(battle)}
-              className="rounded-full border border-[#f7c400]/60 bg-[linear-gradient(180deg,#ffd42a_0%,#f7c400_55%,#dba400_100%)] px-7 py-3 text-[12px] font-black uppercase tracking-[0.24em] text-black shadow-[0_0_22px_rgba(247,196,0,0.28),0_0_52px_rgba(247,196,0,0.10)] transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_28px_rgba(247,196,0,0.34),0_0_62px_rgba(247,196,0,0.16)]"
+              disabled={hasVoted}
+              className={`rounded-full px-7 py-3 text-[12px] font-black uppercase tracking-[0.24em] transition-all duration-300 ${
+                hasVoted
+                  ? 'cursor-not-allowed border border-zinc-700 bg-zinc-800 text-zinc-500 shadow-none opacity-60'
+                  : 'border border-[#f7c400]/60 bg-[linear-gradient(180deg,#ffd42a_0%,#f7c400_55%,#dba400_100%)] text-black shadow-[0_0_22px_rgba(247,196,0,0.28),0_0_52px_rgba(247,196,0,0.10)] hover:scale-[1.02] hover:shadow-[0_0_28px_rgba(247,196,0,0.34),0_0_62px_rgba(247,196,0,0.16)]'
+              }`}
             >
               Vote
             </button>
             <div className="min-w-0 text-right">
               <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-cyan-200/45">Fighter B</p>
-              <h3 className="mt-2 truncate text-[22px] font-black uppercase tracking-[0.08em] text-white md:text-[26px] [font-family:Orbitron,ui-sans-serif,system-ui]">
+              <h3 className="mt-2 truncate text-[11px] font-black uppercase tracking-[0.16em] text-white md:text-[12px]">
                 {labelB}
               </h3>
             </div>
@@ -852,6 +878,38 @@ const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, onOpen }) 
         </div>
       </div>
     </article>
+  );
+};
+
+const LatestBattleCard = ({ battle, onOpen }) => {
+  const labelA = fighterLabel(battle.fighterA);
+  const labelB = fighterLabel(battle.fighterB);
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(battle)}
+      className="group overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(12,12,12,0.96),rgba(7,7,7,0.98))] text-left shadow-[0_16px_44px_rgba(0,0,0,0.36)] transition-all duration-300 hover:border-cyan-400/30 hover:shadow-[0_18px_52px_rgba(0,240,255,0.08)]"
+    >
+      <div className="grid grid-cols-2">
+        <div className="relative overflow-hidden border-r border-white/10">
+          <img src={fighterImage(battle.fighterA)} alt={labelA} className="aspect-[3/4] w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
+        </div>
+        <div className="relative overflow-hidden">
+          <img src={fighterImage(battle.fighterB)} alt={labelB} className="aspect-[3/4] w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-4">
+        <div className="min-w-0">
+          <p className="truncate text-[11px] font-black uppercase tracking-[0.14em] text-white">
+            {labelA} <span className="text-zinc-500">vs</span> {labelB}
+          </p>
+        </div>
+        <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+          {formatBattleTime(battle.createdAt)}
+        </span>
+      </div>
+    </button>
   );
 };
 
@@ -906,6 +964,13 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
     }
     return items.slice(0, 12);
   }, [feedItems, sortBy]);
+
+  const latestBattles = useMemo(() => feedItems.slice(0, 4), [feedItems]);
+
+  const battleHistoryItems = useMemo(
+    () => [...feedItems].sort((a, b) => timestampToMillis(b.createdAt) - timestampToMillis(a.createdAt)).slice(0, 10),
+    [feedItems]
+  );
 
   const refreshBattleTallies = useCallback(async () => {
     if (!feedItems.length) return;
@@ -1097,21 +1162,93 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
           </aside>
 
           <main className="min-w-0">
-            <div className="mb-16 flex flex-col gap-8 border-b border-white/10 pb-10 xl:flex-row xl:items-end xl:justify-between">
-              <div className="max-w-[820px]">
+            <div className="mb-14 grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
+              <div className="max-w-[860px]">
                 <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/[0.04] px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.28em] text-cyan-200/80">
                   <Swords size={12} className="text-[#00F0FF]" />
-                  Blind Ranking Arena
+                  Ranked Matchups
                 </div>
                 <h1 className="bg-[linear-gradient(180deg,#33ddff_0%,#14a9ff_42%,#0d6dc4_74%,#06325f_100%)] bg-clip-text text-[56px] font-black italic uppercase tracking-[-0.06em] text-transparent drop-shadow-[0_12px_34px_rgba(0,240,255,0.12)] md:text-[86px]">
                   MOG BATTLES
                 </h1>
                 <p className="mt-5 max-w-[760px] text-[15px] leading-relaxed text-zinc-400">
-                  Vote through active matchups in one continuous desktop feed. Results stay blind until you lock your pick, then the percentages reveal.
+                  Vote on matchups, track winners, and compare scan performance inside the same MogCheck visual system.
                 </p>
               </div>
 
-              <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] px-5 py-4 shadow-[0_16px_38px_rgba(0,0,0,0.28)]">
+                  <p className="font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-200/70">Live Feed</p>
+                  <p className="mt-3 text-4xl font-black text-white">{castVoteBattles.length}</p>
+                  <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.2em] text-zinc-500">Tracked battles</p>
+                </div>
+                <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] px-5 py-4 shadow-[0_16px_38px_rgba(0,0,0,0.28)]">
+                  <p className="font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-200/70">Ladder</p>
+                  <p className="mt-3 text-4xl font-black text-white">{leaderboardRows.length}</p>
+                  <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.2em] text-zinc-500">Visible fighters</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-12 grid gap-8 xl:grid-cols-[minmax(0,1fr)_240px] xl:items-start">
+              <div>
+                <div className="mb-5 flex items-center gap-3">
+                  <div className="rounded-full border border-white/10 bg-white/[0.02] p-2.5 text-[#00F0FF] shadow-[0_0_24px_rgba(0,240,255,0.08)]">
+                    <Swords size={16} />
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-black uppercase tracking-[0.26em] text-white">Latestet Battles</p>
+                  </div>
+                </div>
+                <div className="grid gap-5 md:grid-cols-2">
+                  {latestBattles.length ? (
+                    latestBattles.map((battle) => (
+                      <LatestBattleCard key={battle.id} battle={battle} onOpen={setVoteModalBattle} />
+                    ))
+                  ) : (
+                    <div className="col-span-full flex min-h-[280px] items-center justify-center rounded-[28px] border border-white/10 bg-white/[0.02] text-sm text-zinc-500">
+                      {loading ? 'Loading latest battles...' : 'No recent battles yet.'}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-12 xl:pt-[52px]">
+                <button
+                  type="button"
+                  onClick={() => setNewBattleOpen(true)}
+                  className="flex w-full flex-col items-start gap-2 rounded-[24px] border border-cyan-400/25 bg-cyan-400/[0.06] px-6 py-5 text-left transition-all duration-300 hover:border-cyan-400/45 hover:bg-cyan-400/[0.10] hover:shadow-[0_12px_28px_rgba(0,240,255,0.10)]"
+                >
+                  <span className="inline-flex items-center gap-2 text-[13px] font-black text-white">
+                    <Plus size={16} className="text-[#00F0FF]" />
+                    New Battle
+                  </span>
+                  <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-cyan-200/70">Add scans or pick from history</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('mog-battle-history')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  className="flex w-full flex-col items-start gap-2 rounded-[24px] border border-white/10 bg-white/[0.02] px-6 py-5 text-left transition-all duration-300 hover:border-white/20 hover:bg-white/[0.04]"
+                >
+                  <span className="inline-flex items-center gap-2 text-[13px] font-black text-white">
+                    <History size={16} className="text-zinc-300" />
+                    Battle history
+                  </span>
+                  <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-zinc-500">Jump to previous results</span>
+                </button>
+              </div>
+            </div>
+
+            <div className={`${pageCardClass} mb-8 overflow-hidden`}>
+              <div className={`${pageCardHeaderClass} flex items-center justify-between gap-4`}>
+                <div className="flex items-center gap-3">
+                  <div className={sectionHeaderIconClass}>
+                    <ShieldCheck size={16} />
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-black uppercase tracking-[0.26em] text-white">Cast your vote</p>
+                  </div>
+                </div>
                 <div className="relative">
                   <select
                     value={sortBy}
@@ -1123,48 +1260,78 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                   </select>
                   <ChevronDown size={14} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500" />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setNewBattleOpen(true)}
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-5 py-3 text-[12px] font-black uppercase tracking-[0.22em] text-white transition-all duration-300 hover:border-cyan-400/45 hover:bg-cyan-400/[0.12] hover:shadow-[0_12px_28px_rgba(0,240,255,0.10)]"
-                >
-                  <Plus size={14} className="text-[#00F0FF]" />
-                  New Battle
-                </button>
               </div>
-            </div>
-
-            <div className="mb-6 flex items-center gap-3">
-              <div className="rounded-full border border-white/10 bg-white/[0.02] p-2.5 text-[#00F0FF] shadow-[0_0_24px_rgba(0,240,255,0.08)]">
-                <ShieldCheck size={16} />
-              </div>
-              <div>
-                <p className="text-[12px] font-black uppercase tracking-[0.26em] text-white">Cast your vote</p>
-                <p className="mt-1 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-200/40">Active matchups feed</p>
-              </div>
-            </div>
-
-            <div className="space-y-8 pb-20">
-              {castVoteBattles.length ? (
-                castVoteBattles.map((battle, index) => (
-                  <div
-                    key={battle.id}
-                    className="opacity-0 [animation:mogFadeUp_.45s_ease-out_forwards]"
-                    style={{ animationDelay: `${index * 55}ms` }}
-                  >
-                    <VoteFeedCard
-                      battle={battle}
-                      isFeatured={index === 0}
-                      hasVoted={Boolean(myVotesByBattle[battle.id])}
-                      onOpen={setVoteModalBattle}
-                    />
+              <div className="mog-scroll max-h-[920px] space-y-8 overflow-y-auto px-5 py-5 md:px-6 md:py-6">
+                {castVoteBattles.length ? (
+                  castVoteBattles.map((battle, index) => (
+                    <div
+                      key={battle.id}
+                      className="opacity-0 [animation:mogFadeUp_.45s_ease-out_forwards]"
+                      style={{ animationDelay: `${index * 55}ms` }}
+                    >
+                      <VoteFeedCard
+                        battle={battle}
+                        isFeatured={index === 0}
+                        hasVoted={Boolean(myVotesByBattle[battle.id])}
+                        onOpen={setVoteModalBattle}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex min-h-[320px] items-center justify-center rounded-[28px] border border-white/10 bg-white/[0.02] text-sm text-zinc-500">
+                    {loading ? 'Loading battles...' : 'No battles to vote on yet.'}
                   </div>
-                ))
-              ) : (
-                <div className="flex min-h-[320px] items-center justify-center rounded-[28px] border border-white/10 bg-white/[0.02] text-sm text-zinc-500">
-                  {loading ? 'Loading battles...' : 'No battles to vote on yet.'}
+                )}
+              </div>
+            </div>
+
+            <div id="mog-battle-history" className={`${pageCardClass} overflow-hidden`}>
+              <div className={`${pageCardHeaderClass} flex items-center gap-3`}>
+                <div className={sectionHeaderIconClass}>
+                  <History size={16} />
                 </div>
-              )}
+                <div>
+                  <p className="text-[12px] font-black uppercase tracking-[0.26em] text-white">Battle history</p>
+                </div>
+              </div>
+              <div className="mog-scroll max-h-[420px] space-y-3 overflow-y-auto px-5 py-5 md:px-6 md:py-6">
+                {battleHistoryItems.length ? (
+                  battleHistoryItems.map((battle) => {
+                    const winner = aiWinner(battle.fighterA, battle.fighterB);
+                    const winnerName =
+                      winner === 'a'
+                        ? fighterLabel(battle.fighterA)
+                        : winner === 'b'
+                          ? fighterLabel(battle.fighterB)
+                          : 'Tie';
+                    return (
+                      <button
+                        type="button"
+                        key={`history-${battle.id}`}
+                        onClick={() => setVoteModalBattle(battle)}
+                        className="flex w-full items-center justify-between gap-4 rounded-[22px] border border-white/10 bg-white/[0.02] px-4 py-4 text-left transition-all duration-300 hover:border-cyan-400/20 hover:bg-cyan-400/[0.03]"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-[12px] font-black uppercase tracking-[0.14em] text-white">
+                            {fighterLabel(battle.fighterA)} <span className="text-zinc-500">vs</span> {fighterLabel(battle.fighterB)}
+                          </p>
+                          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                            {formatBattleTime(battle.createdAt)}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">Winner</p>
+                          <p className="mt-1 text-[11px] font-black uppercase tracking-[0.14em] text-emerald-300">{winnerName}</p>
+                        </div>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="flex min-h-[180px] items-center justify-center rounded-[24px] border border-white/10 bg-white/[0.02] text-sm text-zinc-500">
+                    {loading ? 'Loading history...' : 'No battle history yet.'}
+                  </div>
+                )}
+              </div>
             </div>
           </main>
         </div>

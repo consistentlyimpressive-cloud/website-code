@@ -178,16 +178,44 @@ const BattleCard = ({ battle, user, isActive }) => {
   const bLost = revealedUI && winnerSide === 'a';
 
   const nameClassA =
-    !countDone ? 'text-white' : winnerSide === 'tie' ? 'text-white' : aWon ? 'text-emerald-400' : aLost ? 'text-slate-400' : 'text-white';
+    !countDone ? 'text-white' : winnerSide === 'tie' ? 'text-white' : aWon ? 'text-emerald-400' : aLost ? 'text-red-400' : 'text-white';
 
   const nameClassB =
-    !countDone ? 'text-white' : winnerSide === 'tie' ? 'text-white' : bWon ? 'text-emerald-400' : bLost ? 'text-slate-400' : 'text-white';
+    !countDone ? 'text-white' : winnerSide === 'tie' ? 'text-white' : bWon ? 'text-emerald-400' : bLost ? 'text-red-400' : 'text-white';
 
   const scoreClassA =
-    !showScoreNumbers ? '' : !countDone ? 'text-zinc-300' : winnerSide === 'tie' ? 'text-cyan-400' : aWon ? 'text-emerald-400' : aLost ? 'text-slate-400' : 'text-cyan-400';
+    !showScoreNumbers ? '' : !countDone ? 'text-zinc-300' : winnerSide === 'tie' ? 'text-cyan-400' : aWon ? 'text-emerald-400' : aLost ? 'text-red-400' : 'text-cyan-400';
 
   const scoreClassB =
-    !showScoreNumbers ? '' : !countDone ? 'text-zinc-300' : winnerSide === 'tie' ? 'text-cyan-400' : bWon ? 'text-emerald-400' : bLost ? 'text-slate-400' : 'text-cyan-400';
+    !showScoreNumbers ? '' : !countDone ? 'text-zinc-300' : winnerSide === 'tie' ? 'text-cyan-400' : bWon ? 'text-emerald-400' : bLost ? 'text-red-400' : 'text-cyan-400';
+
+  const metricBarClassA =
+    !revealedUI || winnerSide === 'tie'
+      ? 'bg-cyan-400'
+      : aWon
+        ? 'bg-emerald-400'
+        : 'bg-red-400';
+
+  const metricBarClassB =
+    !revealedUI || winnerSide === 'tie'
+      ? 'bg-cyan-400'
+      : bWon
+        ? 'bg-emerald-400'
+        : 'bg-red-400';
+
+  const metricTextClassA =
+    !revealedUI || winnerSide === 'tie'
+      ? 'text-cyan-400'
+      : aWon
+        ? 'text-emerald-400'
+        : 'text-red-400';
+
+  const metricTextClassB =
+    !revealedUI || winnerSide === 'tie'
+      ? 'text-cyan-400'
+      : bWon
+        ? 'text-emerald-400'
+        : 'text-red-400';
 
   const borderAClass =
     revealedUI && winnerSide !== 'tie'
@@ -195,7 +223,7 @@ const BattleCard = ({ battle, user, isActive }) => {
         ? prefersReduced
           ? 'border-emerald-500 shadow-[0_0_24px_rgba(16,185,129,0.25)]'
           : 'border-transparent'
-        : 'border-zinc-600 shadow-[0_0_20px_rgba(15,23,42,0.5)]'
+        : 'border-red-500/60 shadow-[0_0_20px_rgba(239,68,68,0.28)]'
       : 'border-zinc-800';
 
   const borderBClass =
@@ -204,7 +232,7 @@ const BattleCard = ({ battle, user, isActive }) => {
         ? prefersReduced
           ? 'border-emerald-500 shadow-[0_0_24px_rgba(16,185,129,0.25)]'
           : 'border-transparent'
-        : 'border-zinc-600 shadow-[0_0_20px_rgba(15,23,42,0.5)]'
+        : 'border-red-500/60 shadow-[0_0_20px_rgba(239,68,68,0.28)]'
       : 'border-zinc-800';
 
   const clearRevealTimers = () => {
@@ -890,19 +918,11 @@ const BattleCard = ({ battle, user, isActive }) => {
                         <div className="flex-1 flex flex-col items-end min-w-0">
                           <div className="h-2 w-full bg-zinc-800 rounded-full flex justify-end overflow-hidden max-w-[140px] sm:max-w-none">
                             <div
-                              className={`h-full rounded-full ${barClass(row.scoreA, row.scoreB, 'a')}`}
+                              className={`h-full rounded-full ${metricBarClassA}`}
                               style={{ width: `${Math.min(100, row.scoreA)}%` }}
                             />
                           </div>
-                          <span
-                            className={`text-[9px] mt-1 tabular-nums ${
-                              row.scoreA > row.scoreB
-                                ? 'text-emerald-400'
-                                : row.scoreA < row.scoreB
-                                  ? 'text-red-400'
-                                  : 'text-zinc-400'
-                            }`}
-                          >
+                          <span className={`text-[9px] mt-1 tabular-nums ${metricTextClassA}`}>
                             {row.scoreA}
                           </span>
                         </div>
@@ -914,19 +934,11 @@ const BattleCard = ({ battle, user, isActive }) => {
                         <div className="flex-1 flex flex-col items-start min-w-0">
                           <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden max-w-[140px] sm:max-w-none">
                             <div
-                              className={`h-full rounded-full ${barClass(row.scoreA, row.scoreB, 'b')}`}
+                              className={`h-full rounded-full ${metricBarClassB}`}
                               style={{ width: `${Math.min(100, row.scoreB)}%` }}
                             />
                           </div>
-                          <span
-                            className={`text-[9px] mt-1 tabular-nums ${
-                              row.scoreB > row.scoreA
-                                ? 'text-emerald-400'
-                                : row.scoreB < row.scoreA
-                                  ? 'text-red-400'
-                                  : 'text-zinc-400'
-                            }`}
-                          >
+                          <span className={`text-[9px] mt-1 tabular-nums ${metricTextClassB}`}>
                             {row.scoreB}
                           </span>
                         </div>

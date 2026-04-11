@@ -778,11 +778,42 @@ const analyzeUpload = upload.fields([
 ]);
 
 function getPythonExecutable() {
-  if (process.env.PYTHON_PATH) return process.env.PYTHON_PATH;
-  if (process.platform === 'win32') {
-    return path.join(__dirname, 'venv', 'Scripts', 'python.exe');
+  const candidates = [];
+
+  if (process.env.PYTHON_PATH) {
+    candidates.push(process.env.PYTHON_PATH);
   }
-  return path.join(__dirname, 'venv', 'bin', 'python3');
+
+  if (process.platform === 'win32') {
+    candidates.push(
+      path.join(__dirname, 'venv', 'Scripts', 'python.exe'),
+      'C:\\Users\\Laith abu amsheh\\Desktop\\website-code\\backend\\venv\\Scripts\\python.exe',
+      'py',
+      'python'
+    );
+  } else {
+    candidates.push(
+      path.join(__dirname, 'venv', 'bin', 'python3'),
+      'python3',
+      'python'
+    );
+  }
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (candidate === 'py' || candidate === 'python' || candidate === 'python3') {
+      return candidate;
+    }
+    try {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    } catch {
+      // keep trying other candidates
+    }
+  }
+
+  return process.platform === 'win32' ? 'python' : 'python3';
 }
 
 function getRequestBase(req) {
@@ -795,6 +826,39 @@ function getRequestBase(req) {
     .split(',')[0]
     .trim();
   return `${proto}://${host}`.replace(/\/$/, '');
+}
+
+function formatTerminalList(items, fallback = 'none') {
+  if (!Array.isArray(items) || items.length === 0) return fallback;
+  return items
+    .slice(0, 5)
+    .map((item) => {
+      if (!item) return null;
+      if (typeof item === 'string') return item.trim() || null;
+      if (typeof item === 'object') {
+        const title = String(item.title || item.name || '').trim();
+        const description = String(item.description || '').trim();
+        if (title && description) return `${title}: ${description}`;
+        return title || description || null;
+      }
+      return String(item).trim() || null;
+    })
+    .filter(Boolean)
+    .join(' | ');
+}
+
+function formatHexagonForTerminal(hexagon) {
+  if (!hexagon || typeof hexagon !== 'object') return 'n/a';
+  const parts = [
+    ['Harmony', hexagon.harmony],
+    ['Bone', hexagon.bone],
+    ['Skin', hexagon.skin],
+    ['Symmetry', hexagon.symmetry],
+    ['Dimorphism', hexagon.dimorphism],
+  ]
+    .filter(([, value]) => value != null && !Number.isNaN(Number(value)))
+    .map(([label, value]) => `${label}=${value}`);
+  return parts.length ? parts.join(' | ') : 'n/a';
 }
 
 function getPublicBackendBase(req) {
@@ -1155,8 +1219,25 @@ app.post(
   }
 
   console.log(
-    `[api/analyze] Parsed → bestFeatures=${payload.bestFeatures.length} flaws=${payload.primaryFlaws.length} biometrics=${(payload.biometrics || []).length} rating=${finalRating ?? 'n/a'}`
+    `[api/analyze] Parsed -> bestFeatures=${payload.bestFeatures.length} flaws=${payload.primaryFlaws.length} biometrics=${(payload.biometrics || []).length} rating=${finalRating ?? 'n/a'}`
   );
+  console.log('----- SCAN SUMMARY -----');
+  console.log(`Model: ${modelChoice}`);
+  console.log(`Sex: ${payload.sex || 'n/a'}`);
+  console.log(`Front rating: ${finalRating ?? 'n/a'}`);
+  console.log(`Side rating: ${sideRating ?? 'n/a'}`);
+  if (payload.appealAssessment) {
+    console.log(`Appeal assessment: ${payload.appealAssessment}`);
+  }
+  console.log(`Best features: ${formatTerminalList(payload.bestFeatures)}`);
+  console.log(`Primary flaws: ${formatTerminalList(payload.primaryFlaws)}`);
+  console.log(`Side best features: ${formatTerminalList(payload.sideBestFeatures)}`);
+  console.log(`Side primary flaws: ${formatTerminalList(payload.sidePrimaryFlaws)}`);
+  console.log(`Front hexagon: ${formatHexagonForTerminal(payload.hexagonFront)}`);
+  console.log(`Side hexagon: ${formatHexagonForTerminal(payload.hexagonSide)}`);
+  console.log(`Biometrics parsed: ${(payload.biometrics || []).length}`);
+  console.log(`Protocols parsed: ${(payload.protocols || []).length}`);
+  console.log('------------------------');
   console.log('========== END PY ENGINE ==========\n');
 
   adminStore.parseKeyEventsFromStdout(pythonOutput);
@@ -1299,11 +1380,19 @@ app.get('/api/admin/users', async (req, res) => {
 
   try {
     let authUsers = [];
-    try {
-      const authUsersResult = await admin.auth().listUsers(1000); // 1000 limit, ignoring pagination for now
-      authUsers = authUsersResult.users || [];
-    } catch (authErr) {
-      console.error('[admin] Failed to list auth users:', authErr);
+    const canListAuthUsers = !(USE_FIREBASE_EMULATOR && !process.env.FIREBASE_AUTH_EMULATOR_HOST);
+    if (canListAuthUsers) {
+      try {
+        const authUsersResult = await Promise.race([
+          admin.auth().listUsers(1000),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('auth_list_timeout')), 2500)),
+        ]); // 1000 limit, ignoring pagination for now
+        authUsers = authUsersResult.users || [];
+      } catch (authErr) {
+        console.error('[admin] Failed to list auth users:', authErr);
+      }
+    } else {
+      console.log('[admin] Skipping Firebase Auth listUsers in emulator mode (no auth emulator configured)');
     }
 
     const firestoreUsersSnap = await firestore.collection('users').get();

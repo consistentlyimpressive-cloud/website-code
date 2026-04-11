@@ -353,6 +353,9 @@ function parseFeatureBlock(block) {
   for (let line of block.trim().split('\n')) {
     line = line.replace(/\*\*/g, '').trim();
     if (!line) continue;
+    if (/^(?:#{2,}\s*|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|TECHNICAL SUMMARY\b|APPEAL ASSESSMENT\b|HEXAGON CHART RATINGS\b|CORE CATEGORY SCORES\b|CRITICAL MARKERS\b)/i.test(line)) {
+      break;
+    }
     if (!/^(\d+\.|-|\*)\s+/.test(line)) continue;
     const cleanLine = line.replace(/^(\d+\.|-|\*)\s+/, '');
     const colon = cleanLine.match(/^(.+?):\s+(.+)$/);
@@ -370,14 +373,123 @@ function parseFeatureBlock(block) {
   return out;
 }
 
+function trimFeatureDescription(value) {
+  return String(value || '')
+    .split(/\r?\n(?=\s*(?:#{2,}\s*|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|TECHNICAL SUMMARY\b|APPEAL ASSESSMENT\b|HEXAGON CHART RATINGS\b|CORE CATEGORY SCORES\b|CRITICAL MARKERS\b))/i)[0]
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function looksLikeFeatureSectionLeak(value) {
+  return /###\s*(?:DASHBOARD_DATA|RATINGS|PERSONALISED\s+FEEDBACK|ACTIONABLE\s+PROTOCOLS|MOG_REPORT_REVISION)|\b(?:BEST FEATURES|PRIMARY FLAWS)\s*\(10\)|\bJUSTIFICATION\b/i.test(trimFeatureDescription(value));
+}
+
+function splitDashboardFeatureItems(value) {
+  if (typeof value !== 'string') return [];
+  return value
+    .replace(/\r/g, '')
+    .split(/\s*,\s*|\s*;\s*|\r?\n+/)
+    .map((item) => item.replace(/^\s*(?:\d+\.\s*|[-*]\s*)/, '').trim())
+    .filter(Boolean);
+}
+
+function splitPrefixedDashboardEntries(block) {
+  if (typeof block !== 'string') return [];
+  return block
+    .replace(/\r/g, '\n')
+    .replace(/(?:^|[\t ]+)(?=(?:[-*]\s*)?\[\s*(?:FRONT|FRONTAL|SIDE)\s*\])/gi, '\n')
+    .split(/\n+/)
+    .map((item) => item.replace(/^\s*(?:[-*]\s*)?/, '').trim())
+    .filter(Boolean);
+}
+
+function buildDashboardFeatureEntry(rawItem, type) {
+  const cleaned = String(rawItem || '')
+    .replace(/^\s*\[?(?:front|frontal|side)\]?\s*:?\s*/i, '')
+    .trim();
+  if (!cleaned) return null;
+
+  const split = cleaned.match(/^(.{2,80}?)(?:\s+-\s+|:\s+)(.+)$/);
+  if (split) {
+    const entry = {
+      title: split[1].trim(),
+      description: split[2].trim(),
+    };
+    return looksLikeFeatureSectionLeak(`${entry.title} ${entry.description}`) ? null : entry;
+  }
+
+  const fallbackEntry = {
+    title: cleaned,
+    description:
+      type === 'best'
+        ? 'Flagged in the scan output as one of the strongest structural features.'
+        : 'Flagged in the scan output as one of the main structural weaknesses.',
+  };
+  return looksLikeFeatureSectionLeak(`${fallbackEntry.title} ${fallbackEntry.description}`) ? null : fallbackEntry;
+}
+
+function mergeFeatureEntries(existing, incoming, max = 5) {
+  const merged = Array.isArray(existing) ? [...existing] : [];
+  const seen = new Set(merged.map((item) => `${trimFeatureDescription(item?.title || '')}::${trimFeatureDescription(item?.description || '')}`));
+  for (const item of incoming || []) {
+    if (!item) continue;
+    const key = `${trimFeatureDescription(item.title || '')}::${trimFeatureDescription(item.description || '')}`;
+    if (!key.trim() || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+    if (merged.length >= max) break;
+  }
+  return merged.slice(0, max);
+}
+
+function parseDashboardFeatureSection(block, type) {
+  if (typeof block !== 'string' || !block.trim()) {
+    return { front: [], side: [] };
+  }
+
+  let frontItems = [];
+  let sideItems = [];
+
+  const prefixedEntries = splitPrefixedDashboardEntries(block)
+    .map((line) => line.match(/^\[\s*(FRONT|FRONTAL|SIDE)\s*\]\s*([\s\S]+)$/i))
+    .filter(Boolean);
+
+  if (prefixedEntries.length) {
+    frontItems = prefixedEntries
+      .filter((entry) => /^front/i.test(entry[1]))
+      .map((entry) => `[${entry[1]}] ${entry[2].trim()}`)
+      .slice(0, 5);
+    sideItems = prefixedEntries
+      .filter((entry) => /^side/i.test(entry[1]))
+      .map((entry) => `[${entry[1]}] ${entry[2].trim()}`)
+      .slice(0, 5);
+  } else {
+    const combined = splitDashboardFeatureItems(block);
+    const prefixedFront = combined.filter((item) => /^\s*\[?\s*front(?:al)?\s*\]?/i.test(item));
+    const prefixedSide = combined.filter((item) => /^\s*\[?\s*side\s*\]?/i.test(item));
+    if (prefixedFront.length || prefixedSide.length) {
+      frontItems = prefixedFront.slice(0, 5);
+      sideItems = prefixedSide.slice(0, 5);
+    } else {
+      frontItems = combined.slice(0, 5);
+      sideItems = combined.slice(5, 10);
+    }
+  }
+
+  return {
+    front: frontItems.map((item) => buildDashboardFeatureEntry(item, type)).filter(Boolean).slice(0, 5),
+    side: sideItems.map((item) => buildDashboardFeatureEntry(item, type)).filter(Boolean).slice(0, 5),
+  };
+}
+
 function parseSingleHighlight(raw, regex, fallbackTitle) {
   const match = raw.match(regex);
   if (!match) return null;
 
-  const clean = String(match[1] || '')
-    .replace(/\*\*/g, '')
-    .replace(/\r?\n+/g, ' ')
-    .trim();
+  const clean = trimFeatureDescription(
+    String(match[1] || '')
+      .replace(/\*\*/g, '')
+  ).trim();
   if (!clean) return null;
 
   const split = clean.match(/^([^:.]{3,80}?)(?:\s+-\s+|:\s+)(.+)$/);
@@ -611,7 +723,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   const sideBestFeatures = [];
   const sidePrimaryFlaws = [];
 
-  const bestMatch = rawOutput.match(/BEST FEATURES[\s\d()]*[\*:]*([\s\S]*?)(?=PRIMARY FLAWS[\s\d()]*[\*:]*|###|$)/i);
+  const bestMatch = rawOutput.match(/BEST FEATURES[\s\d()]*[\*:]*([\s\S]*?)(?=PRIMARY FLAWS[\s\d()]*[\*:]*|###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|$)/i);
   if (bestMatch) {
     const allBest = parseFeatureBlock(bestMatch[1]);
     for (const f of allBest) {
@@ -623,9 +735,21 @@ function parseAnalysisOutput(rawOutput, backendDir) {
         bestFeatures.push(f);
       }
     }
+
+    const parsedDashboardBest = parseDashboardFeatureSection(bestMatch[1], 'best');
+    const cleanBestFeatures = bestFeatures.filter((entry) => !looksLikeFeatureSectionLeak(`${entry?.title || ''} ${entry?.description || ''}`));
+    const cleanSideBestFeatures = sideBestFeatures.filter((entry) => !looksLikeFeatureSectionLeak(`${entry?.title || ''} ${entry?.description || ''}`));
+    const mergedBest = parsedDashboardBest.front.length > cleanBestFeatures.length
+      ? mergeFeatureEntries(parsedDashboardBest.front, cleanBestFeatures)
+      : mergeFeatureEntries(cleanBestFeatures, parsedDashboardBest.front);
+    const mergedSideBest = parsedDashboardBest.side.length > cleanSideBestFeatures.length
+      ? mergeFeatureEntries(parsedDashboardBest.side, cleanSideBestFeatures)
+      : mergeFeatureEntries(cleanSideBestFeatures, parsedDashboardBest.side);
+    bestFeatures.splice(0, bestFeatures.length, ...mergedBest);
+    sideBestFeatures.splice(0, sideBestFeatures.length, ...mergedSideBest);
   }
 
-  const flawMatch = rawOutput.match(/PRIMARY FLAWS[\s\d()]*[\*:]*([\s\S]*?)(?=$|###)/i);
+  const flawMatch = rawOutput.match(/PRIMARY FLAWS[\s\d()]*[\*:]*([\s\S]*?)(?=###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|$)/i);
   if (flawMatch) {
     const allFlaws = parseFeatureBlock(flawMatch[1]);
     for (const f of allFlaws) {
@@ -637,12 +761,24 @@ function parseAnalysisOutput(rawOutput, backendDir) {
         primaryFlaws.push(f);
       }
     }
+
+    const parsedDashboardFlaws = parseDashboardFeatureSection(flawMatch[1], 'flaw');
+    const cleanPrimaryFlaws = primaryFlaws.filter((entry) => !looksLikeFeatureSectionLeak(`${entry?.title || ''} ${entry?.description || ''}`));
+    const cleanSidePrimaryFlaws = sidePrimaryFlaws.filter((entry) => !looksLikeFeatureSectionLeak(`${entry?.title || ''} ${entry?.description || ''}`));
+    const mergedFlaws = parsedDashboardFlaws.front.length > cleanPrimaryFlaws.length
+      ? mergeFeatureEntries(parsedDashboardFlaws.front, cleanPrimaryFlaws)
+      : mergeFeatureEntries(cleanPrimaryFlaws, parsedDashboardFlaws.front);
+    const mergedSideFlaws = parsedDashboardFlaws.side.length > cleanSidePrimaryFlaws.length
+      ? mergeFeatureEntries(parsedDashboardFlaws.side, cleanSidePrimaryFlaws)
+      : mergeFeatureEntries(cleanSidePrimaryFlaws, parsedDashboardFlaws.side);
+    primaryFlaws.splice(0, primaryFlaws.length, ...mergedFlaws);
+    sidePrimaryFlaws.splice(0, sidePrimaryFlaws.length, ...mergedSideFlaws);
   }
 
   if (bestFeatures.length === 0) {
     const bestHighlight = parseSingleHighlight(
       rawOutput,
-      /\*\*#1 BEST FEATURE:\*\*\s*([\s\S]*?)(?=\*\*#1 WORST FEATURE:\*\*|$)/i,
+      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*BEST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=(?:\n\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*WORST FEATURE)|\n\s*(?:###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b)|$)/i,
       'Best Feature'
     );
     if (bestHighlight) bestFeatures.push(bestHighlight);
@@ -651,7 +787,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   if (primaryFlaws.length === 0) {
     const flawHighlight = parseSingleHighlight(
       rawOutput,
-      /\*\*#1 WORST FEATURE:\*\*\s*([\s\S]*?)$/i,
+      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*WORST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=\n\s*(?:###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b)|$)/i,
       'Primary Flaw'
     );
     if (flawHighlight) primaryFlaws.push(flawHighlight);

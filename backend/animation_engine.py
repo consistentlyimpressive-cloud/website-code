@@ -5,7 +5,8 @@ import os
 from mediapipe.tasks import python  # type: ignore
 from mediapipe.tasks.python import vision  # type: ignore
 
-def generate_scan_animation(img_path, output_path="loading_scan.mp4"):
+
+def generate_scan_animation(img_path, output_path="loading_scan.mp4", duration_seconds=2.0, fps=30.0):
     model_path = 'face_landmarker.task'
     if not os.path.exists(model_path): return
 
@@ -31,30 +32,50 @@ def generate_scan_animation(img_path, output_path="loading_scan.mp4"):
         triangle_list = subdiv.getTriangleList()
 
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out = cv2.VideoWriter(output_path, fourcc, 30.0, (w, h))
+        out = cv2.VideoWriter(output_path, fourcc, fps, (w, h))
 
-        frames = 60 
+        frames = max(int(duration_seconds * fps), 1)
+        long_scan_mode = duration_seconds >= 20
+        scan_cycles = max(1, int(round(duration_seconds / 12.5))) if long_scan_mode else 1
+        active_band_px = max(int(h * 0.14), 42)
+
         for f in range(frames):
             frame_img = img.copy()
-            progress = f / frames
-            scan_y = int(progress * h)
 
-            # 1. Draw the "High-Tech" Mesh
-            # We only draw lines that are above or near the scan line for a "building" effect
+            progress = f / max(frames - 1, 1)
+            if long_scan_mode:
+                cycle_progress_total = progress * scan_cycles
+                cycle_index = min(int(cycle_progress_total), scan_cycles - 1)
+                cycle_progress = cycle_progress_total - cycle_index
+                if cycle_index % 2 == 1:
+                    cycle_progress = 1.0 - cycle_progress
+                scan_y = int(cycle_progress * h)
+            else:
+                scan_y = int(progress * h)
+
+            # Draw the mesh. For long premium scans, keep the network alive with a moving
+            # active band so the animation does not "finish" halfway through the wait.
             for t in triangle_list:
                 pts = [(int(t[0]), int(t[1])), (int(t[2]), int(t[3])), (int(t[4]), int(t[5]))]
-                # Only draw if the triangle is within the face bounds
                 if all(0 <= p[0] < w and 0 <= p[1] < h for p in pts):
                     avg_y = sum(p[1] for p in pts) / 3
-                    # Only show mesh behind or right at the scanning bar
-                    if avg_y < scan_y + 20:
-                        alpha = 1.0 if avg_y < scan_y else 0.4
-                        cv2.polylines(frame_img, [np.array(pts)], True, (255, 255, 255), 1, cv2.LINE_AA)
+                    if long_scan_mode:
+                        distance = abs(avg_y - scan_y)
+                        if distance <= active_band_px:
+                            intensity = 1.0 - (distance / active_band_px)
+                            color = (
+                                int(70 + 125 * intensity),
+                                int(215 + 40 * intensity),
+                                255,
+                            )
+                            thickness = 1 if intensity < 0.66 else 2
+                            cv2.polylines(frame_img, [np.array(pts)], True, color, thickness, cv2.LINE_AA)
+                    else:
+                        if avg_y < scan_y + 20:
+                            cv2.polylines(frame_img, [np.array(pts)], True, (255, 255, 255), 1, cv2.LINE_AA)
 
-            # 2. Draw Scanning Bar with Glow
-            # Main bar
+            # Draw scanning bar with glow.
             cv2.line(frame_img, (0, scan_y), (w, scan_y), (0, 255, 0), 2)
-            # Subtle glow
             glow = np.zeros_like(frame_img)
             cv2.line(glow, (0, scan_y), (w, scan_y), (0, 255, 0), 10)
             glow = cv2.GaussianBlur(glow, (15, 15), 0)

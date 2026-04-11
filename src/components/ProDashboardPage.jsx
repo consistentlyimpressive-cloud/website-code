@@ -390,8 +390,14 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       { id: 'g6', label: 'Goal review', description: 'Full metric comparison vs. baseline' },
     ];
   }, [dashboardData?.protocols]);
-  const ladderStorageKey = `mogcheck-goal-ladder:${user?.uid || 'local'}`;
-  const [completedLadderCount, setCompletedLadderCount] = useState(1);
+  const ladderScopeKey =
+    dashboardData?.scanId ||
+    dashboardData?.scannedAt ||
+    dashboardData?.profileId ||
+    dashboardData?.frontImage ||
+    'default';
+  const ladderStorageKey = `mogcheck-goal-ladder:${user?.uid || 'local'}:${ladderScopeKey}`;
+  const [completedLadderCount, setCompletedLadderCount] = useState(0);
   useEffect(() => {
     try {
       const raw = localStorage.getItem(ladderStorageKey);
@@ -399,21 +405,14 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         const n = parseInt(raw, 10);
         if (!Number.isNaN(n)) {
           setCompletedLadderCount(Math.max(0, Math.min(n, goalMilestonesBase.length)));
+          return;
         }
       }
+      setCompletedLadderCount(0);
     } catch {
-      /* ignore */
+      setCompletedLadderCount(0);
     }
   }, [ladderStorageKey, goalMilestonesBase.length]);
-  useEffect(() => {
-    if (dashboardData?.ratingHistory?.length >= 2) {
-      setCompletedLadderCount((prev) => Math.max(prev, 3));
-    } else if (dashboardData?.protocols?.length > 0 || dashboardData?.categories || dashboardData?.finalRating != null) {
-      setCompletedLadderCount((prev) => Math.max(prev, 1));
-    } else {
-      setCompletedLadderCount((prev) => Math.max(prev, 0));
-    }
-  }, [dashboardData?.ratingHistory?.length, dashboardData?.protocols, dashboardData?.categories, dashboardData?.finalRating]);
   useEffect(() => {
     try {
       localStorage.setItem(ladderStorageKey, String(completedLadderCount));

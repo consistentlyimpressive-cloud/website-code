@@ -89,7 +89,10 @@ function normalizeFeatureList(items, fallbackLabel) {
 
   const cleanText = (value) => {
     if (typeof value !== 'string') return '';
-    return value.replace(/\s+/g, ' ').trim();
+    return value
+      .split(/\n(?=\s*(?:#{2,}\s*|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|TECHNICAL SUMMARY\b|APPEAL ASSESSMENT\b|HEXAGON CHART RATINGS\b|CORE CATEGORY SCORES\b|CRITICAL MARKERS\b))/i)[0]
+      .replace(/\s+/g, ' ')
+      .trim();
   };
 
   return items
@@ -130,6 +133,9 @@ function normalizeFeatureList(items, fallbackLabel) {
 
       if (!title && !description) return null;
 
+      const combinedText = `${title || ''} ${description || ''}`.trim();
+      if (looksLikeFeatureSectionLeak(combinedText)) return null;
+
       return {
         title: title || `${fallbackLabel} ${index + 1}`,
         description:
@@ -140,6 +146,117 @@ function normalizeFeatureList(items, fallbackLabel) {
       };
     })
     .filter(Boolean);
+}
+
+function looksLikeFeatureSectionLeak(value) {
+  if (typeof value !== 'string') return false;
+  const cleaned = stripInlineMarkers(value);
+  return /###\s*(?:DASHBOARD_DATA|RATINGS|PERSONALISED\s+FEEDBACK|ACTIONABLE\s+PROTOCOLS|MOG_REPORT_REVISION)|\b(?:BEST FEATURES|PRIMARY FLAWS)\s*\(10\)|\bJUSTIFICATION\b/i.test(cleaned);
+}
+
+function splitDashboardFeatureItems(value) {
+  if (typeof value !== 'string') return [];
+  let working = value.trim();
+  if (!working) return [];
+
+  if (working.startsWith('[') && working.endsWith(']')) {
+    working = working.slice(1, -1);
+  }
+
+  return working
+    .replace(/\r/g, '')
+    .split(/\s*,\s*|\s*;\s*|\r?\n+/)
+    .map((item) => item.replace(/^\s*(?:\d+\.\s*|[-*]\s*)/, '').trim())
+    .filter(Boolean);
+}
+
+function splitPrefixedDashboardEntries(block) {
+  if (typeof block !== 'string') return [];
+
+  return block
+    .replace(/\r/g, '\n')
+    .replace(/(?:^|[\t ]+)(?=(?:[-*]\s*)?\[\s*(?:FRONT|FRONTAL|SIDE)\s*\])/gi, '\n')
+    .split(/\n+/)
+    .map((item) => item.replace(/^\s*(?:[-*]\s*)?/, '').trim())
+    .filter(Boolean);
+}
+
+function buildDashboardFeatureEntry(rawItem, type, index) {
+  const cleaned = String(rawItem || '')
+    .replace(/^\s*\[?(?:front|frontal|side)\]?\s*:?\s*/i, '')
+    .trim();
+
+  if (!cleaned) return null;
+
+  const split = cleaned.match(/^(.{2,80}?)(?:\s+-\s+|:\s+)(.+)$/);
+  if (split) {
+    const entry = {
+      title: stripInlineMarkers(split[1].trim()),
+      description: split[2].trim(),
+    };
+    return looksLikeFeatureSectionLeak(`${entry.title} ${entry.description}`) ? null : entry;
+  }
+
+  const fallbackEntry = {
+    title: stripInlineMarkers(cleaned),
+    description:
+      type === 'best'
+        ? 'Flagged in the scan output as one of the strongest structural features.'
+        : 'Flagged in the scan output as one of the main structural weaknesses.',
+    order: index,
+  };
+  return looksLikeFeatureSectionLeak(`${fallbackEntry.title} ${fallbackEntry.description}`) ? null : fallbackEntry;
+}
+
+function extractDashboardFeatureListsFromRawOutput(rawOutput, type) {
+  if (typeof rawOutput !== 'string' || !rawOutput.trim()) {
+    return { front: [], side: [] };
+  }
+
+  const sectionRegex =
+    type === 'best'
+      ? /BEST FEATURES[\s\d()]*:\s*([\s\S]*?)(?=PRIMARY FLAWS[\s\d()]*:|###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|$)/i
+      : /PRIMARY FLAWS[\s\d()]*:\s*([\s\S]*?)(?=###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|$)/i;
+
+  const match = rawOutput.match(sectionRegex);
+  if (!match) return { front: [], side: [] };
+
+  const block = match[1].trim();
+  if (!block) return { front: [], side: [] };
+
+  let frontItems = [];
+  let sideItems = [];
+
+  const prefixedEntries = splitPrefixedDashboardEntries(block)
+    .map((line) => line.match(/^\[\s*(FRONT|FRONTAL|SIDE)\s*\]\s*([\s\S]+)$/i))
+    .filter(Boolean);
+
+  if (prefixedEntries.length) {
+    frontItems = prefixedEntries
+      .filter((entry) => /^front/i.test(entry[1]))
+      .map((entry) => `[${entry[1]}] ${entry[2].trim()}`)
+      .slice(0, 5);
+    sideItems = prefixedEntries
+      .filter((entry) => /^side/i.test(entry[1]))
+      .map((entry) => `[${entry[1]}] ${entry[2].trim()}`)
+      .slice(0, 5);
+  } else {
+    const combined = splitDashboardFeatureItems(block);
+    const prefixedFront = combined.filter((item) => /^\s*\[?\s*front(?:al)?\s*\]?/i.test(item));
+    const prefixedSide = combined.filter((item) => /^\s*\[?\s*side\s*\]?/i.test(item));
+    if (prefixedFront.length || prefixedSide.length) {
+      frontItems = prefixedFront.slice(0, 5);
+      sideItems = prefixedSide.slice(0, 5);
+    } else {
+      frontItems = combined.slice(0, 5);
+      sideItems = combined.slice(5, 10);
+    }
+  }
+
+  return {
+    front: frontItems.map((item, index) => buildDashboardFeatureEntry(item, type, index)).filter(Boolean).slice(0, 5),
+    side: sideItems.map((item, index) => buildDashboardFeatureEntry(item, type, index)).filter(Boolean).slice(0, 5),
+  };
 }
 
 function getCommunityImageToken(value) {
@@ -238,7 +355,7 @@ function hydrateCommunityScanEntry(scan, index = 0) {
     ...template,
     ...scan,
     id: scan?.id || template?.id || `community-${index}`,
-    displayName: scan?.displayName || template?.displayName || scan?.name || `Community Scan ${index + 1}`,
+    displayName: 'Community Scan',
     tier:
       scan?.tier ||
       template?.tier ||
@@ -264,14 +381,19 @@ function extractFeatureHighlightsFromRawOutput(rawOutput) {
     return { bestFeatures: [], primaryFlaws: [] };
   }
 
+  const trimFeatureDescription = (value) =>
+    String(value || '')
+      .split(/\r?\n(?=\s*(?:#{2,}\s*|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|TECHNICAL SUMMARY\b|APPEAL ASSESSMENT\b|HEXAGON CHART RATINGS\b|CORE CATEGORY SCORES\b|CRITICAL MARKERS\b))/i)[0]
+      .replace(/\s+/g, ' ')
+      .trim();
+
   const parseSingleHighlight = (regex, fallbackLabel) => {
     const match = rawOutput.match(regex);
     if (!match) return [];
 
-    const clean = String(match[1] || '')
-      .replace(/\*\*/g, '')
-      .replace(/\r?\n+/g, ' ')
-      .trim();
+    const clean = trimFeatureDescription(
+      String(match[1] || '').replace(/\*\*/g, '')
+    );
 
     if (!clean) return [];
 
@@ -285,11 +407,11 @@ function extractFeatureHighlightsFromRawOutput(rawOutput) {
 
   return {
     bestFeatures: parseSingleHighlight(
-      /\*\*#1 BEST FEATURE:\*\*\s*([\s\S]*?)(?=\*\*#1 WORST FEATURE:\*\*|$)/i,
+      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*BEST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=(?:\n\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*WORST FEATURE)|\n\s*(?:###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b)|$)/i,
       'Best Feature'
     ),
     primaryFlaws: parseSingleHighlight(
-      /\*\*#1 WORST FEATURE:\*\*\s*([\s\S]*?)$/i,
+      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*WORST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=\n\s*(?:###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b)|$)/i,
       'Primary Flaw'
     ),
   };
@@ -305,10 +427,28 @@ function resolveNormalizedFeatures(dashboardData, type, isSideView = false) {
         : dashboardData?.primaryFlaws);
 
   const normalized = normalizeFeatureList(primaryItems, type === 'best' ? 'Best feature' : 'Primary flaw');
-  if (normalized.length > 0) return normalized;
+  const dashboardLists = extractDashboardFeatureListsFromRawOutput(dashboardData?.rawOutput || '', type);
+  const rawList = isSideView ? dashboardLists.side : dashboardLists.front;
+  const mergeFeatureEntryLists = (existing, incoming, max = 5) => {
+    const merged = Array.isArray(existing) ? [...existing] : [];
+    const seen = new Set(merged.map((item) => `${stripInlineMarkers(item?.title || '')}::${stripInlineMarkers(item?.description || '')}`));
+    for (const item of incoming || []) {
+      if (!item) continue;
+      const key = `${stripInlineMarkers(item.title || '')}::${stripInlineMarkers(item.description || '')}`;
+      if (!key.trim() || seen.has(key)) continue;
+      seen.add(key);
+      merged.push(item);
+      if (merged.length >= max) break;
+    }
+    return merged.slice(0, max);
+  };
+  if (rawList.length > normalized.length) {
+    return mergeFeatureEntryLists(rawList, normalized, 5);
+  }
+  if (normalized.length > 0) return mergeFeatureEntryLists(normalized, rawList, 5);
 
   const fallback = extractFeatureHighlightsFromRawOutput(dashboardData?.rawOutput || '');
-  return type === 'best' ? fallback.bestFeatures : fallback.primaryFlaws;
+  return (type === 'best' ? fallback.bestFeatures : fallback.primaryFlaws).slice(0, 5);
 }
 
 function timestampToMillis(value) {
@@ -954,7 +1094,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
                 Community scan{communityPeek?.tier ? ` · ${communityPeek.tier}` : ''}
               </p>
               <h2 id="community-scan-page-title" className="truncate font-black uppercase italic tracking-tight text-white">
-                {communityPeek.displayName || 'Community Scan'}
+                Community Scan
               </h2>
             </div>
           </header>
@@ -968,6 +1108,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity }) => {
               hideProtocols
               hideActionableProtocols
               hideUnlockPotential
+              hidePersonalizedFeedback
               isEmbedded
             />
           </div>
@@ -1509,9 +1650,9 @@ const HomePage = ({ setCurrentPage }) => {
           <p className="text-zinc-400 font-sans text-sm max-w-2xl mx-auto uppercase tracking-widest">Join the many who cracked the aesthetic code</p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
-          <ComparisonCard beforeImgSrc={compAfter1} afterImgSrc={compBefore1} beforeScore="4.8" afterScore="7.4" review={reviewsData[0]} />
+          <ComparisonCard beforeImgSrc={compBefore1} afterImgSrc={compAfter1} beforeScore="4.8" afterScore="7.4" review={reviewsData[0]} />
           <ComparisonCard beforeImgSrc={compBefore2} afterImgSrc={compAfter2} beforeScore="5.2" afterScore="8.5" isActive={true} review={reviewsData[2]} />
-          <ComparisonCard beforeImgSrc={compBefore3} afterImgSrc={compAfter3} beforeScore="4.5" afterScore="7.1" review={reviewsData[1]} />
+          <ComparisonCard beforeImgSrc={compAfter3} afterImgSrc={compBefore3} beforeScore="4.5" afterScore="7.1" review={reviewsData[1]} />
         </div>
       </FadeUp>
     </section>
@@ -1838,7 +1979,11 @@ const FileDropzone = ({ label, file, setFile, isPulsing }) => {
 };
 
 // --- Scanning Components ---
-const FaceScanOverlay = ({ landmarksData }) => {
+const FaceScanOverlay = ({
+  landmarksData,
+  revealDurationSeconds = 36,
+  scanLoopSeconds = 4,
+}) => {
   let mappedPoints = [];
   let mappedEdges = [];
 
@@ -1934,6 +2079,11 @@ const FaceScanOverlay = ({ landmarksData }) => {
   });
   const ySpan = Math.max(1, maxY - minY);
 
+  const revealWindowSeconds = Math.max(8, Number(revealDurationSeconds) || 36);
+  const buildWindowSeconds = Math.min(revealWindowSeconds, 14);
+  const dashWindowSeconds = Math.max(4.8, buildWindowSeconds - 1.4);
+  const scanSeconds = Math.max(2.8, Number(scanLoopSeconds) || 4);
+
   return (
     <div className="absolute inset-0 z-20 overflow-hidden" style={{ perspective: '1000px' }}>
       <svg viewBox="0 0 100 133.33" className="w-full h-full drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" preserveAspectRatio="xMidYMid slice">
@@ -1941,29 +2091,37 @@ const FaceScanOverlay = ({ landmarksData }) => {
           const length = Math.sqrt(Math.pow(edge[1].x - edge[0].x, 2) + Math.pow(edge[1].y - edge[0].y, 2));
           const avgY = (edge[0].y + edge[1].y) / 2;
           const normY = Math.max(0, Math.min(1, (maxY - avgY) / ySpan)); // 0 at chin, 1 at forehead
-          const delay = normY * 34 + 1.5 + Math.random() * 1.5; 
+          const delay = normY * dashWindowSeconds + 1.2 + Math.random() * 1.2;
           return (
             <line 
               key={`e${i}`} x1={edge[0].x} y1={edge[0].y} x2={edge[1].x} y2={edge[1].y} 
               stroke="rgba(34, 211, 238, 0.45)" strokeWidth="0.2"
               strokeDasharray={length} strokeDashoffset={length}
-              style={{ animation: `dash 1s ease-in-out forwards ${delay}s` }}
+              style={{ animation: `dash 0.82s cubic-bezier(0.22, 1, 0.36, 1) forwards ${delay}s, meshPulse 3.1s ease-in-out infinite ${delay + 0.82}s` }}
             />
           );
         })}
         {mappedPoints.map((pt, i) => {
           const normY = Math.max(0, Math.min(1, (maxY - pt.y) / ySpan)); 
-          const delay = normY * 34 + Math.random() * 0.5;
+          const delay = normY * dashWindowSeconds + Math.random() * 0.45;
           return (
-            <circle key={'p'+i} cx={pt.x} cy={pt.y} r="0.4" fill="#67e8f9" className="opacity-0" style={{ animation: `fadeIn 0.3s ease-out forwards ${delay}s` }} />
+            <circle
+              key={'p'+i}
+              cx={pt.x}
+              cy={pt.y}
+              r="0.4"
+              fill="#67e8f9"
+              className="opacity-0"
+              style={{ animation: `fadeIn 0.28s ease-out forwards ${delay}s, pointPulse 2.8s ease-in-out infinite ${delay + 0.28}s` }}
+            />
           );
         })}
         {/* Scanning crosshairs */}
         <path d="M 0 15 L 5 15 M 0 118 L 5 118 M 95 15 L 100 15 M 95 118 L 100 118" stroke="rgba(34, 211, 238, 0.8)" strokeWidth="0.5" />
       </svg>
       {/* Scanner laser lines */}
-      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#22d3ee] to-transparent shadow-[0_0_15px_rgba(34,211,238,1)]" style={{ animation: 'scan 4s linear infinite' }} />
-      <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-[#22d3ee]/20 to-transparent" style={{ animation: 'scan 4s linear infinite' }} />
+      <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-[#22d3ee] to-transparent shadow-[0_0_15px_rgba(34,211,238,1)]" style={{ animation: `scan ${scanSeconds}s linear infinite` }} />
+      <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-[#22d3ee]/20 to-transparent" style={{ animation: `scan ${scanSeconds}s linear infinite` }} />
     </div>
   );
 };
@@ -1985,6 +2143,9 @@ const ScanningView = ({
   const [videoUrl, setVideoUrl] = useState(null);
   const [landmarks, setLandmarks] = useState(null);
   const [hasError, setHasError] = useState(false);
+  const isUltra31 = choice === "1";
+  const overlayRevealSeconds = isUltra31 ? 75 : choice === "2" ? 24 : 36;
+  const overlayScanLoopSeconds = isUltra31 ? 6.75 : choice === "2" ? 4.5 : 4;
 
   /** Parent passes an inline onComplete; keep a ref so the analyze effect does not re-run every render (duplicate requests). */
   const onCompleteRef = useRef(onComplete);
@@ -2253,9 +2414,22 @@ const ScanningView = ({
   return (
     <div className="w-full h-full flex flex-col items-center justify-center animate-[fadeIn_0.5s_ease-out]">
       <style>{`
-        @keyframes scan { 0% { transform: translateY(-100px); } 100% { transform: translateY(600px); } }
+        @keyframes scan {
+          0% { transform: translateY(-120px); opacity: 0.24; }
+          8% { opacity: 1; }
+          92% { opacity: 1; }
+          100% { transform: translateY(620px); opacity: 0.24; }
+        }
         @keyframes dash { to { stroke-dashoffset: 0; } }
         @keyframes fadeIn { to { opacity: 1; } }
+        @keyframes meshPulse {
+          0%, 100% { stroke-opacity: 0.42; }
+          50% { stroke-opacity: 0.7; }
+        }
+        @keyframes pointPulse {
+          0%, 100% { opacity: 0.55; filter: drop-shadow(0 0 0 rgba(34,211,238,0)); }
+          50% { opacity: 1; filter: drop-shadow(0 0 4px rgba(34,211,238,0.75)); }
+        }
       `}</style>
       <div className="text-center mb-10 mt-10">
         <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-cyan-400 mb-2 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] animate-pulse">Consulting AI</h2>
@@ -2280,7 +2454,13 @@ const ScanningView = ({
            </>
         )}
         
-        {!videoUrl && <FaceScanOverlay landmarksData={landmarks} />}
+        {!videoUrl && (
+          <FaceScanOverlay
+            landmarksData={landmarks}
+            revealDurationSeconds={overlayRevealSeconds}
+            scanLoopSeconds={overlayScanLoopSeconds}
+          />
+        )}
 
         <div className="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-cyan-500/80 z-30" />
         <div className="absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 border-cyan-500/80 z-30" />
@@ -3370,8 +3550,8 @@ const FeatureHighlightCard = ({ type, feature, onHover }) => {
   const isBest = type === 'best';
   if (!feature) return null;
   const cardClass = isBest
-    ? 'p-6 bg-green-900/10 border border-green-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(34,197,94,0.05)] cursor-default transition-all duration-300 hover:scale-[1.02]'
-    : 'p-6 bg-red-900/10 border border-red-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(239,68,68,0.05)] cursor-default transition-all duration-300 hover:scale-[1.02]';
+    ? 'p-5 bg-green-900/10 border border-green-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(34,197,94,0.05)] cursor-default transition-all duration-300 hover:scale-[1.02]'
+    : 'p-5 bg-red-900/10 border border-red-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(239,68,68,0.05)] cursor-default transition-all duration-300 hover:scale-[1.02]';
   const railClass = isBest
     ? 'absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-green-400 to-green-600'
     : 'absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-red-400 to-red-600';
@@ -3382,15 +3562,11 @@ const FeatureHighlightCard = ({ type, feature, onHover }) => {
     ? 'text-green-400 font-bold uppercase text-sm tracking-widest mb-2'
     : 'text-red-400 font-bold uppercase text-sm tracking-widest mb-2';
   return (
-    <div 
-      className={cardClass}
-      onMouseEnter={() => onHover(type)}
-      onMouseLeave={() => onHover(null)}
-    >
+    <div className={cardClass}>
       <div className={railClass} />
       <span className={labelClass}>{isBest ? 'Best Feature' : 'Primary Flaw'}</span>
       <h4 className={titleClass}>{stripInlineMarkers(feature.title)}</h4>
-      <p className="text-zinc-400 text-xs font-sans leading-relaxed">{renderMarkedText(feature.description)}</p>
+      <p className="text-zinc-400 text-[12px] font-sans leading-relaxed">{renderMarkedText(feature.description)}</p>
     </div>
   );
 };
@@ -3680,7 +3856,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover })
   };
 
   return (
-    <div className="relative w-72 sm:w-80 md:w-[22rem] aspect-square shrink-0 bg-[#060708] rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 flex items-center justify-center p-6 mx-auto">
+    <div className="relative w-60 sm:w-64 md:w-[18rem] aspect-[3/4] shrink-0 bg-[#060708] rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 mx-auto">
       <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-[#0a0a0b]/20 to-transparent z-10 pointer-events-none" />
       <img 
         ref={imgRef}
@@ -3698,42 +3874,14 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover })
             }
           }
         }}
-        className="w-full h-full object-contain transform scale-90 duration-1000 rounded-xl"
+        className="absolute inset-0 w-full h-full object-cover object-center scale-[1.14] duration-700"
         alt="face map"
       />
-      
-      {/* Best Feature Highlight */}
-      {bestCoords && activeHover === 'best' && (
-        <div 
-          className={`absolute z-20 transition-all duration-500 ease-out ${activeHover === 'best' ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`} 
-          style={['rect', 'path', 'double-glow', 'double-point'].includes(bestCoords.type)
-            ? { left: `${bestCoords.x}%`, top: `${bestCoords.y}%`, width: `${bestCoords.w}%`, height: `${bestCoords.h}%` } 
-            : bestCoords.type === 'glow'
-              ? { left: `${bestCoords.x}%`, top: `${bestCoords.y}%`, width: `${bestCoords.w}%`, height: `${bestCoords.h}%`, transform: 'translate(-50%, -50%)' }
-              : { left: `${bestCoords.x}%`, top: `${bestCoords.y}%`, transform: 'translate(-50%, -50%)' }}
-        >
-          {renderHighlight(bestCoords, 'green')}
-        </div>
-      )}
-
-      {/* Primary Flaw Highlight */}
-      {flawCoords && activeHover === 'flaw' && (
-        <div 
-          className={`absolute z-20 transition-all duration-500 ease-out ${activeHover === 'flaw' ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`} 
-          style={['rect', 'path', 'double-glow', 'double-point'].includes(flawCoords.type)
-            ? { left: `${flawCoords.x}%`, top: `${flawCoords.y}%`, width: `${flawCoords.w}%`, height: `${flawCoords.h}%` } 
-            : flawCoords.type === 'glow'
-              ? { left: `${flawCoords.x}%`, top: `${flawCoords.y}%`, width: `${flawCoords.w}%`, height: `${flawCoords.h}%`, transform: 'translate(-50%, -50%)' }
-              : { left: `${flawCoords.x}%`, top: `${flawCoords.y}%`, transform: 'translate(-50%, -50%)' }}
-        >
-          {renderHighlight(flawCoords, 'red')}
-        </div>
-      )}
     </div>
   );
 };
 
-const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection }) => {
+const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback }) => {
   const selectedModel = String(dashboardData?.selectedModel || '').trim();
   const isFreeModelResult = ['3', '4', '5'].includes(selectedModel);
   const hasFullProUnlock = userPlan?.plan === 'pro';
@@ -3973,6 +4121,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
               hideActionableProtocols
               isEmbedded
               hideUnlockPotential
+              hidePersonalizedFeedback
             />
           </div>
         </div>
@@ -4103,18 +4252,18 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                       primaryFlaw={primaryFlawFeature} 
                       activeHover={showBestFlaw ? activeHover : null}
                     />
-                    <div className="flex-grow space-y-4 w-full flex flex-col justify-center max-w-sm">
+                    <div className="flex-grow space-y-3 w-full flex flex-col justify-center max-w-[15rem]">
                        {!isRestrictedPreview && (
-                       <div className="flex gap-3 mb-2 w-full max-w-[16rem] mx-auto md:max-w-none">
-                         <div onClick={() => setActiveProfileView('front')} className={`relative flex-1 aspect-square rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
-                           <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" alt="Front" />
+                       <div className="flex gap-2 mb-1 w-full max-w-[13rem] mx-auto md:mx-0">
+                         <div onClick={() => setActiveProfileView('front')} className={`relative flex-1 aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                          <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover object-center scale-[1.08]" alt="Front" />
                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                           <span className={`absolute bottom-2 left-0 right-0 text-center text-[10px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
+                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
                          </div>
-                         <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-square rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
-                           <img src={dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" style={{objectPosition: 'top'}} alt="Side" />
+                         <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                          <img src={dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover scale-[1.08]" style={{objectPosition: 'center top'}} alt="Side" />
                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                           <span className={`absolute bottom-2 left-0 right-0 text-center text-[10px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
+                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
                          </div>
                        </div>
                        )}
@@ -4127,7 +4276,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                             <FeatureHighlightCard type="flaw" feature={primaryFlawFeature} onHover={setActiveHover} />
                           )}
                           {!primaryBestFeature && !primaryFlawFeature && (
-                            <p className="text-zinc-500 text-xs font-sans leading-relaxed">
+                            <p className="text-zinc-500 text-[11px] font-sans leading-relaxed">
                               Feature highlights will appear here once the scan returns best features and primary flaws.
                             </p>
                           )}
@@ -4172,17 +4321,17 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                       primaryFlaw={primaryFlawFeature} 
                       activeHover={showBestFlaw ? activeHover : null}
                     />
-                    <div className="flex-grow space-y-4 w-full flex flex-col justify-center max-w-sm">
-                       <div className="flex gap-3 mb-2 w-full max-w-[16rem] mx-auto md:max-w-none">
-                         <div onClick={() => setActiveProfileView('front')} className={`relative flex-1 aspect-square rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
-                           <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" alt="Front" />
+                    <div className="flex-grow space-y-3 w-full flex flex-col justify-center max-w-[15rem]">
+                       <div className="flex gap-2 mb-1 w-full max-w-[13rem] mx-auto md:mx-0">
+                         <div onClick={() => setActiveProfileView('front')} className={`relative flex-1 aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                          <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover object-center scale-[1.08]" alt="Front" />
                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                           <span className={`absolute bottom-2 left-0 right-0 text-center text-[10px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
+                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
                          </div>
-                         <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-square rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
-                           <img src={dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover" style={{objectPosition: 'top'}} alt="Side" />
+                         <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                          <img src={dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover scale-[1.08]" style={{objectPosition: 'center top'}} alt="Side" />
                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                           <span className={`absolute bottom-2 left-0 right-0 text-center text-[10px] font-sans uppercase tracking-widest font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
+                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
                          </div>
                        </div>
                       {showBestFlaw && (
@@ -4194,7 +4343,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                             <FeatureHighlightCard type="flaw" feature={primaryFlawFeature} onHover={setActiveHover} />
                           )}
                           {!primaryBestFeature && !primaryFlawFeature && (
-                            <p className="text-zinc-500 text-xs font-sans leading-relaxed">
+                            <p className="text-zinc-500 text-[11px] font-sans leading-relaxed">
                               Feature highlights will appear here once the scan returns best features and primary flaws.
                             </p>
                           )}
@@ -4296,29 +4445,31 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </div>
           )}
 
-          <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 shadow-lg group hover:border-zinc-700 transition-colors">
-            {isRestrictedPreview && renderBlurredOverlay("Personalized Feedback")}
-            <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
-              <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-zinc-800 pb-4">
-                <Sparkles size={14} className="text-zinc-500" /> Personalized Feedback
-              </h3>
-              {personalizedFeedback.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {personalizedFeedback.map((item, index) => (
-                    <PersonalizedFeedbackCard
-                      key={`${item.id || index}-${item.title || 'feedback'}`}
-                      item={item}
-                      delay={index * 70}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <p className="text-zinc-500 text-sm font-sans leading-relaxed">
-                  Personalized feedback will appear here once the scan returns individualized tips.
-                </p>
-              )}
+          {!hidePersonalizedFeedback && (
+            <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 shadow-lg group hover:border-zinc-700 transition-colors">
+              {isRestrictedPreview && renderBlurredOverlay("Personalized Feedback")}
+              <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
+                <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-zinc-800 pb-4">
+                  <Sparkles size={14} className="text-zinc-500" /> Personalized Feedback
+                </h3>
+                {personalizedFeedback.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {personalizedFeedback.map((item, index) => (
+                      <PersonalizedFeedbackCard
+                        key={`${item.id || index}-${item.title || 'feedback'}`}
+                        item={item}
+                        delay={index * 70}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-zinc-500 text-sm font-sans leading-relaxed">
+                    Personalized feedback will appear here once the scan returns individualized tips.
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {!hideUnlockPotential && (
           <div className="bg-gradient-to-br from-zinc-900/80 to-black p-1 rounded-2xl overflow-hidden mt-4 relative shadow-[0_10px_50px_rgba(0,0,0,0.5)] border border-zinc-800/50 group hover:border-zinc-700 transition-colors">
@@ -5940,6 +6091,7 @@ const App = () => {
                     hideActionableProtocols
                     isEmbedded
                     hideUnlockPotential
+                    hidePersonalizedFeedback
                   />
                 )}
               />
