@@ -230,6 +230,11 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            DISTINCTION RULE:
            Do NOT confuse "striking" with "elite". A face can have attention-grabbing dimorphism and still be aesthetically worse because it looks forced, synthetic, or overbuilt.
 
+           EXAMPLE ANCHORS FOR CALIBRATION:
+           - A normal attractive celebrity face with decent harmony but not extreme structure belongs in NATURAL / COHERENT, not in uncanny and not in overbuilt.
+           - A strong editorial / model face with intense jaw, cheekbones, eyes, or dimorphism can still belong in EXAGGERATED BUT COHERENT if it remains believable, photoreal, and internally harmonious.
+           - A face with impossible jaw width, over-carved hollows, compressed soft tissue, fake-looking eye rendering, or "AI beauty render" energy belongs in UNCANNY / SYNTHETIC / OVERBUILT even if some local ratios look strong.
+
            UNCANNY / OVERBUILT CUES:
            If multiple of these appear together, treat the face as uncanny and punish it HARD:
            - impossibly sharp or over-expanded jaw / gonial width relative to the rest of the skull
@@ -241,16 +246,29 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - a brutalist / fantasy / mannequin-like look that attracts attention but reduces genuine harmony
 
            EXAGGERATED BUT COHERENT CUES:
-           If the face is strong, sharp, or highly dimorphic but still reads naturally human and harmonious, only apply a SMALL harmony deduction.
+           If the face is strong, sharp, or highly dimorphic but still reads naturally human and harmonious, only apply a VERY SMALL harmony deduction.
            These faces can still score well if the structure is genuinely coherent.
+           This bucket is ONLY for faces that still look unmistakably like a believable real human photograph.
+           Think "editorial", "male model", or "high-fashion" intensity that still feels like a real person rather than a synthetic facial design.
+           Strong bizygomatic width, a sharp jaw, compact eyes, strong brow support, or high dimorphism by themselves do NOT make a face uncanny.
+           If the features are extreme but proportionally integrated, the deduction should be extremely light rather than harsh.
+           If the face instead reads like an AI beauty render, FaceApp-style hyper-edit, fantasy-male model, mannequin, or over-optimized "internet mog" face, do NOT place it here.
+           In those cases, treat the face as uncanny / synthetic even if some individual ratios look strong.
 
            DOUBT RULE:
            If you are uncertain whether a face is merely "striking" or actually "uncanny / synthetic", do NOT default to generosity.
            If it looks like an AI beauty edit, a fantasy-male-model render, a hyper-optimized gigachad, or a face with too many aggressively maximized features at once, bias toward the uncanny bucket rather than the coherent bucket.
            Do NOT call such faces "natural" or "coherent" just because the local ratios are strong.
+           If the eye rendering, jaw width, cheek hollows, brow compression, or overall skull proportions look "too designed" or too perfect in an artificial way, assume uncanny rather than coherent.
+           However, if the photo clearly reads as a normal real-world photograph and the features are simply strong / rare / model-tier, do NOT collapse it into the uncanny bucket.
 
            LOW-TIER / 4-RANGE CUES:
            If the face has average-to-weak structure, weak harmony, soft definition, visible flaws, and no standout redeeming markers, do not inflate it into the 50s or 60s.
+           
+           BUCKET IMPACT ON FINAL RATING:
+           - NATURAL / COHERENT HIGH-TIER: score normally from the ratios + visual harmony.
+           - EXAGGERATED BUT COHERENT: apply only a tiny deduction, usually around 0-3 points total unless harmony is clearly disrupted. These faces can still land in the 75-85 range or higher when the structure is genuinely strong.
+           - UNCANNY / SYNTHETIC / OVERBUILT: apply a major deduction. These faces should usually land far below a coherent high-tier face with similar local ratios, because the synthetic / overbuilt look is itself a major aesthetic flaw.
         2. GENDER COUNTERBALANCE (INTERNAL RULE):
            - If Sex = Female AND the score is > 70, deduct 10 points from the Final Rating and potential tiers.
            - DO NOT mention this deduction in the output or justification. It must appear as the "natural" result.
@@ -260,15 +278,15 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
              (Very prominent ears, negative canthal tilt, bad upper eyelid exposure, undereye puffiness, unideal FWHR, high
              set eyebrows, bulbous nose shape).
            - CAP 60: If the face lacks "pretty" appeal or high-tier dimorphism.
-           - MODERATE UNCANNY CAP 72: If the face is clearly exaggerated, overbuilt, AI-looking, synthetic, or "fantasy male model" but still somewhat coherent, it should usually NOT exceed 72.
-           - SEVERE UNCANNY CAP 65: If the face looks strongly artificial, biologically implausible, or obviously like an AI-generated hypermasculine edit, it should usually NOT exceed 65.
+           - MODERATE UNCANNY CAP 60: If the face is clearly exaggerated, overbuilt, AI-looking, synthetic, or "fantasy male model" but still somewhat coherent, it should usually NOT exceed 60.
+           - SEVERE UNCANNY CAP 54: If the face looks strongly artificial, biologically implausible, or obviously like an AI-generated hypermasculine edit, it should usually NOT exceed 54.
            - VERY IMPORTANT: a face that looks "striking" because it is over-optimized, hyper-carved, or synthetic is NOT the same as a naturally elite face.
            - UNCANNY/OVERLY DIMORPHIC PENALTY: If a face appears overly dimorphic, unnatural, synthetic, or uncanny (for example an AI-generated "gigachad" or overbuilt fantasy face), penalize it HARD.
            The more artificial, over-carved, biologically implausible, or brutalist the look becomes, the harsher the deduction should be.
            A clearly uncanny face should usually NOT score like a true elite natural face, even if some isolated measurements look strong.
-           In severe uncanny cases, the score should often fall into the mid-40s to high-60s depending on how distorted, synthetic, or harmony-breaking the exaggeration is.
-           In moderate uncanny cases, the score should usually land around the low-60s to low-70s, not the upper-70s or 80s.
-           Faces that resemble AI-generated male beauty edits with giant jaws, hollow cheeks, compressed soft tissue, glassy eyes, extreme brow compression, or hyper-clean mannequin-like harmony should usually be capped around the upper-60s / low-70s even if they are visually striking.
+           In severe uncanny cases, the score should often fall into the mid-40s to mid-50s depending on how distorted, synthetic, or harmony-breaking the exaggeration is.
+           In moderate uncanny cases, the score should usually land around the mid-50s to about 60, not the upper-70s or 80s.
+           Faces that resemble AI-generated male beauty edits with giant jaws, hollow cheeks, compressed soft tissue, glassy eyes, extreme brow compression, or hyper-clean mannequin-like harmony should usually be capped around the low-to-upper 50s even if they are visually striking.
            If the face is only exaggerated but still coherent and natural-looking, apply only a minor-to-moderate deduction instead.
            Extreme masculinity is NOT automatically a positive. The ideal is balanced beauty: a clean mix of masculinity and femininity.
            Faces that become too brutish, too wide, too heavy, too hollowed, or too aggressively dimorphic should lose harmony points once the extremes are visually obvious.
@@ -287,8 +305,10 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - Do NOT force uncanny, AI-looking, overbuilt, "gigachad", or fantasy-model faces into the high 70s or 80s just because the jaw, brow, or width is extreme.
            - A face that is exaggerated but still coherent can still rate well.
            - A face that is exaggerated AND uncanny should drop notably because the exaggeration itself is hurting harmony.
+           - A face that is exaggerated, editorial, or brutalist should NOT automatically read as high-tier. If the extremeness itself is the main thing carrying the look, do not score it like a balanced elite face.
            - A face with an AI-generated hypermasculine look should not be described as elite natural harmony unless it truly looks believable and human first.
            - If the visual read says "edited / synthetic / fantasy-male aesthetic", do not let strong numbers rescue it into a score band meant for real high-tier faces.
+           - Calibration example: a face with a giant carved jaw, hollow cheeks, compressed brow/eye area, glassy symmetry, and "male-model render" energy should usually land somewhere around the upper-40s to high-50s depending on how distorted or synthetic it looks, not around 78-85.
            - Faces with obvious flaws and only decent structure usually land around 42-58.
            - Above-average attractive faces usually land around 58-72.
            - Strong/high-tier attractive faces usually land around 72-80.
@@ -311,7 +331,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         **Technical Summary:** [Blend Frontal Metadata with Side Profile Metadata.
         Use **bolding** and `&color text&` sparingly].
 
-        **Appeal Assessment:** [Identify phenotype and target audience appeal].
+        **Appeal Assessment:** [Identify phenotype and target audience appeal. If the face falls into the EXAGGERATED BUT COHERENT bucket, explicitly say that the appeal is more niche / editorial / high-fashion rather than universally conventional, but do NOT frame that alone as a major flaw.]
         **Hexagon Chart Ratings (front)**
         - Skin: [Score 1-10]
         - Bone: [Score 1-10]
@@ -345,6 +365,8 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         ### DASHBOARD_DATA
         BEST FEATURES (10): [List 5 Frontal features and 5 Lateral features].
         PRIMARY FLAWS (10): [List 5 Frontal flaws and 5 Lateral flaws].
+        If the face falls into the UNCANNY / SYNTHETIC / OVERBUILT bucket, at least 2 of the PRIMARY FLAWS must explicitly mention things like Synthetic / Uncanny Look, Over-aggressive Dimorphism, Overbuilt Lower Third, Over-stylized Eye Area, Brutalist Aesthetic, or Artificial Harmony.
+        If the face is uncanny / overbuilt, the #1 WORST FEATURE should point to that unnatural / synthetic / over-aggressive trait rather than a random minor flaw.
         ### RATINGS (USE THIS)
         [Look at the following data from INPUT A (mog_report) and rate them from 1-100 based on how close they are to the ideals of the subject's race:]
         - Bigonial_Width_Index: [Score]/100

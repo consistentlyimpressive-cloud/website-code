@@ -332,39 +332,183 @@ function getScoreByLabel(scoreMap, labelStartsWith) {
   return null;
 }
 
-function detectUncannyRatingCap(rawOutput, metricScoreMap, categories, appealAssessment) {
+function buildStylizationSignalSummary(rawOutput, appealAssessment) {
   const text = `${rawOutput || ''}\n${appealAssessment || ''}`.toLowerCase();
-  let signalScore = 0;
+  const hasNegatedUncannyCue =
+    /\b(?:without|not|rather than|avoid(?:s|ing)?|avoids?|doesn't|does not|never)\b[^.\n]{0,48}\buncanny\b/.test(text) ||
+    /\buncanny territory\b/.test(text) ||
+    /\bnot uncanny\b/.test(text);
+  const hasExplicitSyntheticCue =
+    /\bsynthetic\s+look\b|\bsynthetic\s+appearance\b|\buncanny\s+look\b|\buncanny\s+appearance\b|\buncanny\s+aesthetic\b|\bartificial\s+look\b|\bai-generated\b|\bai generated\b|\bbiologically improbable\b|\bmannequin\b|\brender\b/.test(text);
+  const hasSyntheticCue = hasExplicitSyntheticCue && !hasNegatedUncannyCue;
+  const hasEditorialCue = /\beditorial\b|\bhigh-?fashion\b|\bmodern masculine\b/.test(text);
+  const hasCoherentCue =
+    hasEditorialCue ||
+    /\bpretty facial harmony\b|\bbroad demographic\b|\bbroad appeal\b|\bcoherent\b|\belite structural foundation\b|\bwithout crossing into uncanny\b/.test(text);
+  const hasAggressiveCueRaw = /\bover-?dimorphic\b|\bbrutalist\b|\boverly aggressive\b|\bhyper-?masculine\b|\bfantasy male\b|\bextreme masculinity\b/.test(text);
+  const hasAggressiveCue = hasAggressiveCueRaw && !(hasCoherentCue && !hasSyntheticCue);
+  const hasDisharmonyCue = /\bmaxillary recession\b|\bmaxillary hypoplasia\b|\bmandibular dominance\b|\bconcave profile\b|\bnegative orbital vector\b|\blateral disharmony\b|\bclass iii\b|\brecessed maxilla\b/.test(text);
 
-  if (/\buncanny\b|\bsynthetic\b|\boverbuilt\b|\bgigachad\b|\bartificial\b|\bbiologically improbable\b/.test(text)) {
+  return {
+    text,
+    hasNegatedUncannyCue,
+    hasExplicitSyntheticCue,
+    hasSyntheticCue,
+    hasEditorialCue,
+    hasCoherentCue,
+    hasAggressiveCue,
+    hasDisharmonyCue,
+  };
+}
+
+function detectUncannyRatingCap(rawOutput, metricScoreMap, categories, sideCategories, appealAssessment, explicitFrontRating, explicitSideRating) {
+  const {
+    text,
+    hasSyntheticCue,
+    hasEditorialCue,
+    hasCoherentCue,
+    hasAggressiveCue,
+    hasDisharmonyCue,
+  } = buildStylizationSignalSummary(rawOutput, appealAssessment);
+  let signalScore = 0;
+  let stylizedCueScore = 0;
+
+  if (hasSyntheticCue) {
     signalScore += 2;
-  }
-  if (/\bfantasy male\b|\bai-generated\b|\bai generated\b|\bmannequin\b|\brender\b|\bhyper-?developed\b/.test(text)) {
-    signalScore += 2;
+    stylizedCueScore += 2;
   }
   if (/\bover-?dimorphic\b|\bbrutalist\b|\boverly aggressive\b|\bbottom-heavy\b|\btoo wide\b|\bover-?optimized\b/.test(text)) {
     signalScore += 1;
+    stylizedCueScore += 1;
+  }
+  if (/\bexaggerated but coherent\b|\balpha aesthetics\b|\bstrong-?jawed\b|\bmale-model render\b/.test(text)) {
+    stylizedCueScore += 1;
+  }
+  if (hasEditorialCue && !hasSyntheticCue && !hasDisharmonyCue) {
+    stylizedCueScore = Math.max(0, stylizedCueScore - 1);
+  }
+  if (hasCoherentCue && !hasSyntheticCue && !hasDisharmonyCue) {
+    stylizedCueScore = Math.max(0, stylizedCueScore - 1);
   }
 
   const harmony = Number(categories?.Harmony);
+  const bone = Number(categories?.Bone);
   const dimorphism = Number(categories?.Dimorphism);
+  const sideHarmony = Number(sideCategories?.Harmony);
   const bigonial = getScoreByLabel(metricScoreMap, 'bigonial width index');
   const fwhr = getScoreByLabel(metricScoreMap, 'fwhr');
+  const maxillaryProjection = Number(
+    categories?.['Maxillary/Cheekbone Projection'] ?? sideCategories?.['Maxillary/Cheekbone Projection']
+  );
   const facialFat = Number(categories?.['Facial Fat']);
+  let overbuiltMetricScore = 0;
 
   if (Number.isFinite(harmony) && harmony <= 60) signalScore += 1;
   if (Number.isFinite(dimorphism) && dimorphism >= 92) signalScore += 1;
   if (Number.isFinite(bigonial) && bigonial <= 55) signalScore += 1;
   if (Number.isFinite(fwhr) && fwhr <= 60) signalScore += 1;
   if (Number.isFinite(facialFat) && facialFat <= 20) signalScore += 1;
+  if (Number.isFinite(harmony) && harmony <= 72) overbuiltMetricScore += 1;
+  if (Number.isFinite(bone) && bone >= 85) overbuiltMetricScore += 1;
+  if (Number.isFinite(dimorphism) && dimorphism >= 86) overbuiltMetricScore += 1;
+  if (Number.isFinite(bigonial) && bigonial >= 88) overbuiltMetricScore += 1;
+  if (Number.isFinite(fwhr) && fwhr >= 86) overbuiltMetricScore += 1;
+  if (stylizedCueScore >= 2 && (hasSyntheticCue || hasDisharmonyCue)) signalScore += 1;
+  if (hasDisharmonyCue) signalScore += 2;
+  if (hasAggressiveCue) stylizedCueScore += 1;
 
-  if (signalScore >= 6 || (signalScore >= 5 && Number.isFinite(harmony) && harmony <= 55)) {
-    return 67;
+  const coherentEditorialCase =
+    hasEditorialCue &&
+    !hasSyntheticCue &&
+    !hasDisharmonyCue &&
+    Number.isFinite(explicitFrontRating) &&
+    explicitFrontRating >= 74 &&
+    (
+      !Number.isFinite(explicitSideRating) ||
+      explicitSideRating >= 68
+    );
+
+  if (coherentEditorialCase) {
+    return null;
   }
-  if (signalScore >= 4) {
-    return 72;
+
+  const extremeOverbuilt =
+    (stylizedCueScore >= 4 && overbuiltMetricScore >= 4) ||
+    (stylizedCueScore >= 3 && overbuiltMetricScore >= 5);
+  const aggressiveDisharmonyCase =
+    (hasAggressiveCue || hasSyntheticCue) &&
+    hasDisharmonyCue &&
+    (
+      (Number.isFinite(sideHarmony) && sideHarmony <= 45) ||
+      (Number.isFinite(explicitSideRating) && explicitSideRating <= 45) ||
+      (Number.isFinite(maxillaryProjection) && maxillaryProjection <= 45)
+    );
+
+  if (
+    aggressiveDisharmonyCase ||
+    extremeOverbuilt ||
+    signalScore >= 8 ||
+    (signalScore >= 7 && Number.isFinite(harmony) && harmony <= 68)
+  ) {
+    return 52;
+  }
+  if (
+    signalScore >= 6 ||
+    (signalScore >= 5 && Number.isFinite(harmony) && harmony <= 60) ||
+    (stylizedCueScore >= 2 && overbuiltMetricScore >= 4) ||
+    (stylizedCueScore >= 3 && overbuiltMetricScore >= 3)
+  ) {
+    return 56;
+  }
+  if (signalScore >= 4 || (stylizedCueScore >= 1 && overbuiltMetricScore >= 3)) {
+    return 60;
   }
   return null;
+}
+
+function buildUncannyPrimaryFlawEntries(rawOutput, categories, appealAssessment) {
+  const { text, hasSyntheticCue, hasEditorialCue, hasCoherentCue, hasAggressiveCue, hasDisharmonyCue } =
+    buildStylizationSignalSummary(rawOutput, appealAssessment);
+  const entries = [];
+  const harmony = Number(categories?.Harmony);
+  const dimorphism = Number(categories?.Dimorphism);
+
+  if (hasSyntheticCue) {
+    entries.push({
+      title: 'Synthetic / Uncanny Look',
+      description: 'The face reads too designed and over-processed, which hurts natural facial harmony.'
+    });
+  }
+
+  if ((hasAggressiveCue || (Number.isFinite(dimorphism) && dimorphism >= 86)) && (hasSyntheticCue || hasDisharmonyCue)) {
+    entries.push({
+      title: 'Over-aggressive Dimorphism',
+      description: 'The jaw, brow, and lower-third intensity overpower the rest of the face and push the look into exaggerated territory.'
+    });
+  }
+
+  if ((/\bbrutalist\b|\boverbuilt lower third\b|\blower third dominance\b|\bbottom-heavy\b|\bgigachad\b/.test(text)) && (hasSyntheticCue || hasDisharmonyCue)) {
+    entries.push({
+      title: 'Overbuilt Lower Third',
+      description: 'The lower third is too carved and dominant relative to the midface, making the result feel less natural.'
+    });
+  }
+
+  if (hasAggressiveCue && !hasSyntheticCue && !hasCoherentCue) {
+    entries.push({
+      title: 'Brutalist Aesthetic',
+      description: 'The face relies too heavily on sharp, aggressive dimorphism instead of balanced harmony.'
+    });
+  }
+
+  if (hasDisharmonyCue || (Number.isFinite(harmony) && harmony <= 65)) {
+    entries.push({
+      title: 'Structural Disharmony',
+      description: 'The strongest frontal traits are undermined by disharmony across the midface and side profile.'
+    });
+  }
+
+  return entries.slice(0, 3);
 }
 
 function titleCaseKey(s) {
@@ -452,6 +596,8 @@ function splitPrefixedDashboardEntries(block) {
 function buildDashboardFeatureEntry(rawItem, type) {
   const cleaned = String(rawItem || '')
     .replace(/^\s*\[?(?:front|frontal|side)\]?\s*:?\s*/i, '')
+    .replace(/^\[+/, '')
+    .replace(/\]+$/, '')
     .trim();
   if (!cleaned) return null;
 
@@ -477,11 +623,14 @@ function buildDashboardFeatureEntry(rawItem, type) {
 function mergeFeatureEntries(existing, incoming, max = 5) {
   const merged = Array.isArray(existing) ? [...existing] : [];
   const seen = new Set(merged.map((item) => `${trimFeatureDescription(item?.title || '')}::${trimFeatureDescription(item?.description || '')}`));
+  const seenTitles = new Set(merged.map((item) => trimFeatureDescription(item?.title || '').toLowerCase()));
   for (const item of incoming || []) {
     if (!item) continue;
+    const titleKey = trimFeatureDescription(item.title || '').toLowerCase();
     const key = `${trimFeatureDescription(item.title || '')}::${trimFeatureDescription(item.description || '')}`;
-    if (!key.trim() || seen.has(key)) continue;
+    if (!key.trim() || seen.has(key) || (titleKey && seenTitles.has(titleKey))) continue;
     seen.add(key);
+    if (titleKey) seenTitles.add(titleKey);
     merged.push(item);
     if (merged.length >= max) break;
   }
@@ -757,6 +906,8 @@ function parseAnalysisOutput(rawOutput, backendDir) {
 
   finalRating = applyOffset100(finalRating);
   sideRating = applyOffset100(sideRating);
+  const explicitFrontRating = finalRating;
+  const explicitSideRating = sideRating;
 
   let technicalSummary = parseTechnicalSummary(rawOutput);
   if (!technicalSummary || technicalSummary.length < 8) {
@@ -957,18 +1108,42 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   );
 
   if (benchmarkFrontRating != null) {
-    finalRating = benchmarkFrontRating;
+    finalRating =
+      explicitFrontRating != null
+        ? Math.min(benchmarkFrontRating, explicitFrontRating)
+        : benchmarkFrontRating;
   } else if (objectiveFrontRating != null) {
-    finalRating = objectiveFrontRating;
+    finalRating =
+      explicitFrontRating != null
+        ? Math.min(objectiveFrontRating, explicitFrontRating)
+        : objectiveFrontRating;
   }
   if (objectiveSideRating != null) {
-    sideRating = objectiveSideRating;
+    sideRating =
+      explicitSideRating != null
+        ? Math.min(objectiveSideRating, explicitSideRating)
+        : objectiveSideRating;
   }
 
-  const uncannyCap = detectUncannyRatingCap(rawOutput, frontScoreMap, categories, appealAssessment);
+  const uncannyCap = detectUncannyRatingCap(
+    rawOutput,
+    frontScoreMap,
+    categories,
+    sideCategories,
+    appealAssessment,
+    explicitFrontRating,
+    explicitSideRating
+  );
+  const uncannyPrimaryFlaws = buildUncannyPrimaryFlawEntries(rawOutput, categories, appealAssessment);
   if (uncannyCap != null) {
     if (finalRating != null) finalRating = Math.min(finalRating, uncannyCap);
     if (sideRating != null) sideRating = Math.min(sideRating, uncannyCap);
+  }
+  if (uncannyPrimaryFlaws.length) {
+    const mergedPrimary = mergeFeatureEntries(uncannyPrimaryFlaws, primaryFlaws, 5);
+    primaryFlaws.splice(0, primaryFlaws.length, ...mergedPrimary);
+    const mergedSidePrimary = mergeFeatureEntries(uncannyPrimaryFlaws, sidePrimaryFlaws, 5);
+    sidePrimaryFlaws.splice(0, sidePrimaryFlaws.length, ...mergedSidePrimary);
   }
 
   const protocols = [];
