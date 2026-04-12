@@ -2155,6 +2155,7 @@ const ScanningView = ({
 
   useEffect(() => {
     let active = true;
+    let cancelAnalyzeRequest = () => {};
 
     const initDetector = async () => {
       try {
@@ -2194,15 +2195,30 @@ const ScanningView = ({
       const minScanMs = 3200;
       const scanStartedAt = Date.now();
       let scanSucceeded = false;
+      const fetchWithTimeoutRetry = async (url, options = {}, attempt = 1) => {
+        const { timeoutMs = 8000, ...fetchOptions } = options;
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+        try {
+          return await fetch(url, {
+            cache: 'no-store',
+            ...fetchOptions,
+            signal: ctrl.signal,
+          });
+        } catch (networkErr) {
+          if (attempt >= 2) throw networkErr;
+          await new Promise((resolve) => setTimeout(resolve, 900));
+          return fetchWithTimeoutRetry(url, options, attempt + 1);
+        } finally {
+          clearTimeout(timer);
+        }
+      };
       try {
         const isUltra = choice === "1" || choice === "2";
 
         setStatusText("Checking analysis server...");
         try {
-          const healthCtrl = new AbortController();
-          const healthTimer = setTimeout(() => healthCtrl.abort(), 8000);
-          const healthRes = await fetch(`${API_BASE}/api/health`, { signal: healthCtrl.signal });
-          clearTimeout(healthTimer);
+          const healthRes = await fetchWithTimeoutRetry(`${API_BASE}/api/health`);
           if (!healthRes.ok) {
             setStatusText(
               `Analysis server returned ${healthRes.status}. Check VITE_API_URL (currently ${API_BASE}) and that the backend is running.`
@@ -2229,10 +2245,7 @@ const ScanningView = ({
         if (isUltra) {
           setStatusText("Checking premium access...");
           try {
-            const readyCtrl = new AbortController();
-            const readyTimer = setTimeout(() => readyCtrl.abort(), 8000);
-            const readyRes = await fetch(`${API_BASE}/api/ready`, { signal: readyCtrl.signal });
-            clearTimeout(readyTimer);
+            const readyRes = await fetchWithTimeoutRetry(`${API_BASE}/api/ready`);
 
             let readyData = null;
             try {
@@ -2300,6 +2313,7 @@ const ScanningView = ({
 
         /** So the UI never sits on “Consulting AI” forever if Python/API hangs */
         const analyzeAbort = new AbortController();
+        cancelAnalyzeRequest = () => analyzeAbort.abort();
         const ANALYZE_CLIENT_MAX_MS = 10 * 60 * 1000;
         const analyzeHardStop = setTimeout(() => analyzeAbort.abort(), ANALYZE_CLIENT_MAX_MS);
 
@@ -2324,6 +2338,7 @@ const ScanningView = ({
               headers,
               body: formData,
               signal: analyzeAbort.signal,
+              cache: 'no-store',
             });
           } catch (networkErr) {
             if (networkErr?.name === 'AbortError' || attempt >= 2) {
@@ -2408,7 +2423,10 @@ const ScanningView = ({
 
     startScan();
 
-    return () => { active = false; };
+    return () => {
+      active = false;
+      cancelAnalyzeRequest();
+    };
   }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, user, profileId]);
 
   return (
@@ -5039,11 +5057,14 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       if (!userScansByUser[uid]) {
         requests.push(
           fetch(`${API_BASE}/api/admin/users/${uid}/scans`, {
-            headers: { 'x-admin-password': storedPw.current }
+            headers: { 'x-admin-password': storedPw.current },
+            cache: 'no-store',
           }).then(async (res) => {
-            if (!res.ok) throw new Error('Failed to fetch scans');
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data?.error || 'Failed to fetch scans');
             setUserScansByUser((prev) => ({ ...prev, [uid]: data.scans || [] }));
+          }).catch((err) => {
+            setUserScansError((prev) => ({ ...prev, [uid]: err.message || 'Failed to fetch scans' }));
           })
         );
       }
@@ -5051,20 +5072,19 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       if (!userMogBattlesByUser[uid]) {
         requests.push(
           fetch(`${API_BASE}/api/admin/users/${uid}/mog-battles`, {
-            headers: { 'x-admin-password': storedPw.current }
+            headers: { 'x-admin-password': storedPw.current },
+            cache: 'no-store',
           }).then(async (res) => {
-            if (!res.ok) throw new Error('Failed to fetch Mog Battles');
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data?.error || 'Failed to fetch Mog Battles');
             setUserMogBattlesByUser((prev) => ({ ...prev, [uid]: data.battles || [] }));
+          }).catch((err) => {
+            setUserMogBattlesError((prev) => ({ ...prev, [uid]: err.message || 'Failed to fetch Mog Battles' }));
           })
         );
       }
 
-      await Promise.all(requests);
-    } catch (err) {
-      const message = err.message || 'Failed to fetch user data';
-      setUserScansError((prev) => ({ ...prev, [uid]: message }));
-      setUserMogBattlesError((prev) => ({ ...prev, [uid]: message }));
+      await Promise.allSettled(requests);
     } finally {
       setUserScansLoading((prev) => ({ ...prev, [uid]: false }));
       setUserMogBattlesLoading((prev) => ({ ...prev, [uid]: false }));
