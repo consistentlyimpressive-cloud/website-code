@@ -2291,7 +2291,7 @@ const ScanningView = ({
           }
         }
 
-        setStatusText('Running AI analysis… 0:00 elapsed (usually 30s–3 min). Leave this tab open.');
+        setStatusText('Running AI analysis... 0:00 elapsed. Leave this tab open.');
 
         const headers = {};
         if (authToken) {
@@ -2312,9 +2312,9 @@ const ScanningView = ({
 
         const progressTick = setInterval(() => {
           if (!active) return;
-          setStatusText(
-            `Running AI analysis… ${formatElapsed()} elapsed. If it passes ~8 min with no result, check the backend terminal (Python/API).`
-          );
+            setStatusText(
+              `Running AI analysis... ${formatElapsed()} elapsed. Ultra scans can take a few minutes.`
+            );
         }, 4000);
 
         const runAnalyzeRequest = async (attempt = 1) => {
@@ -2386,7 +2386,7 @@ const ScanningView = ({
            const detail =
              typeof data?.error === 'string' && data.error.trim()
                ? data.error
-               : 'The AI engine did not return a valid analysis. Check the backend terminal for Python/API errors (missing API key, model error, or bad output format).';
+               : 'The AI engine did not return a valid analysis. Please try again in a moment.';
            setStatusText(detail);
            setHasError(true);
         }
@@ -2394,8 +2394,8 @@ const ScanningView = ({
         console.error("API failed", err);
         setStatusText(
           err?.name === 'AbortError'
-            ? 'Analysis timed out (~10 min). Check the backend terminal for stuck Python or API errors; try a smaller image or verify keys/network.'
-            : `Network error: ${err?.message || 'failed to reach server'}. Confirm VITE_API_URL and that the backend is reachable.`
+            ? 'Analysis timed out after about 10 minutes. Please try again with a smaller image or try again in a moment.'
+            : `Network error: ${err?.message || 'failed to reach server'}. Please try again in a moment.`
         );
         setHasError(true);
       } finally {
