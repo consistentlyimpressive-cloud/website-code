@@ -2152,6 +2152,8 @@ const ScanningView = ({
   onCompleteRef.current = onComplete;
   const onScanFailedRef = useRef(onScanFailed);
   onScanFailedRef.current = onScanFailed;
+  const userRef = useRef(user);
+  userRef.current = user;
 
   useEffect(() => {
     let active = true;
@@ -2215,6 +2217,7 @@ const ScanningView = ({
       };
       try {
         const isUltra = choice === "1" || choice === "2";
+        const activeUser = userRef.current;
 
         setStatusText("Checking analysis server...");
         try {
@@ -2235,7 +2238,7 @@ const ScanningView = ({
           return;
         }
 
-        if (isUltra && !user) {
+        if (isUltra && !activeUser) {
           setStatusText('Sign in required for Ultra / Fun mode scans. Use Basic scan while signed out, or log in and try again.');
           setHasError(true);
           return;
@@ -2272,7 +2275,7 @@ const ScanningView = ({
           }
 
           try {
-            authToken = await user.getIdToken(true);
+            authToken = await activeUser.getIdToken(true);
           } catch (e) {
             console.error("Failed to refresh auth token", e);
             setStatusText('Your session could not be refreshed. Sign out and sign back in, then try the premium scan again.');
@@ -2341,14 +2344,14 @@ const ScanningView = ({
               cache: 'no-store',
             });
           } catch (networkErr) {
-            if (networkErr?.name === 'AbortError' || attempt >= 2) {
+            if (networkErr?.name === 'AbortError' || attempt >= 3) {
               throw networkErr;
             }
             console.warn(`[analyze] network failure on attempt ${attempt}, retrying`, networkErr);
             if (active) {
-              setStatusText('Network hiccup detected. Retrying the analysis request...');
+              setStatusText(`Network hiccup detected. Retrying the analysis request (${attempt + 1}/3)...`);
             }
-            await new Promise((resolve) => setTimeout(resolve, 1200));
+            await new Promise((resolve) => setTimeout(resolve, 1200 * attempt));
             return runAnalyzeRequest(attempt + 1);
           }
         };
@@ -2427,7 +2430,7 @@ const ScanningView = ({
       active = false;
       cancelAnalyzeRequest();
     };
-  }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, user, profileId]);
+  }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, profileId]);
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center animate-[fadeIn_0.5s_ease-out]">

@@ -321,6 +321,52 @@ function computeObjectiveFaceRating(metricScoreMap, categories) {
   return Math.round(clamp(rating, 25, 92) * 10) / 10;
 }
 
+function getScoreByLabel(scoreMap, labelStartsWith) {
+  const entries = Object.entries(scoreMap || {});
+  const target = String(labelStartsWith || '').toLowerCase();
+  for (const [label, score] of entries) {
+    if (String(label).toLowerCase().startsWith(target) && Number.isFinite(Number(score))) {
+      return Number(score);
+    }
+  }
+  return null;
+}
+
+function detectUncannyRatingCap(rawOutput, metricScoreMap, categories, appealAssessment) {
+  const text = `${rawOutput || ''}\n${appealAssessment || ''}`.toLowerCase();
+  let signalScore = 0;
+
+  if (/\buncanny\b|\bsynthetic\b|\boverbuilt\b|\bgigachad\b|\bartificial\b|\bbiologically improbable\b/.test(text)) {
+    signalScore += 2;
+  }
+  if (/\bfantasy male\b|\bai-generated\b|\bai generated\b|\bmannequin\b|\brender\b|\bhyper-?developed\b/.test(text)) {
+    signalScore += 2;
+  }
+  if (/\bover-?dimorphic\b|\bbrutalist\b|\boverly aggressive\b|\bbottom-heavy\b|\btoo wide\b|\bover-?optimized\b/.test(text)) {
+    signalScore += 1;
+  }
+
+  const harmony = Number(categories?.Harmony);
+  const dimorphism = Number(categories?.Dimorphism);
+  const bigonial = getScoreByLabel(metricScoreMap, 'bigonial width index');
+  const fwhr = getScoreByLabel(metricScoreMap, 'fwhr');
+  const facialFat = Number(categories?.['Facial Fat']);
+
+  if (Number.isFinite(harmony) && harmony <= 60) signalScore += 1;
+  if (Number.isFinite(dimorphism) && dimorphism >= 92) signalScore += 1;
+  if (Number.isFinite(bigonial) && bigonial <= 55) signalScore += 1;
+  if (Number.isFinite(fwhr) && fwhr <= 60) signalScore += 1;
+  if (Number.isFinite(facialFat) && facialFat <= 20) signalScore += 1;
+
+  if (signalScore >= 6 || (signalScore >= 5 && Number.isFinite(harmony) && harmony <= 55)) {
+    return 67;
+  }
+  if (signalScore >= 4) {
+    return 72;
+  }
+  return null;
+}
+
 function titleCaseKey(s) {
   return s
     .replace(/_/g, ' ')
@@ -917,6 +963,12 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   }
   if (objectiveSideRating != null) {
     sideRating = objectiveSideRating;
+  }
+
+  const uncannyCap = detectUncannyRatingCap(rawOutput, frontScoreMap, categories, appealAssessment);
+  if (uncannyCap != null) {
+    if (finalRating != null) finalRating = Math.min(finalRating, uncannyCap);
+    if (sideRating != null) sideRating = Math.min(sideRating, uncannyCap);
   }
 
   const protocols = [];
