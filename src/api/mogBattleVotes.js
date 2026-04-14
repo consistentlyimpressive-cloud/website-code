@@ -58,6 +58,14 @@ export async function fetchCommunityBattles() {
   return r.json();
 }
 
+export async function fetchCommunityScans(limit = 40) {
+  const r = await fetch(`${API_BASE}/api/community-scans?limit=${encodeURIComponent(limit)}`, {
+    cache: 'no-store',
+  });
+  if (!r.ok) throw new Error('Could not load community scans');
+  return r.json();
+}
+
 export async function postCommunityBattle(idToken, fighterA, fighterB) {
   const r = await fetch(`${API_BASE}/api/mog-battle/community`, {
     method: 'POST',
@@ -66,6 +74,28 @@ export async function postCommunityBattle(idToken, fighterA, fighterB) {
       Authorization: `Bearer ${idToken}`,
     },
     body: JSON.stringify({ fighterA, fighterB }),
+  });
+  const data = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, data };
+}
+
+export async function fetchFollowedMogBattles(idToken) {
+  const r = await fetch(`${API_BASE}/api/mog-battle/follows`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Could not load followed battles');
+  return data;
+}
+
+export async function setMogBattleFollow(idToken, battleId, following) {
+  const r = await fetch(`${API_BASE}/api/mog-battle/follow`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ battleId, following }),
   });
   const data = await r.json().catch(() => ({}));
   return { ok: r.ok, status: r.status, data };

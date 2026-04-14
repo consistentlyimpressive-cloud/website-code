@@ -10,9 +10,7 @@ import {
 } from 'lucide-react';
 import {
   fetchYouTubeFeedFromChannels,
-  pickVideoBatch,
   STATIC_VIDEO_FALLBACK,
-  YOUTUBE_BATCH_SIZE,
   YOUTUBE_ROTATION_MS,
 } from '../utils/youtubeFeed';
 
@@ -75,6 +73,8 @@ const TABS = [
   { id: 'video', label: 'Watch' },
   { id: 'news', label: 'Read' },
 ];
+const VIDEO_VISIBLE_LIMIT = 30;
+const VIDEO_SCROLL_LIMIT = 100;
 
 async function fetchArticleOgImage(articleUrl) {
   try {
@@ -110,7 +110,6 @@ export default function NewsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [youtubePool, setYoutubePool] = useState([]);
   const [youtubeReady, setYoutubeReady] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
   const [newsImagesById, setNewsImagesById] = useState({});
 
   const [lastFetchAt, setLastFetchAt] = useState(null);
@@ -145,15 +144,15 @@ export default function NewsPage() {
     return () => document.removeEventListener('visibilitychange', onVis);
   }, [loadYoutubePool]);
 
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
-
-  const videoItems = useMemo(() => {
+  const allVideoItems = useMemo(() => {
     const pool = youtubePool.length ? youtubePool : STATIC_VIDEO_FALLBACK;
-    return pickVideoBatch(pool, YOUTUBE_BATCH_SIZE, YOUTUBE_ROTATION_MS, now);
-  }, [youtubePool, now]);
+    return pool
+      .slice()
+      .sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate))
+      .slice(0, VIDEO_SCROLL_LIMIT);
+  }, [youtubePool]);
+
+  const videoItems = useMemo(() => allVideoItems.slice(0, VIDEO_VISIBLE_LIMIT), [allVideoItems]);
 
   const newsItems = useMemo(
     () => HARDCODED_ARTICLES.map((n) => ({ ...n, type: 'news' })),
@@ -191,14 +190,14 @@ export default function NewsPage() {
 
   const filtered = useMemo(() => {
     if (activeTab === 'all') return feedItems;
-    if (activeTab === 'video') return videoItems;
+    if (activeTab === 'video') return allVideoItems;
     return newsItems;
-  }, [activeTab, feedItems, videoItems, newsItems]);
+  }, [activeTab, feedItems, allVideoItems, newsItems]);
 
   const tabCounts = useMemo(() => {
-    const c = { all: feedItems.length, video: videoItems.length, news: newsItems.length };
+    const c = { all: feedItems.length, video: allVideoItems.length, news: newsItems.length };
     return c;
-  }, [feedItems, videoItems, newsItems]);
+  }, [feedItems, allVideoItems, newsItems]);
 
   const newsThumbSrc = (item) =>
     newsImagesById[item.id] || NEWS_PLACEHOLDER[item.id] || FALLBACK_IMG;
@@ -360,7 +359,7 @@ export default function NewsPage() {
           <div className="flex flex-col gap-16">
             <section>
               {sectionTitle('Latest videos')}
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="mog-scroll grid max-h-[980px] grid-cols-1 gap-5 overflow-y-auto pr-2 sm:grid-cols-2 xl:grid-cols-4">
                 {videoItems.map((item, idx) => (
                   <div key={itemKey(item, idx)}>{renderCard(item, idx, { denseVideo: true })}</div>
                 ))}
@@ -382,7 +381,7 @@ export default function NewsPage() {
             <div
               className={`grid gap-5 ${
                 activeTab === 'video'
-                  ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'
+                  ? 'mog-scroll max-h-[1200px] grid-cols-1 overflow-y-auto pr-2 sm:grid-cols-2 xl:grid-cols-4'
                   : 'grid-cols-1 md:grid-cols-2'
               }`}
             >

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Target, Activity, CheckCircle2, Hexagon, Shield, Globe, Lock, ArrowLeft, ArrowUpRight, TrendingUp } from 'lucide-react';
+import { Target, Activity, CheckCircle2, Hexagon, Shield, Globe, Lock, ArrowLeft, ArrowUpRight, TrendingUp, Trash2 } from 'lucide-react';
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { getApiBase } from '../utils/apiBase';
+import { ConfirmDialog, ImageLightbox } from './ui/SiteModal';
 
 const API_BASE = getApiBase();
 
@@ -54,6 +55,10 @@ const PublicProfilePage = ({ routeParams, user }) => {
   const [error, setError] = useState(null);
   const [selectedScanId, setSelectedScanId] = useState(null);
   const [activeSide, setActiveSide] = useState('front'); // 'front' or 'side'
+  const [pendingProfileVisibility, setPendingProfileVisibility] = useState(null);
+  const [pendingScanVisibility, setPendingScanVisibility] = useState(null);
+  const [confirmDeleteScan, setConfirmDeleteScan] = useState(null);
+  const [lightboxImage, setLightboxImage] = useState(null);
 
   const isOwner = Boolean(user?.uid && profile?.userId && user.uid === profile.userId);
 
@@ -87,7 +92,13 @@ const PublicProfilePage = ({ routeParams, user }) => {
         const data = await res.json();
         setProfile(data.profile);
         setScans(data.scans || []);
-        if (data.scans?.length > 0) setSelectedScanId(data.scans[0].id);
+        const search = new URLSearchParams(window.location.search);
+        const requestedScanId = search.get('scan');
+        if (requestedScanId && data.scans?.some((scan) => scan.id === requestedScanId)) {
+          setSelectedScanId(requestedScanId);
+        } else if (data.scans?.length > 0) {
+          setSelectedScanId(data.scans[0].id);
+        }
       } catch (e) {
         setError(e.message || 'Failed to load profile');
       } finally {
@@ -110,6 +121,7 @@ const PublicProfilePage = ({ routeParams, user }) => {
     if (!activeScan?.payload) return null;
     return activeScan.payload; // This contains hexagonFront, personalizedFeedback, etc.
   }, [activeScan]);
+  const activeScanVisibility = String(activeScan?.visibility || 'private').trim().toLowerCase() || 'private';
 
   const hexData = useMemo(() => {
     if (!parsedData) return [];
@@ -124,17 +136,71 @@ const PublicProfilePage = ({ routeParams, user }) => {
     ];
   }, [parsedData, activeSide]);
 
-  const handleUpdateVisibility = async (vis) => {
+  const commitProfileVisibility = async (vis) => {
     try {
       const token = await user.getIdToken();
-      await fetch(`${API_BASE}/api/user/profiles/${profile.id}`, {
+      const res = await fetch(`${API_BASE}/api/user/profiles/${profile.id}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ visibility: vis })
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Failed to update profile visibility');
+      }
       setProfile({ ...profile, visibility: vis });
     } catch(e) {
-      alert("Error updating visibility: " + e.message);
+      setError(e.message || 'Failed to update profile visibility');
+    }
+  };
+
+  const handleUpdateVisibility = (vis) => {
+    if (vis === 'community') {
+      setPendingProfileVisibility(vis);
+      return;
+    }
+    commitProfileVisibility(vis);
+  };
+
+  const commitScanVisibility = async (scanId, vis) => {
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/api/user/scans/${scanId}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibility: vis })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed to update scan visibility');
+      setScans((prev) => prev.map((scan) => (
+        scan.id === scanId ? { ...scan, visibility: vis } : scan
+      )));
+    } catch (e) {
+      setError(e.message || 'Failed to update scan visibility');
+    }
+  };
+
+  const handleUpdateScanVisibility = (scanId, vis) => {
+    if (vis === 'community') {
+      setPendingScanVisibility({ scanId, visibility: vis });
+      return;
+    }
+    commitScanVisibility(scanId, vis);
+  };
+
+  const handleDeleteScan = async (scanId) => {
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/api/user/scans/${scanId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` }});
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed to delete scan');
+      const newScans = scans.filter((x) => x.id !== scanId);
+      setScans(newScans);
+      if (selectedScanId === scanId) setSelectedScanId(newScans[0]?.id || null);
+    } catch(err) {
+      setError(err.message || 'Failed to delete scan');
+    } finally {
+      setConfirmDeleteScan(null);
     }
   };
 
@@ -163,7 +229,7 @@ const PublicProfilePage = ({ routeParams, user }) => {
               <Shield size={14} /> Unlisted
             </button>
             <button onClick={() => handleUpdateVisibility('community')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2 ${profile.visibility === 'community' ? 'bg-cyan-500/20 text-cyan-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
-              <Globe size={14} /> Community
+              <Globe size={14} /> Public
             </button>
           </div>
         )}
@@ -181,20 +247,13 @@ const PublicProfilePage = ({ routeParams, user }) => {
               <img src={s.frontImageUrl} className="w-full h-full object-cover" />
               {isOwner && (
                 <button 
-                  onClick={async (e) => {
+                  onClick={(e) => {
                     e.stopPropagation();
-                    if (!window.confirm("Delete this scan?")) return;
-                    try {
-                      const token = await user.getIdToken();
-                      await fetch(`${API_BASE}/api/user/scans/${s.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` }});
-                      const newScans = scans.filter(x => x.id !== s.id);
-                      setScans(newScans);
-                      if (selectedScanId === s.id && newScans.length > 0) setSelectedScanId(newScans[0].id);
-                    } catch(err) { alert(err.message); }
+                    setConfirmDeleteScan(s.id);
                   }}
                   className="absolute top-2 right-2 bg-black/80 text-red-400 p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  <Trash2 size={14} />
                 </button>
               )}
             </div>
@@ -207,7 +266,16 @@ const PublicProfilePage = ({ routeParams, user }) => {
           {/* LEFT: Photos & Rating */}
           <div className="lg:col-span-4 flex flex-col gap-6">
             <div className="relative rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl bg-zinc-950">
-              <img src={activeSide === 'side' && hasSideScan ? activeScan.sideImageUrl : activeScan.frontImageUrl} className="w-full aspect-[3/4] object-cover" />
+              <button
+                type="button"
+                onClick={() => setLightboxImage({
+                  src: activeSide === 'side' && hasSideScan ? activeScan.sideImageUrl : activeScan.frontImageUrl,
+                  subtitle: `${profile.name} · ${activeSide === 'side' && hasSideScan ? 'Side' : 'Front'} profile`,
+                })}
+                className="block w-full text-left"
+              >
+                <img src={activeSide === 'side' && hasSideScan ? activeScan.sideImageUrl : activeScan.frontImageUrl} className="w-full aspect-[3/4] object-cover" />
+              </button>
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 pt-24 flex justify-between items-end">
                 <div>
                   <p className="text-[10px] text-cyan-400 uppercase tracking-widest font-bold mb-1">Overall Rating</p>
@@ -225,8 +293,35 @@ const PublicProfilePage = ({ routeParams, user }) => {
             
             <div className="bg-zinc-900/30 border border-zinc-800 rounded-xl p-4 flex justify-between items-center">
               <span className="text-xs text-zinc-500 uppercase tracking-widest">Model Used</span>
-              <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded uppercase tracking-widest">{activeScan.model || 'Unknown'}</span>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded uppercase tracking-widest">{activeScan.model || 'Unknown'}</span>
+                <span className="text-xs font-bold text-zinc-300 bg-zinc-800 px-2 py-1 rounded uppercase tracking-widest">
+                  {activeScan.cohesiveFrontSide ? 'Cohesive on' : 'Cohesive off'}
+                </span>
+              </div>
             </div>
+
+            {isOwner && activeScan && (
+              <div className="bg-zinc-900/30 border border-zinc-800 rounded-xl p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <span className="text-xs text-zinc-500 uppercase tracking-widest">Scan Visibility</span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-300">
+                    {activeScanVisibility === 'community' ? 'Public' : activeScanVisibility}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => handleUpdateScanVisibility(activeScan.id, 'private')} className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest ${activeScanVisibility === 'private' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-zinc-900 text-zinc-500 hover:text-zinc-300 border border-zinc-800'}`}>
+                    Private
+                  </button>
+                  <button onClick={() => handleUpdateScanVisibility(activeScan.id, 'unlisted')} className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest ${activeScanVisibility === 'unlisted' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-zinc-900 text-zinc-500 hover:text-zinc-300 border border-zinc-800'}`}>
+                    Unlisted
+                  </button>
+                  <button onClick={() => handleUpdateScanVisibility(activeScan.id, 'community')} className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest ${activeScanVisibility === 'community' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-zinc-900 text-zinc-500 hover:text-zinc-300 border border-zinc-800'}`}>
+                    Public
+                  </button>
+                </div>
+              </div>
+            )}
 
             {parsedData.technicalSummary && (
               <div className="bg-zinc-900/30 border border-zinc-800 rounded-xl p-6">
@@ -339,6 +434,53 @@ const PublicProfilePage = ({ routeParams, user }) => {
            </button>
         </div>
       </div>
+
+      {pendingProfileVisibility && (
+        <ConfirmDialog
+          title="Make Profile Public?"
+          body="Are you sure? Making your profile public will make it much easier to discover around the site."
+          confirmLabel="Make Public"
+          tone="warning"
+          onClose={() => setPendingProfileVisibility(null)}
+          onConfirm={() => {
+            commitProfileVisibility(pendingProfileVisibility);
+            setPendingProfileVisibility(null);
+          }}
+        />
+      )}
+
+      {pendingScanVisibility && (
+        <ConfirmDialog
+          title="Make Scan Public?"
+          body="Are you sure? Making your scan public will add it to the community scans."
+          confirmLabel="Make Public"
+          tone="warning"
+          onClose={() => setPendingScanVisibility(null)}
+          onConfirm={() => {
+            commitScanVisibility(pendingScanVisibility.scanId, pendingScanVisibility.visibility);
+            setPendingScanVisibility(null);
+          }}
+        />
+      )}
+
+      {confirmDeleteScan && (
+        <ConfirmDialog
+          title="Delete Scan?"
+          body="This will remove the scan from this profile and delete its saved images."
+          confirmLabel="Delete Scan"
+          tone="danger"
+          onClose={() => setConfirmDeleteScan(null)}
+          onConfirm={() => handleDeleteScan(confirmDeleteScan)}
+        />
+      )}
+
+      {lightboxImage && (
+        <ImageLightbox
+          src={lightboxImage.src}
+          subtitle={lightboxImage.subtitle}
+          onClose={() => setLightboxImage(null)}
+        />
+      )}
     </div>
   );
 };

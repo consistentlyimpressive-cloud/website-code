@@ -35,44 +35,20 @@ def generate_scan_animation(img_path, output_path="loading_scan.mp4", duration_s
         out = cv2.VideoWriter(output_path, fourcc, fps, (w, h))
 
         frames = max(int(duration_seconds * fps), 1)
-        long_scan_mode = duration_seconds >= 20
-        scan_cycles = max(1, int(round(duration_seconds / 12.5))) if long_scan_mode else 1
-        active_band_px = max(int(h * 0.14), 42)
 
         for f in range(frames):
             frame_img = img.copy()
 
             progress = f / max(frames - 1, 1)
-            if long_scan_mode:
-                cycle_progress_total = progress * scan_cycles
-                cycle_index = min(int(cycle_progress_total), scan_cycles - 1)
-                cycle_progress = cycle_progress_total - cycle_index
-                if cycle_index % 2 == 1:
-                    cycle_progress = 1.0 - cycle_progress
-                scan_y = int(cycle_progress * h)
-            else:
-                scan_y = int(progress * h)
+            scan_y = int(progress * h)
 
-            # Draw the mesh. For long premium scans, keep the network alive with a moving
-            # active band so the animation does not "finish" halfway through the wait.
+            # Draw the mesh with a single clean sweep.
             for t in triangle_list:
                 pts = [(int(t[0]), int(t[1])), (int(t[2]), int(t[3])), (int(t[4]), int(t[5]))]
                 if all(0 <= p[0] < w and 0 <= p[1] < h for p in pts):
                     avg_y = sum(p[1] for p in pts) / 3
-                    if long_scan_mode:
-                        distance = abs(avg_y - scan_y)
-                        if distance <= active_band_px:
-                            intensity = 1.0 - (distance / active_band_px)
-                            color = (
-                                int(70 + 125 * intensity),
-                                int(215 + 40 * intensity),
-                                255,
-                            )
-                            thickness = 1 if intensity < 0.66 else 2
-                            cv2.polylines(frame_img, [np.array(pts)], True, color, thickness, cv2.LINE_AA)
-                    else:
-                        if avg_y < scan_y + 20:
-                            cv2.polylines(frame_img, [np.array(pts)], True, (255, 255, 255), 1, cv2.LINE_AA)
+                    if avg_y < scan_y + 20:
+                        cv2.polylines(frame_img, [np.array(pts)], True, (255, 255, 255), 1, cv2.LINE_AA)
 
             # Draw scanning bar with glow.
             cv2.line(frame_img, (0, scan_y), (w, scan_y), (0, 255, 0), 2)

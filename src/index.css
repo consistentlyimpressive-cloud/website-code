@@ -3,12 +3,28 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    font-size: 16px;
+  }
+
   body {
     @apply bg-[#0c0d0e] text-white antialiased m-0 p-0 font-sans;
   }
   
   #root {
     @apply w-full min-h-screen;
+  }
+}
+
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  html {
+    font-size: 13px;
   }
 }
 
@@ -618,7 +634,42 @@
 }
 
 /* Low Performance Mode */
-.low-perf-mode * {
-  animation-duration: 0.001s !important;
-  transition-duration: 0.001s !important;
+.low-perf-mode *,
+.low-perf-mode *::before,
+.low-perf-mode *::after {
+  animation: none !important;
+  transition-duration: 0.12s !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+
+.low-perf-mode [class*="backdrop-blur"],
+.mobile-compact [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.low-perf-mode [class*="blur-["],
+.low-perf-mode [class*=" blur-"],
+.mobile-compact [class*="blur-["],
+.mobile-compact [class*=" blur-"] {
+  filter: none !important;
+}
+
+.low-perf-mode [class*="shadow-["],
+.low-perf-mode [class*="shadow-2xl"],
+.low-perf-mode [class*="shadow-xl"],
+.mobile-compact [class*="shadow-["] {
+  box-shadow: none !important;
+}
+
+@media (max-width: 768px) {
+  body.mobile-compact {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body.mobile-compact video {
+    backface-visibility: hidden;
+    transform: translateZ(0);
+  }
 }

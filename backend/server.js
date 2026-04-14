@@ -279,6 +279,129 @@ app.use(express.json({ limit: '2mb' }));
 const localMogBattles = {};
 const localMogVotes = {}; // { battleId: { uid: side } }
 const localCommunityBattles = []; // Array of community battles
+const localCommunityScans = [];
+const localNotifications = {}; // { uid: [{ id, title, body, url, read, createdAt }] }
+const localMogBattleFollows = {}; // { battleId: { uid: true } }
+
+function normalizeScanVisibility(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['private', 'unlisted', 'public', 'community'].includes(normalized)) {
+    return normalized === 'public' ? 'community' : normalized;
+  }
+  return 'private';
+}
+
+function getCommunityScanDocId(uid, scanId) {
+  return `${String(uid || '').trim()}__${String(scanId || '').trim()}`;
+}
+
+async function buildCommunityScanDoc(uid, scanId, scanData) {
+  const payload = scanData?.payload && typeof scanData.payload === 'object' ? scanData.payload : {};
+  let profileName = 'Profile Scan';
+  if (firestore && scanData?.profileId && scanData.profileId !== 'default') {
+    try {
+      const profileSnap = await firestore
+        .collection('users')
+        .doc(uid)
+        .collection('profiles')
+        .doc(scanData.profileId)
+        .get();
+      if (profileSnap.exists) {
+        profileName = String(profileSnap.data()?.name || profileName).trim() || profileName;
+      }
+    } catch (e) {
+      console.warn('[community-scans] failed to read profile name:', e.message);
+    }
+  }
+
+  return {
+    ownerUid: uid,
+    scanId,
+    profileId: scanData?.profileId || 'default',
+    profileName,
+    visibility: 'community',
+    model: String(scanData?.model || payload?.selectedModel || '').trim() || '1',
+    cohesiveFrontSide: Boolean(scanData?.cohesiveFrontSide || payload?.cohesiveFrontSide),
+    finalRating: Number(scanData?.finalRating) || 0,
+    sideRating: Number(scanData?.sideRating) || 0,
+    sex: payload?.sex || null,
+    frontImageUrl: scanData?.frontImageUrl || payload?.frontImage || null,
+    sideImageUrl: scanData?.sideImageUrl || payload?.sideImage || null,
+    payload: {
+      ...payload,
+      frontImage: scanData?.frontImageUrl || payload?.frontImage || null,
+      sideImage: scanData?.sideImageUrl || payload?.sideImage || null,
+      selectedModel: String(scanData?.model || payload?.selectedModel || '').trim() || '1',
+      cohesiveFrontSide: Boolean(scanData?.cohesiveFrontSide || payload?.cohesiveFrontSide),
+    },
+    timestamp: scanData?.timestamp || admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+}
+
+async function syncCommunityScanVisibility(uid, scanId, scanData, visibility) {
+  const normalizedVisibility = normalizeScanVisibility(visibility);
+  const docId = getCommunityScanDocId(uid, scanId);
+
+  if (!firestore) {
+    const localIndex = localCommunityScans.findIndex((item) => item.id === docId);
+    if (normalizedVisibility === 'community') {
+      const doc = await buildCommunityScanDoc(uid, scanId, scanData);
+      const nextDoc = { id: docId, ...doc };
+      if (localIndex >= 0) localCommunityScans[localIndex] = nextDoc;
+      else localCommunityScans.unshift(nextDoc);
+    } else if (localIndex >= 0) {
+      localCommunityScans.splice(localIndex, 1);
+    }
+    return;
+  }
+
+  const docRef = firestore.collection('communityScans').doc(docId);
+  if (normalizedVisibility === 'community') {
+    const doc = await buildCommunityScanDoc(uid, scanId, scanData);
+    await docRef.set(doc, { merge: true });
+  } else {
+    await docRef.delete().catch(() => {});
+  }
+}
+
+async function createNotification(uid, payload = {}) {
+  const safeUid = String(uid || '').trim();
+  if (!safeUid) return null;
+  const doc = {
+    title: String(payload.title || 'MogCheck').slice(0, 140),
+    body: String(payload.body || '').slice(0, 1000),
+    url: payload.url ? String(payload.url).slice(0, 500) : '',
+    type: String(payload.type || 'general').slice(0, 80),
+    read: false,
+    createdAt: firestore ? admin.firestore.FieldValue.serverTimestamp() : new Date().toISOString(),
+  };
+
+  if (!firestore) {
+    const id = `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const localDoc = { id, ...doc, createdAt: new Date().toISOString() };
+    localNotifications[safeUid] = [localDoc, ...(localNotifications[safeUid] || [])].slice(0, 100);
+    return localDoc;
+  }
+
+  const ref = await firestore.collection('users').doc(safeUid).collection('notifications').add(doc);
+  return { id: ref.id, ...doc };
+}
+
+function serializeNotification(doc) {
+  const data = typeof doc.data === 'function' ? doc.data() : doc;
+  return {
+    id: doc.id || data.id || '',
+    title: data.title || 'MogCheck',
+    body: data.body || '',
+    url: data.url || '',
+    type: data.type || 'general',
+    read: Boolean(data.read),
+    createdAt:
+      data.createdAt?.toDate?.()?.toISOString?.() ||
+      (typeof data.createdAt?.seconds === 'number' ? new Date(data.createdAt.seconds * 1000).toISOString() : data.createdAt || null),
+  };
+}
 
 function requireFirestore(req, res, next) {
   // If firestore is null, we will use the local fallback in the routes.
@@ -308,6 +431,77 @@ function getMogBattleAdminEmails() {
 function isMogBattleAdminEmail(email) {
   if (!email || typeof email !== 'string') return false;
   return getMogBattleAdminEmails().includes(email.trim().toLowerCase());
+}
+
+async function getMogBattleFollowerUids(battleId) {
+  const id = String(battleId || '').trim();
+  if (!id) return [];
+  if (!firestore) return Object.keys(localMogBattleFollows[id] || {});
+
+  try {
+    const snap = await firestore.collection('mogBattles').doc(id).collection('followers').limit(500).get();
+    const uids = [];
+    snap.forEach((doc) => {
+      if (doc.id) uids.push(doc.id);
+    });
+    return uids;
+  } catch (e) {
+    console.warn('[mog-battle] failed to load followers:', e.message);
+    return [];
+  }
+}
+
+async function notifyMogBattleFollowers({ battleId, battle, voterUid, previousA, previousB, nextA, nextB }) {
+  const id = String(battleId || '').trim();
+  if (!id) return;
+
+  const followerUids = await getMogBattleFollowerUids(id);
+  if (!followerUids.length) return;
+
+  const totalVotes = (Number(nextA) || 0) + (Number(nextB) || 0);
+  const previousLeader = getBattleLeader(previousA, previousB);
+  const nextLeader = getBattleLeader(nextA, nextB);
+  const isInteresting =
+    isBattleMilestone(totalVotes) ||
+    (previousLeader !== 'tie' && nextLeader !== 'tie' && previousLeader !== nextLeader);
+
+  const title = isInteresting ? 'Followed Battle Update' : 'Followed Battle Vote';
+  const body = isInteresting
+    ? `${battleName(battle)} now has ${totalVotes} votes${previousLeader !== nextLeader ? ' and the leader changed.' : '.'}`
+    : `Someone voted on ${battleName(battle)}.`;
+
+  await Promise.all(
+    followerUids
+      .filter((recipientUid) => recipientUid && recipientUid !== voterUid)
+      .map((recipientUid) =>
+        createNotification(recipientUid, {
+          type: isInteresting ? 'mog_battle_follow_update' : 'mog_battle_follow_vote',
+          title,
+          body,
+          url: `/mog-battles?battle=${encodeURIComponent(id)}`,
+        }).catch((notifyErr) => {
+          console.warn('[notifications] follower vote notification failed:', notifyErr.message);
+        })
+      )
+  );
+}
+
+function getBattleLeader(votesA, votesB) {
+  const a = Number(votesA) || 0;
+  const b = Number(votesB) || 0;
+  if (a === b) return 'tie';
+  return a > b ? 'a' : 'b';
+}
+
+function isBattleMilestone(totalVotes) {
+  const total = Number(totalVotes) || 0;
+  if (total <= 0) return false;
+  if ([5, 10, 25, 50, 100].includes(total)) return true;
+  return total > 100 && total % 100 === 0;
+}
+
+function battleName(battle) {
+  return `${battle?.fighterA?.name || 'Scan'} vs ${battle?.fighterB?.name || 'Scan'}`;
 }
 
 /** Public tallies — same numbers for every client worldwide. */
@@ -377,6 +571,86 @@ app.get('/api/mog-battle/my-vote/:battleId', requireFirestore, async (req, res) 
   } catch (e) {
     console.error('[mog-battle] my-vote', e.message);
     return res.status(401).json({ voted: false, error: 'Invalid session' });
+  }
+});
+
+app.get('/api/mog-battle/follows', requireFirestore, async (req, res) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!token) return res.status(401).json({ error: 'Sign in required' });
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    const uid = decoded.uid;
+
+    if (!firestore) {
+      const battleIds = Object.entries(localMogBattleFollows)
+        .filter(([, followers]) => Boolean(followers?.[uid]))
+        .map(([battleId]) => battleId);
+      return res.json({ battleIds });
+    }
+
+    let snap;
+    try {
+      snap = await firestore.collection('users').doc(uid).collection('mogBattleFollows').orderBy('updatedAt', 'desc').limit(200).get();
+    } catch (orderErr) {
+      console.warn('[mog-battle] follows orderBy failed, falling back:', orderErr.message);
+      snap = await firestore.collection('users').doc(uid).collection('mogBattleFollows').limit(200).get();
+    }
+
+    const battleIds = [];
+    snap.forEach((doc) => battleIds.push(doc.id));
+    return res.json({ battleIds });
+  } catch (e) {
+    console.error('[mog-battle] follows GET', e.message);
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+});
+
+app.post('/api/mog-battle/follow', requireFirestore, async (req, res) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const battleId = String(req.body?.battleId || '').trim();
+  const following = Boolean(req.body?.following);
+
+  if (!token) return res.status(401).json({ error: 'Sign in required' });
+  if (!isValidMogBattleId(battleId)) return res.status(400).json({ error: 'Invalid battle id' });
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+    const uid = decoded.uid;
+
+    if (!firestore) {
+      if (!localMogBattleFollows[battleId]) localMogBattleFollows[battleId] = {};
+      if (following) localMogBattleFollows[battleId][uid] = true;
+      else delete localMogBattleFollows[battleId][uid];
+      return res.json({ ok: true, battleId, following });
+    }
+
+    const userFollowRef = firestore.collection('users').doc(uid).collection('mogBattleFollows').doc(battleId);
+    const battleFollowerRef = firestore.collection('mogBattles').doc(battleId).collection('followers').doc(uid);
+
+    if (following) {
+      const doc = {
+        battleId,
+        uid,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+      await Promise.all([
+        userFollowRef.set(doc, { merge: true }),
+        battleFollowerRef.set(doc, { merge: true }),
+      ]);
+    } else {
+      await Promise.all([
+        userFollowRef.delete().catch(() => {}),
+        battleFollowerRef.delete().catch(() => {}),
+      ]);
+    }
+
+    return res.json({ ok: true, battleId, following });
+  } catch (e) {
+    console.error('[mog-battle] follow POST', e.message);
+    return res.status(401).json({ error: 'Invalid session' });
   }
 });
 
@@ -455,6 +729,35 @@ app.post('/api/mog-battle/community', requireFirestore, async (req, res) => {
   }
 });
 
+app.get('/api/community-scans', requireFirestore, async (req, res) => {
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 30, 1), 100);
+
+  if (!firestore) {
+    return res.json({ scans: localCommunityScans.slice(0, limit) });
+  }
+
+  try {
+    let snap;
+    try {
+      snap = await firestore.collection('communityScans').orderBy('timestamp', 'desc').limit(limit).get();
+    } catch (orderErr) {
+      console.warn('[community-scans] orderBy failed, falling back:', orderErr.message);
+      snap = await firestore.collection('communityScans').limit(limit).get();
+    }
+    const scans = [];
+    snap.forEach((doc) => scans.push({ id: doc.id, ...doc.data() }));
+    scans.sort((a, b) => {
+      const aMs = a?.timestamp?.toMillis?.() || (typeof a?.timestamp?.seconds === 'number' ? a.timestamp.seconds * 1000 : new Date(a?.timestamp || 0).getTime() || 0);
+      const bMs = b?.timestamp?.toMillis?.() || (typeof b?.timestamp?.seconds === 'number' ? b.timestamp.seconds * 1000 : new Date(b?.timestamp || 0).getTime() || 0);
+      return bMs - aMs;
+    });
+    return res.json({ scans });
+  } catch (e) {
+    console.error('[community-scans] GET failed', e);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
 /** Record vote — transactional; duplicate UID returns 409 with current tallies. */
 app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (req, res) => {
   const authHeader = req.headers.authorization || '';
@@ -477,6 +780,8 @@ app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (
       
       if (!localMogBattles[battleId]) localMogBattles[battleId] = { votesA: 0, votesB: 0 };
       if (!localMogVotes[battleId]) localMogVotes[battleId] = {};
+      const previousA = Number(localMogBattles[battleId].votesA) || 0;
+      const previousB = Number(localMogBattles[battleId].votesB) || 0;
       
       if (!isMogBattleAdminEmail(decoded.email)) {
         if (localMogVotes[battleId][uid]) {
@@ -497,7 +802,30 @@ app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (
       if (cb) {
          cb.votesA = localMogBattles[battleId].votesA;
          cb.votesB = localMogBattles[battleId].votesB;
+         const recipients = new Set([
+           cb.creatorId,
+           cb.fighterA?.ownerUid,
+           cb.fighterB?.ownerUid,
+         ].filter(Boolean));
+         recipients.delete(uid);
+         recipients.forEach((recipientUid) => {
+           createNotification(recipientUid, {
+             type: 'mog_battle_vote',
+             title: 'New Mog Battle Vote',
+             body: `Someone voted on ${battleName(cb)}.`,
+             url: `/mog-battles?battle=${encodeURIComponent(battleId)}`,
+           }).catch((notifyErr) => console.warn('[notifications] local vote notification failed:', notifyErr.message));
+         });
       }
+      await notifyMogBattleFollowers({
+        battleId,
+        battle: cb || { fighterA: { name: 'Fighter A' }, fighterB: { name: 'Fighter B' } },
+        voterUid: uid,
+        previousA,
+        previousB,
+        nextA: localMogBattles[battleId].votesA,
+        nextB: localMogBattles[battleId].votesB,
+      });
       
       return res.json({ success: true });
     } catch(e) {
@@ -568,7 +896,7 @@ app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (
         side,
         votedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      return { status: 'ok' };
+      return { status: 'ok', previousA: curA, previousB: curB };
     });
 
     const snap = await battleRef.get();
@@ -592,6 +920,52 @@ app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (
         ...(existingSide ? { side: existingSide } : {}),
         ...tallies,
       });
+    }
+
+    try {
+      const battleSnap = await firestore.collection('mogBattlesCommunity').doc(battleId).get();
+      if (battleSnap.exists) {
+        const battle = battleSnap.data() || {};
+        const recipients = new Set([
+          battle.creatorId,
+          battle.fighterA?.ownerUid,
+          battle.fighterB?.ownerUid,
+        ].filter(Boolean));
+        recipients.delete(uid);
+        await Promise.all(
+          [...recipients].map((recipientUid) =>
+            createNotification(recipientUid, {
+              type: 'mog_battle_vote',
+              title: 'New Mog Battle Vote',
+              body: `Someone voted on ${battleName(battle)}.`,
+              url: `/mog-battles?battle=${encodeURIComponent(battleId)}`,
+            }).catch((notifyErr) => {
+              console.warn('[notifications] vote notification failed:', notifyErr.message);
+            })
+          )
+        );
+        await notifyMogBattleFollowers({
+          battleId,
+          battle,
+          voterUid: uid,
+          previousA: outcome.previousA,
+          previousB: outcome.previousB,
+          nextA: tallies.a,
+          nextB: tallies.b,
+        });
+      } else {
+        await notifyMogBattleFollowers({
+          battleId,
+          battle: { fighterA: { name: 'Fighter A' }, fighterB: { name: 'Fighter B' } },
+          voterUid: uid,
+          previousA: outcome.previousA,
+          previousB: outcome.previousB,
+          nextA: tallies.a,
+          nextB: tallies.b,
+        });
+      }
+    } catch (notifyErr) {
+      console.warn('[notifications] vote notification lookup failed:', notifyErr.message);
     }
 
     return res.json({ ok: true, ...tallies });
@@ -626,6 +1000,60 @@ app.get('/api/health', (req, res) => {
 
 app.get('/health', (req, res) => {
   res.json(healthPayload());
+});
+
+app.get('/api/notifications', extractUserOptional, async (req, res) => {
+  if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    if (!firestore) {
+      return res.json({ notifications: (localNotifications[req.uid] || []).slice(0, 80) });
+    }
+    let snap;
+    try {
+      snap = await firestore
+        .collection('users')
+        .doc(req.uid)
+        .collection('notifications')
+        .orderBy('createdAt', 'desc')
+        .limit(80)
+        .get();
+    } catch (orderErr) {
+      console.warn('[notifications] orderBy failed, falling back:', orderErr.message);
+      snap = await firestore.collection('users').doc(req.uid).collection('notifications').limit(80).get();
+    }
+    const notifications = [];
+    snap.forEach((doc) => notifications.push(serializeNotification(doc)));
+    notifications.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    res.json({ notifications });
+  } catch (e) {
+    console.error('[notifications] GET failed:', e);
+    res.status(500).json({ error: e.message || 'Failed to load notifications' });
+  }
+});
+
+app.post('/api/notifications/:id/read', extractUserOptional, async (req, res) => {
+  if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
+  const id = String(req.params.id || '').trim();
+  if (!id) return res.status(400).json({ error: 'Missing notification id' });
+  try {
+    if (!firestore) {
+      const list = localNotifications[req.uid] || [];
+      const item = list.find((n) => n.id === id);
+      if (item) item.read = true;
+      return res.json({ ok: true });
+    }
+    await firestore.collection('users').doc(req.uid).collection('notifications').doc(id).set(
+      {
+        read: true,
+        readAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[notifications] mark read failed:', e);
+    res.status(500).json({ error: e.message || 'Failed to mark notification read' });
+  }
 });
 
 app.get('/api/user/status', extractUserOptional, async (req, res) => {
@@ -1078,9 +1506,7 @@ app.post(
     } else {
       args.push('');
     }
-    if (sideImagePath) {
-      args.push(sideImagePath);
-    }
+    args.push(sideImagePath || '');
 
     const pythonExecutable = getPythonExecutable();
 
@@ -1175,7 +1601,6 @@ app.post(
     parsed.finalRating != null && !Number.isNaN(parsed.finalRating) ? parsed.finalRating : null;
   const sideRating =
     parsed.sideRating != null && !Number.isNaN(parsed.sideRating) ? parsed.sideRating : null;
-
   const payload = {
     success,
     sex: parsed.sex,
@@ -1278,6 +1703,8 @@ app.post(
             await firestore.collection('users').doc(req.uid).collection('scans').add({
               timestamp: admin.firestore.FieldValue.serverTimestamp(),
               model: modelChoice,
+              cohesiveFrontSide: false,
+              visibility: 'private',
               finalRating,
               sideRating,
               frontImageUrl: persistedFrontImage || null,
@@ -1289,6 +1716,8 @@ app.post(
                 ...payload,
                 frontImage: persistedFrontImage || payload.frontImage || null,
                 sideImage: persistedSideImage || payload.sideImage || null,
+                selectedModel: String(modelChoice || payload.selectedModel || '').trim() || '1',
+                cohesiveFrontSide: false,
               }, // NEW: save the full payload so profiles can fetch it later
               profileId: req.body.profileId || 'default' // NEW: associate with a profile
             });
@@ -1370,6 +1799,37 @@ app.get('/api/admin/stats', (req, res) => {
     return res.status(401).json({ error: 'Invalid admin password' });
   }
   res.json(adminStore.getStats());
+});
+
+app.post('/api/admin/notifications/announcement', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  const title = String(req.body?.title || 'MogCheck Announcement').trim().slice(0, 140);
+  const body = String(req.body?.body || '').trim().slice(0, 1000);
+  const url = String(req.body?.url || '').trim().slice(0, 500);
+  if (!body) return res.status(400).json({ error: 'Announcement body is required' });
+
+  try {
+    const usersSnap = await firestore.collection('users').get();
+    const uids = [];
+    usersSnap.forEach((doc) => uids.push(doc.id));
+    await Promise.all(
+      uids.map((uid) =>
+        createNotification(uid, {
+          type: 'announcement',
+          title,
+          body,
+          url,
+        })
+      )
+    );
+    res.json({ ok: true, count: uids.length });
+  } catch (e) {
+    console.error('[admin] Failed to send announcement:', e);
+    res.status(500).json({ error: e.message || 'Failed to send announcement' });
+  }
 });
 
 // GET all users for Admin
@@ -1562,6 +2022,7 @@ app.delete('/api/admin/users/:uid/scans/:scanId', async (req, res) => {
         if (d.frontImageDest) await bucket.file(d.frontImageDest).delete().catch(() => {});
         if (d.sideImageDest) await bucket.file(d.sideImageDest).delete().catch(() => {});
       }
+      await syncCommunityScanVisibility(uid, scanId, d, 'private');
       await docRef.delete();
     }
     res.json({ ok: true });
@@ -1586,6 +2047,47 @@ app.get('/api/user/scans', extractUserOptional, async (req, res) => {
   }
 });
 
+app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
+  if (!req.uid || !firestore) return res.status(401).json({ error: 'Unauthorized' });
+  const { scanId } = req.params;
+  try {
+    const docRef = firestore.collection('users').doc(req.uid).collection('scans').doc(scanId);
+    const doc = await docRef.get();
+    if (!doc.exists) return res.status(404).json({ error: 'Scan not found' });
+
+    const currentData = doc.data() || {};
+    const updateData = {
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'visibility')) {
+      updateData.visibility = normalizeScanVisibility(req.body.visibility);
+    }
+
+    if (Object.keys(updateData).length === 1) {
+      return res.json({ ok: true, scan: { id: doc.id, ...currentData } });
+    }
+
+    await docRef.set(updateData, { merge: true });
+    const nextData = { ...currentData, ...updateData };
+
+    if (Object.prototype.hasOwnProperty.call(updateData, 'visibility')) {
+      await syncCommunityScanVisibility(req.uid, scanId, nextData, updateData.visibility);
+    }
+
+    res.json({
+      ok: true,
+      scan: {
+        id: doc.id,
+        ...nextData,
+      },
+    });
+  } catch (e) {
+    console.error('[user/scans] PUT failed:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.delete('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
   if (!req.uid || !firestore) return res.status(401).json({ error: 'Unauthorized' });
   const { scanId } = req.params;
@@ -1599,6 +2101,7 @@ app.delete('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
         if (d.frontImageDest) await bucket.file(d.frontImageDest).delete().catch(() => {});
         if (d.sideImageDest) await bucket.file(d.sideImageDest).delete().catch(() => {});
       }
+      await syncCommunityScanVisibility(req.uid, scanId, d, 'private');
       await docRef.delete();
     }
     res.json({ ok: true });
@@ -1607,7 +2110,14 @@ app.delete('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
   }
 });
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(
+  '/uploads',
+  express.static(path.join(__dirname, 'uploads'), {
+    maxAge: '30d',
+    immutable: true,
+    etag: true,
+  })
+);
 
 if (fs.existsSync(distDir)) {
   app.get(/^(?!\/api\/).*/, (req, res) => {

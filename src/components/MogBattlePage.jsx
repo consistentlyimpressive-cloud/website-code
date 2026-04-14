@@ -1,12 +1,15 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Crown, ChevronDown, Plus, History, X, ShieldCheck, Swords, Trophy, Sparkles, Activity } from 'lucide-react';
+import { Crown, ChevronDown, Plus, History, X, ShieldCheck, Swords, Trophy, Sparkles, Activity, Share2, Heart, Copy, ExternalLink } from 'lucide-react';
 import { getAllFeaturedBattles, getMetricRowsForBattle, aiWinner } from '../data/mogBattles';
 import {
   fetchCommunityBattles,
+  fetchCommunityScans,
+  fetchFollowedMogBattles,
   fetchMogBattleTallies,
   fetchMyMogBattleVote,
   postMogBattleVote,
   postCommunityBattle,
+  setMogBattleFollow,
 } from '../api/mogBattleVotes';
 import { getApiBase } from '../utils/apiBase';
 
@@ -24,6 +27,7 @@ const sectionHeaderIconClass =
   'h-8 w-8 rounded-full border border-zinc-800 bg-zinc-950/90 p-2 text-cyan-300 shadow-[0_0_24px_rgba(34,211,238,0.08)]';
 const celebrityNameClass =
   'text-[13px] font-black uppercase tracking-[0.12em] text-white';
+const FOLLOWED_BATTLES_STORAGE_KEY = 'mogcheck-followed-battles';
 
 const timestampToMillis = (value) => {
   if (!value) return 0;
@@ -65,6 +69,85 @@ const fighterSummary = (fighter) =>
   fighter?.resultSummary ||
   'No short analysis summary available yet.';
 
+const scanMetricRows = (scan) => {
+  const source = scan?.stats || scan?.biometrics || scan?.metrics || scan?.payload?.stats || scan?.payload?.biometrics || [];
+  if (!Array.isArray(source)) return [];
+  return source
+    .map((metric) => ({
+      label: metric?.label || metric?.name || metric?.key || 'Metric',
+      score: Number(metric?.score ?? metric?.value ?? metric?.rating) || 0,
+    }))
+    .filter((metric) => metric.label && metric.score > 0)
+    .slice(0, 8);
+};
+
+const scanToBattleFighter = (scan, fallback = 'Scan') => {
+  const payload = scan?.payload && typeof scan.payload === 'object' ? scan.payload : {};
+  const finalRating = Number(scan?.finalRating ?? payload.finalRating ?? payload.rating);
+  return {
+    ...payload,
+    ...scan,
+    name: scan?.name || payload.profileName || payload.displayName || payload.name || fallback,
+    frontImage: scan?.frontImage || scan?.frontImageUrl || payload.frontImage || payload.imgSrc || null,
+    sideImage: scan?.sideImage || scan?.sideImageUrl || payload.sideImage || null,
+    finalRating: Number.isFinite(finalRating) ? finalRating : 0,
+    stats: scanMetricRows(scan).length ? scanMetricRows(scan) : scanMetricRows(payload),
+    technicalSummary: scan?.technicalSummary || payload.technicalSummary || payload.summary || scan?.summary || '',
+    ownerUid: scan?.ownerUid || scan?.uid || payload.ownerUid || payload.uid || '',
+    profileId: scan?.profileId || payload.profileId || '',
+    scanId: scan?.scanId || scan?.id || payload.scanId || '',
+    visibility: scan?.visibility || payload.visibility || 'private',
+    sex: scan?.sex || payload.sex || payload.gender || '',
+    model: scan?.model || payload.model || payload.modelUsed || '',
+    cohesiveFrontSide: Boolean(scan?.cohesiveFrontSide || payload.cohesiveFrontSide),
+  };
+};
+
+const fighterGenderLabel = (fighter) => {
+  const value = String(fighter?.sex || fighter?.gender || '').trim().toLowerCase();
+  if (!value) return 'Unknown';
+  if (value.startsWith('m')) return 'Male';
+  if (value.startsWith('f')) return 'Female';
+  return 'Unknown';
+};
+
+const fighterAnalysisPath = (fighter, currentUserUid = '') => {
+  const ownerUid = String(fighter?.ownerUid || fighter?.uid || '').trim();
+  const profileId = String(fighter?.profileId || '').trim();
+  const scanId = String(fighter?.scanId || '').trim();
+  const visibility = String(fighter?.visibility || '').trim().toLowerCase();
+  if (!ownerUid || !profileId) return null;
+  if (visibility === 'private' && ownerUid !== currentUserUid) return null;
+  const base = `/users/${encodeURIComponent(ownerUid)}/${encodeURIComponent(profileId)}`;
+  return scanId ? `${base}?scan=${encodeURIComponent(scanId)}` : base;
+};
+
+const battleShareUrl = (battleId) => {
+  try {
+    const url = new URL('/mog-battles', window.location.origin);
+    url.searchParams.set('battle', String(battleId || '').trim());
+    return url.toString();
+  } catch {
+    return `/mog-battles?battle=${encodeURIComponent(String(battleId || '').trim())}`;
+  }
+};
+
+const openInternalPath = (path) => {
+  if (!path) return;
+  window.history.pushState({}, '', path);
+  window.dispatchEvent(new Event('popstate'));
+};
+
+const readFollowedBattleIds = () => {
+  try {
+    const raw = window.localStorage.getItem(FOLLOWED_BATTLES_STORAGE_KEY);
+    const parsed = JSON.parse(raw || '[]');
+    return Array.isArray(parsed) ? parsed.map((value) => String(value)) : [];
+  } catch {
+    return [];
+  }
+};
+
 const fighterKey = (fighter) =>
   [fighterLabel(fighter), fighterImage(fighter), fighter?.profileId || ''].join('|');
 
@@ -75,12 +158,34 @@ function normalizeBattle(rawBattle) {
     name: fighterLabel(rawBattle.fighterA),
     imgSrc: fighterImage(rawBattle.fighterA),
     rating: fighterScore(rawBattle.fighterA) ?? 0,
+    stats:
+      (Array.isArray(rawBattle.fighterA?.stats) && rawBattle.fighterA.stats.length
+        ? rawBattle.fighterA.stats
+        : Array.isArray(rawBattle.fighterA?.biometrics)
+          ? rawBattle.fighterA.biometrics
+              .map((metric) => ({
+                label: metric?.label || 'Metric',
+                score: Number(metric?.score) || 0,
+              }))
+              .filter((metric) => metric.label)
+          : []),
   };
   const fighterB = {
     ...rawBattle.fighterB,
     name: fighterLabel(rawBattle.fighterB),
     imgSrc: fighterImage(rawBattle.fighterB),
     rating: fighterScore(rawBattle.fighterB) ?? 0,
+    stats:
+      (Array.isArray(rawBattle.fighterB?.stats) && rawBattle.fighterB.stats.length
+        ? rawBattle.fighterB.stats
+        : Array.isArray(rawBattle.fighterB?.biometrics)
+          ? rawBattle.fighterB.biometrics
+              .map((metric) => ({
+                label: metric?.label || 'Metric',
+                score: Number(metric?.score) || 0,
+              }))
+              .filter((metric) => metric.label)
+          : []),
   };
   return {
     ...rawBattle,
@@ -211,27 +316,49 @@ const MetricBreakdown = ({ battle }) => {
   );
 };
 
-const FighterMiniCard = ({ fighter, scoreTone = 'text-cyan-300' }) => (
+const FighterMiniCard = ({ fighter, scoreTone = 'text-cyan-300', hidden = false, analysisPath = null }) => (
   <div className="rounded-2xl border border-zinc-800 bg-black/30 p-3">
     <div className="flex items-center gap-3">
-      <img
-        src={fighterImage(fighter)}
-        alt={fighterLabel(fighter)}
-        className="h-16 w-16 rounded-2xl border border-zinc-800 object-cover"
-      />
+      {analysisPath ? (
+        <button type="button" onClick={() => openInternalPath(analysisPath)} className="shrink-0">
+          <img
+            src={fighterImage(fighter)}
+            alt={fighterLabel(fighter)}
+            className="h-16 w-16 rounded-2xl border border-zinc-800 object-cover transition-transform duration-300 hover:scale-[1.04]"
+          />
+        </button>
+      ) : (
+        <img
+          src={fighterImage(fighter)}
+          alt={fighterLabel(fighter)}
+          className="h-16 w-16 rounded-2xl border border-zinc-800 object-cover"
+        />
+      )}
       <div className="min-w-0">
         <p className="truncate text-sm font-black uppercase tracking-[0.12em] text-white">{fighterLabel(fighter)}</p>
-        <p className={`mt-1 text-xl font-black italic tabular-nums ${scoreTone}`}>
-          {fighterScore(fighter)?.toFixed(1) ?? '--'}
+        <p className={`mt-1 text-xl font-black italic tabular-nums ${hidden ? 'text-zinc-500' : scoreTone}`}>
+          {hidden ? 'Hidden' : (fighterScore(fighter)?.toFixed(1) ?? '--')}
         </p>
       </div>
     </div>
-    <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-zinc-400">{fighterSummary(fighter)}</p>
+    <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-zinc-400">
+      {hidden ? 'Vote first to unlock the AI rating and metric breakdown for this participant.' : fighterSummary(fighter)}
+    </p>
+    {analysisPath ? (
+      <button
+        type="button"
+        onClick={() => openInternalPath(analysisPath)}
+        className="mt-3 inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-950/80 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition-colors hover:border-cyan-400/30 hover:text-white"
+      >
+        Full analysis <ExternalLink size={11} />
+      </button>
+    ) : null}
   </div>
 );
 
 const LeaderboardProfileModal = ({ row, onClose }) => {
   if (!row) return null;
+  const analysisPath = fighterAnalysisPath(row.fighter);
 
   return (
     <ModalShell
@@ -243,7 +370,13 @@ const LeaderboardProfileModal = ({ row, onClose }) => {
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <div className="space-y-4">
           <div className="rounded-[28px] border border-zinc-800 bg-black/35 p-4">
-            <img src={row.img} alt={row.name} className="aspect-[3/4] w-full rounded-[24px] border border-zinc-800 object-cover" />
+            {analysisPath ? (
+              <button type="button" onClick={() => openInternalPath(analysisPath)} className="block w-full text-left">
+                <img src={row.img} alt={row.name} className="aspect-[3/4] w-full rounded-[24px] border border-zinc-800 object-cover transition-transform duration-300 hover:scale-[1.01]" />
+              </button>
+            ) : (
+              <img src={row.img} alt={row.name} className="aspect-[3/4] w-full rounded-[24px] border border-zinc-800 object-cover" />
+            )}
             <div className="mt-4 grid grid-cols-3 gap-2">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-3 text-center">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Wins</p>
@@ -258,6 +391,15 @@ const LeaderboardProfileModal = ({ row, onClose }) => {
                 <p className="mt-1 text-lg font-black text-cyan-300">{Number(row.rating || 0).toFixed(1)}</p>
               </div>
             </div>
+            {analysisPath ? (
+              <button
+                type="button"
+                onClick={() => openInternalPath(analysisPath)}
+                className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/[0.06] px-4 py-2 font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-200 transition-colors hover:border-cyan-400/45 hover:text-white"
+              >
+                Open full analysis <ExternalLink size={12} />
+              </button>
+            ) : null}
           </div>
 
           <div className="rounded-[28px] border border-emerald-500/20 bg-emerald-500/5 p-4">
@@ -351,6 +493,8 @@ const VoteBattleModal = ({ battle, user, onClose, onVoteComplete }) => {
   const pctB = totalVotes ? 100 - pctA : 50;
   const voteMatched = myVote && winner && winner !== 'tie' ? myVote === winner : null;
   const hasLockedVote = Boolean(myVote);
+  const analysisPathA = fighterAnalysisPath(battle.fighterA, user?.uid || '');
+  const analysisPathB = fighterAnalysisPath(battle.fighterB, user?.uid || '');
 
   const handleVote = async (side) => {
     if (!user) {
@@ -407,10 +551,14 @@ const VoteBattleModal = ({ battle, user, onClose, onVoteComplete }) => {
           <FighterMiniCard
             fighter={battle.fighterA}
             scoreTone={winner === 'a' ? 'text-emerald-300' : winner === 'b' ? 'text-rose-300' : 'text-cyan-300'}
+            hidden={!hasLockedVote}
+            analysisPath={analysisPathA}
           />
           <FighterMiniCard
             fighter={battle.fighterB}
             scoreTone={winner === 'b' ? 'text-emerald-300' : winner === 'a' ? 'text-rose-300' : 'text-cyan-300'}
+            hidden={!hasLockedVote}
+            analysisPath={analysisPathB}
           />
         </div>
 
@@ -488,17 +636,25 @@ const VoteBattleModal = ({ battle, user, onClose, onVoteComplete }) => {
             <ShieldCheck size={16} className="text-zinc-500" />
             <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Final AI rating and metric breakdown</p>
           </div>
-          <div className="mb-4 grid gap-3 md:grid-cols-2">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/75 p-4">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">{fighterLabel(battle.fighterA)}</p>
-              <p className={`mt-2 text-3xl font-black italic ${winner === 'a' ? 'text-emerald-300' : winner === 'b' ? 'text-rose-300' : 'text-cyan-300'}`}>{fighterScore(battle.fighterA)?.toFixed(1) ?? '--'}</p>
+          {hasLockedVote ? (
+            <>
+              <div className="mb-4 grid gap-3 md:grid-cols-2">
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-950/75 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">{fighterLabel(battle.fighterA)}</p>
+                  <p className={`mt-2 text-3xl font-black italic ${winner === 'a' ? 'text-emerald-300' : winner === 'b' ? 'text-rose-300' : 'text-cyan-300'}`}>{fighterScore(battle.fighterA)?.toFixed(1) ?? '--'}</p>
+                </div>
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-950/75 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">{fighterLabel(battle.fighterB)}</p>
+                  <p className={`mt-2 text-3xl font-black italic ${winner === 'b' ? 'text-emerald-300' : winner === 'a' ? 'text-rose-300' : 'text-emerald-300'}`}>{fighterScore(battle.fighterB)?.toFixed(1) ?? '--'}</p>
+                </div>
+              </div>
+              <MetricBreakdown battle={battle} />
+            </>
+          ) : (
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/75 px-4 py-5 text-sm text-zinc-400">
+              Vote on this battle to unlock the final ratings and metric breakdown. If a participant has a public analysis page, you can still open it directly from the participant cards above.
             </div>
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/75 p-4">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">{fighterLabel(battle.fighterB)}</p>
-              <p className={`mt-2 text-3xl font-black italic ${winner === 'b' ? 'text-emerald-300' : winner === 'a' ? 'text-rose-300' : 'text-emerald-300'}`}>{fighterScore(battle.fighterB)?.toFixed(1) ?? '--'}</p>
-            </div>
-          </div>
-          <MetricBreakdown battle={battle} />
+          )}
         </div>
       </div>
     </ModalShell>
@@ -508,7 +664,9 @@ const VoteBattleModal = ({ battle, user, onClose, onVoteComplete }) => {
 const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreated }) => {
   const [mode, setMode] = useState('choice');
   const [userScans, setUserScans] = useState([]);
+  const [communityScans, setCommunityScans] = useState([]);
   const [loadingScans, setLoadingScans] = useState(false);
+  const [loadingCommunityScans, setLoadingCommunityScans] = useState(false);
   const [fighterAId, setFighterAId] = useState('');
   const [fighterBId, setFighterBId] = useState('');
   const [nameA, setNameA] = useState('');
@@ -534,13 +692,11 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
           const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : {};
           const score = Number(scan.finalRating ?? payload.finalRating);
           return {
+            ...scanToBattleFighter({ ...scan, payload }, `Scan ${index + 1}`),
             id: scan.id || `scan-${index}`,
             frontImage: scan.frontImageUrl || payload.frontImage || payload.imgSrc || null,
             sideImage: scan.sideImageUrl || payload.sideImage || null,
             finalRating: Number.isFinite(score) ? score : 0,
-            name: payload.profileName || payload.displayName || payload.name || '',
-            stats: payload.stats || [],
-            technicalSummary: payload.technicalSummary || payload.summary || '',
           };
         })
         .filter((scan) => scan.frontImage);
@@ -553,20 +709,44 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
     }
   }, [user]);
 
+  const fetchPublicCommunityScans = useCallback(async () => {
+    setLoadingCommunityScans(true);
+    setError('');
+
+    try {
+      const data = await fetchCommunityScans(60);
+      const normalized = (data.scans || data.items || [])
+        .map((scan, index) => ({
+          ...scanToBattleFighter(scan, `Community Scan ${index + 1}`),
+          id: scan.id || scan.scanId || `community-${index}`,
+          visibility: scan.visibility || 'community',
+        }))
+        .filter((scan) => scan.frontImage);
+      setCommunityScans(normalized);
+    } catch (e) {
+      setError(e.message || 'Could not load public community scans.');
+    } finally {
+      setLoadingCommunityScans(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (mode !== 'history' || userScans.length || !user) return;
     fetchUserScans();
   }, [fetchUserScans, mode, user, userScans.length]);
 
+  useEffect(() => {
+    if (mode !== 'community' || communityScans.length) return;
+    fetchPublicCommunityScans();
+  }, [communityScans.length, fetchPublicCommunityScans, mode]);
+
   const mergedScans = useMemo(() => {
     const dashboardScans = (dashboardData?.scanHistory || []).map((scan, index) => ({
+      ...scanToBattleFighter(scan, `Scan ${index + 1}`),
       id: scan.scanId || `dashboard-${index}`,
       frontImage: scan.frontImage,
       sideImage: scan.sideImage || null,
       finalRating: Number(scan.finalRating) || 0,
-      name: scan.profileName || '',
-      stats: scan.stats || [],
-      technicalSummary: scan.technicalSummary || scan.summary || '',
     }));
 
     const map = new Map();
@@ -576,8 +756,9 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
     return Array.from(map.values());
   }, [dashboardData?.scanHistory, userScans]);
 
-  const fighterA = mergedScans.find((scan) => scan.id === fighterAId) || null;
-  const fighterB = mergedScans.find((scan) => scan.id === fighterBId) || null;
+  const activeScans = mode === 'community' ? communityScans : mergedScans;
+  const fighterA = activeScans.find((scan) => scan.id === fighterAId) || null;
+  const fighterB = activeScans.find((scan) => scan.id === fighterBId) || null;
 
   const submitBattle = async () => {
     if (!user) {
@@ -626,7 +807,7 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
   return (
     <ModalShell title="New battle" subtitle="Upload a new scan or pick from your history" onClose={onClose} maxWidth="max-w-5xl">
       {mode === 'choice' ? (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           <button
             type="button"
             onClick={() => {
@@ -652,6 +833,17 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
               Use scans already on your account, then type names to show on the leaderboard and voting cards.
             </p>
           </button>
+          <button
+            type="button"
+            onClick={() => setMode('community')}
+            className="rounded-[30px] border border-emerald-500/25 bg-emerald-500/8 p-6 text-left transition-all duration-300 hover:scale-[1.01] hover:border-emerald-400/50 hover:bg-emerald-500/12"
+          >
+            <Sparkles size={22} className="text-emerald-300" />
+            <h4 className="mt-4 text-xl font-black uppercase tracking-[0.14em] text-white">Pick community scans</h4>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              Choose from public community scans and use their saved ratings/stats to decide the battle winner.
+            </p>
+          </button>
         </div>
       ) : (
         <div className="space-y-5">
@@ -670,9 +862,19 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
             >
               Refresh scans
             </button>
+            {mode === 'community' ? (
+              <button
+                type="button"
+                onClick={fetchPublicCommunityScans}
+                className="rounded-full border border-emerald-500/25 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-emerald-300 transition-all hover:border-emerald-400/50 hover:text-white"
+              >
+                Refresh community
+              </button>
+            ) : null}
           </div>
 
           {loadingScans ? <p className="text-sm text-zinc-500">Loading your scans...</p> : null}
+          {loadingCommunityScans ? <p className="text-sm text-zinc-500">Loading public community scans...</p> : null}
           {error ? <div className="rounded-2xl border border-rose-500/25 bg-rose-500/8 px-4 py-3 text-sm text-rose-300">{error}</div> : null}
 
           <div className="grid gap-5 md:grid-cols-2">
@@ -683,7 +885,7 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
               <div key={side.title} className="rounded-[28px] border border-zinc-800 bg-black/25 p-4">
                 <h4 className="text-sm font-black uppercase tracking-[0.18em] text-white">{side.title}</h4>
                 <div className="mt-4 grid max-h-[420px] grid-cols-2 gap-3 overflow-y-auto pr-1">
-                  {mergedScans.map((scan, idx) => {
+                  {activeScans.map((scan, idx) => {
                     const active = side.activeId === scan.id;
                     return (
                       <button
@@ -736,7 +938,7 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
   );
 };
 
-const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, onOpen }) => {
+const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, isFollowed = false, onOpen, onToggleFollow, onShare }) => {
   const labelA = fighterLabel(battle.fighterA);
   const labelB = fighterLabel(battle.fighterB);
   const totalVotes = Number(battle.votesA || 0) + Number(battle.votesB || 0);
@@ -751,6 +953,28 @@ const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, onOpen }) 
           : 'border-white/10 shadow-[0_14px_42px_rgba(0,0,0,0.34)]'
       }`}
     >
+      <div className="absolute right-5 top-5 z-10 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onToggleFollow?.(battle.id)}
+          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.18em] transition-all ${
+            isFollowed
+              ? 'border-emerald-400/35 bg-emerald-400/10 text-emerald-200'
+              : 'border-white/10 bg-black/50 text-zinc-400 hover:border-emerald-400/30 hover:text-white'
+          }`}
+        >
+          <Heart size={12} className={isFollowed ? 'fill-emerald-300 text-emerald-300' : ''} />
+          {isFollowed ? 'Following' : 'Follow'}
+        </button>
+        <button
+          type="button"
+          onClick={() => onShare?.(battle.id)}
+          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/50 px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400 transition-all hover:border-cyan-400/30 hover:text-white"
+        >
+          <Share2 size={12} />
+          Share
+        </button>
+      </div>
       <div className="grid gap-6 pt-4 lg:grid-cols-[minmax(0,0.9fr)_260px_minmax(0,0.9fr)] lg:items-center">
         <div className="space-y-4">
           <div className="overflow-hidden rounded-[16px] border border-white/10 bg-black/40 shadow-[inset_0_0_0_1px_rgba(0,240,255,0.05)]">
@@ -881,16 +1105,13 @@ const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, onOpen }) 
   );
 };
 
-const LatestBattleCard = ({ battle, onOpen }) => {
+const LatestBattleCard = ({ battle, onOpen, onShare }) => {
   const labelA = fighterLabel(battle.fighterA);
   const labelB = fighterLabel(battle.fighterB);
 
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(battle)}
-      className="group overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(12,12,12,0.96),rgba(7,7,7,0.98))] text-left shadow-[0_16px_44px_rgba(0,0,0,0.36)] transition-all duration-300 hover:border-cyan-400/30 hover:shadow-[0_18px_52px_rgba(0,240,255,0.08)]"
-    >
+    <div className="group overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(12,12,12,0.96),rgba(7,7,7,0.98))] text-left shadow-[0_16px_44px_rgba(0,0,0,0.36)] transition-all duration-300 hover:border-cyan-400/30 hover:shadow-[0_18px_52px_rgba(0,240,255,0.08)]">
+      <button type="button" onClick={() => onOpen(battle)} className="block w-full text-left">
       <div className="grid grid-cols-2">
         <div className="relative overflow-hidden border-r border-white/10">
           <img src={fighterImage(battle.fighterA)} alt={labelA} className="aspect-[3/4] w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
@@ -909,19 +1130,121 @@ const LatestBattleCard = ({ battle, onOpen }) => {
           {formatBattleTime(battle.createdAt)}
         </span>
       </div>
-    </button>
+      </button>
+      <div className="border-t border-white/10 px-4 py-3">
+        <button
+          type="button"
+          onClick={() => onShare?.(battle.id)}
+          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-400 transition-all hover:border-cyan-400/30 hover:text-white"
+        >
+          <Share2 size={11} />
+          Share battle
+        </button>
+      </div>
+    </div>
   );
 };
 
 const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
   const [communityBattles, setCommunityBattles] = useState([]);
-  const [leaderboardCap, setLeaderboardCap] = useState(10);
+  const [leaderboardCap, setLeaderboardCap] = useState(50);
   const [leaderboardProfile, setLeaderboardProfile] = useState(null);
   const [voteModalBattle, setVoteModalBattle] = useState(null);
   const [newBattleOpen, setNewBattleOpen] = useState(false);
+  const [showFollowing, setShowFollowing] = useState(false);
   const [sortBy, setSortBy] = useState('latest');
   const [loading, setLoading] = useState(true);
   const [myVotesByBattle, setMyVotesByBattle] = useState({});
+  const [followedBattleIds, setFollowedBattleIds] = useState([]);
+  const [shareStatus, setShareStatus] = useState('');
+  const [openedSharedBattleId, setOpenedSharedBattleId] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadFollowedBattles = async () => {
+      const localIds = readFollowedBattleIds();
+      if (!user) {
+        setFollowedBattleIds(localIds);
+        return;
+      }
+
+      try {
+        const token = await user.getIdToken();
+        const data = await fetchFollowedMogBattles(token);
+        if (cancelled) return;
+        const remoteIds = (data.battleIds || []).map((id) => String(id));
+        setFollowedBattleIds(remoteIds);
+        try {
+          window.localStorage.setItem(FOLLOWED_BATTLES_STORAGE_KEY, JSON.stringify(remoteIds));
+        } catch {
+          // ignore private browsing/local storage errors
+        }
+      } catch {
+        if (!cancelled) setFollowedBattleIds(localIds);
+      }
+    };
+
+    loadFollowedBattles();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const toggleFollowBattle = useCallback(async (battleId) => {
+    const id = String(battleId || '');
+    if (!id) return;
+    const nextFollowing = !followedBattleIds.includes(id);
+
+    setFollowedBattleIds((current) => {
+      const next = nextFollowing ? Array.from(new Set([...current, id])) : current.filter((value) => value !== id);
+      try {
+        window.localStorage.setItem(FOLLOWED_BATTLES_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // ignore private browsing/local storage errors
+      }
+      return next;
+    });
+
+    if (!user) {
+      setShareStatus('Sign in to sync followed battles.');
+      window.setTimeout(() => setShareStatus(''), 2600);
+      return;
+    }
+
+    try {
+      const token = await user.getIdToken();
+      const result = await setMogBattleFollow(token, id, nextFollowing);
+      if (!result.ok) throw new Error(result.data?.error || 'Could not update follow');
+    } catch {
+      setFollowedBattleIds((current) => {
+        const reverted = nextFollowing ? current.filter((value) => value !== id) : Array.from(new Set([...current, id]));
+        try {
+          window.localStorage.setItem(FOLLOWED_BATTLES_STORAGE_KEY, JSON.stringify(reverted));
+        } catch {
+          // ignore private browsing/local storage errors
+        }
+        return reverted;
+      });
+      setShareStatus('Could not sync follow.');
+      window.setTimeout(() => setShareStatus(''), 2600);
+    }
+  }, [followedBattleIds, user]);
+
+  const shareBattle = useCallback(async (battleId) => {
+    const url = battleShareUrl(battleId);
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setShareStatus('Share link copied.');
+      } else {
+        setShareStatus(url);
+      }
+    } catch {
+      setShareStatus(url);
+    }
+    window.setTimeout(() => setShareStatus(''), 2600);
+  }, []);
 
   const loadCommunityBattles = useCallback(async () => {
     try {
@@ -966,11 +1289,25 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
   }, [feedItems, sortBy]);
 
   const latestBattles = useMemo(() => feedItems.slice(0, 4), [feedItems]);
+  const followedBattles = useMemo(
+    () => feedItems.filter((battle) => followedBattleIds.includes(String(battle.id))),
+    [feedItems, followedBattleIds]
+  );
 
   const battleHistoryItems = useMemo(
     () => [...feedItems].sort((a, b) => timestampToMillis(b.createdAt) - timestampToMillis(a.createdAt)).slice(0, 10),
     [feedItems]
   );
+
+  useEffect(() => {
+    if (!feedItems.length || openedSharedBattleId) return;
+    const battleId = new URLSearchParams(window.location.search).get('battle');
+    if (!battleId) return;
+    const match = feedItems.find((battle) => String(battle.id) === String(battleId));
+    if (!match) return;
+    setOpenedSharedBattleId(String(battleId));
+    setVoteModalBattle(match);
+  }, [feedItems, openedSharedBattleId]);
 
   const refreshBattleTallies = useCallback(async () => {
     if (!feedItems.length) return;
@@ -1139,14 +1476,15 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                       key={row.key}
                       type="button"
                       onClick={() => setLeaderboardProfile(row)}
-                      className="grid w-full grid-cols-[34px_minmax(0,1fr)_52px] items-center gap-4 border-b border-white/10 px-5 py-4 text-left transition-all duration-300 hover:bg-cyan-400/[0.04] last:border-b-0"
+                      className="grid w-full grid-cols-[34px_42px_minmax(0,1fr)_52px] items-center gap-4 border-b border-white/10 px-5 py-4 text-left transition-all duration-300 hover:bg-cyan-400/[0.04] last:border-b-0"
                     >
                       <span className={`text-[32px] font-black leading-none ${idx < 3 ? 'bg-[linear-gradient(180deg,#ffffff_0%,#87e8ff_65%,#00F0FF_100%)] bg-clip-text text-transparent' : 'text-zinc-500'}`}>
                         {idx + 1}
                       </span>
+                      <img src={row.img} alt={row.name} className="h-11 w-11 rounded-2xl border border-white/10 object-cover object-top grayscale" />
                       <div className="min-w-0">
                         <p className="truncate bg-[linear-gradient(180deg,#ffffff_0%,#c9f7ff_58%,#59ddff_100%)] bg-clip-text text-[14px] font-black uppercase tracking-[0.13em] text-transparent">{row.name}</p>
-                        <p className="mt-1 font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-600">AI ladder record</p>
+                        <p className="mt-1 font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-600">{fighterGenderLabel(row.fighter)}</p>
                       </div>
                       <div className="text-right text-[11px] font-black uppercase leading-tight tracking-[0.08em]">
                         <div className="text-cyan-200">{row.wins}W</div>
@@ -1197,13 +1535,13 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                     <Swords size={16} />
                   </div>
                   <div>
-                    <p className="text-[12px] font-black uppercase tracking-[0.26em] text-white">Latestet Battles</p>
+                    <p className="text-[12px] font-black uppercase tracking-[0.26em] text-white">Latest Battles</p>
                   </div>
                 </div>
                 <div className="grid gap-5 md:grid-cols-2">
                   {latestBattles.length ? (
                     latestBattles.map((battle) => (
-                      <LatestBattleCard key={battle.id} battle={battle} onOpen={setVoteModalBattle} />
+                      <LatestBattleCard key={battle.id} battle={battle} onOpen={setVoteModalBattle} onShare={shareBattle} />
                     ))
                   ) : (
                     <div className="col-span-full flex min-h-[280px] items-center justify-center rounded-[28px] border border-white/10 bg-white/[0.02] text-sm text-zinc-500">
@@ -1235,6 +1573,17 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                     Battle history
                   </span>
                   <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-zinc-500">Jump to previous results</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowFollowing(true)}
+                  className="flex w-full flex-col items-start gap-2 rounded-[24px] border border-emerald-400/20 bg-emerald-400/[0.04] px-6 py-5 text-left transition-all duration-300 hover:border-emerald-400/40 hover:bg-emerald-400/[0.08]"
+                >
+                  <span className="inline-flex items-center gap-2 text-[13px] font-black text-white">
+                    <Heart size={16} className="text-emerald-300" />
+                    Following
+                  </span>
+                  <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-emerald-200/60">{followedBattles.length} tracked battles</span>
                 </button>
               </div>
             </div>
@@ -1273,6 +1622,9 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                         battle={battle}
                         isFeatured={index === 0}
                         hasVoted={Boolean(myVotesByBattle[battle.id])}
+                        isFollowed={followedBattleIds.includes(String(battle.id))}
+                        onToggleFollow={toggleFollowBattle}
+                        onShare={shareBattle}
                         onOpen={setVoteModalBattle}
                       />
                     </div>
@@ -1340,6 +1692,54 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
       {leaderboardProfile ? (
         <LeaderboardProfileModal row={leaderboardProfile} onClose={() => setLeaderboardProfile(null)} />
       ) : null}
+      {showFollowing ? (
+        <ModalShell title="Following" subtitle="Mog Battles you are tracking" onClose={() => setShowFollowing(false)} maxWidth="max-w-4xl">
+          <div className="space-y-3">
+            {followedBattles.length ? (
+              followedBattles.map((battle) => (
+                <div
+                  key={`followed-${battle.id}`}
+                  className="flex w-full items-center justify-between gap-4 rounded-[24px] border border-zinc-800 bg-zinc-950/70 px-4 py-4 text-left transition-all hover:border-emerald-400/25 hover:bg-emerald-400/[0.04]"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFollowing(false);
+                      setVoteModalBattle(battle);
+                    }}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                  >
+                    <div className="flex -space-x-3">
+                      <img src={fighterImage(battle.fighterA)} alt="" className="h-12 w-12 rounded-2xl border border-zinc-800 object-cover object-top grayscale" />
+                      <img src={fighterImage(battle.fighterB)} alt="" className="h-12 w-12 rounded-2xl border border-zinc-800 object-cover object-top grayscale" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black uppercase tracking-[0.14em] text-white">
+                        {fighterLabel(battle.fighterA)} <span className="text-zinc-500">vs</span> {fighterLabel(battle.fighterB)}
+                      </p>
+                        <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-500">{formatBattleTime(battle.createdAt)}</p>
+                      </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      shareBattle(battle.id);
+                    }}
+                    className="shrink-0 rounded-full border border-white/10 bg-black/40 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-400 transition-all hover:border-cyan-400/30 hover:text-white"
+                  >
+                    Share
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-[24px] border border-zinc-800 bg-zinc-950/70 px-5 py-8 text-sm text-zinc-400">
+                You are not following any battles yet. Hit Follow on a battle card to track it here.
+              </div>
+            )}
+          </div>
+        </ModalShell>
+      ) : null}
       {voteModalBattle ? (
         <VoteBattleModal
           battle={voteModalBattle}
@@ -1362,6 +1762,12 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
             refreshBattleTallies();
           }}
         />
+      ) : null}
+      {shareStatus ? (
+        <div className="fixed bottom-6 left-1/2 z-[240] flex -translate-x-1/2 items-center gap-2 rounded-full border border-cyan-400/25 bg-black/90 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-cyan-100 shadow-[0_0_32px_rgba(0,240,255,0.16)]">
+          <Copy size={14} />
+          {shareStatus}
+        </div>
       ) : null}
     </div>
   );

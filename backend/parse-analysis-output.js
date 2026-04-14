@@ -576,9 +576,14 @@ function looksLikeFeatureSectionLeak(value) {
 
 function splitDashboardFeatureItems(value) {
   if (typeof value !== 'string') return [];
-  return value
-    .replace(/\r/g, '')
-    .split(/\s*,\s*|\s*;\s*|\r?\n+/)
+  const normalized = value.replace(/\r/g, '');
+  const splitter = normalized.includes('\n')
+    ? /\r?\n+/
+    : normalized.includes(';')
+      ? /\s*;\s*/
+      : /\s*,\s*/;
+  return normalized
+    .split(splitter)
     .map((item) => item.replace(/^\s*(?:\d+\.\s*|[-*]\s*)/, '').trim())
     .filter(Boolean);
 }
@@ -587,9 +592,9 @@ function splitPrefixedDashboardEntries(block) {
   if (typeof block !== 'string') return [];
   return block
     .replace(/\r/g, '\n')
-    .replace(/(?:^|[\t ]+)(?=(?:[-*]\s*)?\[\s*(?:FRONT|FRONTAL|SIDE)\s*\])/gi, '\n')
+    .replace(/(?:^|[\t ]+)(?=(?:(?:\d+\.\s*)|(?:[-*]\s*))?\[\s*(?:FRONT|FRONTAL|SIDE)\s*\])/gi, '\n')
     .split(/\n+/)
-    .map((item) => item.replace(/^\s*(?:[-*]\s*)?/, '').trim())
+    .map((item) => item.replace(/^\s*(?:(?:\d+\.\s*)|(?:[-*]\s*))?/, '').trim())
     .filter(Boolean);
 }
 

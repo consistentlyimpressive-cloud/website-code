@@ -74,13 +74,14 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
                 client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=240000))
                 with open(img_path, "rb") as f:
                     image_bytes = f.read()
+                contents = [
+                    types.Part.from_text(text=unified_prompt),
+                    types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
+                ]
                 res = client.models.generate_content(
                     model=model_id,
                     config=types.GenerateContentConfig(temperature=0),
-                    contents=[
-                        types.Part.from_text(text=unified_prompt),
-                        types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
-                    ]
+                    contents=contents
                 )
                 if res.text:
                     duration = round(time.time() - start_time, 2)
@@ -127,11 +128,13 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     side_data = "IGNORE_SIDE_ANALYSIS"
     if choice in ["1", "2"]:
         print("[ðŸš€] Gathering Lateral Data from engineside.py...")
-        try:
-            candidate_side_path = side_img_path if side_img_path and os.path.exists(side_img_path) else "testside.jpg"
-            side_data = engineside.get_profile_analysis(candidate_side_path)
-        except Exception:
-            side_data = "Lateral metadata unavailable. Focus on frontal visuals and input."
+        if side_img_path and os.path.exists(side_img_path):
+            try:
+                side_data = engineside.get_profile_analysis(side_img_path)
+            except Exception:
+                side_data = "Lateral metadata unavailable. Focus on frontal visuals and input."
+        else:
+            side_data = "IGNORE_SIDE_ANALYSIS"
 
     print(f"\n--- ANALYZING: {img_path} ---")
     if not os.path.exists(img_path):
@@ -163,16 +166,29 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
 
     print("[3/3] Consulting AI...")
 
+    prompt_visual_inputs = "INPUT C (Frontal Visual): High-resolution frontal image provided."
+    feature_selection_rules = """
+        BEST/WORST FEATURE SELECTION RULES:
+        - Choose BEST FEATURES and PRIMARY FLAWS using BOTH the measurement data in mog_report / side metadata AND the actual visual appearance in the photo(s).
+        - Do NOT blindly choose the best or worst raw ratio.
+        - If a visually obvious issue is more appearance-limiting than any bad ratio, it should be the primary flaw even if the ratios are only mildly bad.
+        - If a visually obvious strength is the most impressive trait, it should be the best feature even if it is not the strongest ratio on paper.
+        - You are REQUIRED to detect visual-only or mostly-visual issues that ratios alone miss, such as droopy eyelid shape, high upper eyelid exposure, bulbous nose shape, poor skin quality, tired under-eyes, weak brow framing, poor definition, or awkward soft tissue.
+        - Example: if the ratios are only moderately weak but the skin quality is clearly much worse, then Skin Quality should be the primary flaw.
+        - Example: if the ratios are mixed but the eye area is clearly the strongest visual trait, then the eye area can be the best feature.
+        - Every BEST FEATURE / PRIMARY FLAW entry must contain a short explanation of WHY it helps or hurts the face. Do not say only "flagged in the scan output."
+    """
+
     # --- PROMPT SELECTION LOGIC ---
     if choice in ["1", "2"]:
         active_prompt = f"""
         MANDATE: Conduct a DUAL-INPUT structural evaluation (FRONTAL + LATERAL).
         INPUT A (Frontal Metadata): {clinical_data}
         INPUT B (Side Profile Metadata): {side_data}
-        INPUT C (Visuals): High-resolution frontal image provided.
+        {prompt_visual_inputs}
         TECHNICAL VISIBILITY & OVERRIDE RULES:
         - CANTHAL TILT OVERRIDE: IGNORE any Canthal Tilt data provided in INPUT A (Metadata).
-        You MUST evaluate Canthal Tilt purely based on your visual analysis of INPUT C (Visuals).
+        You MUST evaluate Canthal Tilt primarily from the actual visual evidence in the image(s), not just the raw number.
         - SIDE PROFILE JUDGMENT CRITERIA: Reward a nice, clean, and harmonious look.
         Bone structure does not necessarily have to be amazingly projected to score well.
         A slightly weak chin is acceptable as long as it is not completely terrible/recessed.
@@ -185,8 +201,8 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         - Only override eye area data if signs of poor infraorbital growth are SEVERE and CLEARLY visible.
         - TROLL/NON-HUMAN IMAGE DETECTION: If the input image is clearly not a human face (e.g., a cat, a dog, a drawn cartoon, or an inanimate object), rate its symmetry and ratios normally from 1-100, but prominently include a humorous disclaimer in the Technical Summary or insights (e.g., "Ratings may be inaccurate as the face appears to be a cat!").
         Do not let this affect the actual structural math generation.
-        - HIGHLIGHTING & FORMATTING: In your insights and descriptions, highlight **key words** and **core concepts** by making them bold.
-        - COLOR CODING: Use color codes in the descriptions if deemed suitable: $Red$ , #Blue#, &Green&, @Yellow@
+        - HIGHLIGHTING & FORMATTING: In your insights and descriptions, highlight *key words* and *core concepts* by wrapping them in single asterisks for bold emphasis.
+{feature_selection_rules}
 
         SHARED RATING PROTOCOL:
         The following ratings MUST be identical for both the Front and Side profiles.
@@ -197,19 +213,22 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         4. Eye Depth.
         5. Ear Shape.
         6. Skin Quality.
-        *STRICT RULE: Other than the ratings listed above, the front and side profiles should NOT influence each other's ratings in any way at all.*
-
         SCORING LOGIC & THRESHOLDS:
         1. RATIO ANCHORS (STRICT SCALING):
            - fWHR: The ideal is BALANCED, not extreme.
            Penalize clearly when fWHR drops significantly below the ideal because the face becomes too narrow/weak.
            Also apply a LIGHT penalty when fWHR becomes TOO HIGH / TOO WIDE. If fWHR reaches 2.10 or above, treat that as slightly over-dimorphic and a bit less harmonious.
            Very high fWHR should NOT be rewarded as "more masculine = better", but do not over-penalize this unless the width looks clearly excessive and harms harmony.
-           - MIDFACE: Penalize STRICTLY for elongated midfaces (ratio > 1.0).
-           High priority penalty.
+           - MIDFACE: Do NOT treat mildly long midfaces as a major flaw.
+           A Midface_Ratio around 1.00-1.07 is only a light concern and by itself should usually NOT become the #1 WORST FEATURE.
+           Treat elongated midface as a true structural flaw only when it is clearly long (roughly 1.08+) and make it a high-priority flaw only when it is more obvious (roughly 1.12+) or when it combines with other long-face signals like elongated thirds, narrow facial width, or vertically stretched harmony.
            - UPPER THIRD: Penalize strictly for an elongated upper third/forehead relative to the rest of the face.
            - PHILTRUM: Penalize HARSHLY for long philtrums that disrupt lower-third harmony.
            - EYE AREA: Penalize for puffy undereyes (eye bags/fat prolapse).
+           Reward genuinely exceptional eye areas more than you currently do.
+           If the subject has compact, attractive, well-framed eyes with good shape, good spacing, low upper eyelid exposure, and a strong overall orbital aesthetic, allow that to lift harmony and attractiveness in a noticeable but controlled way.
+           Elite eyes should be able to add a meaningful boost, but they should NOT completely rescue a face with multiple obvious structural problems.
+           Think of exceptional eyes as a moderate score amplifier, not an automatic override.
            - EYEBROWS: Be less strict on sparse eyebrows;
            only penalize if they are really obviously sparse and affect framing.
            - EYELID EXPOSURE: Penalize strictly for high upper eyelid exposure on double eyelids (lack of hooding/compactness).
@@ -226,6 +245,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - EXAGGERATED BUT COHERENT: Striking or high-fashion features that are intense, but still fit the face and remain believable.
            - UNCANNY / SYNTHETIC / OVERBUILT: Faces that look artificial, too carved, too aggressive, biologically implausible, AI-generated, filter-generated, or "fantasy male model" in a way that harms harmony.
            - LOW-TIER / 4-RANGE: Faces with weak overall aesthetics, weak harmony, weak definition, visible flaws, and no standout redeeming structure.
+           - VERY LOW-TIER / 3-RANGE: Faces with multiple major structural issues at once, especially long narrow proportions, very low facial width, obvious asymmetry, weak eye area, and no genuinely strong redeeming feature.
 
            DISTINCTION RULE:
            Do NOT confuse "striking" with "elite". A face can have attention-grabbing dimorphism and still be aesthetically worse because it looks forced, synthetic, or overbuilt.
@@ -234,6 +254,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - A normal attractive celebrity face with decent harmony but not extreme structure belongs in NATURAL / COHERENT, not in uncanny and not in overbuilt.
            - A strong editorial / model face with intense jaw, cheekbones, eyes, or dimorphism can still belong in EXAGGERATED BUT COHERENT if it remains believable, photoreal, and internally harmonious.
            - A face with impossible jaw width, over-carved hollows, compressed soft tissue, fake-looking eye rendering, or "AI beauty render" energy belongs in UNCANNY / SYNTHETIC / OVERBUILT even if some local ratios look strong.
+           - A face that is very long, narrow, low-fWHR, visibly asymmetric, and lacking standout positives belongs in VERY LOW-TIER / 3-RANGE rather than 4-range or average-tier.
 
            UNCANNY / OVERBUILT CUES:
            If multiple of these appear together, treat the face as uncanny and punish it HARD:
@@ -265,10 +286,24 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            LOW-TIER / 4-RANGE CUES:
            If the face has average-to-weak structure, weak harmony, soft definition, visible flaws, and no standout redeeming markers, do not inflate it into the 50s or 60s.
            
+           VERY LOW-TIER / 3-RANGE CUES:
+           If SEVERAL of the following appear together, strongly consider a rating in the 30s:
+           - very low fWHR / visibly narrow facial width that makes the face look weak rather than refined
+           - elongated midface or strong vertical length that creates a long, narrow, stretched appearance
+           - clearly visible asymmetry in the eyes, brows, jaw, nose, or mouth
+           - weak eye area, poor compactness, or generally tired / droopy feature layout
+           - weak lower-third aesthetics without a compensating high-tier feature
+           - no genuinely strong redeeming marker that could anchor the face into a higher bracket
+           IMPORTANT:
+           A face with this combination should NOT be saved by "average skin", "not terrible lips", or one small decent feature.
+           If the overall read is weak, narrow, asymmetric, and long-faced, do not be generous.
+           These faces often belong in roughly the 30-39 range, and can go lower when the flaws are severe enough.
+           
            BUCKET IMPACT ON FINAL RATING:
            - NATURAL / COHERENT HIGH-TIER: score normally from the ratios + visual harmony.
            - EXAGGERATED BUT COHERENT: apply only a tiny deduction, usually around 0-3 points total unless harmony is clearly disrupted. These faces can still land in the 75-85 range or higher when the structure is genuinely strong.
            - UNCANNY / SYNTHETIC / OVERBUILT: apply a major deduction. These faces should usually land far below a coherent high-tier face with similar local ratios, because the synthetic / overbuilt look is itself a major aesthetic flaw.
+           - VERY LOW-TIER / 3-RANGE: when the face is long, narrow, asymmetric, and structurally weak with no redeeming anchors, the score should often land in the 30s instead of the 40s or 50s.
         2. GENDER COUNTERBALANCE (INTERNAL RULE):
            - If Sex = Female AND the score is > 70, deduct 10 points from the Final Rating and potential tiers.
            - DO NOT mention this deduction in the output or justification. It must appear as the "natural" result.
@@ -278,6 +313,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
              (Very prominent ears, negative canthal tilt, bad upper eyelid exposure, undereye puffiness, unideal FWHR, high
              set eyebrows, bulbous nose shape).
            - CAP 60: If the face lacks "pretty" appeal or high-tier dimorphism.
+           - LOW-TIER FLOOR LOGIC: If the face is clearly very narrow, elongated, asymmetric, and weak overall, do NOT keep it artificially in the 40s or 50s just because a few isolated measurements are not disastrous.
            - MODERATE UNCANNY CAP 60: If the face is clearly exaggerated, overbuilt, AI-looking, synthetic, or "fantasy male model" but still somewhat coherent, it should usually NOT exceed 60.
            - SEVERE UNCANNY CAP 54: If the face looks strongly artificial, biologically implausible, or obviously like an AI-generated hypermasculine edit, it should usually NOT exceed 54.
            - VERY IMPORTANT: a face that looks "striking" because it is over-optimized, hyper-carved, or synthetic is NOT the same as a naturally elite face.
@@ -294,6 +330,8 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            Instead, make the limitation sound natural and logically explain it.
            For example: "the rating is limited by several overly dimorphic features" or "structural harmony is disrupted by unnatural proportions".
            - BREAKING 60: Requires at least one high-tier feature (refined nose, elite eyes, good lips).
+           - If the eye area is genuinely exceptional, it should carry more weight in helping the face break into a higher band, especially when the rest of the face is at least decent and not heavily flawed.
+           - However, exceptional eyes alone should not push a structurally flawed face into an inflated score band.
            - CLEAN HARMONY (No Flaws/Standard Dimorphism): Cap at 85.
            - ELITE STATUS (85-100): Requires exceptional symmetry AND elite markers (Chico/Cha Eunwoo phenotype balance).
         4. CALIBRATION ANCHORS (VERY IMPORTANT):
@@ -315,6 +353,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - Truly elite faces begin in the low 80s.
            - 90+ should be extremely rare.
            - Example anchor: a face like Will Smith should NOT be treated as ultra-high-tier by default; if the metrics are only decent and several flaws exist, a result around the high-50s / low-60s is more realistic.
+           - A face with truly exceptional eyes and otherwise decent harmony should not get stuck too low purely because the bone structure is less aggressive or less brute-dimorphic.
         5. SIGNS OF AGING:
            - Penalize visible aging signs in a MODERATE and realistic way.
            - Nasolabial folds, under-eye aging, wrinkles, sagging skin, skin laxity, and a worn/tired look should reduce the rating when clearly visible, but should not overwhelm the full score unless severe.
@@ -329,7 +368,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         **Max Potential with Surgery: [Score]/100**
 
         **Technical Summary:** [Blend Frontal Metadata with Side Profile Metadata.
-        Use **bolding** and `&color text&` sparingly].
+        Use *bolding* sparingly when emphasis is helpful].
 
         **Appeal Assessment:** [Identify phenotype and target audience appeal. If the face falls into the EXAGGERATED BUT COHERENT bucket, explicitly say that the appeal is more niche / editorial / high-fashion rather than universally conventional, but do NOT frame that alone as a major flaw.]
         **Hexagon Chart Ratings (front)**
@@ -359,12 +398,32 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         - Ear Shape: [Score] | [Score] (Shared)
 
         **CRITICAL MARKERS:**
-        - #1 BEST FEATURE: [Feature Name] - [Brief explanation]
-        - #1 WORST FEATURE: [Feature Name] - [Brief explanation]
+        - #1 BEST FEATURE: [Feature Name] - [Brief explanation based on both visuals and measurements]
+        - #1 WORST FEATURE: [Feature Name] - [Brief explanation based on both visuals and measurements]
 
         ### DASHBOARD_DATA
-        BEST FEATURES (10): [List 5 Frontal features and 5 Lateral features].
-        PRIMARY FLAWS (10): [List 5 Frontal flaws and 5 Lateral flaws].
+        BEST FEATURES (10):
+        1. [FRONT] [Feature Name] - [Brief explanation]
+        2. [FRONT] [Feature Name] - [Brief explanation]
+        3. [FRONT] [Feature Name] - [Brief explanation]
+        4. [FRONT] [Feature Name] - [Brief explanation]
+        5. [FRONT] [Feature Name] - [Brief explanation]
+        6. [SIDE] [Feature Name] - [Brief explanation]
+        7. [SIDE] [Feature Name] - [Brief explanation]
+        8. [SIDE] [Feature Name] - [Brief explanation]
+        9. [SIDE] [Feature Name] - [Brief explanation]
+        10. [SIDE] [Feature Name] - [Brief explanation]
+        PRIMARY FLAWS (10):
+        1. [FRONT] [Feature Name] - [Brief explanation]
+        2. [FRONT] [Feature Name] - [Brief explanation]
+        3. [FRONT] [Feature Name] - [Brief explanation]
+        4. [FRONT] [Feature Name] - [Brief explanation]
+        5. [FRONT] [Feature Name] - [Brief explanation]
+        6. [SIDE] [Feature Name] - [Brief explanation]
+        7. [SIDE] [Feature Name] - [Brief explanation]
+        8. [SIDE] [Feature Name] - [Brief explanation]
+        9. [SIDE] [Feature Name] - [Brief explanation]
+        10. [SIDE] [Feature Name] - [Brief explanation]
         If the face falls into the UNCANNY / SYNTHETIC / OVERBUILT bucket, at least 2 of the PRIMARY FLAWS must explicitly mention things like Synthetic / Uncanny Look, Over-aggressive Dimorphism, Overbuilt Lower Third, Over-stylized Eye Area, Brutalist Aesthetic, or Artificial Harmony.
         If the face is uncanny / overbuilt, the #1 WORST FEATURE should point to that unnatural / synthetic / over-aggressive trait rather than a random minor flaw.
         ### RATINGS (USE THIS)
@@ -392,11 +451,11 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         Answer all the user's unasked questions so they aren't left wondering.]
         Example formatting:
         1. IMPROVING YOUR AESTHETICS IN PICTURES
-        You have a harmonious, well rounded face with **balanced features**.
-        However, you have &red suboptimal bone growth& in the cheekbones and chin.
+        You have a harmonious, well rounded face with *balanced features*.
+        However, you have suboptimal bone growth in the cheekbones and chin.
         You have moderate upper eyelid exposure which can throw off your look in certain lighting.
-        To fix this, you can try to compensate by **losing facial fat** which could bring your score up to about a 58-65 depending on lighting and angle.
-        @Surgical intervention& would be needed to fix the rest of the issues completely.@
+        To fix this, you can try to compensate by *losing facial fat* which could bring your score up to about a 58-65 depending on lighting and angle.
+        Surgical intervention would be needed to fix the rest of the issues completely.
         ### ACTIONABLE PROTOCOLS
         [List exactly 25 actionable protocols.
         Sorted from HIGHEST IMPACT to LOWEST IMPACT.]
@@ -425,42 +484,55 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
             active_prompt = f"""{free_guidelines}
             MANDATE: Conduct a specialized evaluation focused on BALANCE and ALIGNMENT.
             INPUT A: {clinical_data}
-            INPUT B: Visuals provided.
+            INPUT B: Frontal visual provided.
             Focus on how features align on the vertical and horizontal planes.
             Analyze the symmetry of the orbit and jawline, the centering of the nose, and the overall structural equilibrium.
+            Choose the best and worst feature using BOTH the raw measurements and the actual visual appearance.
+            If a visual issue is more obvious than any ratio issue, name that instead.
+            Give a brief explanation after each feature label.
             OUTPUT FORMAT:
             ### ANALYSIS [SEX]
             **Technical Summary:** [Focus on balance/alignment]
-            **#1 BEST FEATURE:** [Detail]
-            **#1 WORST FEATURE:** [Detail]
+            **#1 BEST FEATURE:** [Feature Name] - [Brief explanation]
+            **#1 WORST FEATURE:** [Feature Name] - [Brief explanation]
             """
         elif choice == "4":  # CORE
             active_prompt = f"""{free_guidelines}
             MANDATE: Conduct a specialized evaluation focused on OBJECTIVE ATTRACTIVENESS.
             INPUT A: {clinical_data}
-            INPUT B: Visuals provided.
+            INPUT B: Frontal visual provided.
             Focus on sexual dimorphism, mass-market appeal, and 'pretty' harmony. Assess how well the features project an image of health, vitality, and aesthetic refinement.
+            Choose the best and worst feature using BOTH the raw measurements and the actual visual appearance.
+            If a visual issue is more obvious than any ratio issue, name that instead.
+            Give a brief explanation after each feature label.
             OUTPUT FORMAT:
             ### ANALYSIS [SEX]
             **Technical Summary:** [Focus on attractiveness/appeal]
-            **#1 BEST FEATURE:** [Detail]
-            **#1 WORST FEATURE:** [Detail]
+            **#1 BEST FEATURE:** [Feature Name] - [Brief explanation]
+            **#1 WORST FEATURE:** [Feature Name] - [Brief explanation]
             """
         elif choice == "5":  # GENEVA
             active_prompt = f"""{free_guidelines}
             MANDATE: Conduct a specialized evaluation focused on MATHEMATICAL BEAUTY.
             INPUT A: {clinical_data}
-            INPUT B: Visuals provided.
+            INPUT B: Frontal visual provided.
             Focus on Golden Ratio proportions, specific craniofacial angles (Gonial, Nasolabial), and the geometric 'perfection' of feature placement.
             Analyze the face as a series of mathematical vectors and ratios.
+            Choose the best and worst feature using BOTH the raw measurements and the actual visual appearance.
+            If a visual issue is more obvious than any ratio issue, name that instead.
+            Give a brief explanation after each feature label.
             OUTPUT FORMAT:
             ### ANALYSIS [SEX]
             **Technical Summary:** [Focus on geometry/ratios]
-            **#1 BEST FEATURE:** [Detail]
-            **#1 WORST FEATURE:** [Detail]
+            **#1 BEST FEATURE:** [Feature Name] - [Brief explanation]
+            **#1 WORST FEATURE:** [Feature Name] - [Brief explanation]
             """
 
-    result, model_used, duration = consult_ai_with_selection(active_prompt, "temp_analysis.jpg", choice)
+    result, model_used, duration = consult_ai_with_selection(
+        active_prompt,
+        "temp_analysis.jpg",
+        choice
+    )
 
     if result == "CANCELLED":
         return

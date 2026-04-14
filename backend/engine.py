@@ -15,6 +15,7 @@ from mediapipe.tasks.python import vision  # type: ignore
 
 base_options = python.BaseOptions(model_asset_path='face_landmarker.task')
 options = vision.FaceLandmarkerOptions(base_options=base_options, running_mode=vision.RunningMode.IMAGE)
+NOSE_BASE_SHRINK_FACTOR = 0.94
 
 def get_clinical_biometrics(img_path):
     if not os.path.exists(img_path): return
@@ -55,24 +56,20 @@ def get_clinical_biometrics(img_path):
         # 3. Brow Ridge Midpoint
         synth_brow_ridge = (lms[282] + lms[52]) / 2.0
 
-        # 4. GEOMETRIC EYE CENTERS (Gaze-Independent)
-        synth_eye_center_r = (lms[133] + lms[33]) / 2.0
-        synth_eye_center_l = (lms[362] + lms[263]) / 2.0
-        
-        lms = np.vstack([lms, synth_hairline, synth_glabella, synth_brow_ridge, synth_eye_center_r, synth_eye_center_l])
+        lms = np.vstack([lms, synth_hairline, synth_glabella, synth_brow_ridge])
 
         p = {
             "zygo_r": 234,
             "zygo_l": 454,
             "gonion_r": 172,
             "gonion_l": 397,
-            "pupil_r": len(lms) - 2,
-            "pupil_l": len(lms) - 1,
-            "glabella": len(lms) - 4, 
+            "pupil_r": 468,
+            "pupil_l": 473,
+            "glabella": len(lms) - 2, 
             "subnasale": 2,
             "chin": 152,
-            "hairline": len(lms) - 5, 
-            "brow_ridge": len(lms) - 3,
+            "hairline": len(lms) - 3, 
+            "brow_ridge": len(lms) - 1,
             "top_lip": 0,
             "bot_lip": 17, 
             "mouth_r": 61,
@@ -102,10 +99,24 @@ def get_clinical_biometrics(img_path):
         midface_vertical_h = abs(pupil_y_avg - lms[p["top_lip"]][1])
 
         def get_dist(a, b):
-            return np.linalg.norm(lms[p[a]] - lms[p[b]])
+            dist = np.linalg.norm(lms[p[a]] - lms[p[b]])
+            if {a, b} == {"nostril_r", "nostril_l"}:
+                return dist * NOSE_BASE_SHRINK_FACTOR
+            return dist
 
         def ratio(a, b):
             return round(get_dist(a, b) / zygo_w, 3)
+
+        def get_adjusted_width_points(a, b):
+            point_a = lms[p[a]].copy()
+            point_b = lms[p[b]].copy()
+            if {a, b} != {"nostril_r", "nostril_l"}:
+                return point_a, point_b
+
+            midpoint = (point_a + point_b) / 2.0
+            point_a = midpoint + ((point_a - midpoint) * NOSE_BASE_SHRINK_FACTOR)
+            point_b = midpoint + ((point_b - midpoint) * NOSE_BASE_SHRINK_FACTOR)
+            return point_a, point_b
         
         upper_h_norm = round(abs(lms[p["hairline"]][1] - lms[p["brow_ridge"]][1]) / zygo_w, 3)
         mid_h_norm = round(abs(lms[p["brow_ridge"]][1] - lms[p["subnasale"]][1]) / zygo_w, 3)
@@ -143,9 +154,14 @@ def get_clinical_biometrics(img_path):
         ]
 
         for p1, p2, color, lbl in width_tasks:
-            y = int(lms[p[p1]][1])
-            cv2.line(img_r, (int(lms[p[p1]][0]), y), (int(lms[p[p2]][0]), y), color, t)
-            cv2.putText(img_r, f"{lbl}: {ratio(p1, p2)}", (int(lms[p[p2]][0]) + 5, y), cv2.FONT_HERSHEY_SIMPLEX, fs, color, 1)
+            point_1, point_2 = get_adjusted_width_points(p1, p2)
+            y = int((point_1[1] + point_2[1]) / 2.0)
+            x1 = int(point_1[0])
+            x2 = int(point_2[0])
+            x_left = min(x1, x2)
+            x_right = max(x1, x2)
+            cv2.line(img_r, (x_left, y), (x_right, y), color, t)
+            cv2.putText(img_r, f"{lbl}: {ratio(p1, p2)}", (x_right + 5, y), cv2.FONT_HERSHEY_SIMPLEX, fs, color, 1)
 
         cv2.line(img_r, tuple(lms[p["pupil_r"]].astype(int)), tuple(lms[p["pupil_l"]].astype(int)), (0, 0, 255), t)
         cv2.putText(img_r, f"IPD: {ratio('pupil_r', 'pupil_l')}", (int(lms[p['pupil_l']][0])+5, int(lms[p['pupil_l']][1])), cv2.FONT_HERSHEY_SIMPLEX, fs, (0,0,255), 1)
