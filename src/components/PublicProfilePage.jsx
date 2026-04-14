@@ -221,16 +221,9 @@ const PublicProfilePage = ({ routeParams, user }) => {
         </div>
         
         {isOwner && (
-          <div className="flex items-center gap-2 bg-zinc-900/50 p-1.5 rounded-xl border border-zinc-800">
-            <button onClick={() => handleUpdateVisibility('private')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2 ${profile.visibility === 'private' ? 'bg-cyan-500/20 text-cyan-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
-              <Lock size={14} /> Private
-            </button>
-            <button onClick={() => handleUpdateVisibility('unlisted')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2 ${profile.visibility === 'unlisted' ? 'bg-cyan-500/20 text-cyan-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
-              <Shield size={14} /> Unlisted
-            </button>
-            <button onClick={() => handleUpdateVisibility('community')} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2 ${profile.visibility === 'community' ? 'bg-cyan-500/20 text-cyan-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
-              <Globe size={14} /> Public
-            </button>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Scan-level publishing</p>
+            <p className="mt-1 text-xs text-zinc-400">Use the active scan&apos;s visibility controls below to publish one scan at a time.</p>
           </div>
         )}
       </header>

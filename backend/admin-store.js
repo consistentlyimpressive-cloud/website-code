@@ -18,6 +18,14 @@ let store = defaults();
 let firestore = null;
 let firestoreReady = false;
 
+function withTimeout(promise, ms, label) {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 function setFirestore(db) {
   firestore = db;
 }
@@ -64,7 +72,7 @@ async function init() {
 
   if (firestore) {
     try {
-      const ok = await loadFromFirestore();
+      const ok = await withTimeout(loadFromFirestore(), Number(process.env.ADMIN_STORE_FIRESTORE_TIMEOUT_MS || 2500), 'admin-store Firestore load');
       if (ok) {
         console.log('[admin-store] Loaded from Firestore');
         firestoreReady = true;

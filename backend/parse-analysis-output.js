@@ -501,7 +501,10 @@ function buildUncannyPrimaryFlawEntries(rawOutput, categories, appealAssessment)
     });
   }
 
-  if (hasDisharmonyCue || (Number.isFinite(harmony) && harmony <= 65)) {
+  if (
+    (hasDisharmonyCue && (hasSyntheticCue || hasAggressiveCue)) ||
+    (Number.isFinite(harmony) && harmony <= 58)
+  ) {
     entries.push({
       title: 'Structural Disharmony',
       description: 'The strongest frontal traits are undermined by disharmony across the midface and side profile.'
@@ -576,7 +579,11 @@ function looksLikeFeatureSectionLeak(value) {
 
 function splitDashboardFeatureItems(value) {
   if (typeof value !== 'string') return [];
-  const normalized = value.replace(/\r/g, '');
+  const normalized = value
+    .replace(/\r/g, '')
+    .replace(/^\s*:?\s*\[/, '')
+    .replace(/\]\.?\s*$/, '')
+    .trim();
   const splitter = normalized.includes('\n')
     ? /\r?\n+/
     : normalized.includes(';')
@@ -584,7 +591,12 @@ function splitDashboardFeatureItems(value) {
       : /\s*,\s*/;
   return normalized
     .split(splitter)
-    .map((item) => item.replace(/^\s*(?:\d+\.\s*|[-*]\s*)/, '').trim())
+    .map((item) => item
+      .replace(/^\s*(?:\d+\.\s*|[-*]\s*)/, '')
+      .replace(/^\s*:?\s*\[+/, '')
+      .replace(/\]+\.?\s*$/, '')
+      .replace(/\.?\s*$/, '')
+      .trim())
     .filter(Boolean);
 }
 
@@ -600,7 +612,8 @@ function splitPrefixedDashboardEntries(block) {
 
 function buildDashboardFeatureEntry(rawItem, type) {
   const cleaned = String(rawItem || '')
-    .replace(/^\s*\[?(?:front|frontal|side)\]?\s*:?\s*/i, '')
+    .replace(/^\s*\[\s*(?:front|frontal|side)\s*\]\s*:?\s*/i, '')
+    .replace(/^\s*(?:front|frontal|side)\s*:\s*/i, '')
     .replace(/^\[+/, '')
     .replace(/\]+$/, '')
     .trim();
@@ -665,8 +678,8 @@ function parseDashboardFeatureSection(block, type) {
       .slice(0, 5);
   } else {
     const combined = splitDashboardFeatureItems(block);
-    const prefixedFront = combined.filter((item) => /^\s*\[?\s*front(?:al)?\s*\]?/i.test(item));
-    const prefixedSide = combined.filter((item) => /^\s*\[?\s*side\s*\]?/i.test(item));
+    const prefixedFront = combined.filter((item) => /^\s*(?:\[\s*front(?:al)?\s*\]|front(?:al)?\s*:)/i.test(item));
+    const prefixedSide = combined.filter((item) => /^\s*(?:\[\s*side\s*\]|side\s*:)/i.test(item));
     if (prefixedFront.length || prefixedSide.length) {
       frontItems = prefixedFront.slice(0, 5);
       sideItems = prefixedSide.slice(0, 5);
@@ -1113,10 +1126,10 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   );
 
   if (benchmarkFrontRating != null) {
-    finalRating =
-      explicitFrontRating != null
-        ? Math.min(benchmarkFrontRating, explicitFrontRating)
-        : benchmarkFrontRating;
+    // Benchmark calibration is allowed to correct Gemma both downward and upward.
+    // A later uncanny cap can still clamp synthetic/overdone faces, but normal
+    // 7s-style examples should not get stuck at an under-called raw AI score.
+    finalRating = benchmarkFrontRating;
   } else if (objectiveFrontRating != null) {
     finalRating =
       explicitFrontRating != null

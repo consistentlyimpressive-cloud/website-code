@@ -124,6 +124,11 @@ try {
   console.error('[firebase] Failed to initialize admin SDK, continuing without it:', e.message);
 }
 
+function isQuotaExceededError(error) {
+  const message = String(error?.message || error || '');
+  return error?.code === 8 || /RESOURCE_EXHAUSTED|quota exceeded/i.test(message);
+}
+
 /** Process start time for /api/health uptime */
 const SERVER_BOOT_AT = Date.now();
 
@@ -297,6 +302,10 @@ function getCommunityScanDocId(uid, scanId) {
 
 async function buildCommunityScanDoc(uid, scanId, scanData) {
   const payload = scanData?.payload && typeof scanData.payload === 'object' ? scanData.payload : {};
+  const normalizedScanData = normalizeStoredScanUrls(scanData || {});
+  const normalizedPayload = normalizedScanData?.payload && typeof normalizedScanData.payload === 'object'
+    ? normalizedScanData.payload
+    : payload;
   let profileName = 'Profile Scan';
   if (firestore && scanData?.profileId && scanData.profileId !== 'default') {
     try {
@@ -325,12 +334,12 @@ async function buildCommunityScanDoc(uid, scanId, scanData) {
     finalRating: Number(scanData?.finalRating) || 0,
     sideRating: Number(scanData?.sideRating) || 0,
     sex: payload?.sex || null,
-    frontImageUrl: scanData?.frontImageUrl || payload?.frontImage || null,
-    sideImageUrl: scanData?.sideImageUrl || payload?.sideImage || null,
+    frontImageUrl: normalizedScanData?.frontImageUrl || normalizedPayload?.frontImage || null,
+    sideImageUrl: normalizedScanData?.sideImageUrl || normalizedPayload?.sideImage || null,
     payload: {
-      ...payload,
-      frontImage: scanData?.frontImageUrl || payload?.frontImage || null,
-      sideImage: scanData?.sideImageUrl || payload?.sideImage || null,
+      ...normalizedPayload,
+      frontImage: normalizedScanData?.frontImageUrl || normalizedPayload?.frontImage || null,
+      sideImage: normalizedScanData?.sideImageUrl || normalizedPayload?.sideImage || null,
       selectedModel: String(scanData?.model || payload?.selectedModel || '').trim() || '1',
       cohesiveFrontSide: Boolean(scanData?.cohesiveFrontSide || payload?.cohesiveFrontSide),
     },
@@ -417,7 +426,7 @@ const mogBattleVoteLimiter = rateLimit({
 });
 
 function isValidMogBattleId(id) {
-  return typeof id === 'string' && /^[a-z0-9-]{1,80}$/i.test(id);
+  return typeof id === 'string' && /^[a-z0-9:_-]{1,140}$/i.test(id);
 }
 
 /** Comma-separated (e.g. MOG_BATTLE_ADMIN_EMAILS=you@x.com,other@y.com) — may increment tallies repeatedly. */
@@ -745,7 +754,7 @@ app.get('/api/community-scans', requireFirestore, async (req, res) => {
       snap = await firestore.collection('communityScans').limit(limit).get();
     }
     const scans = [];
-    snap.forEach((doc) => scans.push({ id: doc.id, ...doc.data() }));
+    snap.forEach((doc) => scans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
     scans.sort((a, b) => {
       const aMs = a?.timestamp?.toMillis?.() || (typeof a?.timestamp?.seconds === 'number' ? a.timestamp.seconds * 1000 : new Date(a?.timestamp || 0).getTime() || 0);
       const bMs = b?.timestamp?.toMillis?.() || (typeof b?.timestamp?.seconds === 'number' ? b.timestamp.seconds * 1000 : new Date(b?.timestamp || 0).getTime() || 0);
@@ -1085,8 +1094,34 @@ app.get('/api/user/status', extractUserOptional, async (req, res) => {
   }
 });
 
-/** Deeper check: Firestore reachable (for orchestration readiness probes). */
+/** Fast readiness check used by the frontend scan preflight. */
 app.get('/api/ready', async (req, res) => {
+  const deep = req.query.deep === '1';
+
+  if (!deep) {
+    return res.json({
+      ok: true,
+      checks: {
+        backend: true,
+        firebaseAdmin: Boolean(admin.apps && admin.apps.length),
+        firestore: firestore ? 'not-checked' : false,
+        analysis: true,
+      },
+      firebaseMode: USE_FIREBASE_EMULATOR ? 'emulator' : 'live',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  if (!firestore) {
+    return res.status(503).json({
+      ok: false,
+      checks: { firestore: false },
+      firebaseMode: USE_FIREBASE_EMULATOR ? 'emulator' : 'live',
+      error: firebaseConfigHelpMessage(),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   try {
     await firestore.collection('system').doc('adminStore').get();
     res.json({
@@ -1096,6 +1131,17 @@ app.get('/api/ready', async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (e) {
+    if (isQuotaExceededError(e)) {
+      console.warn('[ready] Firestore quota exhausted; allowing analysis preflight to continue.');
+      return res.json({
+        ok: true,
+        checks: { firestore: 'quota-exhausted', analysis: true },
+        firebaseMode: USE_FIREBASE_EMULATOR ? 'emulator' : 'live',
+        warning: 'Firestore quota is exhausted, but analysis can still run. Scan history may save later when quota resets.',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     res.status(503).json({
       ok: false,
       checks: { firestore: false },
@@ -1292,6 +1338,9 @@ function formatHexagonForTerminal(hexagon) {
 function getPublicBackendBase(req) {
   const requestBase = getRequestBase(req);
   const raw = (process.env.PUBLIC_BACKEND_URL || '').trim().replace(/\/$/, '');
+  if (raw && !/(localhost|127\.0\.0\.1|trycloudflare\.com)/i.test(raw)) {
+    return raw;
+  }
   if (requestBase && process.env.FORCE_PUBLIC_BACKEND_URL !== '1') {
     if (!raw) return requestBase;
     if (process.env.NODE_ENV !== 'production') return requestBase;
@@ -1314,6 +1363,36 @@ function getLocalUploadUrl(req, localPath) {
   const filename = path.basename(localPath);
   if (!filename) return null;
   return `${getPublicBackendBase(req)}/uploads/${encodeURIComponent(filename)}`;
+}
+
+function publicizeStoredUploadUrl(value) {
+  if (typeof value !== 'string' || !value.includes('/uploads/')) return value || null;
+  const rawBase = (process.env.PUBLIC_BACKEND_URL || '').trim().replace(/\/$/, '');
+  if (!rawBase || /(localhost|127\.0\.0\.1|trycloudflare\.com)/i.test(rawBase)) return value;
+
+  const match = value.match(/\/uploads\/([^?#]+)/i);
+  if (!match) return value;
+  return `${rawBase}/uploads/${match[1]}`;
+}
+
+function normalizeStoredScanUrls(scan) {
+  if (!scan || typeof scan !== 'object') return scan;
+  const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : null;
+  const frontImageUrl = publicizeStoredUploadUrl(scan.frontImageUrl || payload?.frontImage || null);
+  const sideImageUrl = publicizeStoredUploadUrl(scan.sideImageUrl || payload?.sideImage || null);
+
+  return {
+    ...scan,
+    frontImageUrl,
+    sideImageUrl,
+    payload: payload
+      ? {
+          ...payload,
+          frontImage: publicizeStoredUploadUrl(payload.frontImage || frontImageUrl),
+          sideImage: publicizeStoredUploadUrl(payload.sideImage || sideImageUrl),
+        }
+      : scan.payload,
+  };
 }
 
 function guessContentType(filePath) {
@@ -1392,6 +1471,30 @@ async function verifyUltraAccess(req, res, next) {
     });
   }
 
+  let decoded = null;
+  try {
+    decoded = await admin.auth().verifyIdToken(token);
+  } catch (e) {
+    console.error('[analyze] Ultra auth token failed:', e.message);
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid or expired session. Please sign in again.',
+    });
+  }
+
+  const uid = decoded.uid;
+  const email = (decoded.email || '').toLowerCase();
+  const isAdminEmail =
+    email.endsWith('@looksmaxxing.com') ||
+    email === 'serenity.eyb@gmail.com' ||
+    email === 'laithbu07@gmail.com' ||
+    email === 'laithabuamsheh@gmail.com';
+
+  if (isAdminEmail) {
+    req.ultraContext = { uid, plan: 'pro', source: 'admin-email-bypass' };
+    return next();
+  }
+
   if (!firestore) {
     return res.status(503).json({
       success: false,
@@ -1400,8 +1503,6 @@ async function verifyUltraAccess(req, res, next) {
   }
 
   try {
-    const decoded = await admin.auth().verifyIdToken(token);
-    const uid = decoded.uid;
     const snap = await firestore.collection('users').doc(uid).get();
     if (!snap.exists && USE_FIREBASE_EMULATOR && isRemoteBrowserRequest(req)) {
       return res.status(503).json({
@@ -1413,13 +1514,6 @@ async function verifyUltraAccess(req, res, next) {
     const data = snap.exists ? snap.data() : {};
     const plan = String(data.plan || 'free');
     const scanCredits = Number(data.scanCredits) || 0;
-
-    const email = (decoded.email || '').toLowerCase();
-    const isAdminEmail = 
-      email.endsWith('@looksmaxxing.com') ||
-      email === 'serenity.eyb@gmail.com' ||
-      email === 'laithbu07@gmail.com' ||
-      email === 'laithabuamsheh@gmail.com';
 
     if (plan === 'pro' || data.isAdmin || isAdminEmail) {
       req.ultraContext = { uid, plan: 'pro' };
@@ -1436,6 +1530,12 @@ async function verifyUltraAccess(req, res, next) {
         'Premium models require MogCheck Pro or an unused Single Scan credit. Open Plans to upgrade.',
     });
   } catch (e) {
+    if (isQuotaExceededError(e)) {
+      console.warn(`[analyze] Firestore quota exhausted during Ultra plan check; allowing signed-in scan for ${email || uid}.`);
+      req.ultraContext = { uid, plan: isAdminEmail ? 'pro' : 'quota_bypass' };
+      return next();
+    }
+
     // If running locally without service account, bypass this strictly for localhost testing.
     if (isCredentialsConfigError(e?.message) && process.env.NODE_ENV !== 'production' && !isRemoteBrowserRequest(req)) {
       console.warn('[analyze] Bypassing Ultra auth locally because no Firebase credentials exist.');
@@ -1961,7 +2061,7 @@ app.get('/api/admin/users/:uid/scans', async (req, res) => {
   try {
     const snap = await firestore.collection('users').doc(req.params.uid).collection('scans').orderBy('timestamp', 'desc').get();
     const scans = [];
-    snap.forEach(doc => scans.push({ id: doc.id, ...doc.data() }));
+    snap.forEach(doc => scans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
     res.json({ scans });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -2040,7 +2140,7 @@ app.get('/api/user/scans', extractUserOptional, async (req, res) => {
   try {
     const snap = await firestore.collection('users').doc(req.uid).collection('scans').orderBy('timestamp', 'desc').get();
     const scans = [];
-    snap.forEach(doc => scans.push({ id: doc.id, ...doc.data() }));
+    snap.forEach(doc => scans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
     res.json({ scans });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -2065,7 +2165,7 @@ app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
     }
 
     if (Object.keys(updateData).length === 1) {
-      return res.json({ ok: true, scan: { id: doc.id, ...currentData } });
+      return res.json({ ok: true, scan: normalizeStoredScanUrls({ id: doc.id, ...currentData }) });
     }
 
     await docRef.set(updateData, { merge: true });
@@ -2078,8 +2178,7 @@ app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
     res.json({
       ok: true,
       scan: {
-        id: doc.id,
-        ...nextData,
+        ...normalizeStoredScanUrls({ id: doc.id, ...nextData }),
       },
     });
   } catch (e) {

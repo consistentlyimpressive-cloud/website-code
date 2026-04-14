@@ -1,5 +1,38 @@
 const { sanitizeFirebaseError, shouldSkipFirebaseStorage } = require('./firebase-errors');
 
+function isPublicScanVisibility(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === 'public' || normalized === 'community' || normalized === 'unlisted';
+}
+
+function publicizeStoredUploadUrl(value) {
+  if (typeof value !== 'string' || !value.includes('/uploads/')) return value || null;
+  const rawBase = (process.env.PUBLIC_BACKEND_URL || '').trim().replace(/\/$/, '');
+  if (!rawBase || /(localhost|127\.0\.0\.1|trycloudflare\.com)/i.test(rawBase)) return value;
+  const match = value.match(/\/uploads\/([^?#]+)/i);
+  if (!match) return value;
+  return `${rawBase}/uploads/${match[1]}`;
+}
+
+function normalizeStoredScanUrls(scan) {
+  if (!scan || typeof scan !== 'object') return scan;
+  const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : null;
+  const frontImageUrl = publicizeStoredUploadUrl(scan.frontImageUrl || payload?.frontImage || null);
+  const sideImageUrl = publicizeStoredUploadUrl(scan.sideImageUrl || payload?.sideImage || null);
+  return {
+    ...scan,
+    frontImageUrl,
+    sideImageUrl,
+    payload: payload
+      ? {
+          ...payload,
+          frontImage: publicizeStoredUploadUrl(payload.frontImage || frontImageUrl),
+          sideImage: publicizeStoredUploadUrl(payload.sideImage || sideImageUrl),
+        }
+      : scan.payload,
+  };
+}
+
 module.exports = function(app, firestore, admin, extractUserOptional) {
 
   app.get('/api/user/profiles', extractUserOptional, async (req, res) => {
@@ -96,6 +129,7 @@ module.exports = function(app, firestore, admin, extractUserOptional) {
   app.get('/api/public/profiles/:uid/:profileId', extractUserOptional, async (req, res) => {
     if (!firestore) return res.status(500).json({ error: 'Firestore not configured' });
     const { uid, profileId } = req.params;
+    const requestedScanId = String(req.query?.scan || '').trim();
     try {
       const profileDoc = await firestore.collection('users').doc(uid).collection('profiles').doc(profileId).get();
       if (!profileDoc.exists) return res.status(404).json({ error: 'Profile not found' });
@@ -104,7 +138,21 @@ module.exports = function(app, firestore, admin, extractUserOptional) {
       const isOwner = req.uid === uid;
       
       if (profile.visibility === 'private' && !isOwner) {
-        return res.status(403).json({ error: 'This profile is private' });
+        if (!requestedScanId) {
+          return res.status(403).json({ error: 'This profile is private' });
+        }
+
+        const scanDoc = await firestore.collection('users').doc(uid).collection('scans').doc(requestedScanId).get();
+        if (!scanDoc.exists) return res.status(404).json({ error: 'Scan not found' });
+        const scan = normalizeStoredScanUrls({ id: scanDoc.id, ...scanDoc.data() });
+        if ((scan.profileId || 'default') !== profileId || !isPublicScanVisibility(scan.visibility)) {
+          return res.status(403).json({ error: 'This scan is private' });
+        }
+
+        return res.json({
+          profile: { id: profileDoc.id, userId: uid, ...profile, visibility: 'private' },
+          scans: [scan],
+        });
       }
       
       const scansSnap = await firestore.collection('users').doc(uid).collection('scans')
@@ -113,7 +161,10 @@ module.exports = function(app, firestore, admin, extractUserOptional) {
         .get();
         
       const scans = [];
-      scansSnap.forEach(doc => scans.push({ id: doc.id, ...doc.data() }));
+      scansSnap.forEach(doc => {
+        const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
+        if (isOwner || isPublicScanVisibility(scan.visibility)) scans.push(scan);
+      });
       
       res.json({ profile: { id: profileDoc.id, userId: uid, ...profile }, scans });
     } catch (e) {

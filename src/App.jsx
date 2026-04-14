@@ -719,11 +719,12 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDa
   }, []);
 
   useEffect(() => {
-    loadNotifications();
-    if (!user) return undefined;
-    const id = window.setInterval(loadNotifications, 90000);
-    return () => window.clearInterval(id);
-  }, [loadNotifications, user]);
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
+    if (showNotifications) loadNotifications();
+  }, [loadNotifications, showNotifications, user]);
 
   return (
     <nav className="fixed top-0 w-full z-50 overflow-visible bg-[#0c0d0e]/80 backdrop-blur-md border-b border-zinc-900 flex justify-between items-center px-6 py-4">
@@ -5287,7 +5288,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
 
   useEffect(() => {
     if (!authenticated) return;
-    const iv = setInterval(() => fetchStats(storedPw.current), 30000);
+    const iv = setInterval(() => fetchStats(storedPw.current), 120000);
     return () => clearInterval(iv);
   }, [authenticated]);
 
@@ -6470,7 +6471,7 @@ const App = () => {
       }
     };
     sendHeartbeat(); // immediate first beat
-    const heartbeatInterval = setInterval(sendHeartbeat, 60000); // every minute
+    const heartbeatInterval = setInterval(sendHeartbeat, 300000); // every 5 minutes
 
     return () => {
       unsubscribe();

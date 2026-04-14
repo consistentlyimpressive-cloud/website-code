@@ -151,6 +151,14 @@ const readFollowedBattleIds = () => {
 const fighterKey = (fighter) =>
   [fighterLabel(fighter), fighterImage(fighter), fighter?.profileId || ''].join('|');
 
+const battleIdKey = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 120);
+
 function normalizeBattle(rawBattle) {
   if (!rawBattle?.fighterA || !rawBattle?.fighterB) return null;
   const fighterA = {
@@ -189,7 +197,7 @@ function normalizeBattle(rawBattle) {
   };
   return {
     ...rawBattle,
-    id: String(rawBattle.id || `${fighterKey(fighterA)}::${fighterKey(fighterB)}`),
+    id: String(rawBattle.id || `battle-${battleIdKey(`${fighterKey(fighterA)}-${fighterKey(fighterB)}`)}`),
     fighterA,
     fighterB,
     votesA: Number(rawBattle.votesA) || 0,
@@ -1259,7 +1267,7 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
 
   useEffect(() => {
     loadCommunityBattles();
-    const intervalId = window.setInterval(loadCommunityBattles, 90000);
+    const intervalId = window.setInterval(loadCommunityBattles, 300000);
     return () => window.clearInterval(intervalId);
   }, [loadCommunityBattles]);
 

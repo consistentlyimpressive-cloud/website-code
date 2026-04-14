@@ -43,6 +43,7 @@ const hydrateScanForDashboard = (scan) => {
     ...payload,
     scanId: scan.id,
     profileId: scan.profileId || null,
+    visibility: scan.visibility || payload.visibility || 'private',
     frontImage: scan.frontImageUrl || payload.frontImage || null,
     sideImage: scan.sideImageUrl || payload.sideImage || null,
     finalRating: typeof scan.finalRating === 'number' ? scan.finalRating : payload.finalRating,
@@ -123,6 +124,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   const [renameDraft, setRenameDraft] = useState({ id: null, name: '' });
   const [deleteProfileId, setDeleteProfileId] = useState(null);
   const [profileVisibilityIntent, setProfileVisibilityIntent] = useState(null);
+  const [scanVisibilityIntent, setScanVisibilityIntent] = useState(null);
   const overviewRef = useRef(null);
   const analysisRef = useRef(null);
   const profilesRef = useRef(null);
@@ -266,6 +268,40 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       window.console.error(err.message);
     } finally {
       setProfileVisibilityIntent(null);
+    }
+  };
+
+  const handleUpdateActiveScanVisibility = async (scanId, visibility) => {
+    if (!scanId || !visibility || !user) return;
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/api/user/scans/${encodeURIComponent(scanId)}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ visibility }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `Could not update scan visibility (${res.status})`);
+
+      setDashboardData?.((prev) => {
+        const nextHistory = Array.isArray(prev?.scanHistory)
+          ? prev.scanHistory.map((item) => (item.scanId === scanId ? { ...item, visibility } : item))
+          : prev?.scanHistory;
+        return {
+          ...(prev || {}),
+          ...(prev?.scanId === scanId ? { visibility } : {}),
+          scanHistory: nextHistory,
+        };
+      });
+      setAllScans((prev) => prev.map((scan) => (scan.id === scanId ? { ...scan, visibility } : scan)));
+      await loadMogPreviews();
+    } catch (err) {
+      window.console.error(err.message || 'Could not update scan visibility');
+    } finally {
+      setScanVisibilityIntent(null);
     }
   };
 
@@ -940,6 +976,42 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                   Go to Mog Battles <ChevronRight size={16} />
                 </button>
               </div>
+              {dashboardData?.scanId && user && (
+                <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Post settings</p>
+                      <p className="mt-1 text-xs font-sans text-zinc-400">Visibility is now per scan, not per profile.</p>
+                    </div>
+                    <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">
+                      {String(dashboardData.visibility || 'private') === 'community' ? 'public' : String(dashboardData.visibility || 'private')}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {['private', 'unlisted', 'community'].map((visibility) => {
+                      const active = String(dashboardData.visibility || 'private') === visibility;
+                      const label = visibility === 'community' ? 'public' : visibility;
+                      return (
+                        <button
+                          key={visibility}
+                          type="button"
+                          onClick={() => {
+                            if (active) return;
+                            if (visibility === 'community') {
+                              setScanVisibilityIntent({ scanId: dashboardData.scanId, visibility });
+                            } else {
+                              handleUpdateActiveScanVisibility(dashboardData.scanId, visibility);
+                            }
+                          }}
+                          className={`rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors ${active ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300' : 'border-zinc-800 bg-black/40 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'}`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </section>
 
             <section ref={communityRef} className="scroll-mt-28 border-t border-zinc-900 pt-8">
@@ -1105,30 +1177,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       <p className="text-xs text-zinc-500 uppercase tracking-widest mt-1">
                         Dashboard: {p.latestScan ? (modelUsesProDashboard(p.latestScan.model) ? 'Pro' : 'Free') : 'No scans yet'}
                       </p>
-                      <p className="text-xs text-zinc-500 uppercase tracking-widest mt-1">Visibility: {p.visibility}</p>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {['private', 'unlisted', 'public'].map((visibility) => {
-                          const active = (p.visibility || 'private') === visibility;
-                          return (
-                            <button
-                              key={visibility}
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (active) return;
-                                if (visibility === 'public') {
-                                  setProfileVisibilityIntent({ id: p.id, visibility });
-                                } else {
-                                  handleUpdateProfileVisibility(p.id, visibility);
-                                }
-                              }}
-                              className={`rounded-full border px-3 py-1 text-[9px] font-bold uppercase tracking-[0.18em] transition-colors ${active ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300' : 'border-zinc-800 bg-zinc-950/70 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'}`}
-                            >
-                              {visibility}
-                            </button>
-                          );
-                        })}
-                      </div>
                       <p className="text-xs text-zinc-500 uppercase tracking-widest mt-1">
                         Created: {p.createdAt?.seconds ? new Date(p.createdAt.seconds * 1000).toLocaleDateString() : '—'}
                       </p>
@@ -1308,13 +1356,13 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
             onConfirm={() => handleDeleteProfile(deleteProfileId)}
           />
         )}
-        {profileVisibilityIntent && (
+        {scanVisibilityIntent && (
           <ConfirmDialog
-            title="Make Profile Public?"
-            body="Are you sure? Making your profile public lets people with the link view it. Individual scans still decide whether they appear in Community Scans."
+            title="Make Scan Public?"
+            body="Are you sure? Making your scan public will add it to the community scans."
             confirmLabel="Make Public"
-            onClose={() => setProfileVisibilityIntent(null)}
-            onConfirm={() => handleUpdateProfileVisibility(profileVisibilityIntent.id, profileVisibilityIntent.visibility)}
+            onClose={() => setScanVisibilityIntent(null)}
+            onConfirm={() => handleUpdateActiveScanVisibility(scanVisibilityIntent.scanId, scanVisibilityIntent.visibility)}
           />
         )}
       </main>

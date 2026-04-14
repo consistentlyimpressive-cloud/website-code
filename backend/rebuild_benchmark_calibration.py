@@ -8,6 +8,7 @@ from engine import get_clinical_biometrics
 
 TRAINING_ROOT = Path(r"C:\Users\Laith abu amsheh\Downloads\Codexscript training")
 CALIBRATION_PATH = Path(__file__).resolve().parent / "gemini-benchmark-calibration.json"
+BACKEND_DIR = Path(__file__).resolve().parent
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
 
 TIER_SPECS = {
@@ -103,6 +104,8 @@ def load_existing():
 
 
 def main():
+    os.chdir(BACKEND_DIR)
+
     existing = load_existing()
     preserved = [
         entry

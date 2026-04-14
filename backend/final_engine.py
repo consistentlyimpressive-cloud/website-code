@@ -4,10 +4,12 @@ import time
 import base64
 import numpy as np
 import sys
+import json
+from pathlib import Path
 
 # Load .env if it exists
 if os.path.exists(".env"):
-    with open(".env") as f:
+    with open(".env", encoding="utf-8") as f:
         for line in f:
             if '=' in line and not line.startswith('#'):
                 k, v = line.strip().split('=', 1)
@@ -44,8 +46,55 @@ except ImportError:
 # API KEY VAULT (GOOGLE AI STUDIO ONLY)
 # ==========================================================
 GEMINI_KEYS = [
-    os.getenv("GEMINI_KEY_1", "AIzaSyC_c4vtU4j6gjA8MGeO7Nz1bb_Jo4wfuJc")
+    (os.getenv(f"GEMINI_KEY_{index}") or "").strip()
+    for index in range(1, 6)
 ]
+GEMINI_KEYS = [key for key in GEMINI_KEYS if key]
+
+BENCHMARK_CALIBRATION_PATH = Path(__file__).resolve().parent / "gemini-benchmark-calibration.json"
+
+
+def _mean(values):
+    values = [float(v) for v in values if isinstance(v, (int, float))]
+    return round(sum(values) / len(values), 3) if values else None
+
+
+def load_benchmark_calibration_summary():
+    """Keep Gemma anchored to the local Codex training buckets without dumping huge data."""
+    if not BENCHMARK_CALIBRATION_PATH.exists():
+        return "No local benchmark calibration file found. Use the written rating anchors only."
+
+    try:
+        rows = json.loads(BENCHMARK_CALIBRATION_PATH.read_text(encoding="utf-8"))
+    except Exception as error:
+        return f"Local benchmark calibration could not be loaded: {error}"
+
+    bucket_order = [
+        ("The 3s", "3-range / very low tier", "about 35"),
+        ("The 4s", "4-range / low tier", "about 45"),
+        ("The 5s", "5-range / lower-average tier", "about 55"),
+        ("The 6s", "6-range / decent-above-average tier", "about 65"),
+        ("7s", "7-range / attractive high-tier baseline", "about 75"),
+    ]
+    metric_keys = ("fWHR", "Midface", "Bigonial", "IPD", "Eye", "Brow", "Philtrum", "Canthal")
+    lines = [
+        "LOCAL BENCHMARK CALIBRATION FROM CODEX TRAINING FOLDERS:",
+        "Use these as soft anchors together with the photo. Do not blindly copy a bucket; classify by overall visual harmony plus measurements.",
+        "Especially important: the 7s folder contains faces that should generally remain in the 70s when they look natural/coherent, while uncanny/synthetic faces should still be punished.",
+    ]
+
+    for folder, label, target in bucket_order:
+        entries = [entry for entry in rows if isinstance(entry, dict) and entry.get("sourceFolder") == folder]
+        if not entries:
+            continue
+        metric_bits = []
+        for key in metric_keys:
+            value = _mean([entry.get("metrics", {}).get(key) for entry in entries])
+            if value is not None:
+                metric_bits.append(f"{key}~{value}")
+        lines.append(f"- {label}: target {target}; {len(entries)} examples; mean metrics: {', '.join(metric_bits)}.")
+
+    return "\n".join(lines)
 
 
 def consult_ai_with_selection(unified_prompt, img_path, choice):
@@ -67,10 +116,19 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
         model_id, friendly_name = mapping[choice]
 
         print(f"[DEBUG] Consulting {friendly_name}... (Press Ctrl+C to Cancel)")
-        for key in GEMINI_KEYS:
+        if not GEMINI_KEYS:
+            return (
+                "Error: No Gemini API keys are configured in backend/.env. Add GEMINI_KEY_1 or more keys.",
+                friendly_name,
+                0,
+            )
+
+        provider_errors = []
+        for key_index, key in enumerate(GEMINI_KEYS, start=1):
             if not key:
                 continue
             try:
+                print(f"[DEBUG] Trying Gemini key {key_index}/{len(GEMINI_KEYS)}...")
                 client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=240000))
                 with open(img_path, "rb") as f:
                     image_bytes = f.read()
@@ -86,17 +144,33 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
                 if res.text:
                     duration = round(time.time() - start_time, 2)
                     return res.text, friendly_name, duration
+                provider_errors.append(f"key {key_index}: empty model response")
             except Exception as e:
                 if "User interrupted" in str(e):
                     raise
-                print(f"      [!] {friendly_name} failed on current key.")
+                error_text = str(e).replace("\n", " ").strip()
+                short_error = error_text[:260] if error_text else "Unknown provider error"
+                provider_errors.append(f"key {key_index}: {short_error}")
+                quota_hit = "RESOURCE_EXHAUSTED" in error_text or "quota" in error_text.lower()
+                if quota_hit:
+                    print(f"      [!] {friendly_name} key {key_index} quota exhausted. Trying next key...")
+                else:
+                    print(f"      [!] {friendly_name} key {key_index} failed: {short_error}")
                 continue
 
     except KeyboardInterrupt:
         print("\n[!] User Cancelled. Stopping request...")
         return "CANCELLED", "None", 0
 
-    return "Error: Model selection failed or invalid choice.", "None", 0
+    duration = round(time.time() - start_time, 2)
+    if provider_errors:
+        return (
+            "Error: All configured Gemini keys failed or hit quota. "
+            + " | ".join(provider_errors[-3:]),
+            "None",
+            duration,
+        )
+    return "Error: Model selection failed or invalid choice.", "None", duration
 
 
 def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None, side_img_path=None):
@@ -167,6 +241,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("[3/3] Consulting AI...")
 
     prompt_visual_inputs = "INPUT C (Frontal Visual): High-resolution frontal image provided."
+    benchmark_calibration = load_benchmark_calibration_summary()
     feature_selection_rules = """
         BEST/WORST FEATURE SELECTION RULES:
         - Choose BEST FEATURES and PRIMARY FLAWS using BOTH the measurement data in mog_report / side metadata AND the actual visual appearance in the photo(s).
@@ -186,6 +261,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         INPUT A (Frontal Metadata): {clinical_data}
         INPUT B (Side Profile Metadata): {side_data}
         {prompt_visual_inputs}
+        INPUT D (Local Benchmark Calibration): {benchmark_calibration}
         TECHNICAL VISIBILITY & OVERRIDE RULES:
         - CANTHAL TILT OVERRIDE: IGNORE any Canthal Tilt data provided in INPUT A (Metadata).
         You MUST evaluate Canthal Tilt primarily from the actual visual evidence in the image(s), not just the raw number.
@@ -213,6 +289,11 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         4. Eye Depth.
         5. Ear Shape.
         6. Skin Quality.
+        IMPORTANT FRONT/SIDE SEPARATION:
+        - Final Frontal Rating must be judged primarily from the frontal image plus frontal measurements.
+        - Final Side Rating must be judged from the side metadata/side visual evidence.
+        - Do NOT let side-only weaknesses drag down the Final Frontal Rating unless the weakness is also visible from the front.
+        - Shared traits can be checked from both angles, but the two final ratings must stay separate.
         SCORING LOGIC & THRESHOLDS:
         1. RATIO ANCHORS (STRICT SCALING):
            - fWHR: The ideal is BALANCED, not extreme.
@@ -402,6 +483,9 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         - #1 WORST FEATURE: [Feature Name] - [Brief explanation based on both visuals and measurements]
 
         ### DASHBOARD_DATA
+        IMPORTANT DASHBOARD_DATA FORMAT RULE:
+        Do NOT write BEST FEATURES or PRIMARY FLAWS as inline bracket lists.
+        You MUST write each entry on its own numbered line exactly like the template below, with a short explanation after a dash.
         BEST FEATURES (10):
         1. [FRONT] [Feature Name] - [Brief explanation]
         2. [FRONT] [Feature Name] - [Brief explanation]
