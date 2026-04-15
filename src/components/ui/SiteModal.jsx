@@ -74,10 +74,33 @@ export function ImageLightbox({ src, alt = '', subtitle = '', onClose }) {
   if (!src) return null;
 
   return (
-    <SiteModal title="Image Preview" subtitle={subtitle} onClose={onClose} maxWidth="max-w-4xl">
-      <div className="overflow-hidden rounded-[24px] border border-zinc-800 bg-black/40">
-        <img src={src} alt={alt} className="max-h-[76vh] w-full object-contain" />
+    <div
+      className="fixed inset-0 z-[260] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex max-h-[88vh] max-w-[94vw] items-center justify-center"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute -right-2 -top-2 z-10 rounded-full border border-zinc-700 bg-[#0b0c0d] p-2 text-zinc-300 shadow-[0_12px_40px_rgba(0,0,0,0.45)] transition-colors hover:border-zinc-500 hover:text-white"
+          aria-label="Close image preview"
+        >
+          <X size={16} />
+        </button>
+        {subtitle ? (
+          <div className="absolute left-3 top-3 z-10 rounded-full border border-zinc-700 bg-black/70 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-zinc-300 backdrop-blur">
+            {subtitle}
+          </div>
+        ) : null}
+        <div className="overflow-hidden rounded-[24px] border border-zinc-800 bg-black shadow-[0_30px_120px_rgba(0,0,0,0.75)]">
+          <img src={src} alt={alt} className="max-h-[86vh] max-w-[94vw] object-contain" />
+        </div>
       </div>
-    </SiteModal>
+    </div>
   );
 }

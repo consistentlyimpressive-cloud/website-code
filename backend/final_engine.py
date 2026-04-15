@@ -278,6 +278,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         - TROLL/NON-HUMAN IMAGE DETECTION: If the input image is clearly not a human face (e.g., a cat, a dog, a drawn cartoon, or an inanimate object), rate its symmetry and ratios normally from 1-100, but prominently include a humorous disclaimer in the Technical Summary or insights (e.g., "Ratings may be inaccurate as the face appears to be a cat!").
         Do not let this affect the actual structural math generation.
         - HIGHLIGHTING & FORMATTING: In your insights and descriptions, highlight *key words* and *core concepts* by wrapping them in single asterisks for bold emphasis.
+        - Do NOT use color-code wrappers like &blue&, &green&, $red$, #blue#, or @yellow@ anywhere in the output.
 {feature_selection_rules}
 
         SHARED RATING PROTOCOL:
@@ -366,7 +367,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
 
            LOW-TIER / 4-RANGE CUES:
            If the face has average-to-weak structure, weak harmony, soft definition, visible flaws, and no standout redeeming markers, do not inflate it into the 50s or 60s.
-           
+
            VERY LOW-TIER / 3-RANGE CUES:
            If SEVERAL of the following appear together, strongly consider a rating in the 30s:
            - very low fWHR / visibly narrow facial width that makes the face look weak rather than refined
@@ -379,7 +380,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            A face with this combination should NOT be saved by "average skin", "not terrible lips", or one small decent feature.
            If the overall read is weak, narrow, asymmetric, and long-faced, do not be generous.
            These faces often belong in roughly the 30-39 range, and can go lower when the flaws are severe enough.
-           
+
            BUCKET IMPACT ON FINAL RATING:
            - NATURAL / COHERENT HIGH-TIER: score normally from the ratios + visual harmony.
            - EXAGGERATED BUT COHERENT: apply only a tiny deduction, usually around 0-3 points total unless harmony is clearly disrupted. These faces can still land in the 75-85 range or higher when the structure is genuinely strong.
@@ -562,6 +563,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         free_guidelines = """
         STRICT MANDATE: Do NOT mention, hint at, or include any numerical scores, percentages, or overall ratings in your assessment.
         Focus entirely on descriptive analysis. Use vague descriptors like 'Above Average', 'Below Average', or 'Significantly Above Average' to describe the tier if necessary.
+        Do NOT use color-code wrappers like &blue&, &green&, $red$, #blue#, or @yellow@ anywhere in the output.
         """
 
         if choice == "3":  # OPTIC

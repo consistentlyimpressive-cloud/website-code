@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Gauge, Sparkles, Bell, Trash2 } from 'lucide-react';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import NewsPage from './components/NewsPage';
@@ -325,6 +325,7 @@ function findCommunityScanTemplate(scan) {
 
 function hydrateCommunityScanEntry(scan, index = 0) {
   const template = findCommunityScanTemplate(scan);
+  const isOfficialScan = Boolean(scan?.officialScan || scan?.official || template?.officialScan || template?.official);
   const payload =
     scan?.dashboardData && typeof scan.dashboardData === 'object'
       ? scan.dashboardData
@@ -363,7 +364,7 @@ function hydrateCommunityScanEntry(scan, index = 0) {
         sideImage,
         finalRating,
         sideRating,
-        selectedModel: String(payload.selectedModel || scan?.selectedModel || '1'),
+        selectedModel: String(payload.selectedModel || scan?.selectedModel || scan?.model || (isOfficialScan ? 'official' : '1')),
       }
     : null;
 
@@ -371,7 +372,9 @@ function hydrateCommunityScanEntry(scan, index = 0) {
     ...template,
     ...scan,
     id: scan?.id || scan?.scanId || template?.id || `community-${index}`,
-    displayName: 'Community Scan',
+    displayName: isOfficialScan ? 'Official Scan' : 'Community Scan',
+    officialScan: isOfficialScan,
+    official: isOfficialScan,
     tier:
       scan?.tier ||
       template?.tier ||
@@ -492,17 +495,18 @@ function formatTimestamp(value, fallback = 'Unknown Time') {
 
 function normalizeMarkedText(value) {
   return String(value || '')
-    .replace(/Ã‚Â|Â/g, ' ')
-    .replace(/â€™/g, "'")
-    .replace(/â€œ|â€�/g, '"')
-    .replace(/â€“|â€”/g, '-')
-    .replace(/â€¢/g, '•')
-    .replace(/â€¦/g, '...')
+    .replace(/Ãƒâ€šÃ‚|Ã‚/g, ' ')
+    .replace(/Ã¢â‚¬â„¢/g, "'")
+    .replace(/Ã¢â‚¬Å“|Ã¢â‚¬ï¿½/g, '"')
+    .replace(/Ã¢â‚¬â€œ|Ã¢â‚¬â€/g, '-')
+    .replace(/Ã¢â‚¬Â¢/g, 'â€¢')
+    .replace(/Ã¢â‚¬Â¦/g, '...')
     .replace(/\*\*([\s\S]*?)\*\*/g, '*$1*')
-    .replace(/\$([^$]+)\$/g, '&red $1&')
-    .replace(/#([^#]+)#/g, '&blue $1&')
-    .replace(/@([^@]+)@/g, '&yellow $1&')
-    .replace(/&(?!(?:red|green|blue|white|yellow)\b)([^&]+)&/gi, '&green $1&')
+    .replace(/&(red|green|blue|white|yellow)\s+([^&]+)&/gi, '$2')
+    .replace(/\$([^$]+)\$/g, '$1')
+    .replace(/#([^#]+)#/g, '$1')
+    .replace(/@([^@]+)@/g, '$1')
+    .replace(/&([^&]+)&/g, '$1')
     .replace(/\r\n/g, '\n');
 }
 
@@ -527,7 +531,7 @@ function renderMarkedText(value, options = {}) {
 
   const boldClassName = options.boldClassName || 'font-semibold text-white';
   const nodes = [];
-  const pattern = /&(red|green|blue|white|yellow)\s+([^&]+)&|\*([^*]+)\*/gi;
+  const pattern = /\*([^*]+)\*/g;
   let cursor = 0;
   let key = 0;
 
@@ -543,20 +547,11 @@ function renderMarkedText(value, options = {}) {
   let match;
   while ((match = pattern.exec(text)) !== null) {
     pushPlain(text.slice(cursor, match.index));
-    if (match[1]) {
-      const colorKey = String(match[1]).toLowerCase();
-      nodes.push(
-        <span key={`color-${key++}`} className={INLINE_COLOR_CLASSES[colorKey] || ''}>
-          {match[2]}
-        </span>
-      );
-    } else {
-      nodes.push(
-        <strong key={`bold-${key++}`} className={boldClassName}>
-          {match[3]}
-        </strong>
-      );
-    }
+    nodes.push(
+      <strong key={`bold-${key++}`} className={boldClassName}>
+        {match[1]}
+      </strong>
+    );
     cursor = pattern.lastIndex;
   }
 
@@ -594,6 +589,133 @@ const getCheckoutUrl = (plan, user) => {
 };
 
 const API_BASE = getApiBase();
+
+const ANALYSIS_MODEL_LABELS = {
+  '1': 'Premium Ultra',
+  '2': 'Fun Mode',
+  '3': 'Free Optic',
+  '4': 'Free Core',
+  '5': 'Free Geneva',
+  official: 'Official Scan',
+};
+
+function getAnalysisModelLabel(model) {
+  const key = String(model || '').trim();
+  return ANALYSIS_MODEL_LABELS[key] || (key ? `Model ${key}` : 'Unknown AI');
+}
+
+function getRatingToneClasses(score) {
+  const n = Number(score) || 0;
+  if (n >= 90) {
+    return {
+      text: 'text-emerald-200 drop-shadow-[0_0_16px_rgba(110,231,183,0.55)]',
+      glow: 'group-hover:shadow-[0_24px_70px_rgba(16,185,129,0.22)]',
+      border: 'border-emerald-300/45 group-hover:border-emerald-200/70',
+      badge: 'border-emerald-300/35 bg-emerald-400/15 text-emerald-200',
+    };
+  }
+  if (n >= 80) {
+    return {
+      text: 'text-emerald-400 drop-shadow-[0_0_14px_rgba(52,211,153,0.45)]',
+      glow: 'group-hover:shadow-[0_24px_65px_rgba(52,211,153,0.16)]',
+      border: 'border-emerald-500/35 group-hover:border-emerald-400/60',
+      badge: 'border-emerald-500/30 bg-emerald-500/12 text-emerald-300',
+    };
+  }
+  if (n >= 70) {
+    return {
+      text: 'text-lime-300 drop-shadow-[0_0_13px_rgba(163,230,53,0.35)]',
+      glow: 'group-hover:shadow-[0_24px_65px_rgba(163,230,53,0.12)]',
+      border: 'border-lime-500/30 group-hover:border-lime-400/55',
+      badge: 'border-lime-500/30 bg-lime-500/12 text-lime-300',
+    };
+  }
+  if (n >= 60) {
+    return {
+      text: 'text-yellow-300 drop-shadow-[0_0_13px_rgba(250,204,21,0.35)]',
+      glow: 'group-hover:shadow-[0_24px_65px_rgba(250,204,21,0.1)]',
+      border: 'border-yellow-500/30 group-hover:border-yellow-400/55',
+      badge: 'border-yellow-500/30 bg-yellow-500/12 text-yellow-300',
+    };
+  }
+  if (n >= 50) {
+    return {
+      text: 'text-orange-400 drop-shadow-[0_0_13px_rgba(251,146,60,0.35)]',
+      glow: 'group-hover:shadow-[0_24px_65px_rgba(249,115,22,0.12)]',
+      border: 'border-orange-500/35 group-hover:border-orange-400/60',
+      badge: 'border-orange-500/30 bg-orange-500/12 text-orange-300',
+    };
+  }
+  return {
+    text: 'text-rose-400 drop-shadow-[0_0_13px_rgba(251,113,133,0.35)]',
+    glow: 'group-hover:shadow-[0_24px_65px_rgba(244,63,94,0.14)]',
+    border: 'border-rose-500/35 group-hover:border-rose-400/60',
+    badge: 'border-rose-500/30 bg-rose-500/12 text-rose-300',
+  };
+}
+
+function slugifyScanName(value) {
+  return String(value || 'scan')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'scan';
+}
+
+function celebrityToOfficialCommunityScan(celeb, index = 0) {
+  const rating = Number(celeb?.rating) || 0;
+  const stats = Array.isArray(celeb?.stats) ? celeb.stats : [];
+  const categories = stats.reduce((acc, item) => {
+    const label = String(item?.label || '').toLowerCase();
+    const score = Number(item?.score);
+    if (!Number.isFinite(score)) return acc;
+    if (label.includes('skin')) acc.Skin = score;
+    if (label.includes('fwhr') || label.includes('bigonial') || label.includes('jaw')) acc.Bone = score;
+    if (label.includes('symmetry') || label.includes('canthal') || label.includes('ipd')) acc.Symmetry = score;
+    if (label.includes('midface') || label.includes('third')) acc.Harmony = score;
+    return acc;
+  }, {});
+  const dashboardData = {
+    scanId: `official-${slugifyScanName(celeb?.name)}-${index}`,
+    profileId: `official-${slugifyScanName(celeb?.name)}`,
+    profileName: 'Official Scan',
+    selectedModel: 'official',
+    finalRating: rating,
+    sideRating: rating,
+    sex: celeb?.sex || null,
+    technicalSummary: celeb?.technicalSummary || '',
+    appealAssessment: celeb?.technicalSummary || '',
+    categories: {
+      Skin: categories.Skin ?? rating,
+      Bone: categories.Bone ?? rating,
+      Symmetry: categories.Symmetry ?? rating,
+      Harmony: categories.Harmony ?? rating,
+      Dimorphism: rating,
+    },
+    biometrics: stats,
+    frontImage: celeb?.imgSrc || '',
+    sideImage: celeb?.imgSrc || '',
+  };
+  return {
+    id: dashboardData.scanId,
+    scanId: dashboardData.scanId,
+    ownerUid: 'official',
+    officialScan: true,
+    official: true,
+    displayName: 'Official Scan',
+    name: celeb?.name || 'Official Scan',
+    tier: celeb?.tier || '',
+    finalRating: rating,
+    sideRating: rating,
+    frontImage: dashboardData.frontImage,
+    sideImage: dashboardData.sideImage,
+    model: 'official',
+    dashboardData,
+    timestamp: `2099-01-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+  };
+}
+
+const OFFICIAL_CELEBRITY_COMMUNITY_SCANS = celebrityData.map(celebrityToOfficialCommunityScan);
 
 const MOGCHECK_LOGO_SRC = '/mogcheck-logo.png';
 
@@ -999,7 +1121,7 @@ const BodyFatSlider = () => {
   const [duration, setDuration] = useState(0);
   const currentBF = (10 + (sliderValue / 100) * 25).toFixed(1);
 
-  /** Snap to 1% body-fat steps (10%–35% → 26 steps on the 0–100 slider). */
+  /** Snap to 1% body-fat steps (10%-35%, 26 steps on the 0-100 slider). */
   const handleSliderChange = (e) => {
     const raw = Number(e.target.value);
     const snapped = Math.round(raw / 4) * 4;
@@ -1160,12 +1282,151 @@ const ReviewsCarousel = () => {
   );
 };
 
+const CommunityScanCard = ({
+  scan,
+  rating,
+  ratingTone,
+  tierBadgeClass,
+  scanTier,
+  isOwnedCommunityScan,
+  isAdmin,
+  communityMenuId,
+  onOpen,
+  onRemove,
+  onToggleMenu,
+  onMarkOfficial,
+}) => {
+  const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setMousePos({ x, y });
+  };
+
+  const rotateY = (mousePos.x - 50) * 0.12;
+  const rotateX = (50 - mousePos.y) * 0.1;
+  const modelLabel = scan.officialScan ? 'MogCheck verified' : getAnalysisModelLabel(scan.dashboardData?.selectedModel || scan.model);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        onOpen();
+      }}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setMousePos({ x: 50, y: 50 });
+      }}
+      className="group relative cursor-pointer text-left [perspective:1200px] outline-none"
+    >
+      <div
+        className={`relative overflow-hidden rounded-[30px] border bg-zinc-900/40 transition-[transform,box-shadow,border-color] duration-500 ease-out [transform-style:preserve-3d] ${ratingTone.border} ${ratingTone.glow}`}
+        style={{
+          transform: isHovered
+            ? `rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-10px) scale(1.015)`
+            : 'rotateX(0deg) rotateY(0deg) translateY(0) scale(1)',
+        }}
+      >
+        <div className="relative overflow-hidden rounded-[30px] bg-zinc-950">
+          <img
+            src={scan.frontImage}
+            className="w-full aspect-[3/4] object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.065]"
+            alt="Community Scan"
+          />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent opacity-95" />
+          <div
+            className="pointer-events-none absolute inset-0 opacity-0 mix-blend-screen transition-opacity duration-300 group-hover:opacity-100"
+            style={{
+              background: `radial-gradient(190px circle at ${mousePos.x}% ${mousePos.y}%, rgba(255,255,255,0.18), rgba(255,255,255,0.04) 36%, transparent 68%)`,
+            }}
+          />
+          <div className={`pointer-events-none absolute inset-0 rounded-[30px] ring-1 ring-current/20 transition ${ratingTone.text}`} />
+        </div>
+
+        <div className="absolute top-3 left-3 z-20">
+          <span className={`border text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded backdrop-blur-md ${tierBadgeClass}`}>
+            {scanTier}
+          </span>
+        </div>
+
+        {isOwnedCommunityScan && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            className="absolute right-3 top-3 z-30 inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-500/30 bg-black/70 text-red-300 backdrop-blur transition-colors hover:bg-red-500/15 hover:text-red-200"
+            title="Remove from Community Scans"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+
+        {isAdmin && !scan.officialScan && (
+          <div className="absolute right-3 top-3 z-40">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleMenu();
+              }}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700 bg-black/70 text-zinc-300 backdrop-blur transition-colors hover:border-zinc-400 hover:text-white"
+              title="Admin scan actions"
+            >
+              <span className="text-lg leading-none">...</span>
+            </button>
+            {communityMenuId === scan.id && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMarkOfficial();
+                }}
+                className="absolute right-0 top-10 w-52 rounded-2xl border border-zinc-700 bg-[#090a0b] px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.18em] text-zinc-200 shadow-[0_20px_50px_rgba(0,0,0,0.5)] hover:bg-white/5"
+              >
+                Turn into official scan
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black via-black/80 to-transparent p-4 flex flex-col items-start [transform:translateZ(32px)]">
+          <div className="flex items-baseline gap-1 mb-2">
+            <span className={`text-3xl font-black italic tabular-nums ${ratingTone.text}`}>{rating.toFixed(1)}</span>
+            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
+          </div>
+          <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-[0.2em]">
+            Community Scan - {modelLabel}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => {
   const [communityScans, setCommunityScans] = useState([]);
   const [showAllCommunity, setShowAllCommunity] = useState(false);
   const [communityPeek, setCommunityPeek] = useState(null);
   const [communityRemovalIntent, setCommunityRemovalIntent] = useState(null);
   const [communityNotice, setCommunityNotice] = useState('');
+  const [communityMenuId, setCommunityMenuId] = useState(null);
+  const isAdmin = Boolean(user?.email && (
+    user.email === 'laithbu07@gmail.com' ||
+    user.email === 'admin@looksmaxxing.com' ||
+    user.email === 'serenity.eyb@gmail.com' ||
+    user.email.endsWith('@looksmaxxing.com')
+  ));
 
   useEffect(() => {
     if (!communityPeek) return undefined;
@@ -1207,7 +1468,19 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
           );
         }
         
-        setCommunityScans(loadedScans);
+        const merged = new Map();
+        [...OFFICIAL_CELEBRITY_COMMUNITY_SCANS, ...loadedScans].forEach((scan, idx) => {
+          const hydrated = hydrateCommunityScanEntry(scan, idx);
+          const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
+          if (!merged.has(key)) merged.set(key, hydrated);
+        });
+
+        setCommunityScans(Array.from(merged.values()).sort((a, b) => {
+          const ratingDiff = (Number(b.finalRating) || 0) - (Number(a.finalRating) || 0);
+          if (ratingDiff) return ratingDiff;
+          if (Boolean(a.officialScan) !== Boolean(b.officialScan)) return a.officialScan ? -1 : 1;
+          return timestampToMillis(b.timestamp) - timestampToMillis(a.timestamp);
+        }));
       } catch(e) {
         console.error(e);
       }
@@ -1237,6 +1510,32 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
     }
   };
 
+  const markCommunityScanOfficial = async (scan) => {
+    const password = window.localStorage.getItem('mogcheck_admin_pw') || '';
+    if (!password || !scan?.id) {
+      setCommunityNotice('Admin password is required. Log into the admin panel once, then try again.');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/community-scans/${encodeURIComponent(scan.id)}/official`, {
+        method: 'POST',
+        headers: {
+          'x-admin-password': password,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ official: true }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Failed to mark official');
+      setCommunityScans((prev) => prev.map((item) => (item.id === scan.id ? { ...item, officialScan: true, official: true } : item)));
+      setCommunityNotice('Scan marked as official.');
+    } catch (e) {
+      setCommunityNotice(e.message || 'Failed to mark official.');
+    } finally {
+      setCommunityMenuId(null);
+    }
+  };
+
   return (
     <div className="w-full flex-grow pt-28 pb-16 px-4 sm:px-6 relative flex flex-col items-center overflow-hidden">
       {communityPeek && communityPeek.dashboardData && (
@@ -1257,7 +1556,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
             </button>
             <div className="min-w-0 flex-1">
               <p className="font-sans text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                Community scan{communityPeek?.tier ? ` · ${communityPeek.tier}` : ''}
+                Community scan{communityPeek?.tier ? ` - ${communityPeek.tier}` : ''}
               </p>
               <h2 id="community-scan-page-title" className="truncate font-black uppercase italic tracking-tight text-white">
                 Community Scan
@@ -1281,43 +1580,16 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
         </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-b from-[#0c0d0e] via-zinc-900/20 to-[#0c0d0e] -z-10" />
-      <FadeUp>
-        <div className="text-center mb-10 md:mb-12 relative">
-          <div className="absolute -top-[100%] left-1/2 -translate-x-1/2 w-[300px] h-[300px] bg-white/5 blur-[100px] rounded-full pointer-events-none" />
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white mb-4 drop-shadow-2xl">Elite Protocol</h1>
-          <div className="flex items-center justify-center gap-4">
-            <div className="h-[1px] w-12 bg-zinc-800" />
-            <p className="text-white font-sans text-[10px] md:text-xs uppercase tracking-[0.2em] font-black text-center px-4 py-2 border border-white/20 bg-white/10 backdrop-blur-md rounded-full max-w-xl leading-relaxed shadow-[0_0_20px_rgba(255,255,255,0.15)]">
-              The flags represent genetic ethnic backgrounds and not nationalities
-            </p>
-            <div className="h-[1px] w-12 bg-zinc-800" />
-          </div>
-        </div>
-      </FadeUp>
-
-      <div className="w-full max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-24">
-        {celebrityData.map((celeb, idx) => (
-          <FlipIn key={idx} delay={Math.min(idx * 80, 400)}>
-            <HolographicCard 
-              compact
-              celeb={celeb} 
-              onClick={() => {
-                setSelectedCelebrity(celeb);
-                setCurrentPage('celebrity-stats');
-              }} 
-            />
-          </FlipIn>
-        ))}
-      </div>
-
       <div className="w-full max-w-5xl mx-auto flex flex-col items-center text-center">
         <h2 className="text-3xl font-black italic uppercase tracking-widest text-white mb-2">Community Scans</h2>
-        <p className="text-zinc-500 uppercase tracking-widest text-xs mb-10">SEE HOW OTHERS IN THE COMMUNITY STACK UP.</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 w-full">
-          {(showAllCommunity ? communityScans : communityScans.slice(0, 8)).map((rawScan, idx) => {
+        <p className="text-zinc-500 uppercase tracking-widest text-xs mb-10">Community scans stay synced across dashboard, scans, and mog battles.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+          {(showAllCommunity ? communityScans : communityScans.slice(0, 9)).map((rawScan, idx) => {
             const scan = hydrateCommunityScanEntry(rawScan, idx);
-            const isOwnedCommunityScan = Boolean(user?.uid && scan.ownerUid && scan.ownerUid === user.uid && scan.scanId);
-            const scanTier = scan.tier || (Number(scan.finalRating) >= 90 ? 'S-Tier' : Number(scan.finalRating) >= 80 ? 'A-Tier' : Number(scan.finalRating) >= 70 ? 'B-Tier' : Number(scan.finalRating) >= 60 ? 'C-Tier' : 'D-Tier');
+            const isOwnedCommunityScan = Boolean(user?.uid && scan.ownerUid && scan.ownerUid === user.uid && scan.scanId && !scan.officialScan);
+            const rating = Number(scan.finalRating || 0);
+            const ratingTone = getRatingToneClasses(rating);
+            const scanTier = scan.tier || '-';
             const tierUpper = String(scanTier).toUpperCase();
             const tierBadgeClass =
               tierUpper.includes('S') && tierUpper.includes('TIER')
@@ -1327,50 +1599,31 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
                   : 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
 
             return (
-            <button 
-              type="button"
-              key={scan.id || idx}
-              onClick={() => {
-                if (!scan.dashboardData) return;
-                setCommunityPeek(scan);
-              }}
-              className="bg-zinc-900/40 border border-zinc-800 rounded-[28px] overflow-hidden cursor-pointer hover:border-cyan-500/50 transition-colors group relative"
-            >
-              <div className="overflow-hidden rounded-[28px]">
-                <img src={scan.frontImage} className="w-full aspect-[3/4] object-cover object-top" alt="Community Scan" />
-              </div>
-              <div className="absolute top-3 left-3 z-20">
-                <span className={`border text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded backdrop-blur-md ${tierBadgeClass}`}>
-                  {scanTier}
-                </span>
-              </div>
-              {isOwnedCommunityScan && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCommunityRemovalIntent(scan);
-                  }}
-                  className="absolute right-3 top-3 z-30 inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-500/30 bg-black/70 text-red-300 backdrop-blur transition-colors hover:bg-red-500/15 hover:text-red-200"
-                  title="Remove from Community Scans"
-                >
-                  <Trash2 size={14} />
-                </button>
-              )}
-              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black via-black/80 to-transparent p-4 flex flex-col items-start">
-                <div className="flex items-baseline gap-1 mb-2">
-                  <span className="text-2xl font-black italic text-white drop-shadow-md">{Number(scan.finalRating || 0).toFixed(1)}</span>
-                  <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
-                </div>
-                <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-[0.2em]">COMMUNITY SCAN</span>
-              </div>
-            </button>
-          )})}
+              <CommunityScanCard
+                key={scan.id || idx}
+                scan={scan}
+                rating={rating}
+                ratingTone={ratingTone}
+                tierBadgeClass={tierBadgeClass}
+                scanTier={scanTier}
+                isOwnedCommunityScan={isOwnedCommunityScan}
+                isAdmin={isAdmin}
+                communityMenuId={communityMenuId}
+                onOpen={() => {
+                  if (!scan.dashboardData) return;
+                  setCommunityPeek(scan);
+                }}
+                onRemove={() => setCommunityRemovalIntent(scan)}
+                onToggleMenu={() => setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id))}
+                onMarkOfficial={() => markCommunityScanOfficial(scan)}
+              />
+            );
+          })}
         </div>
         {communityScans.length === 0 && (
           <p className="text-zinc-500 text-center py-12 w-full">No community scans available yet.</p>
         )}
-        {communityScans.length > 8 && !showAllCommunity && (
+        {communityScans.length > 9 && !showAllCommunity && (
           <div className="mt-12 flex justify-center w-full">
             <button 
               onClick={() => setShowAllCommunity(true)}
@@ -1462,7 +1715,7 @@ const CelebrityStatsPage = ({ celeb, setCurrentPage }) => {
           className="flex items-center gap-2 text-zinc-400 hover:text-white mb-8 transition-colors group uppercase tracking-widest text-xs font-bold"
         >
           <ChevronRight className="w-4 h-4 rotate-180 group-hover:-translate-x-1 transition-transform" />
-          Back to Elite Protocol
+          Back to Community Scans
         </button>
 
         <div className="flex flex-col md:flex-row gap-12">
@@ -1510,7 +1763,9 @@ const CelebrityStatsPage = ({ celeb, setCurrentPage }) => {
             <section>
               <h2 className="text-2xl font-black uppercase tracking-widest mb-4 text-white italic">Overview</h2>
               <div className="p-6 bg-zinc-900/30 border border-zinc-800/50 rounded-xl shadow-lg">
-                <p className="text-zinc-300 font-sans leading-relaxed tracking-wide" dangerouslySetInnerHTML={{ __html: String(celeb.technicalSummary || '').replace(/\*\*(.*?)\*\*/g, '<b class="text-white">$1</b>') }} />
+                <p className="text-zinc-300 font-sans leading-relaxed tracking-wide">
+                  {renderMarkedText(celeb.technicalSummary)}
+                </p>
               </div>
             </section>
 
@@ -1683,7 +1938,7 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
                       )}
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-sm">{scan.finalRating ? `${scan.finalRating}/100` : 'N/A'}</span>
+              <span className="text-sm font-black text-zinc-100">{scan.finalRating ?? '-'}/100</span>
                           {scan.model === '1' && <span className="bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Premium</span>}
                           {scan.success === false && <span className="bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Failed</span>}
                         </div>
@@ -1814,9 +2069,9 @@ const HomePage = ({ setCurrentPage }) => {
 
       <FadeUp>
         <div className="relative flex flex-col items-center w-full max-w-6xl mx-auto">
-          {/* Wireframe only behind the headline â€” flow continues at divider / CTA */}
+          {/* Wireframe only behind the headline - flow continues at divider / CTA */}
           <div className="relative w-full flex justify-center px-4 mb-6 md:mb-10">
-            {/* Mesh: absolute overlay only â€” height comes from headline text, not from the SVG */}
+          {/* Mesh: absolute overlay only - height comes from headline text, not from the SVG */}
             <div className="relative w-fit max-w-full py-2 md:py-4">
               <div className="relative z-10 flex flex-col items-center">
                 
@@ -2576,7 +2831,7 @@ const ScanningView = ({
           headers.Authorization = `Bearer ${authToken}`;
         }
 
-        /** So the UI never sits on “Consulting AI” forever if Python/API hangs */
+      /** So the UI never sits on "Consulting AI" forever if Python/API hangs */
         const analyzeAbort = new AbortController();
         cancelAnalyzeRequest = () => analyzeAbort.abort();
         const ANALYZE_CLIENT_MAX_MS = 10 * 60 * 1000;
@@ -2815,7 +3070,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
               setSelectedProfileId('new');
             }
         } else {
-          // 401 = token not accepted by server; 503 = Firestore off — avoid invalid <select> value
+        // 401 = token not accepted by server; 503 = Firestore off - avoid invalid <select> value
           setProfiles([]);
           setProfilesUnavailable(false);
           setSelectedProfileId('new');
@@ -2965,12 +3220,12 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     return (
       <div ref={scanTopRef} className="flex-grow flex flex-col bg-[#0c0d0e] scroll-mt-20">
         <div className="flex flex-col items-center pt-24 pb-16 px-6 lg:px-12 relative min-h-screen">
-          <ScanningView 
+          <ScanningView
              mainImageSrc={frontImage}
              mainImageFile={frontFile}
              sideImageUrl={sideImage}
              sideImageFile={sideFile}
-             sideMetricData={sideMetricDataGlobal} 
+             sideMetricData={sideMetricDataGlobal}
              choice={selectedModel}
              user={user}
              profileId={selectedProfileId}
@@ -2981,7 +3236,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                 setDashboardData(prev => {
                   const newScanHistory = prev?.scanHistory ? [...prev.scanHistory] : [];
                   const newRatingHistory = prev?.ratingHistory ? [...prev.ratingHistory] : [];
-                  
+
                   if (prev && prev.frontImage && prev.finalRating && newScanHistory.length === 0) {
                      newScanHistory.push({
                        ...prev,
@@ -3014,7 +3269,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                 });
                 setCurrentPage('dashboard');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-             }} 
+             }}
           />
           <div className="mt-16 flex flex-col items-center gap-3 animate-bounce cursor-pointer hover:scale-105 transition-transform" onClick={() => window.scrollBy({ top: 600, behavior: 'smooth' })}>
             <div className="bg-cyan-500/10 border border-cyan-500/30 px-6 py-2 rounded-full shadow-[0_0_15px_rgba(34,211,238,0.2)]">
@@ -3475,7 +3730,7 @@ const ResultsPage = () => (
   </div>
 );
 
-/** Category and overall scores may be stored as 0–100 or 0–10; UI shows 0–10. */
+  /** Category and overall scores may be stored as 0-100 or 0-10; UI shows 0-10. */
 const scoreToDisplay10 = (fs) => {
   if (fs == null || fs === '' || Number.isNaN(Number(fs))) return null;
   const n = Number(fs);
@@ -3688,7 +3943,7 @@ const FeatureCard = ({ type = 'best', title, description }) => {
   );
 };
 
-const DashboardOverview = ({ dashboardData, isRestrictedPreview, activeProfileView }) => {
+const DashboardOverview = ({ dashboardData, isRestrictedPreview, activeProfileView, showFeatureLists = true }) => {
   const summary =
     dashboardData?.technicalSummary &&
     dashboardData.technicalSummary !== 'Could not generate technical summary.'
@@ -3704,7 +3959,7 @@ const DashboardOverview = ({ dashboardData, isRestrictedPreview, activeProfileVi
     () => resolveNormalizedFeatures(dashboardData, 'best', isSide),
     [dashboardData, isSide]
   );
-  const shouldExpand = isRestrictedPreview || displayFlaws.length > 0 || displayFeatures.length > 0;
+  const shouldExpand = isRestrictedPreview || !showFeatureLists || (displayFlaws.length > 0 || displayFeatures.length > 0);
   const [isExpanded, setIsExpanded] = useState(shouldExpand);
 
   useEffect(() => {
@@ -3727,6 +3982,7 @@ const DashboardOverview = ({ dashboardData, isRestrictedPreview, activeProfileVi
           {renderMarkedText(summary)}
         </p>
 
+        {showFeatureLists && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mt-8 mb-4" style={{ zoom: 0.92 }}>
           <style>{`
             @keyframes floatParticle {
@@ -3777,6 +4033,7 @@ const DashboardOverview = ({ dashboardData, isRestrictedPreview, activeProfileVi
             </div>
           </div>
         </div>
+        )}
         
         {!isExpanded && (
           <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-t from-[#101113] to-transparent pointer-events-none" />
@@ -4193,7 +4450,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   const selectedModel = String(dashboardData?.selectedModel || '').trim();
   const isFreeModelResult = ['3', '4', '5'].includes(selectedModel);
   const hasFullProUnlock = userPlan?.plan === 'pro';
-  const isRestrictedPreview = isFreeModelResult && !hasFullProUnlock;
+  const isRestrictedPreview = false;
   const showBestFlaw = !hideBestFlawSection;
 
   const renderBlurredOverlay = (title) => (
@@ -4382,11 +4639,13 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
     return () => clearInterval(interval);
   }, [isRestrictedPreview]);
 
-  const displayedFinalRating = isRestrictedPreview
-    ? freeRatingLoop
-    : (isSideView
-        ? (dashboardData?.sideRating ?? dashboardData?.finalRating ?? 85)
-        : (dashboardData?.finalRating ?? 85));
+  const numericDisplayedFinalRating = isSideView
+    ? (dashboardData?.sideRating ?? dashboardData?.finalRating ?? null)
+    : (dashboardData?.finalRating ?? null);
+  const displayedFinalRating = isFreeModelResult
+    ? 'Descriptive'
+    : (numericDisplayedFinalRating ?? 85);
+  const radarFinalScore = Number(numericDisplayedFinalRating ?? dashboardData?.finalRating ?? 0) || 0;
 
   return (
     <div className={`w-full flex-grow flex flex-col items-center relative font-sans overflow-hidden bg-[#0a0a0b] ${isEmbedded ? '' : 'pt-16 pb-24 px-4 sm:px-6'}`}>
@@ -4414,7 +4673,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </button>
             <div className="min-w-0 flex-1">
               <p className="font-sans text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                Community scan{communityPeek?.tier ? ` · ${communityPeek.tier}` : ''}
+                Community scan{communityPeek?.tier ? ` - ${communityPeek.tier}` : ''}
               </p>
               <h2 id="free-community-scan-title" className="truncate font-black uppercase italic tracking-tight text-white">
                 Community Scan
@@ -4446,7 +4705,22 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
         }
       `}</style>
       <FadeUp>
-        <div className={`w-full mx-auto flex flex-col gap-12 ${isEmbedded ? '' : 'max-w-6xl'}`}>
+        <div className={`w-full mx-auto flex flex-col gap-12 ${isEmbedded ? 'max-w-5xl' : 'max-w-6xl'}`}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
+              AI used: {getAnalysisModelLabel(selectedModel || dashboardData?.model)}
+            </span>
+            {isFreeModelResult && (
+              <span className="rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-400">
+                      Descriptive result - no score
+              </span>
+            )}
+            {dashboardData?.cohesiveFrontSide && (
+              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">
+                Cohesive side/front enabled
+              </span>
+            )}
+          </div>
           {/* Top Section: Subject & History */}
           {!hideTopSection && (
           <div className="flex flex-col gap-8 hidden">
@@ -4523,7 +4797,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           {/* Free vs Pro Adaptive Layout */}
           {isRestrictedPreview ? (
             <>
-              <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={activeProfileView} />
+              <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={activeProfileView} showFeatureLists={false} />
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
@@ -4547,7 +4821,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                     {renderBlurredOverlay("Category Scores")}
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(74,222,128,0.05)_0%,transparent_70%)] pointer-events-none" />
                     <div className="w-[85%] max-w-[200px] opacity-10 blur-[14px] pointer-events-none select-none relative z-10">
-                      <RadarChart data={radarData} finalScore={dashboardData?.finalRating} />
+                      <RadarChart data={radarData} finalScore={radarFinalScore} />
                     </div>
                   </div>
                 </div>
@@ -4606,9 +4880,11 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                   {/* Left Column Stack: Final Rating then Categories */}
                   <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden text-center flex flex-col justify-center h-[180px] shadow-lg group hover:border-zinc-700 transition-colors">
                     <div className="relative z-10 flex flex-col items-center justify-center">
-                      <span className="font-sans text-[10px] uppercase tracking-[0.45em] mb-4 text-cyan-400/80">Final Rating</span>
+                      <span className="font-sans text-[10px] uppercase tracking-[0.45em] mb-4 text-cyan-400/80">
+                        {isFreeModelResult ? 'Analysis Type' : 'Final Rating'}
+                      </span>
                       <div className="relative leading-none">
-                        <span className="block text-6xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-500 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)]">
+                        <span className={`block font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-500 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)] ${isFreeModelResult ? 'text-3xl' : 'text-6xl'}`}>
                           {displayedFinalRating}
                         </span>
                       </div>
@@ -4617,7 +4893,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                   <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg group hover:border-zinc-700 transition-colors p-4">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.05)_0%,transparent_70%)] pointer-events-none" />
                     <div className="w-[85%] max-w-[200px] relative z-10">
-                      <RadarChart data={radarData} finalScore={displayedFinalRating} />
+                      <RadarChart data={radarData} finalScore={radarFinalScore} />
                     </div>
                   </div>
                 </div>
@@ -4714,7 +4990,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </div>
           </div>
 
-          {!isRestrictedPreview && <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={activeProfileView} />}
+          {!isRestrictedPreview && <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={activeProfileView} showFeatureLists={false} />}
 
           {/* Actionable Protocol */}
           {!hideActionableProtocols && (
@@ -4879,7 +5155,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           {potentialLightboxOpen && potentialImageUrl && (
             <ImageLightbox
               src={potentialImageUrl}
-              subtitle="Analyze Potential · Full Size Preview"
+              subtitle="Analyze Potential - Full Size Preview"
               onClose={() => setPotentialLightboxOpen(false)}
             />
           )}
@@ -4903,7 +5179,8 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                   {COMMUNITY_SCANS.map((scan) => {
                     const dd = scan.dashboardData;
                     const rating = dd?.finalRating ?? 0;
-                    const tierUpper = String(scan.tier || '').toUpperCase();
+                    const scanTier = scan.tier || '-';
+                    const tierUpper = String(scanTier).toUpperCase();
                     const tierBadgeClass =
                       tierUpper.includes('S') && tierUpper.includes('TIER')
                         ? 'bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
@@ -4932,7 +5209,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                           )}
                           <div className="absolute top-3 left-3 z-20">
                             <span className={`border text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${tierBadgeClass}`}>
-                              {scan.tier || '—'}
+                              {scanTier}
                             </span>
                           </div>
                           <div className="absolute bottom-3 left-3 z-20 flex items-baseline gap-1">
@@ -5201,7 +5478,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
 
     <FadeUp delay={700}>
       <p className="mt-16 text-zinc-600 font-sans text-[10px] uppercase tracking-widest text-center relative z-10">
-        Secure payment via Lemon Squeezy Â· Cancel anytime Â· Instant access
+        Secure payment via Lemon Squeezy - Cancel anytime - Instant access
       </p>
     </FadeUp>
 
@@ -5268,6 +5545,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       
       setLastRefresh(new Date());
       setAuthenticated(true);
+      window.localStorage.setItem('mogcheck_admin_pw', pw);
       return true;
     } catch (e) {
       setError(e.message);
@@ -5933,7 +6211,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                                             </div>
                                             <div className="min-w-0">
                                               <div className="flex flex-wrap items-center gap-2">
-                                                <span className="text-sm font-black text-zinc-100">{scan.finalRating ?? '—'}/100</span>
+              <span className="text-sm font-black text-zinc-100">{scan.finalRating ?? '-'}/100</span>
                                                 <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] text-cyan-300">{modelLabel(scan.model)}</span>
                                                 {scan.profileId && <span className="rounded-full border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] text-zinc-400">{scan.profileId}</span>}
                                               </div>
@@ -6091,24 +6369,24 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
   const isSurgical = /surgery|rhinoplasty|implant|genioplasty|osteotomy|blepharoplasty|buccal|liposuction|fat graft|filler|botox|lefort/i.test(protocol?.name + ' ' + protocol?.description);
 
   const timelinePhases = isSurgical ? [
-    { week: 'Month 1-2', title: 'Research & Consultation', icon: 'ðŸ”', tasks: ['Research board-certified surgeons in your area', 'Book 2-3 consultations for multiple opinions', 'Review before/after galleries of each surgeon', 'Ask about complication rates and revision rates', 'Get imaging/morphs done during consultations'] },
-    { week: 'Month 2-3', title: 'Pre-Operative Preparation', icon: 'ðŸ“‹', tasks: ['Complete all required bloodwork and imaging', 'Stop blood thinners, supplements, and smoking', 'Arrange 1-2 weeks off work for recovery', 'Prepare recovery area at home (ice, soft foods, pillows)', 'Take standardized baseline photos (front, side, 45Â°)'] },
-    { week: 'Day of Surgery', title: 'Procedure Day', icon: 'ðŸ¥', tasks: ['Follow NPO (nothing by mouth) instructions', 'Arrive with a responsible adult for transport', 'Confirm procedure details with your surgeon', 'Follow all pre-op nursing instructions'] },
-    { week: 'Week 1-2', title: 'Acute Recovery', icon: 'ðŸ©¹', tasks: ['Apply ice 20 min on / 20 min off for first 48 hours', 'Sleep elevated at 30-45 degrees to minimize swelling', 'Soft/liquid diet for the first week', 'Take prescribed medications on schedule', 'Attend your first post-op checkup'] },
-    { week: 'Week 3-6', title: 'Healing Phase', icon: 'ðŸ”„', tasks: ['Swelling continues to reduce â€” be patient', 'Gradually reintroduce normal diet and activity', 'Avoid contact sports and strenuous exercise', 'Take weekly progress photos for comparison', 'Follow up with surgeon at 4-6 week mark'] },
-    { week: 'Month 3-12', title: 'Final Results', icon: 'âœ…', tasks: ['Most swelling resolved by month 3; final form by month 12', 'Compare progress photos against pre-op baseline', 'Schedule 6-month and 12-month follow-up visits', 'Discuss any asymmetries or concerns with surgeon', 'Consider complementary protocols if needed'] },
+    { week: 'Month 1-2', title: 'Research & Consultation', icon: '01', tasks: ['Research board-certified surgeons in your area', 'Book 2-3 consultations for multiple opinions', 'Review before/after galleries of each surgeon', 'Ask about complication rates and revision rates', 'Get imaging/morphs done during consultations'] },
+    { week: 'Month 2-3', title: 'Pre-Operative Preparation', icon: '02', tasks: ['Complete all required bloodwork and imaging', 'Stop blood thinners, supplements, and smoking', 'Arrange 1-2 weeks off work for recovery', 'Prepare recovery area at home (ice, soft foods, pillows)', 'Take standardized baseline photos (front, side, 45 degrees)'] },
+    { week: 'Day of Surgery', title: 'Procedure Day', icon: '03', tasks: ['Follow NPO (nothing by mouth) instructions', 'Arrive with a responsible adult for transport', 'Confirm procedure details with your surgeon', 'Follow all pre-op nursing instructions'] },
+    { week: 'Week 1-2', title: 'Acute Recovery', icon: '04', tasks: ['Apply ice 20 min on / 20 min off for first 48 hours', 'Sleep elevated at 30-45 degrees to minimize swelling', 'Soft/liquid diet for the first week', 'Take prescribed medications on schedule', 'Attend your first post-op checkup'] },
+    { week: 'Week 3-6', title: 'Healing Phase', icon: '05', tasks: ['Swelling continues to reduce - be patient', 'Gradually reintroduce normal diet and activity', 'Avoid contact sports and strenuous exercise', 'Take weekly progress photos for comparison', 'Follow up with surgeon at 4-6 week mark'] },
+    { week: 'Month 3-12', title: 'Final Results', icon: '06', tasks: ['Most swelling resolved by month 3; final form by month 12', 'Compare progress photos against pre-op baseline', 'Schedule 6-month and 12-month follow-up visits', 'Discuss any asymmetries or concerns with surgeon', 'Consider complementary protocols if needed'] },
   ] : [
-    { week: 'Week 1', title: 'Setup & Baseline', icon: 'ðŸ“¸', tasks: ['Take standardized baseline photos (front, side, 45Â°)', 'Purchase all required products or equipment', 'Set daily reminders/alarms for consistency', 'Journal your starting measurements if applicable', 'Research proper technique and application methods'] },
-    { week: 'Week 2-4', title: 'Building the Habit', icon: 'âš¡', tasks: ['Apply the protocol daily without skipping', 'Track adherence in a habit tracker or journal', 'Note any skin sensitivity or adverse reactions', 'Take weekly progress photos in the same lighting', 'Adjust dosage/frequency if irritation occurs'] },
-    { week: 'Month 2-3', title: 'Early Adaptation', icon: 'ðŸ”¬', tasks: ['First subtle changes may become visible', 'Compare month 2 photos vs. baseline side-by-side', 'Increase intensity/frequency if well-tolerated', 'Re-evaluate product quality and consider upgrades', 'Stay consistent â€” this is where most people quit'] },
-    { week: 'Month 3-6', title: 'Visible Transformation', icon: 'ðŸ“ˆ', tasks: ['Clear, measurable changes vs. baseline', 'Document with high-quality progress photos', 'Evaluate whether to continue, intensify, or maintain', 'Begin transitioning to maintenance dosage if applicable', 'Stack with complementary protocols for compound gains'] },
-    { week: 'Month 6+', title: 'Maintenance', icon: 'ðŸ†', tasks: ['Shift to maintenance frequency/dosage', 'Take monthly comparison photos', 'Focus on the next highest-impact protocol', 'Re-evaluate every 3 months for continued relevance', 'Share progress with your community for accountability'] },
+    { week: 'Week 1', title: 'Setup & Baseline', icon: '01', tasks: ['Take standardized baseline photos (front, side, 45 degrees)', 'Purchase all required products or equipment', 'Set daily reminders/alarms for consistency', 'Journal your starting measurements if applicable', 'Research proper technique and application methods'] },
+    { week: 'Week 2-4', title: 'Building the Habit', icon: '02', tasks: ['Apply the protocol daily without skipping', 'Track adherence in a habit tracker or journal', 'Note any skin sensitivity or adverse reactions', 'Take weekly progress photos in the same lighting', 'Adjust dosage/frequency if irritation occurs'] },
+    { week: 'Month 2-3', title: 'Early Adaptation', icon: '03', tasks: ['First subtle changes may become visible', 'Compare month 2 photos vs. baseline side-by-side', 'Increase intensity/frequency if well-tolerated', 'Re-evaluate product quality and consider upgrades', 'Stay consistent - this is where most people quit'] },
+    { week: 'Month 3-6', title: 'Visible Transformation', icon: '04', tasks: ['Clear, measurable changes vs. baseline', 'Document with high-quality progress photos', 'Evaluate whether to continue, intensify, or maintain', 'Begin transitioning to maintenance dosage if applicable', 'Stack with complementary protocols for compound gains'] },
+    { week: 'Month 6+', title: 'Maintenance', icon: '05', tasks: ['Shift to maintenance frequency/dosage', 'Take monthly comparison photos', 'Focus on the next highest-impact protocol', 'Re-evaluate every 3 months for continued relevance', 'Share progress with your community for accountability'] },
   ];
 
   const cleanProtocolText = (value) =>
     String(value || '')
-      .replace(/Ã‚Â°|Â°/g, ' degrees')
-      .replace(/Ã¢â‚¬â€|â€”|â€“/g, '-')
+      .replace(/Ãƒâ€šÃ‚Â°|Ã‚Â°/g, ' degrees')
+      .replace(/ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â|Ã¢â‚¬â€|Ã¢â‚¬â€œ/g, '-')
       .replace(/[^\x20-\x7E]/g, '')
       .replace(/\s+/g, ' ')
       .trim();
@@ -6357,7 +6635,7 @@ const App = () => {
   const [currentPage, _setCurrentPage] = useState(initialLocation.page);
 
   const [dashboardData, setDashboardData] = useState(null);
-  /** When set from Pro dashboard “Run a new scan”, upload page pre-selects this model (1–5). */
+  /** When set from Pro dashboard Run a new scan, upload page pre-selects this model (1-5). */
   const [pendingUploadModel, setPendingUploadModel] = useState(null);
   const [pendingUploadProfileId, setPendingUploadProfileId] = useState(null);
   const [selectedCelebrity, setSelectedCelebrity] = useState(null);
@@ -6507,9 +6785,7 @@ const App = () => {
     return model === '1' || model === '2';
   }, [dashboardData?.selectedModel]);
 
-  const useProDashboard = hasScanData
-    ? true
-    : hasEffectiveProAccess(user, userPlan) && !isFreeModelDashboard;
+  const useProDashboard = Boolean(user || hasScanData);
 
   useEffect(() => {
     if (currentPage !== 'dashboard') return;
@@ -6535,7 +6811,7 @@ const App = () => {
         user={user}
         onSignOut={handleSignOut}
         userPlan={userPlan}
-        showDashboard={Boolean(user && (hasScanData || canAlwaysAccessDashboard(user)))}
+        showDashboard={Boolean(user || hasScanData)}
         lowPerfMode={lowPerfMode}
         setLowPerfMode={setLowPerfMode}
       />

@@ -290,6 +290,26 @@ const ModalShell = ({ title, subtitle, onClose, children, maxWidth = 'max-w-4xl'
 
 const MetricBreakdown = ({ battle }) => {
   const rows = useMemo(() => getMetricRowsForBattle(battle?.fighterA, battle?.fighterB, 5), [battle]);
+  const winner = battle?.fighterA && battle?.fighterB ? aiWinner(battle.fighterA, battle.fighterB) : null;
+  const toneForSide = (side) => {
+    if (!winner || winner === 'tie') {
+      return {
+        bar: 'bg-cyan-400',
+        text: 'text-cyan-300',
+      };
+    }
+    return side === winner
+      ? {
+          bar: 'bg-emerald-400',
+          text: 'text-emerald-300',
+        }
+      : {
+          bar: 'bg-rose-400',
+          text: 'text-rose-300',
+        };
+  };
+  const toneA = toneForSide('a');
+  const toneB = toneForSide('b');
 
   if (!rows.length) {
     return <p className="text-sm text-zinc-500">Metric breakdown is unavailable for this battle.</p>;
@@ -305,18 +325,18 @@ const MetricBreakdown = ({ battle }) => {
         >
           <div className="min-w-0">
             <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
-              <div className="h-full rounded-full bg-cyan-400" style={{ width: `${Math.min(100, row.scoreA)}%` }} />
+              <div className={`h-full rounded-full ${toneA.bar}`} style={{ width: `${Math.min(100, row.scoreA)}%` }} />
             </div>
-            <div className="mt-1 text-[11px] font-mono text-cyan-300">{row.scoreA}</div>
+            <div className={`mt-1 text-[11px] font-mono ${toneA.text}`}>{row.scoreA}</div>
           </div>
           <div className="w-24 text-center text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-300 md:w-32">
             {row.label}
           </div>
           <div className="min-w-0">
             <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
-              <div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min(100, row.scoreB)}%` }} />
+              <div className={`h-full rounded-full ${toneB.bar}`} style={{ width: `${Math.min(100, row.scoreB)}%` }} />
             </div>
-            <div className="mt-1 text-right text-[11px] font-mono text-emerald-300">{row.scoreB}</div>
+            <div className={`mt-1 text-right text-[11px] font-mono ${toneB.text}`}>{row.scoreB}</div>
           </div>
         </div>
       ))}
@@ -371,7 +391,7 @@ const LeaderboardProfileModal = ({ row, onClose }) => {
   return (
     <ModalShell
       title={row.name}
-      subtitle={`AI rating ${Number(row.rating || 0).toFixed(1)} • ${row.wins} wins • ${row.losses} losses`}
+      subtitle={`AI rating ${Number(row.rating || 0).toFixed(1)} - ${row.wins} wins - ${row.losses} losses`}
       onClose={onClose}
       maxWidth="max-w-5xl"
     >
@@ -591,10 +611,10 @@ const VoteBattleModal = ({ battle, user, onClose, onVoteComplete }) => {
           </div>
           <div className="mt-2 flex justify-between text-[11px] font-mono text-zinc-400">
             <span>
-              <span className={`${winner === 'a' ? 'text-emerald-300' : winner === 'b' ? 'text-rose-300' : 'text-zinc-300'}`}>{fighterLabel(battle.fighterA)}</span> {voteCounts.a} • {pctA}%
+              <span className={`${winner === 'a' ? 'text-emerald-300' : winner === 'b' ? 'text-rose-300' : 'text-zinc-300'}`}>{fighterLabel(battle.fighterA)}</span> {voteCounts.a} - {pctA}%
             </span>
             <span>
-              <span className={`${winner === 'b' ? 'text-emerald-300' : winner === 'a' ? 'text-rose-300' : 'text-zinc-300'}`}>{fighterLabel(battle.fighterB)}</span> {voteCounts.b} • {pctB}%
+              <span className={`${winner === 'b' ? 'text-emerald-300' : winner === 'a' ? 'text-rose-300' : 'text-zinc-300'}`}>{fighterLabel(battle.fighterB)}</span> {voteCounts.b} - {pctB}%
             </span>
           </div>
         </div>
@@ -863,13 +883,15 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
             >
               Back
             </button>
-            <button
-              type="button"
-              onClick={fetchUserScans}
-              className="rounded-full border border-zinc-800 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-400 transition-all hover:border-zinc-700 hover:text-white"
-            >
-              Refresh scans
-            </button>
+            {mode === 'history' ? (
+              <button
+                type="button"
+                onClick={fetchUserScans}
+                className="rounded-full border border-zinc-800 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-zinc-400 transition-all hover:border-zinc-700 hover:text-white"
+              >
+                Refresh scans
+              </button>
+            ) : null}
             {mode === 'community' ? (
               <button
                 type="button"
@@ -1002,14 +1024,13 @@ const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, isFollowed
             <button
               type="button"
               onClick={() => onOpen(battle)}
-              disabled={hasVoted}
               className={`rounded-full px-7 py-3 text-[12px] font-black uppercase tracking-[0.24em] transition-all duration-300 ${
                 hasVoted
-                  ? 'cursor-not-allowed border border-zinc-700 bg-zinc-800 text-zinc-500 shadow-none opacity-60'
+                  ? 'border border-zinc-700 bg-zinc-800 text-zinc-400 shadow-none hover:border-zinc-600 hover:text-zinc-200'
                   : 'border border-[#f7c400]/60 bg-[linear-gradient(180deg,#ffd42a_0%,#f7c400_55%,#dba400_100%)] text-black shadow-[0_0_22px_rgba(247,196,0,0.28),0_0_52px_rgba(247,196,0,0.10)] hover:scale-[1.02] hover:shadow-[0_0_28px_rgba(247,196,0,0.34),0_0_62px_rgba(247,196,0,0.16)]'
               }`}
             >
-              Vote
+              {hasVoted ? 'View' : 'Vote'}
             </button>
           </div>
         </div>
@@ -1091,14 +1112,13 @@ const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, isFollowed
             <button
               type="button"
               onClick={() => onOpen(battle)}
-              disabled={hasVoted}
               className={`rounded-full px-7 py-3 text-[12px] font-black uppercase tracking-[0.24em] transition-all duration-300 ${
                 hasVoted
-                  ? 'cursor-not-allowed border border-zinc-700 bg-zinc-800 text-zinc-500 shadow-none opacity-60'
+                  ? 'border border-zinc-700 bg-zinc-800 text-zinc-400 shadow-none hover:border-zinc-600 hover:text-zinc-200'
                   : 'border border-[#f7c400]/60 bg-[linear-gradient(180deg,#ffd42a_0%,#f7c400_55%,#dba400_100%)] text-black shadow-[0_0_22px_rgba(247,196,0,0.28),0_0_52px_rgba(247,196,0,0.10)] hover:scale-[1.02] hover:shadow-[0_0_28px_rgba(247,196,0,0.34),0_0_62px_rgba(247,196,0,0.16)]'
               }`}
             >
-              Vote
+              {hasVoted ? 'View' : 'Vote'}
             </button>
             <div className="min-w-0 text-right">
               <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-cyan-200/45">Fighter B</p>
@@ -1225,16 +1245,7 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
       const result = await setMogBattleFollow(token, id, nextFollowing);
       if (!result.ok) throw new Error(result.data?.error || 'Could not update follow');
     } catch {
-      setFollowedBattleIds((current) => {
-        const reverted = nextFollowing ? current.filter((value) => value !== id) : Array.from(new Set([...current, id]));
-        try {
-          window.localStorage.setItem(FOLLOWED_BATTLES_STORAGE_KEY, JSON.stringify(reverted));
-        } catch {
-          // ignore private browsing/local storage errors
-        }
-        return reverted;
-      });
-      setShareStatus('Could not sync follow.');
+      setShareStatus('Follow saved locally. Cloud sync will retry next time.');
       window.setTimeout(() => setShareStatus(''), 2600);
     }
   }, [followedBattleIds, user]);

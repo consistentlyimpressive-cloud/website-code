@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Target, Newspaper, Swords, Users, Crown, ChevronRight, Plus, Trash2, Edit2, Activity, Flame, Sparkles, Lock, ArrowLeft, TrendingUp } from 'lucide-react';
 import { getApiBase } from '../utils/apiBase';
 import { COMMUNITY_SCANS } from '../data/communityScans';
+import { celebrityData } from '../data/celebrityData';
 import { DashboardHubPreviewsCompact } from './DashboardHubPreviews';
 import { getAllFeaturedBattles } from '../data/mogBattles';
 import { fetchCommunityBattles, fetchCommunityScans } from '../api/mogBattleVotes';
@@ -16,6 +17,53 @@ const clampTextStyle = {
 };
 
 const communityCardRadiusClass = 'rounded-[28px]';
+
+const modelLabel = (model) => ({
+  '1': 'Premium Ultra',
+  '2': 'Fun Mode',
+  '3': 'Free Optic',
+  '4': 'Free Core',
+  '5': 'Free Geneva',
+  official: 'Official Scan',
+}[String(model || '').trim()] || 'Unknown AI');
+
+const slugifyScanName = (value) =>
+  String(value || 'scan')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'scan';
+
+const officialCelebrityCommunityScans = celebrityData.map((celeb, index) => {
+  const rating = Number(celeb?.rating) || 0;
+  const scanId = `official-${slugifyScanName(celeb?.name)}-${index}`;
+  const dashboardData = {
+    scanId,
+    profileId: scanId,
+    profileName: 'Official Scan',
+    selectedModel: 'official',
+    finalRating: rating,
+    sideRating: rating,
+    sex: celeb?.sex || null,
+    technicalSummary: celeb?.technicalSummary || '',
+    appealAssessment: celeb?.technicalSummary || '',
+    biometrics: Array.isArray(celeb?.stats) ? celeb.stats : [],
+    frontImage: celeb?.imgSrc || '',
+    sideImage: celeb?.imgSrc || '',
+  };
+  return {
+    id: scanId,
+    scanId,
+    officialScan: true,
+    official: true,
+    tier: celeb?.tier || '',
+    finalRating: rating,
+    sideRating: rating,
+    model: 'official',
+    dashboardData,
+    timestamp: `2099-01-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+  };
+});
 
 const timestampToMillis = (value) => {
   if (!value) return 0;
@@ -53,6 +101,11 @@ const hydrateScanForDashboard = (scan) => {
   };
 };
 
+const normalizeVisibility = (value) => {
+  const normalized = String(value || 'private').trim().toLowerCase();
+  return normalized === 'public' ? 'community' : normalized;
+};
+
 const tierFromRating = (rating) => {
   const score = Number(rating) || 0;
   if (score >= 85) return 'S-TIER';
@@ -70,7 +123,7 @@ const communityScanToDashboardCard = (scan, index = 0) => {
     scanId: scan.scanId || scan.id || payload.scanId || `community-${index}`,
     profileId: scan.profileId || payload.profileId || null,
     profileName: scan.profileName || payload.profileName || 'Community Scan',
-    selectedModel: String(scan.model || payload.selectedModel || '1'),
+    selectedModel: String(scan.model || payload.selectedModel || (scan.officialScan || scan.official ? 'official' : '1')),
     cohesiveFrontSide: Boolean(scan.cohesiveFrontSide || payload.cohesiveFrontSide),
     frontImage: scan.frontImageUrl || scan.frontImage || payload.frontImage || payload.imgSrc || null,
     sideImage: scan.sideImageUrl || scan.sideImage || payload.sideImage || null,
@@ -86,6 +139,10 @@ const communityScanToDashboardCard = (scan, index = 0) => {
     id: scan.id || dashboardData.scanId || `community-${index}`,
     tier: scan.tier || tierFromRating(dashboardData.finalRating),
     dashboardData,
+    officialScan: Boolean(scan.officialScan || scan.official),
+    official: Boolean(scan.officialScan || scan.official),
+    ownerUid: scan.ownerUid || null,
+    scanId: dashboardData.scanId,
   };
 };
 
@@ -125,6 +182,9 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   const [deleteProfileId, setDeleteProfileId] = useState(null);
   const [profileVisibilityIntent, setProfileVisibilityIntent] = useState(null);
   const [scanVisibilityIntent, setScanVisibilityIntent] = useState(null);
+  const [communityAddOpen, setCommunityAddOpen] = useState(false);
+  const [communityNotice, setCommunityNotice] = useState('');
+  const [communityMenuId, setCommunityMenuId] = useState(null);
   const overviewRef = useRef(null);
   const analysisRef = useRef(null);
   const profilesRef = useRef(null);
@@ -161,9 +221,18 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         const publicScans = (scansRes.scans || scansRes.items || [])
           .map(communityScanToDashboardCard)
           .filter(Boolean);
-        setDashboardCommunityScans(publicScans);
+        const byId = new Map();
+        [...officialCelebrityCommunityScans, ...publicScans].forEach((scan, idx) => {
+          const card = scan.dashboardData ? scan : communityScanToDashboardCard(scan, idx);
+          if (!card) return;
+          byId.set(card.scanId || card.id || `scan-${idx}`, card);
+        });
+        setDashboardCommunityScans(Array.from(byId.values()).sort((a, b) => {
+          if (Boolean(a.officialScan) !== Boolean(b.officialScan)) return a.officialScan ? -1 : 1;
+          return timestampToMillis(b.dashboardData?.scannedAt || b.timestamp) - timestampToMillis(a.dashboardData?.scannedAt || a.timestamp);
+        }));
       } catch {
-        setDashboardCommunityScans([]);
+        setDashboardCommunityScans(officialCelebrityCommunityScans);
       }
       const merged = [];
       let i = 0;
@@ -185,7 +254,10 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
   useEffect(() => {
     const fetchProfiles = async () => {
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       try {
         const token = await user.getIdToken();
         const headers = { Authorization: `Bearer ${token}` };
@@ -297,11 +369,98 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         };
       });
       setAllScans((prev) => prev.map((scan) => (scan.id === scanId ? { ...scan, visibility } : scan)));
+      setDashboardCommunityScans((prev) => {
+        if (visibility === 'community') return prev;
+        return prev.filter((scan) => String(scan?.scanId || scan?.dashboardData?.scanId || scan?.id || '') !== scanId);
+      });
       await loadMogPreviews();
     } catch (err) {
       window.console.error(err.message || 'Could not update scan visibility');
     } finally {
       setScanVisibilityIntent(null);
+    }
+  };
+
+  const communityScanIds = useMemo(
+    () => new Set(
+      (dashboardCommunityScans || [])
+        .map((scan) => String(scan?.scanId || scan?.dashboardData?.scanId || scan?.id || '').trim())
+        .filter(Boolean)
+    ),
+    [dashboardCommunityScans]
+  );
+
+  const publishScanToCommunity = async (scan) => {
+    if (!scan?.id || !user) return;
+    const scanId = String(scan.id);
+    if (communityScanIds.has(scanId) || normalizeVisibility(scan.visibility) === 'community') {
+      setCommunityNotice('That scan is already in Community Scans.');
+      return;
+    }
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/api/user/scans/${encodeURIComponent(scanId)}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ visibility: 'community' }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `Could not publish scan (${res.status})`);
+      setAllScans((prev) => prev.map((item) => (item.id === scanId ? { ...item, visibility: 'community' } : item)));
+      setDashboardData?.((prev) => {
+        if (!prev) return prev;
+        const nextHistory = Array.isArray(prev.scanHistory)
+          ? prev.scanHistory.map((item) => (
+              item.scanId === scanId || item.id === scanId ? { ...item, visibility: 'community' } : item
+            ))
+          : prev.scanHistory;
+        return {
+          ...prev,
+          ...(prev.scanId === scanId ? { visibility: 'community' } : {}),
+          scanHistory: nextHistory,
+        };
+      });
+      setCommunityAddOpen(false);
+      setCommunityNotice('Scan added to Community Scans.');
+      await loadMogPreviews();
+    } catch (err) {
+      setCommunityNotice(err.message || 'Could not add this scan to Community Scans.');
+    }
+  };
+
+  const isAdminUser = Boolean(user?.email && (
+    user.email === 'laithbu07@gmail.com' ||
+    user.email === 'admin@looksmaxxing.com' ||
+    user.email === 'serenity.eyb@gmail.com' ||
+    user.email.endsWith('@looksmaxxing.com')
+  ));
+
+  const markCommunityScanOfficial = async (scan) => {
+    const password = window.localStorage.getItem('mogcheck_admin_pw') || '';
+    if (!password || !scan?.id) {
+      setCommunityNotice('Admin password is required. Log into the admin panel once, then try again.');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/community-scans/${encodeURIComponent(scan.id)}/official`, {
+        method: 'POST',
+        headers: {
+          'x-admin-password': password,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ official: true }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Failed to mark official');
+      setDashboardCommunityScans((prev) => prev.map((item) => (item.id === scan.id ? { ...item, officialScan: true, official: true } : item)));
+      setCommunityNotice('Scan marked as official.');
+    } catch (err) {
+      setCommunityNotice(err.message || 'Failed to mark official.');
+    } finally {
+      setCommunityMenuId(null);
     }
   };
 
@@ -641,7 +800,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
             </button>
             <div className="min-w-0 flex-1">
               <p className="font-sans text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                Community scan{communityPeek?.tier ? ` · ${communityPeek.tier}` : ''}
+                Community scan{communityPeek?.tier ? ` - ${communityPeek.tier}` : ''}
               </p>
               <h2 id="pro-community-scan-title" className="truncate font-black uppercase italic tracking-tight text-white">
                 Community Scan
@@ -720,10 +879,10 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         </h1>
         <p className="hidden text-zinc-400 font-sans text-sm uppercase tracking-widest mb-12">
           {hasActiveAnalysis
-            ? 'Let’s check your progress.'
+                    ? 'Check your progress.'
             : activeSection === 'profiles'
             ? 'Select a profile to view analysis and trajectory.'
-            : 'Preview — use the buttons below to open the full page.'}
+                    : 'Preview - use the buttons below to open the full page.'}
         </p>
 
         {showAnalysisShell && (
@@ -736,7 +895,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       <p className="text-[10px] font-sans uppercase tracking-[0.35em] text-cyan-400/80 mb-3">Overall Aesthetic Score</p>
                       <div className="flex items-end gap-4">
                         <span className="text-5xl md:text-6xl font-black italic tracking-tight text-cyan-300 drop-shadow-[0_0_18px_rgba(103,232,249,0.2)]">
-                          {finalRating ? finalRating.toFixed(1) : '—'}
+                {finalRating ? finalRating.toFixed(1) : '-'}
                         </span>
                         <span className="mb-2 inline-flex items-center gap-2 rounded-full border border-yellow-500/25 bg-yellow-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.25em] text-yellow-300">
                           <Crown size={12} /> {tierLabel}
@@ -821,7 +980,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       className={`relative flex h-24 w-48 shrink-0 overflow-hidden rounded-2xl border bg-[#0c0d0e] text-left transition-all ${isActive ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.18)]' : 'border-zinc-800 hover:border-zinc-700'}`}
                     >
                       <div className="absolute left-2 top-2 z-10 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300">
-                        {typeof scan.finalRating === 'number' ? scan.finalRating.toFixed(1) : '—'}
+                          {typeof scan.finalRating === 'number' ? scan.finalRating.toFixed(1) : '-'}
                       </div>
                       <div className="relative flex-1 border-r border-zinc-900">
                         <img src={scan.frontImage || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'} alt="Front profile" className="h-full w-full object-cover" />
@@ -940,7 +1099,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                 <p className="text-zinc-500 text-sm font-sans mb-6">Preview of recent matchups. Cast votes and climb the leaderboard on the full page.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                   {mogPreviewBattles.length === 0 ? (
-                    <p className="text-zinc-600 text-sm col-span-full">Loading battles...</p>
+                  <p className="text-zinc-600 text-sm col-span-full">Loading battles...</p>
                   ) : (
                     mogPreviewBattles.map((b) => (
                       <div key={b.id} className="rounded-xl overflow-hidden border border-zinc-800 bg-black/40 aspect-[4/3] relative">
@@ -1016,9 +1175,18 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
             <section ref={communityRef} className="scroll-mt-28 border-t border-zinc-900 pt-8">
               <div className="flex flex-col gap-6">
-                <div>
-                  <h2 className="text-2xl font-black uppercase tracking-tighter italic text-white mb-2">Community Scans</h2>
-                  <p className="text-zinc-400 font-sans text-sm uppercase tracking-widest">See how others in the community stack up.</p>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h2 className="text-2xl font-black uppercase tracking-tighter italic text-white mb-2">Community Scans</h2>
+                    <p className="text-zinc-400 font-sans text-sm uppercase tracking-widest">Official scans are pinned first. Add your own public scan from history or start fresh.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCommunityAddOpen(true)}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-500/35 bg-cyan-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300 transition-colors hover:bg-cyan-500/20"
+                  >
+                    <Plus size={16} /> Add Scan
+                  </button>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {communityGallery.map((scan) => {
@@ -1032,11 +1200,17 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                           ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.6)]'
                           : 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
                     return (
-                      <button
+                      <div
                         key={scan.id}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => openCommunityScan(scan)}
-                        className={`group relative overflow-hidden border border-zinc-800 bg-[#0c0d0e] text-left transition-all hover:border-cyan-500/50 hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] ${communityCardRadiusClass}`}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter' && event.key !== ' ') return;
+                          event.preventDefault();
+                          openCommunityScan(scan);
+                        }}
+                        className={`group relative overflow-hidden border bg-[#0c0d0e] text-left transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] ${communityCardRadiusClass} ${scan.officialScan ? 'border-blue-400/70 shadow-[0_0_24px_rgba(59,130,246,0.14)] hover:border-blue-300' : 'border-zinc-800 hover:border-cyan-500/50'}`}
                       >
                         <div className={`relative aspect-[3/4] overflow-hidden bg-zinc-900 ${communityCardRadiusClass}`}>
                           <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-transparent to-transparent z-10 pointer-events-none" />
@@ -1056,6 +1230,37 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                               {scan.tier || '-'}
                             </span>
                           </div>
+                          {scan.officialScan && (
+                            <div className="absolute right-3 top-3 z-20 rounded-full border border-blue-300/40 bg-blue-500/15 px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-blue-200 backdrop-blur-md">
+                              Official Scan
+                            </div>
+                          )}
+                          {isAdminUser && !scan.officialScan && (
+                            <div className="absolute right-3 top-3 z-30">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id));
+                                }}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700 bg-black/70 text-zinc-300 backdrop-blur transition-colors hover:border-blue-400/50 hover:text-blue-200"
+                              >
+                                <span className="text-lg leading-none">...</span>
+                              </button>
+                              {communityMenuId === scan.id && (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    markCommunityScanOfficial(scan);
+                                  }}
+                                  className="absolute right-0 top-10 w-52 rounded-2xl border border-blue-400/30 bg-[#090a0b] px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.18em] text-blue-200 shadow-[0_20px_50px_rgba(0,0,0,0.5)] hover:bg-blue-500/10"
+                                >
+                                  Turn into official scan
+                                </button>
+                              )}
+                            </div>
+                          )}
                           <div className="absolute bottom-3 left-3 z-20 flex items-baseline gap-1">
                             <span className="text-white font-black italic text-2xl drop-shadow-[0_0_10px_rgba(255,255,255,0.4)] tabular-nums">
                               {Number(rating).toFixed(1)}
@@ -1065,10 +1270,10 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                         </div>
                         <div className="border-t border-zinc-800 bg-[#0a0a0b] px-4 py-3">
                           <span className="block text-zinc-500 font-sans text-[9px] uppercase tracking-[0.25em] mt-1">
-                            View results & analysis
+                            View results & analysis - {modelLabel(dd?.selectedModel || scan.model)}
                           </span>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -1082,7 +1287,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                   <h2 className="text-xl font-black uppercase tracking-widest italic">News &amp; Media</h2>
                 </div>
                 <p className="text-zinc-400 font-sans text-sm leading-relaxed mb-6">
-                  Full feed: YouTube updates, articles, and MogCheck announcements - open the dedicated page for the live experience.
+                    Full feed: YouTube updates, articles, and MogCheck announcements - open the dedicated page for the live experience.
                 </p>
                 <button
                   type="button"
@@ -1107,7 +1312,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       {latestScanProfile?.name || 'Latest profile activity'}
                     </h3>
                     <p className="mt-2 text-sm font-sans text-zinc-400">
-                      {latestScanAcrossProfiles?.model ? `Model ${latestScanAcrossProfiles.model}` : 'Saved scan'} · {new Date(timestampToMillis(latestScanAcrossProfiles.timestamp || latestScanAcrossProfiles.scannedAt)).toLocaleString()}
+                      {latestScanAcrossProfiles?.model ? `Model ${latestScanAcrossProfiles.model}` : 'Saved scan'} - {new Date(timestampToMillis(latestScanAcrossProfiles.timestamp || latestScanAcrossProfiles.scannedAt)).toLocaleString()}
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
@@ -1178,7 +1383,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                         Dashboard: {p.latestScan ? (modelUsesProDashboard(p.latestScan.model) ? 'Pro' : 'Free') : 'No scans yet'}
                       </p>
                       <p className="text-xs text-zinc-500 uppercase tracking-widest mt-1">
-                        Created: {p.createdAt?.seconds ? new Date(p.createdAt.seconds * 1000).toLocaleDateString() : '—'}
+                    Created: {p.createdAt?.seconds ? new Date(p.createdAt.seconds * 1000).toLocaleDateString() : '-'}
                       </p>
                       <p className="text-xs text-zinc-500 uppercase tracking-widest mt-1">
                         {openingProfileId === p.id ? 'Opening profile...' : p.latestScanAt ? `Last scan: ${new Date(p.latestScanAt).toLocaleDateString()}` : 'Last scan: -'}
@@ -1219,7 +1424,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
               <h2 className="text-xl font-black uppercase tracking-widest italic">News &amp; Media</h2>
             </div>
             <p className="text-zinc-400 font-sans text-sm leading-relaxed mb-6">
-              Full feed: YouTube updates, articles, and MogCheck announcements — open the dedicated page for the live experience.
+                    Full feed: YouTube updates, articles, and MogCheck announcements - open the dedicated page for the live experience.
             </p>
             <button
               type="button"
@@ -1240,7 +1445,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
               <p className="text-zinc-500 text-sm font-sans mb-6">Preview of recent matchups. Cast votes and climb the leaderboard on the full page.</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                 {mogPreviewBattles.length === 0 ? (
-                  <p className="text-zinc-600 text-sm col-span-full">Loading battles…</p>
+                  <p className="text-zinc-600 text-sm col-span-full">Loading battles...</p>
                 ) : (
                   mogPreviewBattles.map((b) => (
                     <div key={b.id} className="rounded-xl overflow-hidden border border-zinc-800 bg-black/40 aspect-[4/3] relative">
@@ -1281,25 +1486,73 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
         {!hasActiveAnalysis && activeSection === 'community' && (
           <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/5 p-6">
-            <h2 className="text-lg font-black uppercase tracking-widest text-emerald-400/90 mb-2 flex items-center gap-2">
-              <Users size={20} /> Community Scans
-            </h2>
-            <p className="text-zinc-500 text-sm font-sans mb-6">A sample of community-rated scans. Browse the full gallery on the Scans page.</p>
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-lg font-black uppercase tracking-widest text-emerald-400/90 mb-2 flex items-center gap-2">
+                  <Users size={20} /> Community Scans
+                </h2>
+                <p className="text-zinc-500 text-sm font-sans">A sample of official and community-rated scans.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCommunityAddOpen(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-emerald-300 transition-colors hover:bg-emerald-500/20"
+              >
+                <Plus size={14} /> Add Scan
+              </button>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
               {communityPreview.map((scan) => (
-                <button
+                <div
                   key={scan.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => openCommunityScan(scan)}
-                  className="group relative aspect-[3/4] rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900 text-left hover:border-emerald-400/40 transition-colors"
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                    event.preventDefault();
+                    openCommunityScan(scan);
+                  }}
+                  className={`group relative aspect-[3/4] rounded-xl overflow-hidden border bg-zinc-900 text-left transition-colors ${scan.officialScan ? 'border-blue-400/70 hover:border-blue-300' : 'border-zinc-800 hover:border-emerald-400/40'}`}
                 >
                   <img src={scan.dashboardData?.frontImage} alt="" className="w-full h-full object-cover object-top" />
+                  {scan.officialScan && (
+                    <span className="absolute left-2 top-2 rounded-full border border-blue-300/40 bg-blue-500/15 px-2 py-1 text-[7px] font-black uppercase tracking-[0.16em] text-blue-200">
+                      Official
+                    </span>
+                  )}
+                  {isAdminUser && !scan.officialScan && (
+                    <div className="absolute right-2 top-2 z-20">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id));
+                        }}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 bg-black/70 text-zinc-300 backdrop-blur"
+                      >
+                        <span className="text-sm leading-none">...</span>
+                      </button>
+                      {communityMenuId === scan.id && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            markCommunityScanOfficial(scan);
+                          }}
+                          className="absolute right-0 top-9 w-48 rounded-2xl border border-blue-400/30 bg-[#090a0b] px-3 py-2 text-left text-[9px] font-black uppercase tracking-[0.16em] text-blue-200 shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+                        >
+                          Turn into official scan
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-3 py-3">
                     <span className="block text-[8px] uppercase tracking-[0.2em] text-zinc-400 mt-1">
                       Open analysis
                     </span>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
             <button
@@ -1343,6 +1596,82 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                 </button>
               </div>
             </div>
+          </SiteModal>
+        )}
+
+        {communityAddOpen && (
+          <SiteModal
+            title="Add Community Scan"
+            subtitle="Pick a saved scan or start a fresh scan"
+            onClose={() => setCommunityAddOpen(false)}
+            maxWidth="max-w-3xl"
+          >
+            <div className="space-y-5">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCommunityAddOpen(false);
+                    handleCreateProfileAndScan('3');
+                  }}
+                  className="rounded-2xl border border-cyan-500/25 bg-cyan-500/10 p-4 text-left transition-colors hover:bg-cyan-500/15"
+                >
+                  <span className="block text-sm font-black uppercase tracking-[0.2em] text-cyan-300">Start New Scan</span>
+                  <span className="mt-2 block text-xs leading-relaxed text-zinc-400">Upload a new scan first. You can publish it from the scan post settings after the result saves.</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage('celebrity')}
+                  className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 text-left transition-colors hover:border-zinc-700"
+                >
+                  <span className="block text-sm font-black uppercase tracking-[0.2em] text-white">Browse Community</span>
+                  <span className="mt-2 block text-xs leading-relaxed text-zinc-400">Open the full synced community gallery with official scans pinned to the top.</span>
+                </button>
+              </div>
+              <div>
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Your scan history</p>
+                <div className="max-h-[42vh] space-y-3 overflow-y-auto pr-1">
+                  {allScans.length === 0 && (
+                    <p className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 text-sm text-zinc-500">No saved scans yet.</p>
+                  )}
+                  {allScans.map((scan) => {
+                    const scanId = String(scan.id || scan.scanId || '');
+                    const alreadyPublic = communityScanIds.has(scanId) || normalizeVisibility(scan.visibility) === 'community';
+                    return (
+                      <div key={scanId || scan.frontImageUrl} className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-3">
+                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-zinc-900">
+                          {scan.frontImageUrl || scan.payload?.frontImage ? (
+                            <img src={scan.frontImageUrl || scan.payload?.frontImage} alt="" className="h-full w-full object-cover object-top" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-zinc-700"><Users size={18} /></div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-black uppercase tracking-[0.14em] text-white">{scan.profileName || scan.profileId || 'Saved scan'}</p>
+                          <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                            {modelLabel(scan.model || scan.payload?.selectedModel)} - {scan.finalRating != null ? `${scan.finalRating}/100` : 'descriptive'}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={alreadyPublic}
+                          onClick={() => publishScanToCommunity(scan)}
+                          className={`rounded-xl border px-3 py-2 text-[9px] font-bold uppercase tracking-[0.18em] transition-colors ${alreadyPublic ? 'cursor-not-allowed border-zinc-800 bg-zinc-900 text-zinc-600' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'}`}
+                        >
+                          {alreadyPublic ? 'Already Public' : 'Add'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </SiteModal>
+        )}
+
+        {communityNotice && (
+          <SiteModal title="Community Scan" onClose={() => setCommunityNotice('')} maxWidth="max-w-lg">
+            <p className="text-sm leading-relaxed text-zinc-300">{communityNotice}</p>
           </SiteModal>
         )}
 

@@ -6,6 +6,58 @@ import { ConfirmDialog, ImageLightbox } from './ui/SiteModal';
 
 const API_BASE = getApiBase();
 
+function normalizeMarkedText(value) {
+  return String(value || '')
+    .replace(/Ãƒâ€šÃ‚|Ã‚/g, ' ')
+    .replace(/Ã¢â‚¬â„¢/g, "'")
+    .replace(/Ã¢â‚¬Å“|Ã¢â‚¬ï¿½/g, '"')
+    .replace(/Ã¢â‚¬â€œ|Ã¢â‚¬â€/g, '-')
+    .replace(/Ã¢â‚¬Â¦/g, '...')
+    .replace(/\*\*([\s\S]*?)\*\*/g, '*$1*')
+    .replace(/&(red|green|blue|white|yellow)\s+([^&]+)&/gi, '$2')
+    .replace(/\$([^$]+)\$/g, '$1')
+    .replace(/#([^#]+)#/g, '$1')
+    .replace(/@([^@]+)@/g, '$1')
+    .replace(/&([^&]+)&/g, '$1')
+    .replace(/\r\n/g, '\n');
+}
+
+function stripInlineMarkers(value) {
+  return normalizeMarkedText(value).replace(/\*/g, '').trim();
+}
+
+function renderMarkedText(value, options = {}) {
+  const text = normalizeMarkedText(value);
+  if (!text) return null;
+  const boldClassName = options.boldClassName || 'font-semibold text-white';
+  const nodes = [];
+  const pattern = /\*([^*]+)\*/g;
+  let cursor = 0;
+  let key = 0;
+
+  const pushPlain = (chunk) => {
+    if (!chunk) return;
+    chunk.split('\n').forEach((part, index, parts) => {
+      if (part) nodes.push(part);
+      if (index < parts.length - 1) nodes.push(<br key={`br-${key++}`} />);
+    });
+  };
+
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    pushPlain(text.slice(cursor, match.index));
+    nodes.push(
+      <strong key={`bold-${key++}`} className={boldClassName}>
+        {match[1]}
+      </strong>
+    );
+    cursor = pattern.lastIndex;
+  }
+
+  pushPlain(text.slice(cursor));
+  return nodes.length ? nodes : text;
+}
+
 const MetricBar = ({ label, score, max = 100, displayValue }) => (
   <div className="flex flex-col gap-2">
     <div className="flex justify-between items-end">
@@ -42,8 +94,8 @@ const FeatureHighlightCard = ({ type, feature }) => {
     <div className={cardClass}>
       <div className={railClass} />
       <span className={labelClass}>{isBest ? 'Best Feature' : 'Primary Flaw'}</span>
-      <h4 className={titleClass}>{feature.title}</h4>
-      <p className="text-zinc-400 text-xs font-sans leading-relaxed">{feature.description}</p>
+      <h4 className={titleClass}>{stripInlineMarkers(feature.title)}</h4>
+      <p className="text-zinc-400 text-xs font-sans leading-relaxed">{renderMarkedText(feature.description)}</p>
     </div>
   );
 };
@@ -319,7 +371,7 @@ const PublicProfilePage = ({ routeParams, user }) => {
             {parsedData.technicalSummary && (
               <div className="bg-zinc-900/30 border border-zinc-800 rounded-xl p-6">
                 <h3 className="text-lg font-black uppercase tracking-widest text-white mb-3">Overview</h3>
-                <p className="text-zinc-300 text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: String(parsedData.technicalSummary).replace(/\*\*(.*?)\*\*/g, '<b class="text-white">$1</b>') }} />
+                <p className="text-zinc-300 text-sm leading-relaxed">{renderMarkedText(parsedData.technicalSummary)}</p>
               </div>
             )}
           </div>
@@ -360,12 +412,10 @@ const PublicProfilePage = ({ routeParams, user }) => {
                 <h2 className="text-2xl font-black italic uppercase tracking-widest text-white mb-6">Personalized Feedback</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {parsedData.personalizedFeedback.map((fb, idx) => {
-                    // Replace **text** with <b>text</b>
-                    const formattedDesc = fb.description.replace(/\*\*(.*?)\*\*/g, '<b class="text-white">$1</b>');
                     return (
                       <div key={idx} className="bg-zinc-900/40 border border-zinc-800 hover:border-cyan-500/30 rounded-xl p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_4px_20px_rgba(34,211,238,0.1)] group">
-                        <h3 className="text-sm font-black uppercase tracking-widest text-cyan-400 mb-3">{fb.title}</h3>
-                        <p className="text-zinc-400 text-sm leading-relaxed" dangerouslySetInnerHTML={{__html: formattedDesc}} />
+                        <h3 className="text-sm font-black uppercase tracking-widest text-cyan-400 mb-3">{stripInlineMarkers(fb.title)}</h3>
+                        <p className="text-zinc-400 text-sm leading-relaxed">{renderMarkedText(fb.description)}</p>
                       </div>
                     );
                   })}

@@ -21,9 +21,6 @@ export function hasEffectiveProAccess(user, userPlan) {
 /** Navbar badge: show "Admin" for this account (explicit staff label). */
 const ADMIN_BADGE_EMAIL = 'serenity.eyb@gmail.com';
 
-/**
- * Label + styles for the signed-in plan chip (Firestore plan + staff overrides).
- */
 /** Staff / admin: always show Dashboard in nav and allow opening /dashboard without a prior scan. */
 export function canAlwaysAccessDashboard(user) {
   const e = user?.email?.toLowerCase?.() ?? '';
@@ -34,6 +31,9 @@ export function canAlwaysAccessDashboard(user) {
   return false;
 }
 
+/**
+ * Label + styles for the signed-in plan chip (Firestore plan + staff overrides).
+ */
 export function getNavbarPlanChip(userPlan, user) {
   const e = user?.email?.toLowerCase?.() ?? '';
   if (e === ADMIN_BADGE_EMAIL) {
@@ -42,16 +42,19 @@ export function getNavbarPlanChip(userPlan, user) {
       className: 'text-violet-300 border-violet-500/40 bg-violet-500/10',
     };
   }
+
   const p = userPlan?.plan || 'free';
   if (p === 'pro') {
     return { label: 'Pro', className: 'text-yellow-300 border-yellow-500/40 bg-yellow-500/10' };
   }
+
   if (p === 'single_scan') {
     const c = userPlan?.scanCredits ?? 0;
     return {
-      label: c > 0 ? `Scan · ${c}` : 'Pay per scan',
+      label: c > 0 ? `Scan - ${c}` : 'Pay per scan',
       className: 'text-cyan-300 border-cyan-500/40 bg-cyan-500/10',
     };
   }
+
   return { label: 'Free', className: 'text-zinc-400 border-zinc-600/70 bg-zinc-800/90' };
 }

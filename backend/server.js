@@ -756,6 +756,9 @@ app.get('/api/community-scans', requireFirestore, async (req, res) => {
     const scans = [];
     snap.forEach((doc) => scans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
     scans.sort((a, b) => {
+      if (Boolean(a.officialScan || a.official) !== Boolean(b.officialScan || b.official)) {
+        return (a.officialScan || a.official) ? -1 : 1;
+      }
       const aMs = a?.timestamp?.toMillis?.() || (typeof a?.timestamp?.seconds === 'number' ? a.timestamp.seconds * 1000 : new Date(a?.timestamp || 0).getTime() || 0);
       const bMs = b?.timestamp?.toMillis?.() || (typeof b?.timestamp?.seconds === 'number' ? b.timestamp.seconds * 1000 : new Date(b?.timestamp || 0).getTime() || 0);
       return bMs - aMs;
@@ -763,7 +766,42 @@ app.get('/api/community-scans', requireFirestore, async (req, res) => {
     return res.json({ scans });
   } catch (e) {
     console.error('[community-scans] GET failed', e);
+    if (isQuotaExceededError(e)) {
+      return res.json({ scans: localCommunityScans.slice(0, limit), warning: 'Firestore quota exhausted; using local fallback.' });
+    }
     return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/admin/community-scans/:scanDocId/official', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  const scanDocId = String(req.params.scanDocId || '').trim();
+  if (!scanDocId) return res.status(400).json({ error: 'Missing scan id' });
+  const official = req.body?.official !== false;
+
+  if (!firestore) {
+    const match = localCommunityScans.find((scan) => scan.id === scanDocId || scan.scanId === scanDocId);
+    if (match) {
+      match.officialScan = official;
+      match.official = official;
+    }
+    return res.json({ ok: true, officialScan: official, local: true });
+  }
+
+  try {
+    await firestore.collection('communityScans').doc(scanDocId).set({
+      officialScan: official,
+      official,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return res.json({ ok: true, officialScan: official });
+  } catch (e) {
+    console.error('[admin] Failed to mark community scan official:', e);
+    if (isQuotaExceededError(e)) {
+      return res.status(503).json({ error: 'Firestore quota exceeded. Try again when quota resets.' });
+    }
+    return res.status(500).json({ error: e.message || 'Failed to mark official' });
   }
 });
 
@@ -1484,6 +1522,7 @@ async function verifyUltraAccess(req, res, next) {
 
   const uid = decoded.uid;
   const email = (decoded.email || '').toLowerCase();
+  req.uid = req.uid || uid;
   const isAdminEmail =
     email.endsWith('@looksmaxxing.com') ||
     email === 'serenity.eyb@gmail.com' ||
@@ -1691,10 +1730,22 @@ app.post(
         };
       }
 
-      // Treat as success if Python exited cleanly and we got either a full parse or at least a numeric rating
+      const isFreeModelChoice = ['3', '4', '5'].includes(modelChoice);
+      if (isFreeModelChoice) {
+        parsed.finalRating = null;
+        parsed.sideRating = null;
+        parsed.categories = null;
+        parsed.sideCategories = null;
+        parsed.hexagonFront = null;
+        parsed.hexagonSide = null;
+      }
+
+      // Treat as success if Python exited cleanly and we got either a full parse or at least a numeric rating.
+      // Free models are descriptive-only, so a substantive text parse is enough.
       const success =
         code === 0 &&
         (parsed.hasSubstantiveParse === true ||
+          isFreeModelChoice ||
           (parsed.finalRating != null && !Number.isNaN(Number(parsed.finalRating))));
 
   const finalRating =
@@ -1936,8 +1987,6 @@ app.post('/api/admin/notifications/announcement', async (req, res) => {
 app.get('/api/admin/users', async (req, res) => {
   const pw = req.headers['x-admin-password'] || '';
   if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
-  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
-
   try {
     let authUsers = [];
     const canListAuthUsers = !(USE_FIREBASE_EMULATOR && !process.env.FIREBASE_AUTH_EMULATOR_HOST);
@@ -1955,9 +2004,19 @@ app.get('/api/admin/users', async (req, res) => {
       console.log('[admin] Skipping Firebase Auth listUsers in emulator mode (no auth emulator configured)');
     }
 
-    const firestoreUsersSnap = await firestore.collection('users').get();
+    let firestoreUsersSnap = null;
+    try {
+      firestoreUsersSnap = firestore ? await firestore.collection('users').get() : null;
+    } catch (firestoreErr) {
+      if (isQuotaExceededError(firestoreErr)) {
+        console.warn('[admin] Firestore quota exhausted while listing users; returning Auth users only.');
+        firestoreUsersSnap = null;
+      } else {
+        throw firestoreErr;
+      }
+    }
     const firestoreData = {};
-    firestoreUsersSnap.forEach(doc => {
+    firestoreUsersSnap?.forEach(doc => {
       firestoreData[doc.id] = doc.data();
     });
 
@@ -1991,9 +2050,12 @@ app.get('/api/admin/users', async (req, res) => {
       return new Date(b.lastActive) - new Date(a.lastActive);
     });
 
-    res.json({ users });
+    res.json({ users, firestoreLimited: !firestoreUsersSnap });
   } catch (e) {
     console.error('[admin] Failed to fetch users:', e);
+    if (isQuotaExceededError(e)) {
+      return res.json({ users: [], firestoreLimited: true, warning: 'Firestore quota exceeded.' });
+    }
     res.status(500).json({ error: e.message });
   }
 });
@@ -2064,6 +2126,7 @@ app.get('/api/admin/users/:uid/scans', async (req, res) => {
     snap.forEach(doc => scans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
     res.json({ scans });
   } catch (e) {
+    if (isQuotaExceededError(e)) return res.json({ scans: [], warning: 'Firestore quota exceeded.' });
     res.status(500).json({ error: e.message });
   }
 });
@@ -2101,6 +2164,7 @@ app.get('/api/admin/users/:uid/mog-battles', async (req, res) => {
 
     res.json({ battles });
   } catch (e) {
+    if (isQuotaExceededError(e)) return res.json({ battles: [], warning: 'Firestore quota exceeded.' });
     res.status(500).json({ error: e.message });
   }
 });
