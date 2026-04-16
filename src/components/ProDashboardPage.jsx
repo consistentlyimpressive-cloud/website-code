@@ -438,7 +438,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     user.email.endsWith('@looksmaxxing.com')
   ));
 
-  const markCommunityScanOfficial = async (scan) => {
+  const markCommunityScanOfficial = async (scan, official = true) => {
     const password = window.localStorage.getItem('mogcheck_admin_pw') || '';
     if (!password || !scan?.id) {
       setCommunityNotice('Admin password is required. Log into the admin panel once, then try again.');
@@ -451,14 +451,14 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
           'x-admin-password': password,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ official: true }),
+        body: JSON.stringify({ official }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || 'Failed to mark official');
-      setDashboardCommunityScans((prev) => prev.map((item) => (item.id === scan.id ? { ...item, officialScan: true, official: true } : item)));
-      setCommunityNotice('Scan marked as official.');
+      if (!res.ok) throw new Error(body.error || 'Failed to update official status');
+      setDashboardCommunityScans((prev) => prev.map((item) => (item.id === scan.id ? { ...item, officialScan: official, official } : item)));
+      setCommunityNotice(official ? 'Scan marked as official.' : 'Scan turned back into a normal community scan.');
     } catch (err) {
-      setCommunityNotice(err.message || 'Failed to mark official.');
+      setCommunityNotice(err.message || 'Failed to update official status.');
     } finally {
       setCommunityMenuId(null);
     }
@@ -1235,7 +1235,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                               Official Scan
                             </div>
                           )}
-                          {isAdminUser && !scan.officialScan && (
+                          {isAdminUser && (
                             <div className="absolute right-3 top-3 z-30">
                               <button
                                 type="button"
@@ -1252,11 +1252,11 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                                   type="button"
                                   onClick={(event) => {
                                     event.stopPropagation();
-                                    markCommunityScanOfficial(scan);
+                                    markCommunityScanOfficial(scan, !scan.officialScan);
                                   }}
                                   className="absolute right-0 top-10 w-52 rounded-2xl border border-blue-400/30 bg-[#090a0b] px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.18em] text-blue-200 shadow-[0_20px_50px_rgba(0,0,0,0.5)] hover:bg-blue-500/10"
                                 >
-                                  Turn into official scan
+                                  {scan.officialScan ? 'Turn into community scan' : 'Turn into official scan'}
                                 </button>
                               )}
                             </div>
@@ -1521,7 +1521,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       Official
                     </span>
                   )}
-                  {isAdminUser && !scan.officialScan && (
+                  {isAdminUser && (
                     <div className="absolute right-2 top-2 z-20">
                       <button
                         type="button"
@@ -1538,11 +1538,11 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            markCommunityScanOfficial(scan);
+                            markCommunityScanOfficial(scan, !scan.officialScan);
                           }}
                           className="absolute right-0 top-9 w-48 rounded-2xl border border-blue-400/30 bg-[#090a0b] px-3 py-2 text-left text-[9px] font-black uppercase tracking-[0.16em] text-blue-200 shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
                         >
-                          Turn into official scan
+                          {scan.officialScan ? 'Turn into community scan' : 'Turn into official scan'}
                         </button>
                       )}
                     </div>

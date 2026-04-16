@@ -1132,6 +1132,32 @@ app.get('/api/user/status', extractUserOptional, async (req, res) => {
   }
 });
 
+app.get('/api/user/plan', extractUserOptional, async (req, res) => {
+  if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  try {
+    const snap = await firestore.collection('users').doc(req.uid).get();
+    const data = snap.exists ? snap.data() : {};
+    return res.json({
+      ok: true,
+      plan: data.plan || 'free',
+      scanCredits: Number(data.scanCredits) || 0,
+      subscriptionId: data.subscriptionId || null,
+      subscriptionStatus: data.subscriptionStatus || null,
+      updatedAt:
+        data.updatedAt?.toDate?.()?.toISOString?.() ||
+        (typeof data.updatedAt?.seconds === 'number' ? new Date(data.updatedAt.seconds * 1000).toISOString() : data.updatedAt || null),
+    });
+  } catch (e) {
+    console.error('[user/plan] Failed to read user plan:', e.message);
+    if (isQuotaExceededError(e)) {
+      return res.status(503).json({ error: 'Firestore quota exceeded. Try again when quota resets.' });
+    }
+    return res.status(500).json({ error: e.message || 'Failed to read user plan' });
+  }
+});
+
 /** Fast readiness check used by the frontend scan preflight. */
 app.get('/api/ready', async (req, res) => {
   const deep = req.query.deep === '1';
@@ -2068,14 +2094,27 @@ app.post('/api/admin/users/:uid/plan', async (req, res) => {
 
   const { uid } = req.params;
   const { plan, scanCredits } = req.body;
+  const normalizedPlan = String(plan || 'free').trim().toLowerCase();
+  const parsedCredits = Number(scanCredits ?? 0);
+  const allowedPlans = new Set(['free', 'pro', 'single_scan']);
+
+  if (!allowedPlans.has(normalizedPlan)) {
+    return res.status(400).json({ error: 'Plan must be free, pro, or single_scan.' });
+  }
+
+  if (!Number.isFinite(parsedCredits)) {
+    return res.status(400).json({ error: 'Scan credits must be a valid number.' });
+  }
+
+  const normalizedCredits = Math.max(0, Math.floor(parsedCredits));
   
   try {
     await firestore.collection('users').doc(uid).set({
-      plan: String(plan || 'free'),
-      scanCredits: Number(scanCredits || 0),
+      plan: normalizedPlan,
+      scanCredits: normalizedCredits,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-    res.json({ ok: true });
+    res.json({ ok: true, plan: normalizedPlan, scanCredits: normalizedCredits });
   } catch (e) {
     console.error('[admin] Failed to update user plan:', e);
     res.status(500).json({ error: e.message });

@@ -1372,7 +1372,7 @@ const CommunityScanCard = ({
           </button>
         )}
 
-        {isAdmin && !scan.officialScan && (
+        {isAdmin && (
           <div className="absolute right-3 top-3 z-40">
             <button
               type="button"
@@ -1390,11 +1390,11 @@ const CommunityScanCard = ({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onMarkOfficial();
+                  onMarkOfficial(!scan.officialScan);
                 }}
                 className="absolute right-0 top-10 w-52 rounded-2xl border border-zinc-700 bg-[#090a0b] px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.18em] text-zinc-200 shadow-[0_20px_50px_rgba(0,0,0,0.5)] hover:bg-white/5"
               >
-                Turn into official scan
+                {scan.officialScan ? 'Turn into community scan' : 'Turn into official scan'}
               </button>
             )}
           </div>
@@ -1510,7 +1510,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
     }
   };
 
-  const markCommunityScanOfficial = async (scan) => {
+  const markCommunityScanOfficial = async (scan, official = true) => {
     const password = window.localStorage.getItem('mogcheck_admin_pw') || '';
     if (!password || !scan?.id) {
       setCommunityNotice('Admin password is required. Log into the admin panel once, then try again.');
@@ -1523,14 +1523,14 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
           'x-admin-password': password,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ official: true }),
+        body: JSON.stringify({ official }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || 'Failed to mark official');
-      setCommunityScans((prev) => prev.map((item) => (item.id === scan.id ? { ...item, officialScan: true, official: true } : item)));
-      setCommunityNotice('Scan marked as official.');
+      if (!res.ok) throw new Error(body.error || 'Failed to update official status');
+      setCommunityScans((prev) => prev.map((item) => (item.id === scan.id ? { ...item, officialScan: official, official } : item)));
+      setCommunityNotice(official ? 'Scan marked as official.' : 'Scan turned back into a normal community scan.');
     } catch (e) {
-      setCommunityNotice(e.message || 'Failed to mark official.');
+      setCommunityNotice(e.message || 'Failed to update official status.');
     } finally {
       setCommunityMenuId(null);
     }
@@ -1615,7 +1615,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
                 }}
                 onRemove={() => setCommunityRemovalIntent(scan)}
                 onToggleMenu={() => setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id))}
-                onMarkOfficial={() => markCommunityScanOfficial(scan)}
+                onMarkOfficial={(official) => markCommunityScanOfficial(scan, official)}
               />
             );
           })}
@@ -6714,6 +6714,38 @@ const App = () => {
   useEffect(() => {
     if (!user?.uid) { setUserPlan({ plan: 'free', scanCredits: 0, loaded: true }); return; }
     setUserPlan((prev) => ({ ...prev, loaded: false }));
+    let cancelled = false;
+
+    const applyPlan = (data = {}) => {
+      if (cancelled) return;
+      setUserPlan({
+        plan: data.plan || 'free',
+        scanCredits: data.scanCredits ?? 0,
+        subscriptionId: data.subscriptionId || null,
+        subscriptionStatus: data.subscriptionStatus || null,
+        updatedAt: data.updatedAt || null,
+        loaded: true,
+      });
+    };
+
+    const fetchPlanFromApi = async () => {
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch(`${API_BASE}/api/user/plan`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || `Plan fetch failed (${res.status})`);
+        applyPlan(body);
+      } catch (err) {
+        console.error('Backend user plan fetch failed', err);
+        if (!cancelled) {
+          setUserPlan((prev) => ({ ...prev, loaded: true }));
+        }
+      }
+    };
+
+    fetchPlanFromApi();
     
     // Setup Firestore listener for user plan
     const unsubscribe = onSnapshot(
@@ -6721,19 +6753,14 @@ const App = () => {
       (snap) => {
         if (snap.exists()) {
           const data = snap.data();
-          setUserPlan({
-            plan: data.plan || 'free',
-            scanCredits: data.scanCredits ?? 0,
-            subscriptionId: data.subscriptionId || null,
-            loaded: true,
-          });
+          applyPlan(data);
         } else {
-          setUserPlan({ plan: 'free', scanCredits: 0, loaded: true });
+          fetchPlanFromApi();
         }
       },
       (err) => {
         console.error('User plan listener failed', err);
-        setUserPlan({ plan: 'free', scanCredits: 0, loaded: true });
+        fetchPlanFromApi();
       }
     );
 
@@ -6750,10 +6777,15 @@ const App = () => {
     };
     sendHeartbeat(); // immediate first beat
     const heartbeatInterval = setInterval(sendHeartbeat, 300000); // every 5 minutes
+    const planRefreshInterval = setInterval(fetchPlanFromApi, 60000);
+    window.addEventListener('focus', fetchPlanFromApi);
 
     return () => {
+      cancelled = true;
       unsubscribe();
       clearInterval(heartbeatInterval);
+      clearInterval(planRefreshInterval);
+      window.removeEventListener('focus', fetchPlanFromApi);
     };
   }, [user?.uid]);
 
