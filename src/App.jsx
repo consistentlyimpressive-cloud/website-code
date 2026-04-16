@@ -2777,16 +2777,16 @@ const ScanningView = ({
           expectedProfile && expectedProfile !== 'new' && expectedProfile !== 'guest';
         const earliestReasonableScan = scanStartedAt - 2 * 60 * 1000;
 
-        for (let attempt = 1; attempt <= 4; attempt += 1) {
+        for (let attempt = 1; attempt <= 8; attempt += 1) {
           if (!active) return null;
           try {
             if (attempt === 1) {
               setStatusText('The response dropped, checking saved scan history...');
             } else {
-              setStatusText(`Still checking for the saved scan (${attempt}/4)...`);
+              setStatusText(`Still checking for the saved scan (${attempt}/8)...`);
             }
 
-            await new Promise((resolve) => setTimeout(resolve, attempt === 1 ? 1600 : 2200));
+            await new Promise((resolve) => setTimeout(resolve, attempt === 1 ? 1600 : 2500));
             if (!active) return null;
 
             const token = await activeUser.getIdToken();
@@ -2798,11 +2798,13 @@ const ScanningView = ({
 
             const historyData = await historyRes.json();
             const scans = Array.isArray(historyData?.scans) ? historyData.scans : [];
-            const candidates = scans
+            const indexedScans = scans
               .map((scan) => ({
                 scan,
                 millis: timestampToMillis(scan.timestamp || scan.scannedAt || scan.payload?.scannedAt),
-              }))
+              }));
+
+            const candidates = indexedScans
               .filter(({ scan, millis }) => {
                 if (!millis || millis < earliestReasonableScan) return false;
                 if (expectedModel) {
@@ -2817,7 +2819,16 @@ const ScanningView = ({
               })
               .sort((a, b) => b.millis - a.millis);
 
-            const recovered = candidates[0]?.scan || null;
+            const relaxedCandidates = attempt >= 3
+              ? indexedScans
+                  .filter(({ millis }, index) => {
+                    if (!millis) return index === 0;
+                    return millis >= earliestReasonableScan;
+                  })
+                  .sort((a, b) => b.millis - a.millis)
+              : [];
+
+            const recovered = candidates[0]?.scan || relaxedCandidates[0]?.scan || null;
             const recoveredPayload = buildRecoveredScanPayload(recovered);
             if (recoveredPayload) return recoveredPayload;
           } catch (recoveryErr) {

@@ -1864,43 +1864,79 @@ app.post(
     }
   }
 
+  let savedScanRef = null;
+  let savedScanBase = null;
+  if (success && req.uid && firestore) {
+    try {
+      savedScanRef = firestore.collection('users').doc(req.uid).collection('scans').doc();
+      payload.scanId = savedScanRef.id;
+      payload.profileId = req.body.profileId || 'default';
+      payload.selectedModel = String(modelChoice || payload.selectedModel || '').trim() || '1';
+      payload.cohesiveFrontSide = false;
+
+      savedScanBase = {
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        model: modelChoice,
+        cohesiveFrontSide: false,
+        visibility: 'private',
+        finalRating,
+        sideRating,
+        frontImageUrl: frontFallbackUrl || payload.frontImage || null,
+        sideImageUrl: sideFallbackUrl || payload.sideImage || null,
+        frontImageDest: null,
+        sideImageDest: null,
+        success: true,
+        payload: {
+          ...payload,
+          frontImage: frontFallbackUrl || payload.frontImage || null,
+          sideImage: sideFallbackUrl || payload.sideImage || null,
+          selectedModel: payload.selectedModel,
+          cohesiveFrontSide: false,
+        },
+        profileId: payload.profileId,
+      };
+
+      // Save the scan before responding so the frontend can recover if the response is dropped.
+      await savedScanRef.set(savedScanBase);
+      console.log(`[analyze] Scan history pre-saved: ${savedScanRef.id}`);
+    } catch (e) {
+      savedScanRef = null;
+      savedScanBase = null;
+      console.error('[analyze] Failed to pre-save scan history:', e.message);
+    }
+  }
+
   res.json(payload);
 
       setImmediate(async () => {
+        if (!success || !req.uid || !firestore || !savedScanRef) return;
+
         let frontUpload = null;
         let sideUpload = null;
 
         if (imagePath) frontUpload = await uploadImageToFirebase(imagePath, req.uid, 'front');
         if (sideImagePath) sideUpload = await uploadImageToFirebase(sideImagePath, req.uid, 'side');
 
-        if (success && req.uid && firestore) {
-          try {
-            const persistedFrontImage = frontUpload ? frontUpload.url : frontFallbackUrl;
-            const persistedSideImage = sideUpload ? sideUpload.url : sideFallbackUrl;
-            await firestore.collection('users').doc(req.uid).collection('scans').add({
-              timestamp: admin.firestore.FieldValue.serverTimestamp(),
-              model: modelChoice,
+        try {
+          const persistedFrontImage = frontUpload ? frontUpload.url : (savedScanBase?.frontImageUrl || frontFallbackUrl);
+          const persistedSideImage = sideUpload ? sideUpload.url : (savedScanBase?.sideImageUrl || sideFallbackUrl);
+          await savedScanRef.set({
+            frontImageUrl: persistedFrontImage || null,
+            sideImageUrl: persistedSideImage || null,
+            frontImageDest: frontUpload ? frontUpload.dest : null,
+            sideImageDest: sideUpload ? sideUpload.dest : null,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            payload: {
+              ...payload,
+              frontImage: persistedFrontImage || payload.frontImage || null,
+              sideImage: persistedSideImage || payload.sideImage || null,
+              selectedModel: String(modelChoice || payload.selectedModel || '').trim() || '1',
               cohesiveFrontSide: false,
-              visibility: 'private',
-              finalRating,
-              sideRating,
-              frontImageUrl: persistedFrontImage || null,
-              sideImageUrl: persistedSideImage || null,
-              frontImageDest: frontUpload ? frontUpload.dest : null,
-              sideImageDest: sideUpload ? sideUpload.dest : null,
-              success: true,
-              payload: {
-                ...payload,
-                frontImage: persistedFrontImage || payload.frontImage || null,
-                sideImage: persistedSideImage || payload.sideImage || null,
-                selectedModel: String(modelChoice || payload.selectedModel || '').trim() || '1',
-                cohesiveFrontSide: false,
-              }, // NEW: save the full payload so profiles can fetch it later
-              profileId: req.body.profileId || 'default' // NEW: associate with a profile
-            });
-          } catch (e) {
-            console.error('[analyze] Failed to record scan history:', e.message);
-          }
+            },
+          }, { merge: true });
+          console.log(`[analyze] Scan history image URLs finalized: ${savedScanRef.id}`);
+        } catch (e) {
+          console.error('[analyze] Failed to finalize scan history images:', e.message);
         }
       });
     });
