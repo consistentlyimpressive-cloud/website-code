@@ -20,12 +20,49 @@ const MRSS_NS = 'http://search.yahoo.com/mrss/';
  */
 export const YOUTUBE_CHANNELS = [
   { channelId: 'UCk8JzO451QvD1pU21m0A3rQ', author: 'QOVES Studio' },
+  { channelId: 'UCiWGOWKU3cbYmmq4nXcOqYQ', author: 'Creating Attractive' },
   { channelId: 'UC4LgBfA1P_g21eC1Yx21Q9w', author: 'Wheat Waffles' },
   { channelId: 'UC17tS-xT2i4X7L2B_bO7yQw', author: 'Dillon Latham' },
-  { channelId: 'UCoR7CHkMETs3ByOv74OAbFw', author: 'More Plates More Dates' },
-  { channelId: 'UCLqH-U2TXzj1h7lyYQZLNQQ', author: 'Greg Doucette' },
-  { channelId: 'UCB2wtYpfbCpYDc5TeTwuqFA', author: 'Will Tennyson' },
   { channelId: 'UC1KbedtKa3d5dleFR6OjQMg', author: 'alpha m.' },
+];
+
+const VIDEO_TOPIC_KEYWORDS = [
+  'aesthetic',
+  'attractive',
+  'beauty',
+  'blackpill',
+  'canthal',
+  'cheekbone',
+  'dimorphism',
+  'face',
+  'facial',
+  'glow up',
+  'hair',
+  'harmony',
+  'jaw',
+  'jawline',
+  'looksmax',
+  'maxilla',
+  'midface',
+  'mog',
+  'nose',
+  'psl',
+  'qoves',
+  'skin',
+  'symmetry',
+];
+
+const VIDEO_TOPIC_BLOCKLIST = [
+  'bench press',
+  'bodybuilding',
+  'calisthenics',
+  'deadlift',
+  'gym',
+  'leg day',
+  'muscle',
+  'powerlifting',
+  'squat',
+  'workout',
 ];
 
 const RSS_TEMPLATE = (channelId) =>
@@ -106,6 +143,15 @@ function parseFeedXml(xmlText, authorLabel) {
   return out;
 }
 
+function isVideoTopicRelevant(video) {
+  const haystack = `${video?.title || ''} ${video?.author || ''}`.toLowerCase();
+  const hasRelevantKeyword = VIDEO_TOPIC_KEYWORDS.some((keyword) => haystack.includes(keyword));
+  if (!hasRelevantKeyword) return false;
+  const hasBlockedKeyword = VIDEO_TOPIC_BLOCKLIST.some((keyword) => haystack.includes(keyword));
+  if (!hasBlockedKeyword) return true;
+  return /face|facial|jaw|jawline|aesthetic|looksmax|attractive|skin|hair/.test(haystack);
+}
+
 /**
  * Fetch latest videos from all configured channels (Atom RSS).
  */
@@ -131,7 +177,8 @@ export async function fetchYouTubeFeedFromChannels() {
   flat.forEach((v) => {
     if (!byId.has(v.videoId)) byId.set(v.videoId, v);
   });
-  const merged = [...byId.values()];
+  const relevant = [...byId.values()].filter(isVideoTopicRelevant);
+  const merged = relevant.length ? relevant : [...byId.values()];
   merged.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
   return merged;
 }

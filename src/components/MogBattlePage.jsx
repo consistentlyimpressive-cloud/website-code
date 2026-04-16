@@ -651,8 +651,8 @@ const VoteBattleModal = ({ battle, user, onClose, onVoteComplete }) => {
               {voteMatched === null
                 ? 'Your vote has been recorded.'
                 : voteMatched
-                  ? 'Your vote matched the AI opinion.'
-                  : `Your vote did not match the AI opinion. The AI favored ${
+                  ? 'Your vote matched the higher stored rating.'
+                  : `Your vote did not match the higher stored rating. The rating data favored ${
                       winner === 'a' ? fighterLabel(battle.fighterA) : fighterLabel(battle.fighterB)
                     }.`}
             </p>
@@ -1292,7 +1292,7 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
   }, [communityBattles]);
 
   const leaderboardRows = useMemo(() => buildMogLeaderboard(feedItems), [feedItems]);
-  const leaderboardDisplay = useMemo(() => leaderboardRows.slice(0, 50), [leaderboardRows]);
+  const leaderboardDisplay = leaderboardRows;
   const visibleRows = useMemo(() => leaderboardDisplay.slice(0, leaderboardCap), [leaderboardCap, leaderboardDisplay]);
 
   const castVoteBattles = useMemo(() => {
@@ -1481,10 +1481,10 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setLeaderboardCap((cap) => (cap >= 50 ? 10 : cap >= 15 ? 50 : 15))}
+                    onClick={() => setLeaderboardCap((cap) => (cap >= leaderboardDisplay.length ? 10 : leaderboardDisplay.length))}
                     className="rounded-full border border-white/10 bg-black/30 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition-all duration-300 hover:border-cyan-400/20 hover:text-white"
                   >
-                    Expand
+                    {leaderboardDisplay.length > 10 && leaderboardCap >= leaderboardDisplay.length ? 'Collapse' : 'Expand'}
                   </button>
                 </div>
               </div>

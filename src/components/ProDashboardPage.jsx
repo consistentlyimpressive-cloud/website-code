@@ -16,8 +16,6 @@ const clampTextStyle = {
   overflow: 'hidden',
 };
 
-const communityCardRadiusClass = 'rounded-[28px]';
-
 const modelLabel = (model) => ({
   '1': 'Premium Ultra',
   '2': 'Fun Mode',
@@ -26,6 +24,148 @@ const modelLabel = (model) => ({
   '5': 'Free Geneva',
   official: 'Official Scan',
 }[String(model || '').trim()] || 'Unknown AI');
+
+function getCommunityRatingTone(score) {
+  const n = Number(score) || 0;
+  if (n >= 90) return { text: 'text-emerald-200', border: 'border-emerald-300/70 hover:border-emerald-200', glow: 'shadow-[0_0_36px_rgba(16,185,129,0.18)]' };
+  if (n >= 80) return { text: 'text-emerald-300', border: 'border-emerald-400/60 hover:border-emerald-300', glow: 'shadow-[0_0_30px_rgba(16,185,129,0.14)]' };
+  if (n >= 70) return { text: 'text-cyan-300', border: 'border-cyan-400/55 hover:border-cyan-300', glow: 'shadow-[0_0_26px_rgba(34,211,238,0.13)]' };
+  if (n >= 60) return { text: 'text-yellow-300', border: 'border-yellow-500/45 hover:border-yellow-400', glow: 'shadow-[0_0_24px_rgba(234,179,8,0.10)]' };
+  if (n >= 50) return { text: 'text-orange-400', border: 'border-orange-500/50 hover:border-orange-400', glow: 'shadow-[0_0_24px_rgba(249,115,22,0.12)]' };
+  return { text: 'text-rose-400', border: 'border-rose-500/55 hover:border-rose-400', glow: 'shadow-[0_0_24px_rgba(244,63,94,0.12)]' };
+}
+
+function getCommunityTierBadgeClass(scanTier) {
+  const tierUpper = String(scanTier || '').toUpperCase();
+  if (tierUpper.includes('S') && tierUpper.includes('TIER')) {
+    return 'bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.6)]';
+  }
+  if (tierUpper.includes('A') && tierUpper.includes('TIER')) {
+    return 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.6)]';
+  }
+  return 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
+}
+
+function DashboardCommunityScanCard({
+  scan,
+  compact = false,
+  isAdminUser,
+  communityMenuId,
+  onOpen,
+  onToggleMenu,
+  onToggleOfficial,
+}) {
+  const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
+  const [isHovered, setIsHovered] = useState(false);
+  const dd = scan?.dashboardData || {};
+  const rating = Number(scan?.finalRating ?? dd?.finalRating ?? 0);
+  const ratingTone = getCommunityRatingTone(rating);
+  const tierBadgeClass = getCommunityTierBadgeClass(scan?.tier);
+  const rotateY = (mousePos.x - 50) * 0.22;
+  const rotateX = (50 - mousePos.y) * 0.18;
+
+  const handleMouseMove = (event) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setMousePos({
+      x: ((event.clientX - rect.left) / rect.width) * 100,
+      y: ((event.clientY - rect.top) / rect.height) * 100,
+    });
+  };
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        onOpen?.();
+      }}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setMousePos({ x: 50, y: 50 });
+      }}
+      className="group relative cursor-pointer text-left [perspective:950px] outline-none"
+    >
+      <div
+        className={`relative overflow-hidden rounded-[30px] border bg-zinc-900/40 transition-[transform,box-shadow,border-color] duration-500 ease-out [transform-style:preserve-3d] ${ratingTone.border} ${ratingTone.glow}`}
+        style={{
+          transform: isHovered
+            ? `rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-12px) scale(1.025)`
+            : 'rotateX(0deg) rotateY(0deg) translateY(0) scale(1)',
+        }}
+      >
+        <div className="relative overflow-hidden rounded-[30px] bg-zinc-950">
+          {dd?.frontImage ? (
+            <img
+              src={dd.frontImage}
+              className="w-full aspect-[3/4] object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.065]"
+              alt="Community Scan"
+            />
+          ) : (
+            <div className="flex aspect-[3/4] w-full items-center justify-center text-zinc-700 opacity-50">
+              <Users size={48} />
+            </div>
+          )}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent opacity-95" />
+          <div
+            className="pointer-events-none absolute inset-0 opacity-0 mix-blend-screen transition-opacity duration-300 group-hover:opacity-100"
+            style={{
+              background: `radial-gradient(190px circle at ${mousePos.x}% ${mousePos.y}%, rgba(255,255,255,0.18), rgba(255,255,255,0.04) 36%, transparent 68%)`,
+            }}
+          />
+          <div className="absolute left-3 top-3 z-20 [transform:translateZ(42px)]">
+            <span className={`rounded border px-2 py-0.5 text-[8px] font-black uppercase tracking-widest ${tierBadgeClass}`}>
+              {scan?.tier || '-'}
+            </span>
+          </div>
+
+          {isAdminUser && (
+            <div className="absolute right-3 top-3 z-40 [transform:translateZ(46px)]">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleMenu?.();
+                }}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700 bg-black/70 text-zinc-300 backdrop-blur transition-colors hover:border-zinc-400 hover:text-white"
+              >
+                <span className="text-lg leading-none">...</span>
+              </button>
+              {communityMenuId === scan?.id && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onToggleOfficial?.(!scan?.officialScan);
+                  }}
+                  className="absolute right-0 top-10 w-52 rounded-2xl border border-zinc-700 bg-[#090a0b] px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.18em] text-zinc-200 shadow-[0_20px_50px_rgba(0,0,0,0.5)] hover:bg-white/5"
+                >
+                  {scan?.officialScan ? 'Turn into community scan' : 'Turn into official scan'}
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className={`absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black via-black/80 to-transparent ${compact ? 'p-3' : 'p-4'} flex flex-col items-start [transform:translateZ(32px)]`}>
+            <div className="mb-2 flex items-baseline gap-1">
+              <span className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${ratingTone.text}`}>
+                {rating.toFixed(1)}
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">/100</span>
+            </div>
+            <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              Community Scan - {modelLabel(dd?.selectedModel || scan?.model)}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const slugifyScanName = (value) =>
   String(value || 'scan')
@@ -1188,92 +1328,18 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                     <Plus size={16} /> Add Scan
                   </button>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {communityGallery.map((scan) => {
-                    const dd = scan.dashboardData;
-                    const rating = dd?.finalRating ?? 0;
-                    const tierUpper = String(scan.tier || '').toUpperCase();
-                    const tierBadgeClass =
-                      tierUpper.includes('S') && tierUpper.includes('TIER')
-                        ? 'bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
-                        : tierUpper.includes('A') && tierUpper.includes('TIER')
-                          ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.6)]'
-                          : 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
                     return (
-                      <div
+                      <DashboardCommunityScanCard
                         key={scan.id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => openCommunityScan(scan)}
-                        onKeyDown={(event) => {
-                          if (event.key !== 'Enter' && event.key !== ' ') return;
-                          event.preventDefault();
-                          openCommunityScan(scan);
-                        }}
-                        className={`group relative overflow-hidden border bg-[#0c0d0e] text-left transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] ${communityCardRadiusClass} ${scan.officialScan ? 'border-blue-400/70 shadow-[0_0_24px_rgba(59,130,246,0.14)] hover:border-blue-300' : 'border-zinc-800 hover:border-cyan-500/50'}`}
-                      >
-                        <div className={`relative aspect-[3/4] overflow-hidden bg-zinc-900 ${communityCardRadiusClass}`}>
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-transparent to-transparent z-10 pointer-events-none" />
-                          {dd?.frontImage ? (
-                            <img
-                              src={dd.frontImage}
-                              alt=""
-                              className="absolute inset-0 w-full h-full object-cover object-top"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-zinc-700 opacity-50">
-                              <Users size={48} />
-                            </div>
-                          )}
-                          <div className="absolute top-3 left-3 z-20">
-                            <span className={`border text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${tierBadgeClass}`}>
-                              {scan.tier || '-'}
-                            </span>
-                          </div>
-                          {scan.officialScan && (
-                            <div className="absolute right-3 top-3 z-20 rounded-full border border-blue-300/40 bg-blue-500/15 px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-blue-200 backdrop-blur-md">
-                              Official Scan
-                            </div>
-                          )}
-                          {isAdminUser && (
-                            <div className="absolute right-3 top-3 z-30">
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id));
-                                }}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-700 bg-black/70 text-zinc-300 backdrop-blur transition-colors hover:border-blue-400/50 hover:text-blue-200"
-                              >
-                                <span className="text-lg leading-none">...</span>
-                              </button>
-                              {communityMenuId === scan.id && (
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    markCommunityScanOfficial(scan, !scan.officialScan);
-                                  }}
-                                  className="absolute right-0 top-10 w-52 rounded-2xl border border-blue-400/30 bg-[#090a0b] px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.18em] text-blue-200 shadow-[0_20px_50px_rgba(0,0,0,0.5)] hover:bg-blue-500/10"
-                                >
-                                  {scan.officialScan ? 'Turn into community scan' : 'Turn into official scan'}
-                                </button>
-                              )}
-                            </div>
-                          )}
-                          <div className="absolute bottom-3 left-3 z-20 flex items-baseline gap-1">
-                            <span className="text-white font-black italic text-2xl drop-shadow-[0_0_10px_rgba(255,255,255,0.4)] tabular-nums">
-                              {Number(rating).toFixed(1)}
-                            </span>
-                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
-                          </div>
-                        </div>
-                        <div className="border-t border-zinc-800 bg-[#0a0a0b] px-4 py-3">
-                          <span className="block text-zinc-500 font-sans text-[9px] uppercase tracking-[0.25em] mt-1">
-                            View results & analysis - {modelLabel(dd?.selectedModel || scan.model)}
-                          </span>
-                        </div>
-                      </div>
+                        scan={scan}
+                        isAdminUser={isAdminUser}
+                        communityMenuId={communityMenuId}
+                        onOpen={() => openCommunityScan(scan)}
+                        onToggleMenu={() => setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id))}
+                        onToggleOfficial={(official) => markCommunityScanOfficial(scan, official)}
+                      />
                     );
                   })}
                 </div>
@@ -1501,58 +1567,18 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                 <Plus size={14} /> Add Scan
               </button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div className="mb-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {communityPreview.map((scan) => (
-                <div
+                <DashboardCommunityScanCard
                   key={scan.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openCommunityScan(scan)}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter' && event.key !== ' ') return;
-                    event.preventDefault();
-                    openCommunityScan(scan);
-                  }}
-                  className={`group relative aspect-[3/4] rounded-xl overflow-hidden border bg-zinc-900 text-left transition-colors ${scan.officialScan ? 'border-blue-400/70 hover:border-blue-300' : 'border-zinc-800 hover:border-emerald-400/40'}`}
-                >
-                  <img src={scan.dashboardData?.frontImage} alt="" className="w-full h-full object-cover object-top" />
-                  {scan.officialScan && (
-                    <span className="absolute left-2 top-2 rounded-full border border-blue-300/40 bg-blue-500/15 px-2 py-1 text-[7px] font-black uppercase tracking-[0.16em] text-blue-200">
-                      Official
-                    </span>
-                  )}
-                  {isAdminUser && (
-                    <div className="absolute right-2 top-2 z-20">
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id));
-                        }}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-zinc-700 bg-black/70 text-zinc-300 backdrop-blur"
-                      >
-                        <span className="text-sm leading-none">...</span>
-                      </button>
-                      {communityMenuId === scan.id && (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            markCommunityScanOfficial(scan, !scan.officialScan);
-                          }}
-                          className="absolute right-0 top-9 w-48 rounded-2xl border border-blue-400/30 bg-[#090a0b] px-3 py-2 text-left text-[9px] font-black uppercase tracking-[0.16em] text-blue-200 shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
-                        >
-                          {scan.officialScan ? 'Turn into community scan' : 'Turn into official scan'}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-3 py-3">
-                    <span className="block text-[8px] uppercase tracking-[0.2em] text-zinc-400 mt-1">
-                      Open analysis
-                    </span>
-                  </div>
-                </div>
+                  scan={scan}
+                  compact
+                  isAdminUser={isAdminUser}
+                  communityMenuId={communityMenuId}
+                  onOpen={() => openCommunityScan(scan)}
+                  onToggleMenu={() => setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id))}
+                  onToggleOfficial={(official) => markCommunityScanOfficial(scan, official)}
+                />
               ))}
             </div>
             <button

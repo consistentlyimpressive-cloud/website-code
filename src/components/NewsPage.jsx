@@ -13,16 +13,19 @@ import {
   STATIC_VIDEO_FALLBACK,
   YOUTUBE_ROTATION_MS,
 } from '../utils/youtubeFeed';
+import { getApiBase } from '../utils/apiBase';
+
+const API_BASE = getApiBase();
 
 /**
- * Editorial picks — `link` is used to resolve each article’s real OG/lead image via Microlink
- * (direct hotlinks to Guardian/BBC/NYT CDNs often 401/403 or expire).
+ * Editorial picks. Live RSS items are merged in below, but the visible reads rail stays capped
+ * so the page does not turn into a giant news dump.
  */
 const HARDCODED_ARTICLES = [
   {
     id: 'guardian-clavicular-opinion-2026',
     title:
-      'Behind the rise of Clavicular and ‘looksmaxxing’ there are insecure young men who feel they don’t measure up',
+      "Behind the rise of Clavicular and 'looksmaxxing' there are insecure young men who feel they don't measure up",
     source: 'The Guardian',
     pubDate: '2026-03-24T03:00:00.000Z',
     link: 'https://www.theguardian.com/society/commentisfree/2026/mar/24/clavicular-insecure-young-men-looksmaxxing',
@@ -75,6 +78,78 @@ const TABS = [
 ];
 const VIDEO_VISIBLE_LIMIT = 30;
 const VIDEO_SCROLL_LIMIT = 100;
+const NEWS_VISIBLE_LIMIT = 4;
+
+const NEWS_RSS_FEEDS = [
+  {
+    source: 'Google News',
+    url: 'https://news.google.com/rss/search?q=Clavicular%20looksmaxxing%20OR%20facial%20aesthetics%20OR%20blackpill&hl=en-US&gl=US&ceid=US:en',
+  },
+  {
+    source: 'Google News',
+    url: 'https://news.google.com/rss/search?q=%22looksmaxxing%22%20OR%20%22facial%20aesthetics%22%20OR%20%22QOVES%22&hl=en-US&gl=US&ceid=US:en',
+  },
+  {
+    source: 'Google News',
+    url: 'https://news.google.com/rss/search?q=%22male%20beauty%22%20%22facial%20aesthetics%22%20OR%20%22jawline%22%20%22social%20media%22&hl=en-US&gl=US&ceid=US:en',
+  },
+];
+
+const NEWS_TOPIC_KEYWORDS = [
+  'blackpill',
+  'clavicular',
+  'facial aesthetics',
+  'jawline',
+  'looksmax',
+  'looksmaxxing',
+  'male beauty',
+  'qoves',
+];
+
+const LIVE_ARTICLE_OVERRIDES = [
+  {
+    match: /clavicular.*(?:nightclub|club).*appearance|club appearance.*clavicular/i,
+    source: 'Us Weekly',
+    link: 'https://www.usmagazine.com/celebrity-news/news/clavicular-teases-club-appearance-1-day-after-hospitalization/',
+    image:
+      'https://www.usmagazine.com/wp-content/uploads/2026/04/Clavicular-Confirms-Club-Appearance-.jpg?w=1200&h=630&crop=1&quality=70&strip=all',
+  },
+  {
+    match: /clavicular.*(?:hospitalized|overdose|seizure).*livestream|looksmaxxing influencer clavicular.*hospitalized/i,
+    source: 'National Today',
+    link: 'https://nationaltoday.com/us/fl/miami/news/2026/04/15/looksmaxxing-influencer-clavicular-suffers-overdose-seizure-during-livestream/',
+    image: 'https://nationaltoday.com/wp-content/uploads/not-wordpress/2026/04/69df6d29e9852.jpg',
+  },
+  {
+    match: /clavicular.*(?:that was brutal|posts update).*suspected overdose/i,
+    source: 'National Today',
+    link: 'https://nationaltoday.com/us/fl/miami/news/2026/04/15/clavicular-posts-update-after-suspected-overdose-that-was-brutal/',
+    image: 'https://nationaltoday.com/wp-content/uploads/not-wordpress/2026/04/69df8946416e3.jpg',
+  },
+  {
+    match: /clavicular.*home from hospital|i'?m ok after suspected od/i,
+    source: 'TMZ',
+    link: 'https://www.tmz.com/2026/04/15/clavicular-home-from-hospital-after-suspected-overdose/',
+  },
+];
+
+function applyLiveArticleOverride(item) {
+  const haystack = `${item?.title || ''} ${item?.source || ''}`;
+  const override = LIVE_ARTICLE_OVERRIDES.find((entry) => entry.match.test(haystack));
+  if (!override) return item;
+  return {
+    ...item,
+    source: override.source || item.source,
+    link: override.link || item.link,
+    imageUrl: override.image || item.imageUrl,
+  };
+}
+
+function isGoogleNewsImage(url) {
+  return /(?:googleusercontent\.com\/.*gnews|gstatic\.com\/gnews|google_news|J6_coFbogxhRI9iM864NL_liGXvsQp2AupsKei7z0cNNfDvGUmWUy20nuUhkREQyrpY4bEeIBuc)/i.test(
+    String(url || '')
+  );
+}
 
 async function fetchArticleOgImage(articleUrl) {
   try {
@@ -84,10 +159,81 @@ async function fetchArticleOgImage(articleUrl) {
     if (!res.ok) return null;
     const json = await res.json();
     const url = json?.data?.image?.url || json?.data?.logo?.url;
-    return typeof url === 'string' && url.startsWith('http') ? url : null;
+    return typeof url === 'string' && url.startsWith('http') && !isGoogleNewsImage(url) ? url : null;
   } catch {
     return null;
   }
+}
+
+function proxiedNewsFeed(url) {
+  return `${API_BASE}/api/proxy-rss?url=${encodeURIComponent(url)}`;
+}
+
+function decodeNewsText(value) {
+  if (!value) return '';
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = String(value);
+  return textarea.value
+    .replace(/\s+-\s+Google News$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cleanGoogleNewsUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    const nested = url.searchParams.get('url');
+    return nested || raw;
+  } catch {
+    return raw;
+  }
+}
+
+function isRelevantNewsItem(item) {
+  const haystack = `${item?.title || ''} ${item?.source || ''}`.toLowerCase();
+  return NEWS_TOPIC_KEYWORDS.some((keyword) => haystack.includes(keyword));
+}
+
+async function fetchNewsFeedItems() {
+  const results = await Promise.all(
+    NEWS_RSS_FEEDS.map(async ({ source, url }) => {
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 18_000);
+        const res = await fetch(proxiedNewsFeed(url), { signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!res.ok) throw new Error(String(res.status));
+        const xml = await res.text();
+        const doc = new DOMParser().parseFromString(xml, 'text/xml');
+        if (doc.querySelector('parsererror')) return [];
+        return Array.from(doc.querySelectorAll('item')).map((item, index) => {
+          const title = decodeNewsText(item.querySelector('title')?.textContent || 'News');
+          const link = cleanGoogleNewsUrl(item.querySelector('link')?.textContent || '');
+          const pubDate = item.querySelector('pubDate')?.textContent || new Date().toISOString();
+          const sourceLabel = decodeNewsText(item.querySelector('source')?.textContent || source);
+          return applyLiveArticleOverride({
+            id: `rss-${sourceLabel}-${index}-${title}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 120),
+            type: 'news',
+            title,
+            source: sourceLabel,
+            pubDate: new Date(pubDate).toISOString(),
+            link,
+          });
+        }).filter((item) => item.link && isRelevantNewsItem(item));
+      } catch {
+        return [];
+      }
+    })
+  );
+
+  const byLink = new Map();
+  [...results.flat(), ...HARDCODED_ARTICLES.map((n) => ({ ...n, type: 'news' }))].forEach((item) => {
+    const key = item.link || item.id;
+    if (!byLink.has(key)) byLink.set(key, item);
+  });
+  return [...byLink.values()].sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate)).slice(0, NEWS_VISIBLE_LIMIT);
 }
 
 function formatDate(dateStr) {
@@ -109,6 +255,7 @@ function itemKey(item, idx) {
 export default function NewsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [youtubePool, setYoutubePool] = useState([]);
+  const [liveNewsPool, setLiveNewsPool] = useState([]);
   const [youtubeReady, setYoutubeReady] = useState(false);
   const [newsImagesById, setNewsImagesById] = useState({});
 
@@ -120,6 +267,21 @@ export default function NewsPage() {
     setYoutubeReady(true);
     setLastFetchAt(Date.now());
   }, []);
+
+  const loadNewsPool = useCallback(async () => {
+    const merged = await fetchNewsFeedItems();
+    setLiveNewsPool(
+      merged.length
+        ? merged.slice(0, NEWS_VISIBLE_LIMIT)
+        : HARDCODED_ARTICLES.map((n) => ({ ...n, type: 'news' })).slice(0, NEWS_VISIBLE_LIMIT)
+    );
+  }, []);
+
+  useEffect(() => {
+    loadNewsPool();
+    const refresh = setInterval(loadNewsPool, YOUTUBE_ROTATION_MS);
+    return () => clearInterval(refresh);
+  }, [loadNewsPool]);
 
   useEffect(() => {
     loadYoutubePool();
@@ -155,8 +317,12 @@ export default function NewsPage() {
   const videoItems = useMemo(() => allVideoItems.slice(0, VIDEO_VISIBLE_LIMIT), [allVideoItems]);
 
   const newsItems = useMemo(
-    () => HARDCODED_ARTICLES.map((n) => ({ ...n, type: 'news' })),
-    []
+    () =>
+      (liveNewsPool.length ? liveNewsPool : HARDCODED_ARTICLES.map((n) => ({ ...n, type: 'news' }))).slice(
+        0,
+        NEWS_VISIBLE_LIMIT
+      ),
+    [liveNewsPool]
   );
 
   const feedItems = useMemo(() => {
@@ -171,8 +337,8 @@ export default function NewsPage() {
     let cancelled = false;
     (async () => {
       const entries = await Promise.all(
-        HARDCODED_ARTICLES.map(async (a) => {
-          const og = await fetchArticleOgImage(a.link);
+        newsItems.map(async (a) => {
+          const og = a.imageUrl || (await fetchArticleOgImage(a.link));
           return [a.id, og];
         })
       );
@@ -186,7 +352,7 @@ export default function NewsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [newsItems]);
 
   const filtered = useMemo(() => {
     if (activeTab === 'all') return feedItems;
@@ -313,8 +479,8 @@ export default function NewsPage() {
             News &amp; media
           </h1>
           <p className="mt-5 max-w-2xl text-sm leading-relaxed text-zinc-400">
-            Videos pull from a broad set of looksmaxxing / aesthetics / style channels (YouTube Shorts are excluded).
-            Articles use each story’s lead image when possible.
+            Videos now prioritize facial-aesthetics and blackpill-adjacent channels like QOVES and Creating Attractive.
+            Articles refresh from live search feeds so breaking looksmaxxing and creator stories can surface faster.
           </p>
           {lastFetchAt && (
             <p className="mt-2 text-[10px] font-mono uppercase tracking-widest text-zinc-600">

@@ -1306,8 +1306,8 @@ const CommunityScanCard = ({
     setMousePos({ x, y });
   };
 
-  const rotateY = (mousePos.x - 50) * 0.12;
-  const rotateX = (50 - mousePos.y) * 0.1;
+  const rotateY = (mousePos.x - 50) * 0.22;
+  const rotateX = (50 - mousePos.y) * 0.18;
   const modelLabel = scan.officialScan ? 'MogCheck verified' : getAnalysisModelLabel(scan.dashboardData?.selectedModel || scan.model);
 
   return (
@@ -1326,13 +1326,13 @@ const CommunityScanCard = ({
         setIsHovered(false);
         setMousePos({ x: 50, y: 50 });
       }}
-      className="group relative cursor-pointer text-left [perspective:1200px] outline-none"
+      className="group relative cursor-pointer text-left [perspective:950px] outline-none"
     >
       <div
         className={`relative overflow-hidden rounded-[30px] border bg-zinc-900/40 transition-[transform,box-shadow,border-color] duration-500 ease-out [transform-style:preserve-3d] ${ratingTone.border} ${ratingTone.glow}`}
         style={{
           transform: isHovered
-            ? `rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-10px) scale(1.015)`
+            ? `rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-12px) scale(1.025)`
             : 'rotateX(0deg) rotateY(0deg) translateY(0) scale(1)',
         }}
       >
@@ -3037,6 +3037,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
   const [profiles, setProfiles] = useState([]);
   const [selectedProfileId, setSelectedProfileId] = useState(initialProfileId || 'new');
+  const [activeScanProfileId, setActiveScanProfileId] = useState(initialProfileId || 'new');
   const [newProfileName, setNewProfileName] = useState('');
   const [profilesUnavailable, setProfilesUnavailable] = useState(false);
 
@@ -3206,7 +3207,61 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
   useEffect(() => {
     setSelectedProfileId(initialProfileId || 'new');
+    setActiveScanProfileId(initialProfileId || 'new');
   }, [initialProfileId]);
+
+  const handleScanComplete = useCallback((data) => {
+    const completedAt = new Date().toISOString();
+    const targetProfileId = activeScanProfileId || selectedProfileId || 'default';
+    const completedScan = {
+      ...data,
+      frontImage: data?.frontImage || frontImage,
+      sideImage: data?.sideImage || sideImage,
+      selectedModel,
+      profileId: targetProfileId && targetProfileId !== 'new' ? targetProfileId : 'default',
+      scannedAt: data?.scannedAt || completedAt,
+    };
+
+    setScanningCeleb(null);
+    setIsScanning(false);
+
+    try {
+      sessionStorage.setItem('mogcheck:lastCompletedScan', JSON.stringify(completedScan));
+    } catch (e) {
+      // Session storage is only a safety net for scan handoff; ignore browser quota/privacy failures.
+    }
+
+    setDashboardData(prev => {
+      const newScanHistory = prev?.scanHistory ? [...prev.scanHistory] : [];
+      const newRatingHistory = prev?.ratingHistory ? [...prev.ratingHistory] : [];
+
+      if (prev && prev.frontImage && prev.finalRating && newScanHistory.length === 0) {
+         newScanHistory.push({
+           ...prev,
+           scannedAt: prev.scannedAt || completedAt,
+         });
+      }
+      if (prev && prev.finalRating && newRatingHistory.length === 0) {
+         newRatingHistory.push(prev.finalRating);
+      }
+
+      newScanHistory.push(completedScan);
+      if (completedScan.finalRating != null && !Number.isNaN(Number(completedScan.finalRating))) {
+        newRatingHistory.push(Number(completedScan.finalRating));
+      }
+
+      return {
+        ...completedScan,
+        scanHistory: newScanHistory,
+        ratingHistory: newRatingHistory
+      };
+    });
+
+    // Route after the payload is cached locally so every scan entry point leaves the Consulting AI screen.
+    setCurrentPage('dashboard');
+    window.setTimeout(() => setCurrentPage('dashboard'), 0);
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 30);
+  }, [activeScanProfileId, frontImage, selectedModel, selectedProfileId, setCurrentPage, setDashboardData, sideImage]);
 
   useEffect(() => {
     if (!isScanning) return undefined;
@@ -3225,52 +3280,13 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
              mainImageFile={frontFile}
              sideImageUrl={sideImage}
              sideImageFile={sideFile}
-             sideMetricData={sideMetricDataGlobal}
-             choice={selectedModel}
-             user={user}
-             profileId={selectedProfileId}
-             onScanFailed={() => setIsScanning(false)}
-             onComplete={(data) => {
-                setScanningCeleb(null);
-                setIsScanning(false);
-                setDashboardData(prev => {
-                  const newScanHistory = prev?.scanHistory ? [...prev.scanHistory] : [];
-                  const newRatingHistory = prev?.ratingHistory ? [...prev.ratingHistory] : [];
-
-                  if (prev && prev.frontImage && prev.finalRating && newScanHistory.length === 0) {
-                     newScanHistory.push({
-                       ...prev,
-                       scannedAt: prev.scannedAt || new Date().toISOString(),
-                     });
-                  }
-                  if (prev && prev.finalRating && newRatingHistory.length === 0) {
-                     newRatingHistory.push(prev.finalRating);
-                  }
-
-                  if (data.finalRating) {
-                    newScanHistory.push({
-                       ...data,
-                       frontImage,
-                       sideImage,
-                       selectedModel,
-                       scannedAt: new Date().toISOString(),
-                     });
-                    newRatingHistory.push(data.finalRating);
-                  }
-
-                  return {
-                    ...data,
-                    frontImage,
-                    sideImage,
-                    selectedModel,
-                    scanHistory: newScanHistory,
-                    ratingHistory: newRatingHistory
-                  };
-                });
-                setCurrentPage('dashboard');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-             }}
-          />
+              sideMetricData={sideMetricDataGlobal}
+              choice={selectedModel}
+              user={user}
+              profileId={activeScanProfileId}
+              onScanFailed={() => setIsScanning(false)}
+              onComplete={handleScanComplete}
+           />
           <div className="mt-16 flex flex-col items-center gap-3 animate-bounce cursor-pointer hover:scale-105 transition-transform" onClick={() => window.scrollBy({ top: 600, behavior: 'smooth' })}>
             <div className="bg-cyan-500/10 border border-cyan-500/30 px-6 py-2 rounded-full shadow-[0_0_15px_rgba(34,211,238,0.2)]">
               <span className="text-cyan-400 font-bold font-sans text-xs uppercase tracking-[0.3em]">Scroll down while you wait</span>
@@ -3598,7 +3614,9 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
               onClick={async () => {
                 let actualProfileId = selectedProfileId;
                 if (selectedProfileId === 'new') {
-                  if (profilesUnavailable) {
+                  if (!user) {
+                    actualProfileId = 'guest';
+                  } else if (profilesUnavailable) {
                     actualProfileId = 'default';
                   } else {
                     if (!newProfileName.trim()) {
@@ -3626,6 +3644,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                   }
                 }
                 setSelectedProfileId(actualProfileId);
+                setActiveScanProfileId(actualProfileId);
                 setIsScanning(true);
               }} 
               disabled={isUltraModel ? (!frontImage || !sideImage || ultraAccessPending || !canUseUltra) : !frontImage} 
@@ -6818,6 +6837,20 @@ const App = () => {
   }, [dashboardData?.selectedModel]);
 
   const useProDashboard = Boolean(user || hasScanData);
+
+  useEffect(() => {
+    if (currentPage !== 'dashboard' || hasScanData) return;
+    try {
+      const cached = sessionStorage.getItem('mogcheck:lastCompletedScan');
+      if (!cached) return;
+      const parsed = JSON.parse(cached);
+      if (!parsed || typeof parsed !== 'object') return;
+      if (!parsed.frontImage && parsed.finalRating == null && !Array.isArray(parsed.biometrics)) return;
+      setDashboardData(parsed);
+    } catch (e) {
+      // Ignore malformed handoff cache and let the normal dashboard/profile loader continue.
+    }
+  }, [currentPage, hasScanData]);
 
   useEffect(() => {
     if (currentPage !== 'dashboard') return;
