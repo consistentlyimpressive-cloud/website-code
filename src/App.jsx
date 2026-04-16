@@ -2664,6 +2664,7 @@ const ScanningView = ({
   choice,
   onComplete,
   onScanFailed,
+  onRecoverToDashboard,
   user,
   profileId,
 }) => {
@@ -2681,6 +2682,8 @@ const ScanningView = ({
   onCompleteRef.current = onComplete;
   const onScanFailedRef = useRef(onScanFailed);
   onScanFailedRef.current = onScanFailed;
+  const onRecoverToDashboardRef = useRef(onRecoverToDashboard);
+  onRecoverToDashboardRef.current = onRecoverToDashboard;
   const userRef = useRef(user);
   userRef.current = user;
 
@@ -2726,6 +2729,7 @@ const ScanningView = ({
       const minScanMs = 3200;
       const scanStartedAt = Date.now();
       let scanSucceeded = false;
+      let analyzeRequestStarted = false;
       const fetchWithTimeoutRetry = async (url, options = {}, attempt = 1) => {
         const { timeoutMs = 8000, ...fetchOptions } = options;
         const ctrl = new AbortController();
@@ -2837,6 +2841,30 @@ const ScanningView = ({
         }
 
         return null;
+      };
+
+      const recoverOrOpenDashboard = async () => {
+        const recovered = await recoverCompletedScanFromHistory();
+        if (active && recovered) {
+          scanSucceeded = true;
+          setStatusText('Analysis recovered from saved scan. Opening dashboard...');
+          onCompleteRef.current(recovered);
+          return true;
+        }
+
+        if (active && analyzeRequestStarted) {
+          scanSucceeded = true;
+          setStatusText('The scan response dropped. Opening your dashboard history...');
+          onRecoverToDashboardRef.current?.({
+            reason: 'dropped-analyze-response',
+            profileId: profileId || 'default',
+            selectedModel: String(choice || '').trim(),
+            startedAt: new Date(scanStartedAt).toISOString(),
+          });
+          return true;
+        }
+
+        return false;
       };
 
       try {
@@ -2970,6 +2998,7 @@ const ScanningView = ({
 
         let apiRes;
         try {
+          analyzeRequestStarted = true;
           apiRes = await runAnalyzeRequest();
         } finally {
           clearTimeout(analyzeHardStop);
@@ -2982,13 +3011,7 @@ const ScanningView = ({
           data = await apiRes.json();
         } catch (parseErr) {
           console.error("Analyze response not JSON", parseErr);
-          const recovered = await recoverCompletedScanFromHistory();
-          if (active && recovered) {
-            scanSucceeded = true;
-            setStatusText('Analysis recovered from saved scan. Opening dashboard...');
-            onCompleteRef.current(recovered);
-            return;
-          }
+          if (await recoverOrOpenDashboard()) return;
           setStatusText(GENERIC_ERROR);
           setHasError(true);
           return;
@@ -2996,13 +3019,7 @@ const ScanningView = ({
 
         if (!apiRes.ok) {
           if (apiRes.status >= 500) {
-            const recovered = await recoverCompletedScanFromHistory();
-            if (active && recovered) {
-              scanSucceeded = true;
-              setStatusText('Analysis recovered from saved scan. Opening dashboard...');
-              onCompleteRef.current(recovered);
-              return;
-            }
+            if (await recoverOrOpenDashboard()) return;
           }
           const msg =
             (data && typeof data.error === 'string' && data.error.trim()) ||
@@ -3039,13 +3056,7 @@ const ScanningView = ({
       } catch (err) {
         console.error("API failed", err);
         if (err?.name !== 'AbortError') {
-          const recovered = await recoverCompletedScanFromHistory();
-          if (active && recovered) {
-            scanSucceeded = true;
-            setStatusText('Analysis recovered from saved scan. Opening dashboard...');
-            onCompleteRef.current(recovered);
-            return;
-          }
+          if (await recoverOrOpenDashboard()) return;
         }
         setStatusText(
           err?.name === 'AbortError'
@@ -3383,6 +3394,44 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 30);
   }, [activeScanProfileId, frontImage, selectedModel, selectedProfileId, setCurrentPage, setDashboardData, sideImage]);
 
+  const handleDroppedScanResponse = useCallback((meta = {}) => {
+    const completedAt = new Date().toISOString();
+    const targetProfileId = meta.profileId || activeScanProfileId || selectedProfileId || 'default';
+    const pendingScan = {
+      success: true,
+      scanId: `pending-${Date.now()}`,
+      profileId: targetProfileId,
+      selectedModel: String(meta.selectedModel || selectedModel || '3'),
+      scannedAt: completedAt,
+      frontImage,
+      sideImage,
+      finalRating: null,
+      sideRating: null,
+      technicalSummary:
+        'The scan finished or reached the server, but the browser lost the final response. Open the matching profile below to load the saved scan history.',
+      recoveredFromDroppedResponse: true,
+    };
+
+    setScanningCeleb(null);
+    setIsScanning(false);
+
+    try {
+      sessionStorage.setItem('mogcheck:lastCompletedScan', JSON.stringify(pendingScan));
+      sessionStorage.setItem('mogcheck:scanRecoveryRequested', JSON.stringify({
+        ...meta,
+        profileId: targetProfileId,
+        requestedAt: completedAt,
+      }));
+    } catch (e) {
+      // Browser storage is a safety net only; never keep the user trapped on the scan screen.
+    }
+
+    setDashboardData(pendingScan);
+    setCurrentPage('dashboard');
+    window.setTimeout(() => setCurrentPage('dashboard'), 0);
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 30);
+  }, [activeScanProfileId, frontImage, selectedModel, selectedProfileId, setCurrentPage, setDashboardData, sideImage]);
+
   useEffect(() => {
     if (!isScanning) return undefined;
     const id = window.setTimeout(() => {
@@ -3405,6 +3454,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
               user={user}
               profileId={activeScanProfileId}
               onScanFailed={() => setIsScanning(false)}
+              onRecoverToDashboard={handleDroppedScanResponse}
               onComplete={handleScanComplete}
            />
           <div className="mt-16 flex flex-col items-center gap-3 animate-bounce cursor-pointer hover:scale-105 transition-transform" onClick={() => window.scrollBy({ top: 600, behavior: 'smooth' })}>
