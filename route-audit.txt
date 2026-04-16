@@ -1,0 +1,159 @@
+﻿C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:739: const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDashboard, lowPerfMode, setLowPerfMode }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:803: <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => setCurrentPage('home')}>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:810: <button onClick={() => setCurrentPage('home')} className={`${currentPage === 'home' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Home</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:811: <button onClick={() => setCurrentPage('news')} className={`${currentPage === 'news' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:815: <button onClick={() => setCurrentPage('mog-battles')} className={`${currentPage === 'mog-battles' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:819: <button onClick={() => setCurrentPage('dashboard')} className={`${currentPage === 'dashboard' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}><Activity size={14} /> Dashboard</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:821: <button onClick={() => setCurrentPage('celebrity')} className={`${currentPage === 'celebrity' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Scans</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:822: <button onClick={() => setCurrentPage('plans')} className={`${currentPage === 'plans' ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'text-yellow-500/70'} hover:text-yellow-400 transition-all uppercase tracking-widest flex items-center gap-1`}><Crown size={13} /> Plans</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:871: onClick={() => { setCurrentPage('settings'); setShowUserMenu(false); }}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:878: onClick={() => { setCurrentPage('profile'); setShowUserMenu(false); }}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:952: <button onClick={() => setCurrentPage('login')} className="px-6 py-2 rounded-full bg-white text-black font-bold text-xs uppercase tracking-widest hover:bg-zinc-200 transition-colors">Login</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:958: <button onClick={() => { setCurrentPage('home'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Home</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:959: <button onClick={() => { setCurrentPage('news'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2">News <span className="bg-red-500/20 text-red-500 text-[8px] px-1.5 py-0.5 rounded-sm animate-pulse ml-1">LIVE</span></button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:960: <button onClick={() => { setCurrentPage('mog-battles'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Swords size={14} className="text-cyan-500/90" /> Mog Battles</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:962: <button onClick={() => { setCurrentPage('dashboard'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Activity size={14} /> Dashboard</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:964: <button onClick={() => { setCurrentPage('celebrity'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Celebrity Rating</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:965: <button onClick={() => { setCurrentPage('plans'); setIsOpen(false); }} className="text-yellow-500/70 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Crown size={13} /> Plans</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:976: <button type="button" onClick={() => { setCurrentPage('settings'); setIsOpen(false); }} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:979: <button type="button" onClick={() => { setCurrentPage('profile'); setIsOpen(false); }} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:993: <button onClick={() => { setCurrentPage('login'); setIsOpen(false); }} className="px-8 py-2 rounded-full bg-white text-black font-bold text-xs uppercase tracking-widest mt-2">Login</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1235: const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1385: setCurrentPage={setCurrentPage}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1522: const CelebrityStatsPage = ({ celeb, setCurrentPage }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1579: onClick={() => setCurrentPage('celebrity')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1660: const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1711: setCurrentPage('home');
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1749: <button onClick={() => setCurrentPage('plans')} className="w-full py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded hover:bg-cyan-500/20 transition-colors uppercase tracking-widest text-[10px] font-bold mb-4">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1788: <button onClick={() => setCurrentPage('upload-photo')} className="px-6 py-2 bg-cyan-500 text-black font-bold uppercase tracking-widest text-xs rounded-full">New Scan</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1859: const HomePage = ({ setCurrentPage }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1981: <button onClick={() => setCurrentPage('login')} className="mx-auto group relative px-12 py-5 bg-white text-black font-black uppercase tracking-tighter text-lg flex items-center gap-5 hover:scale-110 transition-all duration-300 rounded-sm" style={{ animation: 'ctaPulse 3s ease-in-out infinite' }}>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2018: onClick={() => setCurrentPage('mog-battles')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2054: <button onClick={() => setCurrentPage('login')} className="group relative px-12 py-5 bg-white text-black font-black uppercase tracking-tighter text-lg flex items-center gap-5 hover:scale-110 hover:shadow-[0_0_60px_rgba(255,255,255,0.8)] transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.2)] rounded-sm">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2081: const LoginPage = ({ setCurrentPage, user }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2089: useEffect(() => { if (user) setCurrentPage('photo-guide'); }, [user, setCurrentPage]);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2106: setCurrentPage('photo-guide');
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2113: try { await signInWithPopup(auth, googleProvider); setCurrentPage('photo-guide'); } catch (e) { setError(friendlyError(e.code)); } finally { setLoading(false); }
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2155: <button onClick={() => setCurrentPage('register')} className="text-zinc-500 text-[10px] uppercase font-sans tracking-widest hover:text-white transition-colors cursor-pointer">No account? Create one</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2162: const RegisterPage = ({ setCurrentPage, user }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2170: useEffect(() => { if (user) setCurrentPage('photo-guide'); }, [user, setCurrentPage]);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2186: setCurrentPage('photo-guide');
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2193: try { await signInWithPopup(auth, googleProvider); setCurrentPage('photo-guide'); } catch (e) { setError(friendlyError(e.code)); } finally { setLoading(false); }
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2229: <button onClick={() => setCurrentPage('login')} className="text-zinc-500 text-[10px] uppercase font-sans tracking-widest hover:text-white transition-colors cursor-pointer">Already registered? Login</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2237: const PhotoGuidePage = ({ setCurrentPage }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2277: <button onClick={() => setCurrentPage('upload-photo')} className="w-full py-5 bg-white text-black font-black uppercase tracking-widest text-sm md:text-base flex items-center justify-center gap-4 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer shadow-[0_0_30px_rgba(255,255,255,0.2)] rounded-sm">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2886: const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrity, user, userPlan, initialModel = "3", isLockedToUltra = false, initialProfileId = null }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:3133: setCurrentPage('dashboard');
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:3145: <CelebrityRatingPage setCurrentPage={() => {}} setSelectedCelebrity={setScanningCeleb} user={user} />
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:3158: <CelebrityStatsPage celeb={scanningCeleb} setCurrentPage={() => setScanningCeleb(null)} />
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:3319: if (!user) setCurrentPage('login');
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:3320: else setCurrentPage('plans');
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:3529: const ResultsPage = () => (
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:4312: const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:4325: onClick={() => setCurrentPage('plans')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:4549: setCurrentPage={setCurrentPage}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:4877: <div key={p.id || i} onClick={() => setCurrentPage(`protocol-${p.id || i+1}`)} className="flex bg-zinc-900/50 rounded-xl border border-zinc-800 overflow-hidden hover:border-cyan-500/40 hover:shadow-[0_0_20px_rgba(34,211,238,0.08)] transition-all cursor-pointer group">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5100: setCurrentPage={setCurrentPage}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5137: const PlansPage = ({ setCurrentPage, user }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5147: setCurrentPage('login');
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5210: <button onClick={() => setCurrentPage('photo-guide')} className="mt-auto w-full py-3.5 rounded-xl border border-zinc-700 text-zinc-300 font-bold uppercase tracking-widest text-xs hover:bg-zinc-800 hover:text-white transition-all">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5258: I agree to the <a href="/tos" onClick={(e) => { e.preventDefault(); setCurrentPage('tos'); }} className="text-cyan-400 hover:text-cyan-300 underline">Terms of Service</a> and acknowledge that I lose my right to a refund once the AI analysis is generated.
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5311: I agree to the <a href="/tos" onClick={(e) => { e.preventDefault(); setCurrentPage('tos'); }} className="text-yellow-500 hover:text-yellow-400 underline">Terms of Service</a> and acknowledge that I lose my right to a refund once the AI analysis is generated.
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5357: const AdminDashboardPage = ({ setCurrentPage }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5656: <button onClick={() => setCurrentPage('home')} className="w-full mt-3 py-2 text-zinc-600 text-[10px] font-sans uppercase tracking-widest hover:text-zinc-400 transition-colors">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5687: <button onClick={() => { setAuthenticated(false); setStats(null); setPassword(''); setCurrentPage('home'); }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 text-xs font-sans uppercase tracking-widest hover:text-red-400 hover:border-red-500/30 transition-all">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6213: const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6269: <button onClick={() => setCurrentPage('dashboard')} className="flex items-center gap-2 text-zinc-500 hover:text-cyan-400 font-sans text-[10px] uppercase tracking-widest mb-8 transition-colors">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6426: <div key={p.id || i} onClick={() => { setCurrentPage(`protocol-${p.id}`); window.scrollTo(0, 0); }} className="flex items-center gap-3 px-4 py-3 rounded-lg bg-zinc-950/30 border border-zinc-800/50 hover:border-zinc-700 cursor-pointer transition-colors group">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6442: const AllProtocolsPage = ({ protocols, setCurrentPage }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6452: <button onClick={() => setCurrentPage('dashboard')} className="flex items-center gap-2 text-zinc-500 hover:text-cyan-400 font-sans text-[10px] uppercase tracking-widest mb-8 transition-colors">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6459: <div key={p.id || i} onClick={() => { setCurrentPage(`protocol-${p.id}`); window.scrollTo(0, 0); }} className="flex items-center gap-4 px-5 py-4 rounded-xl bg-zinc-900/50 border border-zinc-800 hover:border-cyan-500/30 hover:shadow-[0_0_15px_rgba(34,211,238,0.05)] cursor-pointer transition-all group">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6475: const AdminFooterTrigger = ({ setCurrentPage }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6483: setCurrentPage('admin');
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6497: const [currentPage, _setCurrentPage] = useState(initialLocation.page);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6510: const setCurrentPage = useCallback((page, pathOverride = null) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6511: const newPath = pathOverride || (page === 'home' ? '/' : `/${page}`);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6514: _setCurrentPage(parsed.page || page);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6529: _setCurrentPage(parsed.page);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6658: setCurrentPage('login');
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6660: }, [authResolved, currentPage, user, hasScanData, setCurrentPage]);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6664: setCurrentPage('home');
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6672: setCurrentPage={setCurrentPage}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6681: {currentPage === 'home' && <HomePage setCurrentPage={setCurrentPage} />}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6682: {currentPage === 'photo-guide' && <PhotoGuidePage setCurrentPage={setCurrentPage} />}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6683: {(currentPage === 'upload-photo' || currentPage === 'upload-ultra') && (
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6686: setCurrentPage={setCurrentPage}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6691: initialModel={pendingUploadModel ?? (currentPage === 'upload-ultra' ? '1' : '3')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6692: isLockedToUltra={currentPage === 'upload-ultra'}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6696: {currentPage === 'results' && <ResultsPage />}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6697: {currentPage === 'dashboard' && (
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6702: setCurrentPage={setCurrentPage}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6713: ? <DashboardPage dashboardData={dashboardData} setCurrentPage={setCurrentPage} userPlan={userPlan} user={user} hideTopSection isEmbedded />
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6719: setCurrentPage={setCurrentPage}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6732: : <DashboardPage dashboardData={dashboardData} setCurrentPage={setCurrentPage} userPlan={userPlan} user={user} />
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6734: {currentPage === 'plans' && <PlansPage setCurrentPage={setCurrentPage} user={user} />}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6735: {currentPage === 'mog-battles' && (
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6736: <MogBattlePage user={user} userPlan={userPlan} setCurrentPage={setCurrentPage} dashboardData={dashboardData} />
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6738: {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} user={user} />}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6739: {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} user={user} />}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6740: {currentPage === 'news' && <NewsPage />}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6741: {currentPage === 'public-profile' && (
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6744: {currentPage === 'profile' && (
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6745: <UserProfilePage user={user} userPlan={userPlan} setCurrentPage={setCurrentPage} />
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6747: {currentPage === 'celebrity' && <CelebrityRatingPage setCurrentPage={setCurrentPage} setSelectedCelebrity={setSelectedCelebrity} user={user} />}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6748: {currentPage === 'celebrity-stats' && selectedCelebrity && <CelebrityStatsPage celeb={selectedCelebrity} setCurrentPage={setCurrentPage} />}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6749: {currentPage === 'admin' && <AdminDashboardPage setCurrentPage={setCurrentPage} />}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6750: {currentPage === 'protocol-all' && <AllProtocolsPage protocols={dashboardData?.protocols || []} setCurrentPage={setCurrentPage} />}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6751: {currentPage === 'tos' && <TermsOfServicePage setCurrentPage={setCurrentPage} />}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6752: {currentPage === 'privacy' && <PrivacyPolicyPage setCurrentPage={setCurrentPage} />}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6753: {currentPage === 'settings' && <SettingsPage setCurrentPage={setCurrentPage} user={user} userPlan={userPlan} lowPerfMode={lowPerfMode} setLowPerfMode={setLowPerfMode} dashboardData={dashboardData} />}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6755: const pid = parseInt(currentPage.split('-')[1]);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6758: return <ProtocolDetailPage protocol={proto} allProtocols={allProtos} setCurrentPage={setCurrentPage} />;
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6762: <AdminFooterTrigger setCurrentPage={setCurrentPage} />
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6764: <button onClick={() => setCurrentPage('tos')} className="text-zinc-500 hover:text-zinc-300 text-xs font-sans transition-colors uppercase tracking-widest">Terms of Service</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6765: <button onClick={() => setCurrentPage('privacy')} className="text-zinc-500 hover:text-zinc-300 text-xs font-sans transition-colors uppercase tracking-widest">Privacy Policy</button>
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6773: export default App;
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\BattleCard.jsx:965: export default BattleCard;
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\CyanFaceMesh.jsx:61: export default CyanFaceMesh;
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\DashboardHubPreviews.jsx:8: export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = false, onOpenCommunityScan = null }) {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\DashboardHubPreviews.jsx:21: onClick={() => setCurrentPage('mog-battles')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\DashboardHubPreviews.jsx:37: onClick={() => (onOpenCommunityScan ? onOpenCommunityScan(s) : setCurrentPage('celebrity'))}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\DashboardHubPreviews.jsx:46: onClick={() => setCurrentPage('celebrity')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\DashboardHubPreviews.jsx:60: onClick={() => setCurrentPage('news')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\DashboardPage.jsx:3: const DashboardPage = (props) => <ProDashboardPage {...props} />;
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\DashboardPage.jsx:5: export default DashboardPage;
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\MogBattlePage.jsx:20: const pageCardClass =
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\MogBattlePage.jsx:22: const pageCardHeaderClass =
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\MogBattlePage.jsx:672: const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreated }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\MogBattlePage.jsx:823: setCurrentPage('upload-photo');
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\MogBattlePage.jsx:1156: const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\MogBattlePage.jsx:1766: setCurrentPage={setCurrentPage}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\MogBattlePage.jsx:1784: export default MogBattlePage;
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\NewsPage.jsx:109: export default function NewsPage() {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\PrivacyPolicyPage.jsx:4: const PrivacyPolicyPage = ({ setCurrentPage }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\PrivacyPolicyPage.jsx:11: <button onClick={() => setCurrentPage('home')} className="flex items-center gap-2 text-zinc-500 hover:text-cyan-400 font-sans text-[10px] uppercase tracking-widest mb-8 transition-colors">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\PrivacyPolicyPage.jsx:126: export default PrivacyPolicyPage;
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:172: const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSignOut, setPendingUploadModel, setPendingUploadProfileId, analysisContent = null, hasActiveAnalysis = false, setDashboardData, renderCommunityDashboard = null }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:288: setCurrentPage('upload-ultra');
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:290: setCurrentPage('upload-photo');
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:694: setCurrentPage('dashboard');
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:824: onClick={() => setCurrentPage('plans')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:937: <button type="button" onClick={() => setCurrentPage('news')} className="mt-4 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.28em] text-cyan-300 hover:text-cyan-200 transition-colors">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:1111: onClick={() => setCurrentPage('mog-battles')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:1267: onClick={() => setCurrentPage('news')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:1389: <DashboardHubPreviewsCompact setCurrentPage={setCurrentPage} onOpenCommunityScan={openCommunityScan} />
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:1404: onClick={() => setCurrentPage('news')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:1451: onClick={() => setCurrentPage('mog-battles')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:1527: onClick={() => setCurrentPage('celebrity')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:1591: onClick={() => setCurrentPage('celebrity')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:1667: export default ProDashboardPage;
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\PublicProfilePage.jsx:51: const PublicProfilePage = ({ routeParams, user }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\PublicProfilePage.jsx:481: export default PublicProfilePage;
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\SettingsPage.jsx:25: const SettingsPage = ({ setCurrentPage, user, userPlan, lowPerfMode, setLowPerfMode, dashboardData }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\SettingsPage.jsx:81: onClick={() => setCurrentPage('dashboard')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\SettingsPage.jsx:94: onClick={() => setCurrentPage('profile')}
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\SettingsPage.jsx:165: export default SettingsPage;
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\TermsOfServicePage.jsx:4: const TermsOfServicePage = ({ setCurrentPage }) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\TermsOfServicePage.jsx:11: <button onClick={() => setCurrentPage('home')} className="flex items-center gap-2 text-zinc-500 hover:text-cyan-400 font-sans text-[10px] uppercase tracking-widest mb-8 transition-colors">
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\TermsOfServicePage.jsx:111: export default TermsOfServicePage;
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ui\HolographicCard.jsx:164: export default HolographicCard;

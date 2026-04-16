@@ -1,0 +1,99 @@
+﻿C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:758: const res = await fetch(`${API_BASE}/api/notifications`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:776: await fetch(`${API_BASE}/api/notifications/${encodeURIComponent(id)}/read`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1261: const { fetchCommunityScans, fetchCommunityBattles } = await import('./api/mogBattleVotes');
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1311: const res = await fetch(`${API_BASE}/api/user/scans/${encodeURIComponent(scan.scanId)}`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1336: const res = await fetch(`${API_BASE}/api/admin/community-scans/${encodeURIComponent(scan.id)}/official`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1673: const res = await fetch(`${API_BASE}/api/user/scans`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1693: const res = await fetch(`${API_BASE}/api/user/scans/${scanId}`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:1882: const res = await fetch(`${API_BASE}/api/public-stats`);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2585: return await fetch(url, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2604: const healthRes = await fetchWithTimeoutRetry(`${API_BASE}/api/health`);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2631: const readyRes = await fetchWithTimeoutRetry(`${API_BASE}/api/ready`);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2673: const response = await fetch(mainImageSrc);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2684: const sideResponse = await fetch(sideImageUrl);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2719: return await fetch(`${API_BASE}/api/analyze`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:2918: const res = await fetch(`${API_BASE}/api/user/profiles`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:3473: const res = await fetch(`${API_BASE}/api/user/profiles`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:4378: const response = await fetch(imgSrc);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:4384: const res = await fetch(`${API_BASE}/api/unlock-potential`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5389: const res = await fetch(`${API_BASE}/api/admin/stats`, { headers: { 'x-admin-password': pw } });
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5401: const usersRes = await fetch(`${API_BASE}/api/admin/users`, { headers: { 'x-admin-password': pw } });
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5450: const res = await fetch(`${API_BASE}/api/admin/users/${uid}`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5472: const res = await fetch(`${API_BASE}/api/admin/notifications/announcement`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5533: const res = await fetch(`${API_BASE}/api/admin/users/${uid}/plan`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5573: fetch(`${API_BASE}/api/admin/users/${uid}/scans`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5588: fetch(`${API_BASE}/api/admin/users/${uid}/mog-battles`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:5610: const delRes = await fetch(`${API_BASE}/api/admin/users/${uid}/scans/${scanId}`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\App.jsx:6606: await fetch(`${API_BASE}/api/user/status`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\api\mogBattleVotes.js:12: const r = await fetch(`${API_BASE}/api/mog-battle/votes/${encodeURIComponent(id)}`);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\api\mogBattleVotes.js:27: const r = await fetch(`${API_BASE}/api/mog-battle/votes/${encodeURIComponent(battleId)}`);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\api\mogBattleVotes.js:35: const r = await fetch(`${API_BASE}/api/mog-battle/my-vote/${encodeURIComponent(battleId)}`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\api\mogBattleVotes.js:43: const r = await fetch(`${API_BASE}/api/mog-battle/vote`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\api\mogBattleVotes.js:56: const r = await fetch(`${API_BASE}/api/mog-battle/community`);
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\api\mogBattleVotes.js:62: const r = await fetch(`${API_BASE}/api/community-scans?limit=${encodeURIComponent(limit)}`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\api\mogBattleVotes.js:70: const r = await fetch(`${API_BASE}/api/mog-battle/community`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\api\mogBattleVotes.js:83: const r = await fetch(`${API_BASE}/api/mog-battle/follows`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\api\mogBattleVotes.js:92: const r = await fetch(`${API_BASE}/api/mog-battle/follow`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\BattleCard.jsx:12: } from '../api/mogBattleVotes';
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\MogBattlePage.jsx:13: } from '../api/mogBattleVotes';
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\MogBattlePage.jsx:692: const res = await fetch(`${API_BASE}/api/user/scans`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\NewsPage.jsx:81: const res = await fetch(
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:8: import { fetchCommunityBattles, fetchCommunityScans } from '../api/mogBattleVotes';
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:262: fetch(`${API_BASE}/api/user/profiles`, { headers }),
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:263: fetch(`${API_BASE}/api/user/scans`, { headers }),
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:298: const res = await fetch(`${API_BASE}/api/user/profiles/${id}`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:322: const res = await fetch(`${API_BASE}/api/user/profiles/${id}`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:347: const res = await fetch(`${API_BASE}/api/user/scans/${encodeURIComponent(scanId)}`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:395: const res = await fetch(`${API_BASE}/api/user/scans/${encodeURIComponent(scanId)}`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:427: const res = await fetch(`${API_BASE}/api/admin/community-scans/${encodeURIComponent(scan.id)}/official`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:449: const res = await fetch(`${API_BASE}/api/user/profiles/${id}`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\ProDashboardPage.jsx:657: const res = await fetch(`${API_BASE}/api/user/scans`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\PublicProfilePage.jsx:83: const res = await fetch(
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\PublicProfilePage.jsx:84: `${API_BASE}/api/public/profiles/${encodeURIComponent(uid)}/${encodeURIComponent(actualProfileId)}`,
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\PublicProfilePage.jsx:142: const res = await fetch(`${API_BASE}/api/user/profiles/${profile.id}`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\PublicProfilePage.jsx:168: const res = await fetch(`${API_BASE}/api/user/scans/${scanId}`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\PublicProfilePage.jsx:194: const res = await fetch(`${API_BASE}/api/user/scans/${scanId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` }});
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\components\SettingsPage.jsx:44: const res = await fetch(`${API_BASE}/api/user/scans`, {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\data\mogBattles.js:18: /** Community vote totals live in Firestore via POST /api/mog-battle/vote (see src/api/mogBattleVotes.js). */
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\utils\youtubeFeed.js:38: return `${apiBase}/api/proxy-rss?url=${encodeURIComponent(url)}`;
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\src\utils\youtubeFeed.js:119: const res = await fetch(proxied(url), { signal: ctrl.signal });
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\profiles-routes.js:38: app.get('/api/user/profiles', extractUserOptional, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\profiles-routes.js:55: app.post('/api/user/profiles', extractUserOptional, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\profiles-routes.js:78: app.put('/api/user/profiles/:profileId', extractUserOptional, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\profiles-routes.js:101: app.delete('/api/user/profiles/:profileId', extractUserOptional, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\profiles-routes.js:129: app.get('/api/public/profiles/:uid/:profileId', extractUserOptional, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:132: /** Process start time for /api/health uptime */
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:152: app.get('/api/proxy-rss', async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:158: const response = await fetch(targetUrl, { signal: ctrl.signal });
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:184: '/api/webhooks/lemonsqueezy',
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:517: app.get('/api/mog-battle/votes/:battleId', requireFirestore, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:545: app.get('/api/mog-battle/my-vote/:battleId', requireFirestore, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:586: app.get('/api/mog-battle/follows', requireFirestore, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:619: app.post('/api/mog-battle/follow', requireFirestore, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:667: app.get('/api/mog-battle/community', requireFirestore, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:698: app.post('/api/mog-battle/community', requireFirestore, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:741: app.get('/api/community-scans', requireFirestore, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:776: app.post('/api/admin/community-scans/:scanDocId/official', async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:809: app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:1044: app.get('/api/health', (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:1052: app.get('/api/notifications', extractUserOptional, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:1081: app.post('/api/notifications/:id/read', extractUserOptional, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:1106: app.get('/api/user/status', extractUserOptional, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:1136: app.get('/api/ready', async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:1193: app.get('/api/public-stats', (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:1224: app.post('/api/debug-log', debugLogLimiter, (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:1610: '/api/analyze',
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:1884: app.post('/api/unlock-potential', unlockLimiter, extractUserOptional, upload.single('image'), (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:1947: app.get('/api/admin/stats', (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:1955: app.post('/api/admin/notifications/announcement', async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:1987: app.get('/api/admin/users', async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:2064: app.post('/api/admin/users/:uid/plan', async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:2086: app.delete('/api/admin/users/:uid', async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:2118: app.get('/api/admin/users/:uid/scans', async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:2134: app.get('/api/admin/users/:uid/mog-battles', async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:2173: app.delete('/api/admin/users/:uid/scans/:scanId', async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:2202: app.get('/api/user/scans', extractUserOptional, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:2214: app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:2254: app.delete('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\server.js:2299: 'Tip: Python AI engine (final_engine.py) logs to THIS same terminal when /api/analyze runs — keep this window visible while scanning.'
+C:\Users\Laith abu amsheh\OneDrive\Documents\GitHub\website-code\backend\backend\server.js:26: app.post('/api/webhooks/lemonsqueezy', async (req, res) => {
