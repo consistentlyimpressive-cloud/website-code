@@ -173,4 +173,43 @@ module.exports = function(app, firestore, admin, extractUserOptional) {
       res.status(status).json({ error });
     }
   });
+
+  app.get('/api/public/scans/:uid/:scanId', extractUserOptional, async (req, res) => {
+    if (!firestore) return res.status(500).json({ error: 'Firestore not configured' });
+    const { uid, scanId } = req.params;
+    try {
+      const scanDoc = await firestore.collection('users').doc(uid).collection('scans').doc(scanId).get();
+      if (!scanDoc.exists) return res.status(404).json({ error: 'Scan not found' });
+
+      const scan = normalizeStoredScanUrls({ id: scanDoc.id, ...scanDoc.data() });
+      const isOwner = req.uid === uid;
+      if (!isOwner && !isPublicScanVisibility(scan.visibility)) {
+        return res.status(403).json({ error: 'This scan is private' });
+      }
+
+      let profile = {
+        id: scan.profileId || 'default',
+        userId: uid,
+        name: scan.payload?.profileName || scan.profileName || 'Shared Scan',
+        visibility: 'private',
+      };
+
+      if (scan.profileId && scan.profileId !== 'default') {
+        const profileDoc = await firestore.collection('users').doc(uid).collection('profiles').doc(scan.profileId).get();
+        if (profileDoc.exists) {
+          profile = {
+            id: profileDoc.id,
+            userId: uid,
+            ...profileDoc.data(),
+          };
+        }
+      }
+
+      res.json({ profile, scans: [scan] });
+    } catch (e) {
+      const { status, error } = sanitizeFirebaseError(e);
+      console.error('[profiles] public scan GET failed:', e.message || e);
+      res.status(status).json({ error });
+    }
+  });
 };

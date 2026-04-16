@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Gauge, Sparkles, Bell, Trash2 } from 'lucide-react';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import NewsPage from './components/NewsPage';
@@ -57,6 +57,14 @@ function parseAppLocation(pathname, userUid = null) {
     return {
       page: 'public-profile',
       routeParams: { uid: userUid || null, profileId: parts[1] },
+      dashboardRoute: { slug: null, profileId: null },
+    };
+  }
+
+  if (parts[0] === 'scan' && parts.length >= 3) {
+    return {
+      page: 'public-scan',
+      routeParams: { uid: parts[1], scanId: parts[2], scanOnly: true },
       dashboardRoute: { slug: null, profileId: null },
     };
   }
@@ -483,6 +491,10 @@ function timestampToMillis(value) {
   if (typeof value?.seconds === 'number') {
     const nanos = typeof value?.nanoseconds === 'number' ? value.nanoseconds / 1e6 : 0;
     return value.seconds * 1000 + nanos;
+  }
+  if (typeof value?._seconds === 'number') {
+    const nanos = typeof value?._nanoseconds === 'number' ? value._nanoseconds / 1e6 : 0;
+    return value._seconds * 1000 + nanos;
   }
   const fallback = new Date(value).getTime();
   return Number.isFinite(fallback) ? fallback : 0;
@@ -2732,6 +2744,90 @@ const ScanningView = ({
           clearTimeout(timer);
         }
       };
+
+      const buildRecoveredScanPayload = (scan) => {
+        if (!scan || typeof scan !== 'object') return null;
+        const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : {};
+        const scanMillis = timestampToMillis(scan.timestamp || scan.scannedAt || payload.scannedAt);
+        return {
+          ...payload,
+          success: true,
+          scanId: scan.id || scan.scanId || payload.scanId,
+          profileId: scan.profileId || payload.profileId || profileId || 'default',
+          profileName: scan.profileName || payload.profileName,
+          visibility: scan.visibility || payload.visibility || 'private',
+          finalRating: scan.finalRating ?? payload.finalRating ?? null,
+          sideRating: scan.sideRating ?? payload.sideRating ?? null,
+          frontImage: scan.frontImageUrl || scan.frontImage || payload.frontImage || mainImageSrc || null,
+          sideImage: scan.sideImageUrl || scan.sideImage || payload.sideImage || sideImageUrl || null,
+          selectedModel: String(scan.model || payload.selectedModel || choice || '').trim(),
+          cohesiveFrontSide: Boolean(scan.cohesiveFrontSide || payload.cohesiveFrontSide),
+          scannedAt: scanMillis ? new Date(scanMillis).toISOString() : new Date().toISOString(),
+          recoveredFromSavedScan: true,
+        };
+      };
+
+      const recoverCompletedScanFromHistory = async () => {
+        const activeUser = userRef.current;
+        if (!activeUser) return null;
+
+        const expectedModel = String(choice || '').trim();
+        const expectedProfile = String(profileId || '').trim();
+        const shouldMatchProfile =
+          expectedProfile && expectedProfile !== 'new' && expectedProfile !== 'guest';
+        const earliestReasonableScan = scanStartedAt - 2 * 60 * 1000;
+
+        for (let attempt = 1; attempt <= 4; attempt += 1) {
+          if (!active) return null;
+          try {
+            if (attempt === 1) {
+              setStatusText('The response dropped, checking saved scan history...');
+            } else {
+              setStatusText(`Still checking for the saved scan (${attempt}/4)...`);
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, attempt === 1 ? 1600 : 2200));
+            if (!active) return null;
+
+            const token = await activeUser.getIdToken();
+            const historyRes = await fetchWithTimeoutRetry(`${API_BASE}/api/user/scans`, {
+              timeoutMs: 12000,
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!historyRes.ok) continue;
+
+            const historyData = await historyRes.json();
+            const scans = Array.isArray(historyData?.scans) ? historyData.scans : [];
+            const candidates = scans
+              .map((scan) => ({
+                scan,
+                millis: timestampToMillis(scan.timestamp || scan.scannedAt || scan.payload?.scannedAt),
+              }))
+              .filter(({ scan, millis }) => {
+                if (!millis || millis < earliestReasonableScan) return false;
+                if (expectedModel) {
+                  const scanModel = String(scan.model || scan.payload?.selectedModel || '').trim();
+                  if (scanModel && scanModel !== expectedModel) return false;
+                }
+                if (shouldMatchProfile) {
+                  const scanProfile = String(scan.profileId || scan.payload?.profileId || 'default').trim();
+                  if (scanProfile !== expectedProfile) return false;
+                }
+                return true;
+              })
+              .sort((a, b) => b.millis - a.millis);
+
+            const recovered = candidates[0]?.scan || null;
+            const recoveredPayload = buildRecoveredScanPayload(recovered);
+            if (recoveredPayload) return recoveredPayload;
+          } catch (recoveryErr) {
+            console.warn(`[analyze] saved-scan recovery attempt ${attempt} failed`, recoveryErr);
+          }
+        }
+
+        return null;
+      };
+
       try {
         const isUltra = choice === "1" || choice === "2";
         const activeUser = userRef.current;
@@ -2851,26 +2947,14 @@ const ScanningView = ({
             );
         }, 4000);
 
-        const runAnalyzeRequest = async (attempt = 1) => {
-          try {
-            return await fetch(`${API_BASE}/api/analyze`, {
-              method: "POST",
-              headers,
-              body: formData,
-              signal: analyzeAbort.signal,
-              cache: 'no-store',
-            });
-          } catch (networkErr) {
-            if (networkErr?.name === 'AbortError' || attempt >= 3) {
-              throw networkErr;
-            }
-            console.warn(`[analyze] network failure on attempt ${attempt}, retrying`, networkErr);
-            if (active) {
-              setStatusText(`Network hiccup detected. Retrying the analysis request (${attempt + 1}/3)...`);
-            }
-            await new Promise((resolve) => setTimeout(resolve, 1200 * attempt));
-            return runAnalyzeRequest(attempt + 1);
-          }
+        const runAnalyzeRequest = async () => {
+          return fetch(`${API_BASE}/api/analyze`, {
+            method: "POST",
+            headers,
+            body: formData,
+            signal: analyzeAbort.signal,
+            cache: 'no-store',
+          });
         };
 
         let apiRes;
@@ -2887,12 +2971,28 @@ const ScanningView = ({
           data = await apiRes.json();
         } catch (parseErr) {
           console.error("Analyze response not JSON", parseErr);
+          const recovered = await recoverCompletedScanFromHistory();
+          if (active && recovered) {
+            scanSucceeded = true;
+            setStatusText('Analysis recovered from saved scan. Opening dashboard...');
+            onCompleteRef.current(recovered);
+            return;
+          }
           setStatusText(GENERIC_ERROR);
           setHasError(true);
           return;
         }
 
         if (!apiRes.ok) {
+          if (apiRes.status >= 500) {
+            const recovered = await recoverCompletedScanFromHistory();
+            if (active && recovered) {
+              scanSucceeded = true;
+              setStatusText('Analysis recovered from saved scan. Opening dashboard...');
+              onCompleteRef.current(recovered);
+              return;
+            }
+          }
           const msg =
             (data && typeof data.error === 'string' && data.error.trim()) ||
             (data && typeof data.message === 'string' && data.message.trim()) ||
@@ -2927,6 +3027,15 @@ const ScanningView = ({
         }
       } catch (err) {
         console.error("API failed", err);
+        if (err?.name !== 'AbortError') {
+          const recovered = await recoverCompletedScanFromHistory();
+          if (active && recovered) {
+            scanSucceeded = true;
+            setStatusText('Analysis recovered from saved scan. Opening dashboard...');
+            onCompleteRef.current(recovered);
+            return;
+          }
+        }
         setStatusText(
           err?.name === 'AbortError'
             ? 'Analysis timed out after about 10 minutes. Please try again with a smaller image or try again in a moment.'
@@ -6837,6 +6946,7 @@ const App = () => {
   }, [dashboardData?.selectedModel]);
 
   const useProDashboard = Boolean(user || hasScanData);
+  const isScanOnlyPage = currentPage === 'public-scan';
 
   useEffect(() => {
     if (currentPage !== 'dashboard' || hasScanData) return;
@@ -6870,16 +6980,18 @@ const App = () => {
   return (
     <div className="min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black">
       {!lowPerfMode && <NoiseOverlay />}
-      <Navbar
-        currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
-        user={user}
-        onSignOut={handleSignOut}
-        userPlan={userPlan}
-        showDashboard={Boolean(user || hasScanData)}
-        lowPerfMode={lowPerfMode}
-        setLowPerfMode={setLowPerfMode}
-      />
+      {!isScanOnlyPage && (
+        <Navbar
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          user={user}
+          onSignOut={handleSignOut}
+          userPlan={userPlan}
+          showDashboard={Boolean(user || hasScanData)}
+          lowPerfMode={lowPerfMode}
+          setLowPerfMode={setLowPerfMode}
+        />
+      )}
       <main className="flex flex-col min-h-screen">
         {currentPage === 'home' && <HomePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'photo-guide' && <PhotoGuidePage setCurrentPage={setCurrentPage} />}
@@ -6949,6 +7061,7 @@ const App = () => {
         )}
         {currentPage === 'celebrity' && <CelebrityRatingPage setCurrentPage={setCurrentPage} setSelectedCelebrity={setSelectedCelebrity} user={user} />}
         {currentPage === 'celebrity-stats' && selectedCelebrity && <CelebrityStatsPage celeb={selectedCelebrity} setCurrentPage={setCurrentPage} />}
+        {currentPage === 'public-scan' && <PublicProfilePage routeParams={routeParams} user={user} scanOnly />}
         {currentPage === 'admin' && <AdminDashboardPage setCurrentPage={setCurrentPage} />}
         {currentPage === 'protocol-all' && <AllProtocolsPage protocols={dashboardData?.protocols || []} setCurrentPage={setCurrentPage} />}
         {currentPage === 'tos' && <TermsOfServicePage setCurrentPage={setCurrentPage} />}
@@ -6961,14 +7074,16 @@ const App = () => {
           return <ProtocolDetailPage protocol={proto} allProtocols={allProtos} setCurrentPage={setCurrentPage} />;
         })()}
       </main>
-      <footer className="py-12 border-t border-zinc-900 flex flex-col items-center gap-6 bg-[#090a0b]">
-        <AdminFooterTrigger setCurrentPage={setCurrentPage} />
-        <div className="flex gap-6">
-           <button onClick={() => setCurrentPage('tos')} className="text-zinc-500 hover:text-zinc-300 text-xs font-sans transition-colors uppercase tracking-widest">Terms of Service</button>
-           <button onClick={() => setCurrentPage('privacy')} className="text-zinc-500 hover:text-zinc-300 text-xs font-sans transition-colors uppercase tracking-widest">Privacy Policy</button>
-        </div>
-        <p className="text-zinc-600 text-[10px] font-sans uppercase tracking-[0.5em]">Peak Performance Aesthetics (c) 2026</p>
-      </footer>
+      {!isScanOnlyPage && (
+        <footer className="py-12 border-t border-zinc-900 flex flex-col items-center gap-6 bg-[#090a0b]">
+          <AdminFooterTrigger setCurrentPage={setCurrentPage} />
+          <div className="flex gap-6">
+             <button onClick={() => setCurrentPage('tos')} className="text-zinc-500 hover:text-zinc-300 text-xs font-sans transition-colors uppercase tracking-widest">Terms of Service</button>
+             <button onClick={() => setCurrentPage('privacy')} className="text-zinc-500 hover:text-zinc-300 text-xs font-sans transition-colors uppercase tracking-widest">Privacy Policy</button>
+          </div>
+          <p className="text-zinc-600 text-[10px] font-sans uppercase tracking-[0.5em]">Peak Performance Aesthetics (c) 2026</p>
+        </footer>
+      )}
     </div>
   );
 };

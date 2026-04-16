@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Target, Activity, CheckCircle2, Hexagon, Shield, Globe, Lock, ArrowLeft, ArrowUpRight, TrendingUp, Trash2 } from 'lucide-react';
+import { Target, Activity, CheckCircle2, Hexagon, Shield, Globe, Lock, ArrowLeft, ArrowUpRight, TrendingUp, Trash2, Share2, Check } from 'lucide-react';
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { getApiBase } from '../utils/apiBase';
 import { ConfirmDialog, ImageLightbox } from './ui/SiteModal';
 
 const API_BASE = getApiBase();
+
+function isPublicScanVisibility(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === 'unlisted' || normalized === 'community' || normalized === 'public';
+}
 
 function normalizeMarkedText(value) {
   return String(value || '')
@@ -100,7 +105,7 @@ const FeatureHighlightCard = ({ type, feature }) => {
   );
 };
 
-const PublicProfilePage = ({ routeParams, user }) => {
+const PublicProfilePage = ({ routeParams, user, scanOnly = false }) => {
   const [profile, setProfile] = useState(null);
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +116,7 @@ const PublicProfilePage = ({ routeParams, user }) => {
   const [pendingScanVisibility, setPendingScanVisibility] = useState(null);
   const [confirmDeleteScan, setConfirmDeleteScan] = useState(null);
   const [lightboxImage, setLightboxImage] = useState(null);
+  const [shareNotice, setShareNotice] = useState('');
 
   const isOwner = Boolean(user?.uid && profile?.userId && user.uid === profile.userId);
 
@@ -127,13 +133,16 @@ const PublicProfilePage = ({ routeParams, user }) => {
 
         const uid = routeParams.uid || routeParams.username || user?.uid || '';
         const actualProfileId = routeParams.profileId || '';
+        const requestedDirectScanId = routeParams.scanId || '';
 
-        if (!uid || !actualProfileId) {
-          throw new Error('Invalid profile link');
+        if (!uid || (!actualProfileId && !requestedDirectScanId)) {
+          throw new Error('Invalid scan link');
         }
 
         const res = await fetch(
-          `${API_BASE}/api/public/profiles/${encodeURIComponent(uid)}/${encodeURIComponent(actualProfileId)}`,
+          requestedDirectScanId
+            ? `${API_BASE}/api/public/scans/${encodeURIComponent(uid)}/${encodeURIComponent(requestedDirectScanId)}`
+            : `${API_BASE}/api/public/profiles/${encodeURIComponent(uid)}/${encodeURIComponent(actualProfileId)}`,
           { headers }
         );
         if (!res.ok) {
@@ -145,7 +154,7 @@ const PublicProfilePage = ({ routeParams, user }) => {
         setProfile(data.profile);
         setScans(data.scans || []);
         const search = new URLSearchParams(window.location.search);
-        const requestedScanId = search.get('scan');
+        const requestedScanId = requestedDirectScanId || search.get('scan');
         if (requestedScanId && data.scans?.some((scan) => scan.id === requestedScanId)) {
           setSelectedScanId(requestedScanId);
         } else if (data.scans?.length > 0) {
@@ -227,8 +236,10 @@ const PublicProfilePage = ({ routeParams, user }) => {
       setScans((prev) => prev.map((scan) => (
         scan.id === scanId ? { ...scan, visibility: vis } : scan
       )));
+      return true;
     } catch (e) {
       setError(e.message || 'Failed to update scan visibility');
+      return false;
     }
   };
 
@@ -238,6 +249,29 @@ const PublicProfilePage = ({ routeParams, user }) => {
       return;
     }
     commitScanVisibility(scanId, vis);
+  };
+
+  const getScanShareUrl = (scan = activeScan) => {
+    if (!scan?.id || !profile?.userId) return '';
+    return `${window.location.origin}/scan/${encodeURIComponent(profile.userId)}/${encodeURIComponent(scan.id)}`;
+  };
+
+  const handleShareScan = async (scan = activeScan) => {
+    if (!scan?.id) return;
+    let canShare = isPublicScanVisibility(scan.visibility) || !isOwner;
+    if (isOwner && !isPublicScanVisibility(scan.visibility)) {
+      canShare = await commitScanVisibility(scan.id, 'unlisted');
+    }
+    if (!canShare) return;
+
+    const url = getScanShareUrl(scan);
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareNotice('Scan link copied. Private scans are changed to unlisted so the link works.');
+    } catch {
+      setShareNotice(url);
+    }
+    window.setTimeout(() => setShareNotice(''), 4500);
   };
 
   const handleDeleteScan = async (scanId) => {
@@ -261,27 +295,31 @@ const PublicProfilePage = ({ routeParams, user }) => {
   if (!profile) return <div className="min-h-screen bg-[#0c0d0e] flex items-center justify-center"><p className="text-zinc-500">Profile not found.</p></div>;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0b] text-zinc-200 py-24 px-4 sm:px-8 max-w-7xl mx-auto">
-      <button onClick={() => navigateTo(isOwner ? '/dashboard' : '/')} className="text-zinc-500 hover:text-zinc-300 uppercase tracking-widest text-xs mb-8 flex items-center gap-2">
-        <ArrowLeft size={16} /> {isOwner ? 'Back to Dashboard' : 'Back Home'}
-      </button>
+    <div className={`min-h-screen bg-[#0a0a0b] text-zinc-200 py-24 px-4 sm:px-8 ${scanOnly ? 'max-w-6xl' : 'max-w-7xl'} mx-auto`}>
+      {!scanOnly && (
+        <button onClick={() => navigateTo(isOwner ? '/dashboard' : '/')} className="text-zinc-500 hover:text-zinc-300 uppercase tracking-widest text-xs mb-8 flex items-center gap-2">
+          <ArrowLeft size={16} /> {isOwner ? 'Back to Dashboard' : 'Back Home'}
+        </button>
+      )}
 
-      <header className="mb-12 border-b border-zinc-900 pb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-        <div>
-          <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white mb-2">{profile.name}</h1>
-          <p className="text-zinc-500 uppercase tracking-widest text-sm">Created {new Date(profile.createdAt?.seconds * 1000).toLocaleDateString()}</p>
-        </div>
-        
-        {isOwner && (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Scan-level publishing</p>
-            <p className="mt-1 text-xs text-zinc-400">Use the active scan&apos;s visibility controls below to publish one scan at a time.</p>
+      {!scanOnly && (
+        <header className="mb-12 border-b border-zinc-900 pb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+          <div>
+            <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white mb-2">{profile.name}</h1>
+            <p className="text-zinc-500 uppercase tracking-widest text-sm">Created {new Date(profile.createdAt?.seconds * 1000).toLocaleDateString()}</p>
           </div>
-        )}
-      </header>
+          
+          {isOwner && (
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Scan-level publishing</p>
+              <p className="mt-1 text-xs text-zinc-400">Use the active scan&apos;s visibility controls below to publish one scan at a time.</p>
+            </div>
+          )}
+        </header>
+      )}
 
       {/* Scans Selector */}
-      {scans.length > 0 && (
+      {!scanOnly && scans.length > 0 && (
         <div className="mb-12 overflow-x-auto pb-4 custom-scrollbar flex gap-4 items-center">
           {scans.map(s => (
             <div 
@@ -291,15 +329,28 @@ const PublicProfilePage = ({ routeParams, user }) => {
             >
               <img src={s.frontImageUrl} className="w-full h-full object-cover" />
               {isOwner && (
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmDeleteScan(s.id);
-                  }}
-                  className="absolute top-2 right-2 bg-black/80 text-red-400 p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
-                >
-                  <Trash2 size={14} />
-                </button>
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleShareScan(s);
+                    }}
+                    className="bg-black/80 text-cyan-300 p-1 rounded-md hover:bg-cyan-500 hover:text-black"
+                    title="Copy scan link"
+                  >
+                    <Share2 size={14} />
+                  </button>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmDeleteScan(s.id);
+                    }}
+                    className="bg-black/80 text-red-400 p-1 rounded-md hover:bg-red-500 hover:text-white"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               )}
             </div>
           ))}
@@ -344,6 +395,21 @@ const PublicProfilePage = ({ routeParams, user }) => {
                   {activeScan.cohesiveFrontSide ? 'Cohesive on' : 'Cohesive off'}
                 </span>
               </div>
+            </div>
+
+            <div className="bg-zinc-900/30 border border-zinc-800 rounded-xl p-4">
+              <button
+                type="button"
+                onClick={() => handleShareScan(activeScan)}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300 transition-all hover:bg-cyan-500/20 hover:text-cyan-200"
+              >
+                <Share2 size={14} /> Share This Scan
+              </button>
+              {shareNotice && (
+                <p className="mt-3 flex items-center gap-2 text-xs text-emerald-300">
+                  <Check size={13} /> {shareNotice}
+                </p>
+              )}
             </div>
 
             {isOwner && activeScan && (
@@ -465,18 +531,19 @@ const PublicProfilePage = ({ routeParams, user }) => {
         </div>
       )}
       
-      {/* Overview of Mog Battles and Community Scans at the bottom */}
-      <div className="mt-24 pt-12 border-t border-zinc-900">
-        <h2 className="text-2xl font-black italic uppercase tracking-widest text-white mb-6 text-center">Explore Community</h2>
-        <div className="flex justify-center gap-6">
-           <button onClick={() => navigateTo('/mog-battles')} className="text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-widest text-sm flex items-center gap-2 bg-cyan-500/10 px-6 py-3 rounded-xl border border-cyan-500/20 transition-all hover:bg-cyan-500/20">
-             Mog Battles <ArrowUpRight size={16} />
-           </button>
-           <button onClick={() => navigateTo('/celebrity')} className="text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-widest text-sm flex items-center gap-2 bg-cyan-500/10 px-6 py-3 rounded-xl border border-cyan-500/20 transition-all hover:bg-cyan-500/20">
-             Community Scans <ArrowUpRight size={16} />
-           </button>
+      {!scanOnly && (
+        <div className="mt-24 pt-12 border-t border-zinc-900">
+          <h2 className="text-2xl font-black italic uppercase tracking-widest text-white mb-6 text-center">Explore Community</h2>
+          <div className="flex justify-center gap-6">
+             <button onClick={() => navigateTo('/mog-battles')} className="text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-widest text-sm flex items-center gap-2 bg-cyan-500/10 px-6 py-3 rounded-xl border border-cyan-500/20 transition-all hover:bg-cyan-500/20">
+               Mog Battles <ArrowUpRight size={16} />
+             </button>
+             <button onClick={() => navigateTo('/celebrity')} className="text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-widest text-sm flex items-center gap-2 bg-cyan-500/10 px-6 py-3 rounded-xl border border-cyan-500/20 transition-all hover:bg-cyan-500/20">
+               Community Scans <ArrowUpRight size={16} />
+             </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {pendingProfileVisibility && (
         <ConfirmDialog

@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Target, Newspaper, Swords, Users, Crown, ChevronRight, Plus, Trash2, Edit2, Activity, Flame, Sparkles, Lock, ArrowLeft, TrendingUp } from 'lucide-react';
+import { Target, Newspaper, Swords, Users, Crown, ChevronRight, Plus, Trash2, Edit2, Activity, Flame, Sparkles, Lock, ArrowLeft, TrendingUp, Share2, Check } from 'lucide-react';
 import { getApiBase } from '../utils/apiBase';
 import { COMMUNITY_SCANS } from '../data/communityScans';
 import { celebrityData } from '../data/celebrityData';
@@ -324,6 +324,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   const [scanVisibilityIntent, setScanVisibilityIntent] = useState(null);
   const [communityAddOpen, setCommunityAddOpen] = useState(false);
   const [communityNotice, setCommunityNotice] = useState('');
+  const [shareNotice, setShareNotice] = useState('');
   const [communityMenuId, setCommunityMenuId] = useState(null);
   const overviewRef = useRef(null);
   const analysisRef = useRef(null);
@@ -484,7 +485,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   };
 
   const handleUpdateActiveScanVisibility = async (scanId, visibility) => {
-    if (!scanId || !visibility || !user) return;
+    if (!scanId || !visibility || !user) return false;
     try {
       const token = await user.getIdToken();
       const res = await fetch(`${API_BASE}/api/user/scans/${encodeURIComponent(scanId)}`, {
@@ -514,11 +515,37 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         return prev.filter((scan) => String(scan?.scanId || scan?.dashboardData?.scanId || scan?.id || '') !== scanId);
       });
       await loadMogPreviews();
+      return true;
     } catch (err) {
       window.console.error(err.message || 'Could not update scan visibility');
+      return false;
     } finally {
       setScanVisibilityIntent(null);
     }
+  };
+
+  const getShareUrlForScan = (scan) => {
+    const scanId = scan?.scanId || scan?.id;
+    if (!user?.uid || !scanId) return '';
+    return `${window.location.origin}/scan/${encodeURIComponent(user.uid)}/${encodeURIComponent(scanId)}`;
+  };
+
+  const handleShareScan = async (scan) => {
+    const scanId = scan?.scanId || scan?.id;
+    if (!scanId || !user) return;
+    const visibility = normalizeVisibility(scan?.visibility || 'private');
+    if (!['unlisted', 'community'].includes(visibility)) {
+      const updated = await handleUpdateActiveScanVisibility(scanId, 'unlisted');
+      if (!updated) return;
+    }
+    const url = getShareUrlForScan(scan);
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareNotice('Scan link copied. Private scans are changed to unlisted so the link works.');
+    } catch {
+      setShareNotice(url);
+    }
+    window.setTimeout(() => setShareNotice(''), 4500);
   };
 
   const communityScanIds = useMemo(
@@ -1117,11 +1144,32 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       key={`${scan.frontImage || 'scan'}-${scan.finalRating || index}-${index}`}
                       type="button"
                       onClick={() => handleSelectScan(scan)}
-                      className={`relative flex h-24 w-48 shrink-0 overflow-hidden rounded-2xl border bg-[#0c0d0e] text-left transition-all ${isActive ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.18)]' : 'border-zinc-800 hover:border-zinc-700'}`}
+                      className={`group relative flex h-24 w-48 shrink-0 overflow-hidden rounded-2xl border bg-[#0c0d0e] text-left transition-all ${isActive ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.18)]' : 'border-zinc-800 hover:border-zinc-700'}`}
                     >
                       <div className="absolute left-2 top-2 z-10 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300">
                           {typeof scan.finalRating === 'number' ? scan.finalRating.toFixed(1) : '-'}
                       </div>
+                      {user && scan?.scanId && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleShareScan(scan);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleShareScan(scan);
+                            }
+                          }}
+                          className="absolute right-2 top-2 z-10 rounded-md border border-cyan-500/25 bg-black/75 p-1 text-cyan-300 opacity-0 transition-opacity hover:bg-cyan-500 hover:text-black group-hover:opacity-100"
+                          title="Copy scan link"
+                        >
+                          <Share2 size={13} />
+                        </span>
+                      )}
                       <div className="relative flex-1 border-r border-zinc-900">
                         <img src={scan.frontImage || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'} alt="Front profile" className="h-full w-full object-cover" />
                       </div>
@@ -1308,7 +1356,19 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                         </button>
                       );
                     })}
+                    <button
+                      type="button"
+                      onClick={() => handleShareScan(dashboardData)}
+                      className="inline-flex items-center gap-2 rounded-full border border-cyan-500/35 bg-cyan-500/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300 transition-colors hover:bg-cyan-500/20"
+                    >
+                      <Share2 size={13} /> Share
+                    </button>
                   </div>
+                  {shareNotice && (
+                    <p className="mt-3 flex items-center gap-2 text-xs text-emerald-300">
+                      <Check size={13} /> {shareNotice}
+                    </p>
+                  )}
                 </div>
               )}
             </section>
