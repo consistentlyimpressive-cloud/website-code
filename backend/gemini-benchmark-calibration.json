@@ -260,6 +260,424 @@
     }
   },
   {
+    "id": "uncanny_training_scan_8_front_png",
+    "target": 52,
+    "metrics": {
+      "Bigonial": 0.794,
+      "IPD": 0.453,
+      "Mouth": 0.328,
+      "Nose": 0.242,
+      "Upper": 0.477,
+      "Middle": 0.457,
+      "Lower": 0.461,
+      "Eye": 0.049,
+      "Brow": 0.061,
+      "Philtrum": 0.097,
+      "Lip": 0.118,
+      "fWHR": 1.805,
+      "Midface": 1.092,
+      "Canthal": 5.76
+    },
+    "sourceFolder": "Uncanny training",
+    "sourceImage": "Scan 8/Front.png"
+  },
+  {
+    "id": "uncanny_training_scan10_front_png",
+    "target": 52,
+    "metrics": {
+      "Bigonial": 0.836,
+      "IPD": 0.488,
+      "Mouth": 0.4,
+      "Nose": 0.262,
+      "Upper": 0.395,
+      "Middle": 0.503,
+      "Lower": 0.491,
+      "Eye": 0.063,
+      "Brow": 0.07,
+      "Philtrum": 0.116,
+      "Lip": 0.097,
+      "fWHR": 1.614,
+      "Midface": 1.122,
+      "Canthal": 2.19
+    },
+    "sourceFolder": "Uncanny training",
+    "sourceImage": "Scan10/Front.png"
+  },
+  {
+    "id": "uncanny_training_scan11_front_png",
+    "target": 52,
+    "metrics": {
+      "Bigonial": 0.841,
+      "IPD": 0.486,
+      "Mouth": 0.392,
+      "Nose": 0.247,
+      "Upper": 0.467,
+      "Middle": 0.471,
+      "Lower": 0.474,
+      "Eye": 0.062,
+      "Brow": 0.067,
+      "Philtrum": 0.091,
+      "Lip": 0.145,
+      "fWHR": 1.779,
+      "Midface": 1.007,
+      "Canthal": 4.81
+    },
+    "sourceFolder": "Uncanny training",
+    "sourceImage": "Scan11/Front.png"
+  },
+  {
+    "id": "uncanny_training_scan1_front_png",
+    "target": 52,
+    "metrics": {
+      "Bigonial": 0.819,
+      "IPD": 0.458,
+      "Mouth": 0.344,
+      "Nose": 0.228,
+      "Upper": 0.439,
+      "Middle": 0.469,
+      "Lower": 0.522,
+      "Eye": 0.063,
+      "Brow": 0.093,
+      "Philtrum": 0.107,
+      "Lip": 0.122,
+      "fWHR": 1.737,
+      "Midface": 1.054,
+      "Canthal": 5.63
+    },
+    "sourceFolder": "Uncanny training",
+    "sourceImage": "Scan1/Front.png"
+  },
+  {
+    "id": "uncanny_training_scan1_side_png",
+    "target": 52,
+    "metrics": {
+      "Bigonial": 0.843,
+      "IPD": 0.375,
+      "Mouth": 0.223,
+      "Nose": 0.145,
+      "Upper": 0.617,
+      "Middle": 0.714,
+      "Lower": 0.864,
+      "Eye": 0.101,
+      "Brow": 0.115,
+      "Philtrum": 0.217,
+      "Lip": 0.2,
+      "fWHR": 1.073,
+      "Midface": 2.084,
+      "Canthal": -2.83
+    },
+    "sourceFolder": "Uncanny training",
+    "sourceImage": "Scan1/Side.png"
+  },
+  {
+    "id": "uncanny_training_scan2_front_png",
+    "target": 52,
+    "metrics": {
+      "Bigonial": 0.81,
+      "IPD": 0.443,
+      "Mouth": 0.329,
+      "Nose": 0.21,
+      "Upper": 0.438,
+      "Middle": 0.498,
+      "Lower": 0.465,
+      "Eye": 0.064,
+      "Brow": 0.121,
+      "Philtrum": 0.113,
+      "Lip": 0.12,
+      "fWHR": 1.636,
+      "Midface": 1.105,
+      "Canthal": 9.29
+    },
+    "sourceFolder": "Uncanny training",
+    "sourceImage": "Scan2/Front.png"
+  },
+  {
+    "id": "uncanny_training_scan3_front_png",
+    "target": 52,
+    "metrics": {
+      "Bigonial": 0.831,
+      "IPD": 0.459,
+      "Mouth": 0.386,
+      "Nose": 0.233,
+      "Upper": 0.481,
+      "Middle": 0.475,
+      "Lower": 0.509,
+      "Eye": 0.061,
+      "Brow": 0.069,
+      "Philtrum": 0.121,
+      "Lip": 0.113,
+      "fWHR": 1.68,
+      "Midface": 1.153,
+      "Canthal": 5.9
+    },
+    "sourceFolder": "Uncanny training",
+    "sourceImage": "Scan3/Front.png"
+  },
+  {
+    "id": "uncanny_training_scan4_front_png",
+    "target": 52,
+    "metrics": {
+      "Bigonial": 0.81,
+      "IPD": 0.471,
+      "Mouth": 0.34,
+      "Nose": 0.24,
+      "Upper": 0.462,
+      "Middle": 0.482,
+      "Lower": 0.488,
+      "Eye": 0.061,
+      "Brow": 0.082,
+      "Philtrum": 0.099,
+      "Lip": 0.122,
+      "fWHR": 1.719,
+      "Midface": 1.058,
+      "Canthal": 6.41
+    },
+    "sourceFolder": "Uncanny training",
+    "sourceImage": "Scan4/front.png"
+  },
+  {
+    "id": "uncanny_training_scan5_front_png",
+    "target": 52,
+    "metrics": {
+      "Bigonial": 0.776,
+      "IPD": 0.443,
+      "Mouth": 0.333,
+      "Nose": 0.228,
+      "Upper": 0.441,
+      "Middle": 0.491,
+      "Lower": 0.451,
+      "Eye": 0.062,
+      "Brow": 0.106,
+      "Philtrum": 0.102,
+      "Lip": 0.142,
+      "fWHR": 1.686,
+      "Midface": 1.109,
+      "Canthal": 11.1
+    },
+    "sourceFolder": "Uncanny training",
+    "sourceImage": "Scan5/Front.png"
+  },
+  {
+    "id": "uncanny_training_scan6_front_jpg",
+    "target": 52,
+    "metrics": {
+      "Bigonial": 0.815,
+      "IPD": 0.432,
+      "Mouth": 0.35,
+      "Nose": 0.221,
+      "Upper": 0.46,
+      "Middle": 0.462,
+      "Lower": 0.492,
+      "Eye": 0.06,
+      "Brow": 0.08,
+      "Philtrum": 0.122,
+      "Lip": 0.096,
+      "fWHR": 1.711,
+      "Midface": 1.16,
+      "Canthal": 4.53
+    },
+    "sourceFolder": "Uncanny training",
+    "sourceImage": "Scan6/Front.jpg"
+  },
+  {
+    "id": "uncanny_training_scan7_front_png",
+    "target": 52,
+    "metrics": {
+      "Bigonial": 0.809,
+      "IPD": 0.487,
+      "Mouth": 0.362,
+      "Nose": 0.243,
+      "Upper": 0.393,
+      "Middle": 0.484,
+      "Lower": 0.499,
+      "Eye": 0.055,
+      "Brow": 0.159,
+      "Philtrum": 0.11,
+      "Lip": 0.12,
+      "fWHR": 1.683,
+      "Midface": 0.885,
+      "Canthal": 0.94
+    },
+    "sourceFolder": "Uncanny training",
+    "sourceImage": "Scan7/Front.png"
+  },
+  {
+    "id": "uncanny_training_scan9_gemini_generated_image_5lwbe15lwbe15lwb_png",
+    "target": 52,
+    "metrics": {
+      "Bigonial": 0.788,
+      "IPD": 0.449,
+      "Mouth": 0.316,
+      "Nose": 0.205,
+      "Upper": 0.378,
+      "Middle": 0.398,
+      "Lower": 0.507,
+      "Eye": 0.053,
+      "Brow": 0.093,
+      "Philtrum": 0.113,
+      "Lip": 0.096,
+      "fWHR": 1.956,
+      "Midface": 0.916,
+      "Canthal": 1.5
+    },
+    "sourceFolder": "Uncanny training",
+    "sourceImage": "Scan9/Gemini_Generated_Image_5lwbe15lwbe15lwb.png"
+  },
+  {
+    "id": "exaggerated_but_coherent_scan_5_front_jpg",
+    "target": 76,
+    "metrics": {
+      "Bigonial": 0.801,
+      "IPD": 0.514,
+      "Mouth": 0.422,
+      "Nose": 0.272,
+      "Upper": 0.428,
+      "Middle": 0.499,
+      "Lower": 0.49,
+      "Eye": 0.076,
+      "Brow": 0.137,
+      "Philtrum": 0.097,
+      "Lip": 0.216,
+      "fWHR": 1.679,
+      "Midface": 0.893,
+      "Canthal": 6.21
+    },
+    "sourceFolder": "Exatraggted But not uncanny",
+    "sourceImage": "Scan 5/Front.jpg"
+  },
+  {
+    "id": "exaggerated_but_coherent_scan_6_front_jpg",
+    "target": 76,
+    "metrics": {
+      "Bigonial": 0.796,
+      "IPD": 0.48,
+      "Mouth": 0.397,
+      "Nose": 0.262,
+      "Upper": 0.435,
+      "Middle": 0.441,
+      "Lower": 0.464,
+      "Eye": 0.053,
+      "Brow": 0.098,
+      "Philtrum": 0.095,
+      "Lip": 0.193,
+      "fWHR": 1.866,
+      "Midface": 0.913,
+      "Canthal": 5.95
+    },
+    "sourceFolder": "Exatraggted But not uncanny",
+    "sourceImage": "Scan 6/Front.jpg"
+  },
+  {
+    "id": "exaggerated_but_coherent_scan_7_front_webp",
+    "target": 76,
+    "metrics": {
+      "Bigonial": 0.822,
+      "IPD": 0.45,
+      "Mouth": 0.348,
+      "Nose": 0.223,
+      "Upper": 0.45,
+      "Middle": 0.441,
+      "Lower": 0.519,
+      "Eye": 0.057,
+      "Brow": 0.086,
+      "Philtrum": 0.12,
+      "Lip": 0.122,
+      "fWHR": 1.785,
+      "Midface": 1.06,
+      "Canthal": 3.37
+    },
+    "sourceFolder": "Exatraggted But not uncanny",
+    "sourceImage": "Scan 7/Front.webp"
+  },
+  {
+    "id": "exaggerated_but_coherent_scan1_front_jpg",
+    "target": 76,
+    "metrics": {
+      "Bigonial": 0.824,
+      "IPD": 0.482,
+      "Mouth": 0.37,
+      "Nose": 0.227,
+      "Upper": 0.388,
+      "Middle": 0.42,
+      "Lower": 0.457,
+      "Eye": 0.054,
+      "Brow": 0.093,
+      "Philtrum": 0.099,
+      "Lip": 0.123,
+      "fWHR": 1.928,
+      "Midface": 0.872,
+      "Canthal": 5.53
+    },
+    "sourceFolder": "Exatraggted But not uncanny",
+    "sourceImage": "Scan1/Front.jpg"
+  },
+  {
+    "id": "exaggerated_but_coherent_scan2_front_webp",
+    "target": 76,
+    "metrics": {
+      "Bigonial": 0.803,
+      "IPD": 0.467,
+      "Mouth": 0.355,
+      "Nose": 0.24,
+      "Upper": 0.421,
+      "Middle": 0.448,
+      "Lower": 0.489,
+      "Eye": 0.062,
+      "Brow": 0.094,
+      "Philtrum": 0.092,
+      "Lip": 0.142,
+      "fWHR": 1.852,
+      "Midface": 0.953,
+      "Canthal": 6.16
+    },
+    "sourceFolder": "Exatraggted But not uncanny",
+    "sourceImage": "Scan2/Front.webp"
+  },
+  {
+    "id": "exaggerated_but_coherent_scan3_front3_png",
+    "target": 76,
+    "metrics": {
+      "Bigonial": 0.822,
+      "IPD": 0.439,
+      "Mouth": 0.371,
+      "Nose": 0.226,
+      "Upper": 0.441,
+      "Middle": 0.432,
+      "Lower": 0.475,
+      "Eye": 0.049,
+      "Brow": 0.076,
+      "Philtrum": 0.118,
+      "Lip": 0.089,
+      "fWHR": 1.819,
+      "Midface": 1.077,
+      "Canthal": 5.38
+    },
+    "sourceFolder": "Exatraggted But not uncanny",
+    "sourceImage": "Scan3/Front3.png"
+  },
+  {
+    "id": "exaggerated_but_coherent_scan4_front_jpg",
+    "target": 76,
+    "metrics": {
+      "Bigonial": 0.803,
+      "IPD": 0.474,
+      "Mouth": 0.382,
+      "Nose": 0.237,
+      "Upper": 0.439,
+      "Middle": 0.458,
+      "Lower": 0.462,
+      "Eye": 0.066,
+      "Brow": 0.083,
+      "Philtrum": 0.087,
+      "Lip": 0.179,
+      "fWHR": 1.837,
+      "Midface": 0.966,
+      "Canthal": 5.89
+    },
+    "sourceFolder": "Exatraggted But not uncanny",
+    "sourceImage": "Scan4/Front.jpg"
+  },
+  {
     "id": "tier_3s_scan1_front_png",
     "target": 35,
     "metrics": {
@@ -546,28 +964,6 @@
     "sourceImage": "Kai-Cenat-jan-2024-a-billboard-1548.webp"
   },
   {
-    "id": "tier_5s_mv5bntczmzk1mju1mv5bml5banbnxkftztcwndk2mzaymg_v1_fmjpg_ux1000_png",
-    "target": 55,
-    "metrics": {
-      "Bigonial": 0.818,
-      "IPD": 0.494,
-      "Mouth": 0.452,
-      "Nose": 0.266,
-      "Upper": 0.37,
-      "Middle": 0.431,
-      "Lower": 0.527,
-      "Eye": 0.054,
-      "Brow": 0.152,
-      "Philtrum": 0.075,
-      "Lip": 0.232,
-      "fWHR": 1.977,
-      "Midface": 0.713,
-      "Canthal": 0.98
-    },
-    "sourceFolder": "The 5s",
-    "sourceImage": "MV5BNTczMzk1MjU1MV5BMl5BanBnXkFtZTcwNDk2MzAyMg@@._V1_FMjpg_UX1000_.png"
-  },
-  {
     "id": "tier_5s_new_project_17_png",
     "target": 55,
     "metrics": {
@@ -588,6 +984,28 @@
     },
     "sourceFolder": "The 5s",
     "sourceImage": "New Project (17).png"
+  },
+  {
+    "id": "tier_5s_will_smith_032824_015d1367ff764df09ccdfe4cca12d3ad_png",
+    "target": 55,
+    "metrics": {
+      "Bigonial": 0.822,
+      "IPD": 0.481,
+      "Mouth": 0.364,
+      "Nose": 0.24,
+      "Upper": 0.364,
+      "Middle": 0.477,
+      "Lower": 0.495,
+      "Eye": 0.049,
+      "Brow": 0.16,
+      "Philtrum": 0.109,
+      "Lip": 0.113,
+      "fWHR": 1.707,
+      "Midface": 0.88,
+      "Canthal": -0.63
+    },
+    "sourceFolder": "The 5s",
+    "sourceImage": "will-smith-032824-015d1367ff764df09ccdfe4cca12d3ad.png"
   },
   {
     "id": "tier_6s_aoi_d_8qgn5miwjbilwlasrg1csuvdbr0lnofa8elsjx6eftm4c_txlxhl7yavfdis3yx1aljuevmrspwguy_fn4qw25s2omegjjvpx9kwvrvwe2fdcohfri8ldoj91bb2dc3gn8peqhbbkhzavvhd8umosowrou7rs3qoptu6d5bepdtke2jqs1600_rj_png",
@@ -962,6 +1380,28 @@
     },
     "sourceFolder": "7s",
     "sourceImage": "f674c8ec58ea46591df6caf99c9a5d2c.jpg"
+  },
+  {
+    "id": "tier_7s_marlon_jpg",
+    "target": 75,
+    "metrics": {
+      "Bigonial": 0.805,
+      "IPD": 0.499,
+      "Mouth": 0.387,
+      "Nose": 0.245,
+      "Upper": 0.439,
+      "Middle": 0.454,
+      "Lower": 0.525,
+      "Eye": 0.056,
+      "Brow": 0.113,
+      "Philtrum": 0.119,
+      "Lip": 0.188,
+      "fWHR": 1.746,
+      "Midface": 0.916,
+      "Canthal": 1.9
+    },
+    "sourceFolder": "7s",
+    "sourceImage": "MArlon.jpg"
   },
   {
     "id": "tier_7s_screenshot_2026_04_13_001406_png",

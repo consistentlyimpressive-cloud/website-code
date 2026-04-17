@@ -70,6 +70,8 @@ def load_benchmark_calibration_summary():
         return f"Local benchmark calibration could not be loaded: {error}"
 
     bucket_order = [
+        ("Uncanny training", "uncanny / synthetic / overbuilt examples", "about 52"),
+        ("Exatraggted But not uncanny", "exaggerated but coherent / striking examples", "about 76"),
         ("The 3s", "3-range / very low tier", "about 35"),
         ("The 4s", "4-range / low tier", "about 45"),
         ("The 5s", "5-range / lower-average tier", "about 55"),
@@ -80,7 +82,9 @@ def load_benchmark_calibration_summary():
     lines = [
         "LOCAL BENCHMARK CALIBRATION FROM CODEX TRAINING FOLDERS:",
         "Use these as soft anchors together with the photo. Do not blindly copy a bucket; classify by overall visual harmony plus measurements.",
-        "Especially important: the 7s folder contains faces that should generally remain in the 70s when they look natural/coherent, while uncanny/synthetic faces should still be punished.",
+        "Especially important: the 7s folder contains faces that should generally remain in the 70s when they look natural/coherent.",
+        "The 'Exatraggted But not uncanny' folder contains striking / high-fashion / over-the-top faces that are still coherent and should usually stay in the 70s rather than being collapsed into uncanny penalties.",
+        "The 'Uncanny training' folder contains synthetic / overbuilt / artificial-looking faces that should be punished much more heavily even when some local ratios look strong.",
     ]
 
     for folder, label, target in bucket_order:

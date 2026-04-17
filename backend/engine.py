@@ -17,6 +17,86 @@ base_options = python.BaseOptions(model_asset_path='face_landmarker.task')
 options = vision.FaceLandmarkerOptions(base_options=base_options, running_mode=vision.RunningMode.IMAGE)
 NOSE_BASE_SHRINK_FACTOR = 0.94
 
+RIGHT_JAW_CANDIDATES = [234, 93, 132, 58, 172, 136, 150]
+LEFT_JAW_CANDIDATES = [454, 323, 361, 288, 397, 365, 379]
+
+
+def _safe_normalize(vec):
+    norm = np.linalg.norm(vec)
+    if norm <= 1e-6:
+        return np.array([0.0, -1.0], dtype=np.float32)
+    return vec / norm
+
+
+def _corner_strength(a, b, c):
+    ba = _safe_normalize(a - b)
+    bc = _safe_normalize(c - b)
+    dot = float(np.clip(np.dot(ba, bc), -1.0, 1.0))
+    return np.degrees(np.arccos(dot))
+
+
+def refine_gonion(lms, side="right"):
+    candidate_ids = RIGHT_JAW_CANDIDATES if side == "right" else LEFT_JAW_CANDIDATES
+    best_idx = candidate_ids[len(candidate_ids) // 2]
+    best_score = -1.0
+
+    for i in range(1, len(candidate_ids) - 1):
+        prev_idx = candidate_ids[i - 1]
+        curr_idx = candidate_ids[i]
+        next_idx = candidate_ids[i + 1]
+        score = _corner_strength(lms[prev_idx], lms[curr_idx], lms[next_idx])
+        if score > best_score:
+            best_score = score
+            best_idx = curr_idx
+
+    return lms[best_idx].copy()
+
+
+def refine_hairline(lms, img_bgr):
+    h, w = img_bgr.shape[:2]
+    glabella = ((lms[282] + lms[52]) / 2.0).astype(np.float32)
+    forehead_top = lms[10].astype(np.float32)
+    temple_l = lms[251].astype(np.float32)
+    temple_r = lms[21].astype(np.float32)
+
+    forehead_vec = forehead_top - glabella
+    up_dir = _safe_normalize(forehead_vec)
+    if up_dir[1] > -0.2:
+        up_dir = np.array([0.0, -1.0], dtype=np.float32)
+
+    temple_avg_y = (temple_l[1] + temple_r[1]) / 2.0
+    base_distance = np.linalg.norm(forehead_vec)
+    travel = max(base_distance * 0.42, h * 0.03)
+    estimated = forehead_top + (up_dir * travel)
+
+    # Keep the synthetic point above the temple line but do not let it jump unrealistically high.
+    min_y = temple_avg_y - (h * 0.18)
+    max_y = temple_avg_y - (h * 0.03)
+    estimated[1] = float(np.clip(estimated[1], min_y, max_y))
+    estimated[0] = float(np.clip(estimated[0], min(temple_r[0], temple_l[0]) + 4, max(temple_r[0], temple_l[0]) - 4))
+
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    search_x = int(np.clip(estimated[0], 0, w - 1))
+    search_y0 = int(np.clip(estimated[1] - h * 0.06, 0, h - 1))
+    search_y1 = int(np.clip(forehead_top[1] - 2, 0, h - 1))
+    best_y = estimated[1]
+
+    if search_y1 > search_y0:
+        best_strength = -1.0
+        for y in range(search_y0, search_y1):
+            top = gray[max(y - 4, 0):max(y - 1, 1), max(search_x - 3, 0):min(search_x + 4, w)]
+            bottom = gray[min(y + 1, h - 1):min(y + 5, h), max(search_x - 3, 0):min(search_x + 4, w)]
+            if top.size == 0 or bottom.size == 0:
+                continue
+            # Hairline often appears as a darker band above a brighter forehead.
+            strength = float(np.mean(bottom) - np.mean(top))
+            if strength > best_strength:
+                best_strength = strength
+                best_y = y
+
+    estimated[1] = float(best_y)
+    return estimated.astype(np.float32)
+
 def get_clinical_biometrics(img_path):
     if not os.path.exists(img_path): return
     with vision.FaceLandmarker.create_from_options(options) as landmarker:
@@ -45,31 +125,33 @@ def get_clinical_biometrics(img_path):
         lms_ones = np.hstack([lms, ones])
         lms = (M @ lms_ones.T).T
 
-        # --- SYNTHETIC POINTS ---
-        # 1. Extrapolate Hairline
-        vec_forehead = lms[10] - lms[168]  
-        synth_hairline = lms[10] + (vec_forehead * 0.5)  
+        # --- SYNTHETIC / REFINED POINTS ---
+        # 1. Refined Hairline: use forehead geometry plus a small contrast search
+        synth_hairline = refine_hairline(lms, img_leveled)
         
         # 2. FIXED GLABELLA
         synth_glabella = (lms[282] + lms[52]) / 2.0
         
         # 3. Brow Ridge Midpoint
         synth_brow_ridge = (lms[282] + lms[52]) / 2.0
+        # 4. Refined Gonions: use jaw contour corner strength instead of trusting one fixed raw landmark
+        refined_gonion_r = refine_gonion(lms, "right")
+        refined_gonion_l = refine_gonion(lms, "left")
 
-        lms = np.vstack([lms, synth_hairline, synth_glabella, synth_brow_ridge])
+        lms = np.vstack([lms, synth_hairline, synth_glabella, synth_brow_ridge, refined_gonion_r, refined_gonion_l])
 
         p = {
             "zygo_r": 234,
             "zygo_l": 454,
-            "gonion_r": 172,
-            "gonion_l": 397,
+            "gonion_r": len(lms) - 2,
+            "gonion_l": len(lms) - 1,
             "pupil_r": 468,
             "pupil_l": 473,
-            "glabella": len(lms) - 2,
+            "glabella": len(lms) - 4,
             "subnasale": 2,
             "chin": 152,
-            "hairline": len(lms) - 3,
-            "brow_ridge": len(lms) - 1,
+            "hairline": len(lms) - 5,
+            "brow_ridge": len(lms) - 3,
             "top_lip": 0,
             "bot_lip": 17,
             "mouth_r": 61,
