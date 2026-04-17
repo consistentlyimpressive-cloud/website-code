@@ -891,8 +891,15 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   };
 
   const handleBackToProfiles = () => {
+    try {
+      sessionStorage.removeItem('mogcheck:lastCompletedScan');
+      sessionStorage.removeItem('mogcheck:scanRecoveryRequested');
+    } catch (e) {
+      // Ignore browser storage failures; the route/state reset below is the important part.
+    }
     if (!setDashboardData) return;
-    setDashboardData({});
+    setDashboardData(null);
+    setCurrentPage('dashboard');
     setActiveSection('profiles');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

@@ -2854,24 +2854,12 @@ const ScanningView = ({
         return null;
       };
 
-      const recoverOrOpenDashboard = async () => {
+      const recoverSavedScan = async () => {
         const recovered = await recoverCompletedScanFromHistory();
         if (active && recovered) {
           scanSucceeded = true;
           setStatusText('Analysis recovered from saved scan. Opening dashboard...');
           onCompleteRef.current(recovered);
-          return true;
-        }
-
-        if (active && analyzeRequestStarted) {
-          scanSucceeded = true;
-          setStatusText('The scan response dropped. Opening your dashboard history...');
-          onRecoverToDashboardRef.current?.({
-            reason: 'dropped-analyze-response',
-            profileId: profileId || 'default',
-            selectedModel: String(choice || '').trim(),
-            startedAt: new Date(scanStartedAt).toISOString(),
-          });
           return true;
         }
 
@@ -3022,7 +3010,7 @@ const ScanningView = ({
           data = await apiRes.json();
         } catch (parseErr) {
           console.error("Analyze response not JSON", parseErr);
-          if (await recoverOrOpenDashboard()) return;
+          if (await recoverSavedScan()) return;
           setStatusText(GENERIC_ERROR);
           setHasError(true);
           return;
@@ -3030,7 +3018,7 @@ const ScanningView = ({
 
         if (!apiRes.ok) {
           if (apiRes.status >= 500) {
-            if (await recoverOrOpenDashboard()) return;
+            if (await recoverSavedScan()) return;
           }
           const msg =
             (data && typeof data.error === 'string' && data.error.trim()) ||
@@ -3067,7 +3055,7 @@ const ScanningView = ({
       } catch (err) {
         console.error("API failed", err);
         if (err?.name !== 'AbortError') {
-          if (await recoverOrOpenDashboard()) return;
+          if (await recoverSavedScan()) return;
         }
         setStatusText(
           err?.name === 'AbortError'
@@ -3368,6 +3356,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     setIsScanning(false);
 
     try {
+      sessionStorage.removeItem('mogcheck:scanRecoveryRequested');
       sessionStorage.setItem('mogcheck:lastCompletedScan', JSON.stringify(completedScan));
     } catch (e) {
       // Session storage is only a safety net for scan handoff; ignore browser quota/privacy failures.
@@ -3401,7 +3390,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
     // Route after the payload is cached locally so every scan entry point leaves the Consulting AI screen.
     setCurrentPage('dashboard');
-    window.setTimeout(() => setCurrentPage('dashboard'), 0);
     window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 30);
   }, [activeScanProfileId, frontImage, selectedModel, selectedProfileId, setCurrentPage, setDashboardData, sideImage]);
 
@@ -3428,7 +3416,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
     setDashboardData(null);
     setCurrentPage('dashboard');
-    window.setTimeout(() => setCurrentPage('dashboard'), 0);
     window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 30);
   }, [activeScanProfileId, frontImage, selectedModel, selectedProfileId, setCurrentPage, setDashboardData, sideImage]);
 
