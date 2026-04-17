@@ -40,6 +40,15 @@ const BENCHMARK_DISTANCE_WEIGHTS = {
   Midface: 1.5,
   Canthal: 1.0,
 };
+const BENCHMARK_SOURCE_FOLDERS = new Set([
+  'Uncanny training',
+  'Exatraggted But not uncanny',
+  'The 3s',
+  'The 4s',
+  'The 5s',
+  'The 6s',
+  '7s',
+]);
 
 function loadGeminiBenchmarkCalibration() {
   const calibrationPath = path.join(__dirname, 'gemini-benchmark-calibration.json');
@@ -47,7 +56,14 @@ function loadGeminiBenchmarkCalibration() {
   try {
     const data = JSON.parse(fs.readFileSync(calibrationPath, 'utf8'));
     if (!Array.isArray(data)) return [];
-    return data.filter((entry) => entry && typeof entry === 'object' && entry.metrics && Number.isFinite(Number(entry.target)));
+    return data.filter(
+      (entry) =>
+        entry &&
+        typeof entry === 'object' &&
+        entry.metrics &&
+        Number.isFinite(Number(entry.target)) &&
+        BENCHMARK_SOURCE_FOLDERS.has(entry.sourceFolder)
+    );
   } catch (error) {
     console.error('[parse-analysis] benchmark calibration load error:', error.message);
     return [];
@@ -152,6 +168,77 @@ function extractCalibrationMetrics(rawValues) {
   return metrics;
 }
 
+function metricLabelToBenchmarkKey(label) {
+  const normalized = normalizeMetricName(label);
+  if (normalized.includes('bigonialwidthindex')) return 'Bigonial';
+  if (normalized.includes('ipdindex')) return 'IPD';
+  if (normalized.includes('mouthwidthindex')) return 'Mouth';
+  if (normalized.includes('nosewidthindex')) return 'Nose';
+  if (normalized.includes('upperthirdlength')) return 'Upper';
+  if (normalized.includes('middlethirdlength')) return 'Middle';
+  if (normalized.includes('lowerthirdlength')) return 'Lower';
+  if (normalized.includes('eyeheightindex')) return 'Eye';
+  if (normalized.includes('browcompactnessindex')) return 'Brow';
+  if (normalized.includes('philtrumheightindex')) return 'Philtrum';
+  if (normalized.includes('totallipheightindex')) return 'Lip';
+  if (normalized.startsWith('fwhr')) return 'fWHR';
+  if (normalized.includes('midfaceratio')) return 'Midface';
+  if (normalized.includes('canthaltiltdegrees')) return 'Canthal';
+  return null;
+}
+
+function computeMetricBenchmarkScore(metricKey, rawValue, fallbackScore = null) {
+  const inputValue = Number(rawValue);
+  if (!metricKey || !Number.isFinite(inputValue) || !GEMINI_BENCHMARKS.length) {
+    return Number.isFinite(Number(fallbackScore)) ? clamp(Number(fallbackScore), 0, 100) : null;
+  }
+
+  const std = Number(GEMINI_BENCHMARK_STATS?.[metricKey]?.std) || 1;
+  const neighbors = GEMINI_BENCHMARKS
+    .map((entry) => {
+      const benchmarkValue = Number(entry?.metrics?.[metricKey]);
+      if (!Number.isFinite(benchmarkValue)) return null;
+      return {
+        entry,
+        distance: Math.abs((inputValue - benchmarkValue) / std),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.distance - b.distance);
+
+  if (!neighbors.length) {
+    return Number.isFinite(Number(fallbackScore)) ? clamp(Number(fallbackScore), 0, 100) : null;
+  }
+
+  const topNeighbors = neighbors.slice(0, Math.min(6, neighbors.length));
+  let weightedTargetSum = 0;
+  let weightedTargetTotal = 0;
+
+  for (const neighbor of topNeighbors) {
+    const weight = 1 / (Math.max(neighbor.distance, 0.12) ** 2);
+    weightedTargetSum += Number(neighbor.entry.target) * weight;
+    weightedTargetTotal += weight;
+  }
+
+  if (!weightedTargetTotal) {
+    return Number.isFinite(Number(fallbackScore)) ? clamp(Number(fallbackScore), 0, 100) : null;
+  }
+
+  const nearestDistance = topNeighbors[0]?.distance ?? 0;
+  const benchmarkAverage = weightedTargetSum / weightedTargetTotal;
+
+  // A single metric should not look as elite as a full-face calibrated score,
+  // so pull it back toward a neutral middle before applying distance penalties.
+  let score = benchmarkAverage * 0.62 + 55 * 0.38;
+  score -= clamp((nearestDistance - 0.35) * 8.5, 0, 16);
+
+  if (Number.isFinite(Number(fallbackScore))) {
+    score = score * 0.82 + Number(fallbackScore) * 0.18;
+  }
+
+  return Math.round(clamp(score, 25, 92));
+}
+
 function computeBenchmarkDistance(inputMetrics, benchmarkMetrics) {
   let weightedDistance = 0;
   let totalWeight = 0;
@@ -174,7 +261,7 @@ function computeBenchmarkDistance(inputMetrics, benchmarkMetrics) {
   return Math.sqrt(weightedDistance / totalWeight);
 }
 
-function computeBenchmarkCalibratedRating(rawMetrics, baselineRating = null) {
+function computeBenchmarkCalibrationAnalysis(rawMetrics, baselineRating = null) {
   if (!rawMetrics || !GEMINI_BENCHMARKS.length) return null;
 
   const neighbors = GEMINI_BENCHMARKS
@@ -202,13 +289,30 @@ function computeBenchmarkCalibratedRating(rawMetrics, baselineRating = null) {
 
   const benchmarkAverage = weightedTargetSum / weightedTargetTotal;
   const confidence = clamp(1 - nearest.distance / 1.75, 0, 1);
+  const topNeighborTargets = topNeighbors
+    .map((neighbor) => Number(neighbor.entry.target))
+    .filter((value) => Number.isFinite(value));
+  const highTierNeighborCount = topNeighborTargets.filter((value) => value >= 70).length;
+  const lowTierNeighborCount = topNeighborTargets.filter((value) => value <= 55).length;
 
+  let rating;
   if (!Number.isFinite(Number(baselineRating))) {
-    return Math.round(clamp(benchmarkAverage, 25, 92) * 10) / 10;
+    rating = Math.round(clamp(benchmarkAverage, 25, 92) * 10) / 10;
+    return {
+      rating,
+      confidence,
+      nearestDistance: nearest.distance,
+      nearestTarget: Number(nearest.entry.target),
+      nearestFolder: nearest.entry.sourceFolder,
+      nearestSource: nearest.entry.sourceImage,
+      topNeighborTargets,
+      highTierNeighborCount,
+      lowTierNeighborCount,
+    };
   }
 
   const benchmarkWeight = 0.15 + confidence * 0.7;
-  let rating = benchmarkAverage * benchmarkWeight + Number(baselineRating) * (1 - benchmarkWeight);
+  rating = benchmarkAverage * benchmarkWeight + Number(baselineRating) * (1 - benchmarkWeight);
 
   if (confidence >= 0.85) {
     rating = clamp(rating, Number(nearest.entry.target) - 2, Number(nearest.entry.target) + 2);
@@ -221,7 +325,22 @@ function computeBenchmarkCalibratedRating(rawMetrics, baselineRating = null) {
     }
   }
 
-  return Math.round(clamp(rating, 25, 92) * 10) / 10;
+  rating = Math.round(clamp(rating, 25, 92) * 10) / 10;
+  return {
+    rating,
+    confidence,
+    nearestDistance: nearest.distance,
+    nearestTarget: Number(nearest.entry.target),
+    nearestFolder: nearest.entry.sourceFolder,
+    nearestSource: nearest.entry.sourceImage,
+    topNeighborTargets,
+    highTierNeighborCount,
+    lowTierNeighborCount,
+  };
+}
+
+function computeBenchmarkCalibratedRating(rawMetrics, baselineRating = null) {
+  return computeBenchmarkCalibrationAnalysis(rawMetrics, baselineRating)?.rating ?? null;
 }
 
 const OBJECTIVE_METRIC_WEIGHTS = {
@@ -521,12 +640,10 @@ function titleCaseKey(s) {
     .replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
 }
 
-function readMogReportRawValues(backendDir) {
+function parseMogReportRawValuesFromText(content) {
   const rawValues = {};
-  const p = path.join(backendDir, 'mog_report.txt');
-  if (!fs.existsSync(p)) return rawValues;
+  if (!content) return rawValues;
   try {
-    const content = fs.readFileSync(p, 'utf8');
     for (const line of content.split('\n')) {
       const match = line.match(/[-*]*\s*([^:]+):\s*([\d.\-]+)/);
       if (match) {
@@ -535,9 +652,28 @@ function readMogReportRawValues(backendDir) {
       }
     }
   } catch (e) {
-    console.error('[parse-analysis] mog_report.txt read error:', e.message);
+    console.error('[parse-analysis] mog report parse error:', e.message);
   }
   return rawValues;
+}
+
+function readMogReportRawValues(rawOutput, backendDir) {
+  const fromRawOutputMatch = String(rawOutput || '').match(
+    /MOG-CHECK CLINICAL AUDIT REPORT[\s\S]*?(?:Canthal_Tilt_Degrees:[^\n]*)(?:\r?\n|$)/i
+  );
+  if (fromRawOutputMatch) {
+    const parsed = parseMogReportRawValuesFromText(fromRawOutputMatch[0]);
+    if (Object.keys(parsed).length) return parsed;
+  }
+
+  const p = path.join(backendDir, 'mog_report.txt');
+  if (!fs.existsSync(p)) return {};
+  try {
+    return parseMogReportRawValuesFromText(fs.readFileSync(p, 'utf8'));
+  } catch (e) {
+    console.error('[parse-analysis] mog_report.txt read error:', e.message);
+    return {};
+  }
 }
 
 function parseFeatureBlock(block) {
@@ -900,7 +1036,14 @@ function parseRatingsUseThis(raw, rawValues) {
     const match = line.match(/[-*]*\s*([^:]+):\s*(\d+(?:\.\d+)?)\s*\/\s*100/i);
     if (!match) continue;
     const baseLabel = titleCaseKey(match[1]);
-    const score = applyOffset100(parseFloat(match[2], 10));
+    const aiScore = applyOffset100(parseFloat(match[2], 10));
+    const metricKey = metricLabelToBenchmarkKey(baseLabel);
+    const rawMetricValue =
+      rawValues[baseLabel] !== undefined ? Number(rawValues[baseLabel]) : null;
+    const score =
+      Number.isFinite(rawMetricValue) && metricKey
+        ? computeMetricBenchmarkScore(metricKey, rawMetricValue, aiScore)
+        : aiScore;
     let finalLabel = baseLabel;
     if (rawValues[baseLabel] !== undefined) {
       const rawValue = rawValues[baseLabel];
@@ -1084,7 +1227,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   }
 
   const biometrics = [];
-  const rawValues = readMogReportRawValues(backendDir);
+  const rawValues = readMogReportRawValues(rawOutput, backendDir);
   const ratingsBiometrics = parseRatingsUseThis(rawOutput, rawValues);
   if (ratingsBiometrics.length > 0) {
     biometrics.push(...ratingsBiometrics);
@@ -1120,16 +1263,43 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   const objectiveFrontRating = computeObjectiveFaceRating(frontScoreMap, categories);
   const objectiveSideRating = computeObjectiveFaceRating(sideScoreMap, sideCategories);
   const rawCalibrationMetrics = extractCalibrationMetrics(rawValues);
-  const benchmarkFrontRating = computeBenchmarkCalibratedRating(
+  const benchmarkFrontBaseline =
+    explicitFrontRating != null ? explicitFrontRating : objectiveFrontRating ?? finalRating;
+  const benchmarkFrontCalibration = computeBenchmarkCalibrationAnalysis(
     rawCalibrationMetrics,
-    objectiveFrontRating ?? finalRating
+    benchmarkFrontBaseline
   );
+  const benchmarkFrontRating = benchmarkFrontCalibration?.rating ?? null;
 
   if (benchmarkFrontRating != null) {
-    // Benchmark calibration is allowed to correct Gemma both downward and upward.
-    // A later uncanny cap can still clamp synthetic/overdone faces, but normal
-    // 7s-style examples should not get stuck at an under-called raw AI score.
-    finalRating = benchmarkFrontRating;
+    const exactOrNearExactHighTierMatch =
+      explicitFrontRating != null &&
+      Number.isFinite(benchmarkFrontCalibration?.nearestDistance) &&
+      Number.isFinite(benchmarkFrontCalibration?.nearestTarget) &&
+      benchmarkFrontCalibration.nearestTarget >= 70 &&
+      (
+        benchmarkFrontCalibration.nearestDistance <= 0.03 ||
+        (
+          benchmarkFrontCalibration.nearestDistance <= 0.08 &&
+          benchmarkFrontCalibration.highTierNeighborCount >= 2 &&
+          benchmarkFrontCalibration.lowTierNeighborCount <= 1
+        )
+      );
+
+    if (exactOrNearExactHighTierMatch) {
+      // If the scan is an extremely tight benchmark match to a known high-tier
+      // sample, allow calibration to pull a model undercall upward instead of
+      // hard-capping it at Gemma's explicit front rating.
+      const guardedLift = explicitFrontRating + Math.min(18, Math.max(8, benchmarkFrontCalibration.nearestTarget - explicitFrontRating));
+      finalRating = Math.min(benchmarkFrontRating, guardedLift);
+    } else {
+      // Default behavior stays conservative so benchmark calibration can pull
+      // overcalled faces downward without reopening the generous-score issue.
+      finalRating =
+        explicitFrontRating != null
+          ? Math.min(benchmarkFrontRating, explicitFrontRating)
+          : benchmarkFrontRating;
+    }
   } else if (objectiveFrontRating != null) {
     finalRating =
       explicitFrontRating != null

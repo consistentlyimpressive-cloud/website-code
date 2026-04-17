@@ -130,6 +130,31 @@ function isQuotaExceededError(error) {
   return error?.code === 8 || /RESOURCE_EXHAUSTED|quota exceeded/i.test(message);
 }
 
+const FIRESTORE_QUOTA_COOLDOWN_MS = Number(process.env.FIRESTORE_QUOTA_COOLDOWN_MS || 15 * 60 * 1000);
+let firestoreQuotaCooldownUntil = 0;
+
+function isFirestoreQuotaCoolingDown() {
+  return firestoreQuotaCooldownUntil > Date.now();
+}
+
+function noteFirestoreQuotaExceeded(context = 'unknown') {
+  const wasCooling = isFirestoreQuotaCoolingDown();
+  firestoreQuotaCooldownUntil = Date.now() + FIRESTORE_QUOTA_COOLDOWN_MS;
+  if (!wasCooling) {
+    console.warn(
+      `[firestore] Quota exceeded during ${context}. Cooling down Firestore reads for ${Math.round(
+        FIRESTORE_QUOTA_COOLDOWN_MS / 1000
+      )}s and using local fallback where possible.`
+    );
+  }
+}
+
+function firestoreQuotaCooldownWarning() {
+  const remainingMs = Math.max(firestoreQuotaCooldownUntil - Date.now(), 0);
+  const remainingMin = Math.max(1, Math.ceil(remainingMs / 60000));
+  return `Firestore quota exceeded recently. Using local fallback for about ${remainingMin} more minute(s).`;
+}
+
 /** Process start time for /api/health uptime */
 const SERVER_BOOT_AT = Date.now();
 
@@ -1152,6 +1177,17 @@ app.get('/api/user/plan', extractUserOptional, async (req, res) => {
     });
   }
 
+  if (isFirestoreQuotaCoolingDown()) {
+    return res.json({
+      ok: true,
+      plan: isAdminEmail ? 'pro' : 'free',
+      scanCredits: isAdminEmail ? 999 : 0,
+      subscriptionId: null,
+      subscriptionStatus: null,
+      warning: firestoreQuotaCooldownWarning(),
+    });
+  }
+
   try {
     const snap = await firestore.collection('users').doc(req.uid).get();
     const data = snap.exists ? snap.data() : {};
@@ -1166,17 +1202,18 @@ app.get('/api/user/plan', extractUserOptional, async (req, res) => {
         (typeof data.updatedAt?.seconds === 'number' ? new Date(data.updatedAt.seconds * 1000).toISOString() : data.updatedAt || null),
     });
   } catch (e) {
-    console.error('[user/plan] Failed to read user plan:', e.message);
     if (isQuotaExceededError(e)) {
+      noteFirestoreQuotaExceeded('user/plan');
       return res.json({
         ok: true,
         plan: isAdminEmail ? 'pro' : 'free',
         scanCredits: isAdminEmail ? 999 : 0,
         subscriptionId: null,
         subscriptionStatus: null,
-        warning: 'Firestore quota exceeded. Using fallback plan state.',
+        warning: firestoreQuotaCooldownWarning(),
       });
     }
+    console.error('[user/plan] Failed to read user plan:', e.message);
     return res.status(500).json({ error: e.message || 'Failed to read user plan' });
   }
 });
@@ -1209,6 +1246,16 @@ app.get('/api/ready', async (req, res) => {
     });
   }
 
+  if (isFirestoreQuotaCoolingDown()) {
+    return res.json({
+      ok: true,
+      checks: { firestore: 'quota-cooldown', analysis: true },
+      firebaseMode: USE_FIREBASE_EMULATOR ? 'emulator' : 'live',
+      warning: firestoreQuotaCooldownWarning(),
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   try {
     await firestore.collection('system').doc('adminStore').get();
     res.json({
@@ -1219,12 +1266,12 @@ app.get('/api/ready', async (req, res) => {
     });
   } catch (e) {
     if (isQuotaExceededError(e)) {
-      console.warn('[ready] Firestore quota exhausted; allowing analysis preflight to continue.');
+      noteFirestoreQuotaExceeded('ready');
       return res.json({
         ok: true,
         checks: { firestore: 'quota-exhausted', analysis: true },
         firebaseMode: USE_FIREBASE_EMULATOR ? 'emulator' : 'live',
-        warning: 'Firestore quota is exhausted, but analysis can still run. Scan history may save later when quota resets.',
+        warning: firestoreQuotaCooldownWarning(),
         timestamp: new Date().toISOString(),
       });
     }
@@ -2336,6 +2383,9 @@ profilesRoutes(app, firestore, admin, extractUserOptional);
 app.get('/api/user/scans', extractUserOptional, async (req, res) => {
   if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
   if (!firestore) return res.json({ scans: localUserStore.listScans(req.uid), warning: 'Firestore unavailable. Using local fallback.' });
+  if (isFirestoreQuotaCoolingDown()) {
+    return res.json({ scans: localUserStore.listScans(req.uid), warning: firestoreQuotaCooldownWarning() });
+  }
   try {
     const snap = await firestore.collection('users').doc(req.uid).collection('scans').orderBy('timestamp', 'desc').get();
     const scans = [];
@@ -2346,6 +2396,10 @@ app.get('/api/user/scans', extractUserOptional, async (req, res) => {
     });
     res.json({ scans });
   } catch (e) {
+    if (isQuotaExceededError(e)) {
+      noteFirestoreQuotaExceeded('user/scans');
+      return res.json({ scans: localUserStore.listScans(req.uid), warning: firestoreQuotaCooldownWarning() });
+    }
     console.error('[user/scans] GET failed:', e.message || e);
     res.json({ scans: localUserStore.listScans(req.uid), warning: 'Firestore failed. Using local fallback.' });
   }

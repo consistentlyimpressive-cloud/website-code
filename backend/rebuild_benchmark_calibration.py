@@ -108,13 +108,6 @@ def load_existing():
 def main():
     os.chdir(BACKEND_DIR)
 
-    existing = load_existing()
-    preserved = [
-        entry
-        for entry in existing
-        if not isinstance(entry, dict) or entry.get("sourceFolder") not in TIER_SPECS
-    ]
-
     generated = []
     skipped = []
 
@@ -134,10 +127,10 @@ def main():
             except Exception as error:
                 skipped.append(f"{tier_name}: {image_path.name} -> {error}")
 
-    final_entries = preserved + generated
+    final_entries = generated
     CALIBRATION_PATH.write_text(json.dumps(final_entries, indent=2), encoding="utf-8")
 
-    print(f"[calibration] preserved={len(preserved)} generated={len(generated)} total={len(final_entries)}")
+    print(f"[calibration] preserved=0 generated={len(generated)} total={len(final_entries)}")
     if skipped:
         print("[calibration] skipped:")
         for line in skipped:

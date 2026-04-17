@@ -2699,6 +2699,13 @@ const ScanningView = ({
   const isCompactViewport = typeof window !== 'undefined' && window.innerWidth < 768;
   const overlayRevealSeconds = isUltra31 ? 34 : choice === "2" ? 24 : 36;
   const overlayScanLoopSeconds = isUltra31 ? 4 : choice === "2" ? 4.5 : 4;
+  const getQuotaAwareScanMessage = useCallback((rawMessage, fallbackMessage = '') => {
+    const source = `${rawMessage || ''} ${fallbackMessage || ''}`.trim();
+    if (/RESOURCE_EXHAUSTED|quota exceeded|firestore quota/i.test(source)) {
+      return 'Firebase quota exceeded right now. The AI scan may still run, but saving or loading the scan into your dashboard can temporarily fail until quota resets.';
+    }
+    return rawMessage || fallbackMessage;
+  }, []);
 
   /** Parent passes an inline onComplete; keep a ref so the analyze effect does not re-run every render (duplicate requests). */
   const onCompleteRef = useRef(onComplete);
@@ -2912,7 +2919,7 @@ const ScanningView = ({
               const readyError =
                 (readyData && typeof readyData.error === 'string' && readyData.error.trim()) ||
                 'Premium scans are unavailable because the backend Firebase connection is not ready.';
-              setStatusText(readyError);
+              setStatusText(getQuotaAwareScanMessage(readyError, 'Premium scans are unavailable because the backend Firebase connection is not ready.'));
               setHasError(true);
               return;
             }
@@ -3025,8 +3032,10 @@ const ScanningView = ({
             (data && typeof data.message === 'string' && data.message.trim()) ||
             null;
           setStatusText(
-            msg ||
+            getQuotaAwareScanMessage(
+              msg,
               `Request failed (${apiRes.status}). ${isUltra ? 'For premium models, confirm you are signed in with Pro or a scan credit.' : ''} If this persists, check the backend logs.`
+            )
           );
           setHasError(true);
           return;
@@ -3047,7 +3056,7 @@ const ScanningView = ({
            console.error('[analyze] success=false', data?.error || data);
            const detail =
              typeof data?.error === 'string' && data.error.trim()
-               ? data.error
+               ? getQuotaAwareScanMessage(data.error, 'The AI engine did not return a valid analysis. Please try again in a moment.')
                : 'The AI engine did not return a valid analysis. Please try again in a moment.';
            setStatusText(detail);
            setHasError(true);
@@ -3060,7 +3069,10 @@ const ScanningView = ({
         setStatusText(
           err?.name === 'AbortError'
             ? 'Analysis timed out after about 10 minutes. Please try again with a smaller image or try again in a moment.'
-            : `Network error: ${err?.message || 'failed to reach server'}. Please try again in a moment.`
+            : getQuotaAwareScanMessage(
+                null,
+                `Network error: ${err?.message || 'failed to reach server'}. Please try again in a moment.`
+              )
         );
         setHasError(true);
       } finally {

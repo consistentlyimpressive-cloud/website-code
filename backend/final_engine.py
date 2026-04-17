@@ -303,11 +303,15 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         1. RATIO ANCHORS (STRICT SCALING):
            - fWHR: The ideal is BALANCED, not extreme.
            Penalize clearly when fWHR drops significantly below the ideal because the face becomes too narrow/weak.
-           Also apply a LIGHT penalty when fWHR becomes TOO HIGH / TOO WIDE. If fWHR reaches 2.10 or above, treat that as slightly over-dimorphic and a bit less harmonious.
-           Very high fWHR should NOT be rewarded as "more masculine = better", but do not over-penalize this unless the width looks clearly excessive and harms harmony.
+           A merely decent or strong fWHR should NOT skyrocket the score by itself.
+           Do NOT treat "more width = more attractive" or "more masculine = better" as valid logic.
+           If fWHR becomes obviously too high / too wide, start subtracting harmony rather than rewarding it.
+           If fWHR reaches roughly 2.10 or above, treat that as clearly over-dimorphic and less aesthetic.
+           If it becomes extremely wide / brutish / blocky, the deduction should be strong rather than light.
            - MIDFACE: Do NOT treat mildly long midfaces as a major flaw.
            A Midface_Ratio around 1.00-1.07 is only a light concern and by itself should usually NOT become the #1 WORST FEATURE.
-           Treat elongated midface as a true structural flaw only when it is clearly long (roughly 1.08+) and make it a high-priority flaw only when it is more obvious (roughly 1.12+) or when it combines with other long-face signals like elongated thirds, narrow facial width, or vertically stretched harmony.
+           Treat elongated midface as a true structural flaw only when it is clearly long (roughly 1.08+) and make it a high-priority flaw when it is more obvious (roughly 1.12+) or when it combines with other long-face signals like elongated thirds, narrow facial width, or vertically stretched harmony.
+           If the overall face reads horse-faced, long, narrow, stretched, or vertically dragged out, punish that harshly even if one or two local ratios are not catastrophic.
            - UPPER THIRD: Penalize strictly for an elongated upper third/forehead relative to the rest of the face.
            - PHILTRUM: Penalize HARSHLY for long philtrums that disrupt lower-third harmony.
            - EYE AREA: Penalize for puffy undereyes (eye bags/fat prolapse).
@@ -322,9 +326,16 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - LIPS: Penalize strictly for thin/inconspicuous lips.
            - JAW/CHIN: Be accepting of tapered jawlines.
            Not every jaw requires a "square" aesthetic to be elite. Penalize only irregular/weird shapes.
-           - DEFINITION / FACIAL FAT: Penalize high facial fat and poor definition, but in a MODERATE and proportionate way.
-           A soft, puffy, bloated, or poorly defined face should hurt harmony and bone visibility, but it should not dominate the entire score unless it is severe.
-           If the cheek/jaw/under-chin definition is weak due to visible body fat or facial fullness, apply a mild-to-moderate deduction rather than an aggressive one.
+           Strong jaw width, bigonial width, or brute lower-third breadth should be treated as SUPPORTING traits, not as major carry traits.
+           A wide jaw / bigonial width alone should never rescue weak harmony, tired soft tissue, mediocre eyes, aging, or an overall non-elite read.
+           If the jaw or gonial width becomes too expanded, too blocky, or too brutish relative to the rest of the face, treat it as a harmony negative rather than a bonus.
+           - DEFINITION / FACIAL FAT: Penalize high facial fat and poor definition more than you currently do.
+           A soft, puffy, bloated, or poorly defined face should noticeably hurt harmony, bone visibility, and perceived attractiveness.
+           If the cheek/jaw/under-chin definition is weak due to visible body fat or facial fullness, this should produce a meaningful deduction rather than just a tiny one.
+           - AGING / SOFT TISSUE / ORBITAL TIREDNESS / OVERALL READ:
+           Penalize soft-tissue decline, orbital tiredness, under-eye fatigue, nasolabial folds, laxity, puffiness, and a generally worn / non-elite facial read more than you currently do.
+           Even if some bone metrics are decent, a face that looks tired, aged, puffy, saggy, or generally non-elite should not float into an inflated band.
+           "Overall non-elite read" is a real penalty factor and should materially lower the final score when it is obvious.
         1B. INTERNAL VISUAL BUCKETING (VERY IMPORTANT):
            Before deciding the final score, internally classify the face into ONE of these buckets:
            - NATURAL / COHERENT HIGH-TIER: Strong features that still read human, believable, and harmonious.
@@ -334,11 +345,11 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - VERY LOW-TIER / 3-RANGE: Faces with multiple major structural issues at once, especially long narrow proportions, very low facial width, obvious asymmetry, weak eye area, and no genuinely strong redeeming feature.
 
            DISTINCTION RULE:
-           Do NOT confuse "striking" with "elite". A face can have attention-grabbing dimorphism and still be aesthetically worse because it looks forced, synthetic, or overbuilt.
+           Do NOT confuse "striking" with "elite". A face can have attention-grabbing dimorphism and still be aesthetically worse because it looks forced, synthetic, overbuilt, tired, or aesthetically unbalanced.
 
            EXAMPLE ANCHORS FOR CALIBRATION:
            - A normal attractive celebrity face with decent harmony but not extreme structure belongs in NATURAL / COHERENT, not in uncanny and not in overbuilt.
-           - A strong editorial / model face with intense jaw, cheekbones, eyes, or dimorphism can still belong in EXAGGERATED BUT COHERENT if it remains believable, photoreal, and internally harmonious.
+           - A strong editorial / model face with intense jaw, cheekbones, eyes, or dimorphism can still belong in EXAGGERATED BUT COHERENT if it remains believable, photoreal, internally harmonious, and not worn-down / soft-tissue-compromised.
            - A face with impossible jaw width, over-carved hollows, compressed soft tissue, fake-looking eye rendering, or "AI beauty render" energy belongs in UNCANNY / SYNTHETIC / OVERBUILT even if some local ratios look strong.
            - A face that is very long, narrow, low-fWHR, visibly asymmetric, and lacking standout positives belongs in VERY LOW-TIER / 3-RANGE rather than 4-range or average-tier.
 
@@ -387,7 +398,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
 
            BUCKET IMPACT ON FINAL RATING:
            - NATURAL / COHERENT HIGH-TIER: score normally from the ratios + visual harmony.
-           - EXAGGERATED BUT COHERENT: apply only a tiny deduction, usually around 0-3 points total unless harmony is clearly disrupted. These faces can still land in the 75-85 range or higher when the structure is genuinely strong.
+           - EXAGGERATED BUT COHERENT: apply only a tiny deduction, usually around 0-3 points total unless harmony is clearly disrupted. These faces can still land in the 75-85 range when the structure is genuinely strong, but do NOT let extreme dimorphism alone be the reason they rate well.
            - UNCANNY / SYNTHETIC / OVERBUILT: apply a major deduction. These faces should usually land far below a coherent high-tier face with similar local ratios, because the synthetic / overbuilt look is itself a major aesthetic flaw.
            - VERY LOW-TIER / 3-RANGE: when the face is long, narrow, asymmetric, and structurally weak with no redeeming anchors, the score should often land in the 30s instead of the 40s or 50s.
         2. GENDER COUNTERBALANCE (INTERNAL RULE):
@@ -398,7 +409,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - HARD CAP 60: If the subject has MORE THAN 3 of the following, the final score CANNOT EXCEED 60:
              (Very prominent ears, negative canthal tilt, bad upper eyelid exposure, undereye puffiness, unideal FWHR, high
              set eyebrows, bulbous nose shape).
-           - CAP 60: If the face lacks "pretty" appeal or high-tier dimorphism.
+           - CAP 60: If the face lacks "pretty" appeal or a genuinely high-tier harmonious read.
            - LOW-TIER FLOOR LOGIC: If the face is clearly very narrow, elongated, asymmetric, and weak overall, do NOT keep it artificially in the 40s or 50s just because a few isolated measurements are not disastrous.
            - MODERATE UNCANNY CAP 60: If the face is clearly exaggerated, overbuilt, AI-looking, synthetic, or "fantasy male model" but still somewhat coherent, it should usually NOT exceed 60.
            - SEVERE UNCANNY CAP 54: If the face looks strongly artificial, biologically implausible, or obviously like an AI-generated hypermasculine edit, it should usually NOT exceed 54.
@@ -411,7 +422,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            Faces that resemble AI-generated male beauty edits with giant jaws, hollow cheeks, compressed soft tissue, glassy eyes, extreme brow compression, or hyper-clean mannequin-like harmony should usually be capped around the low-to-upper 50s even if they are visually striking.
            If the face is only exaggerated but still coherent and natural-looking, apply only a minor-to-moderate deduction instead.
            Extreme masculinity is NOT automatically a positive. The ideal is balanced beauty: a clean mix of masculinity and femininity.
-           Faces that become too brutish, too wide, too heavy, too hollowed, or too aggressively dimorphic should lose harmony points once the extremes are visually obvious.
+           Faces that become too brutish, too wide, too heavy, too hollowed, too aged, too tired, or too aggressively dimorphic should lose harmony points once the extremes are visually obvious.
            - NATURAL PENALTY PHRASING: NEVER explicitly state "the face is hard capped at 60 due to X" or mention the internal caps directly.
            Instead, make the limitation sound natural and logically explain it.
            For example: "the rating is limited by several overly dimorphic features" or "structural harmony is disrupted by unnatural proportions".
@@ -425,8 +436,10 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - Use the measurement data objectively. The final rating should feel harsh and grounded, not generous.
            - If the subject has multiple major flaws and very few redeeming traits, DO NOT be afraid to rate below 40.
            - 40 or below is valid for faces with several major structural or aesthetic issues, poor definition, visible aging, and no standout positive features.
-           - Do NOT force average-looking or below-average faces into the 50s just because they are recognizable, masculine, or not deformed.
+           - Do NOT force average-looking or below-average faces into the 50s or 60s just because they are recognizable, masculine, or not deformed.
            - Do NOT force uncanny, AI-looking, overbuilt, "gigachad", or fantasy-model faces into the high 70s or 80s just because the jaw, brow, or width is extreme.
+           - Do NOT let bigonial width, jaw width, broadness, or brute dimorphism act like elite carry traits by themselves.
+           - A face with only decent metrics but clear aging, orbital tiredness, soft-tissue decline, puffiness, or an overall non-elite read should fall much lower than a clean youthful harmonious face.
            - A face that is exaggerated but still coherent can still rate well.
            - A face that is exaggerated AND uncanny should drop notably because the exaggeration itself is hurting harmony.
            - A face that is exaggerated, editorial, or brutalist should NOT automatically read as high-tier. If the extremeness itself is the main thing carrying the look, do not score it like a balanced elite face.
@@ -441,9 +454,10 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - Example anchor: a face like Will Smith should NOT be treated as ultra-high-tier by default; if the metrics are only decent and several flaws exist, a result around the high-50s / low-60s is more realistic.
            - A face with truly exceptional eyes and otherwise decent harmony should not get stuck too low purely because the bone structure is less aggressive or less brute-dimorphic.
         5. SIGNS OF AGING:
-           - Penalize visible aging signs in a MODERATE and realistic way.
-           - Nasolabial folds, under-eye aging, wrinkles, sagging skin, skin laxity, and a worn/tired look should reduce the rating when clearly visible, but should not overwhelm the full score unless severe.
-           - Visible aging and weak definition should matter, but keep the deduction proportional to how strong and obvious those signs really are.
+           - Penalize visible aging signs MORE than you currently do.
+           - Nasolabial folds, under-eye aging, wrinkles, sagging skin, skin laxity, orbital tiredness, and a worn / non-fresh look should reduce the rating in a clearly noticeable way when visible.
+           - Visible aging, weak definition, soft-tissue decline, and a generally non-elite read should matter materially, not just cosmetically.
+           - If the face looks noticeably older, puffier, more tired, or less structurally fresh than the metrics alone would suggest, let that lower the final score in a meaningful way.
 
 
         OUTPUT FORMAT:
