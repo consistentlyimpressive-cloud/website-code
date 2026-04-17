@@ -500,6 +500,29 @@ function timestampToMillis(value) {
   return Number.isFinite(fallback) ? fallback : 0;
 }
 
+function buildSavedScanDashboardPayload(scan, fallback = {}) {
+  if (!scan || typeof scan !== 'object') return null;
+
+  const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : {};
+  const scanMillis = timestampToMillis(scan.timestamp || scan.scannedAt || payload.scannedAt || fallback.scannedAt);
+
+  return {
+    ...payload,
+    scanId: scan.id || scan.scanId || payload.scanId || fallback.scanId || null,
+    profileId: scan.profileId || payload.profileId || fallback.profileId || 'default',
+    profileName: scan.profileName || payload.profileName || fallback.profileName,
+    visibility: scan.visibility || payload.visibility || fallback.visibility || 'private',
+    finalRating: scan.finalRating ?? payload.finalRating ?? fallback.finalRating ?? null,
+    sideRating: scan.sideRating ?? payload.sideRating ?? fallback.sideRating ?? null,
+    frontImage: scan.frontImageUrl || scan.frontImage || payload.frontImage || fallback.frontImage || null,
+    sideImage: scan.sideImageUrl || scan.sideImage || payload.sideImage || fallback.sideImage || null,
+    selectedModel: String(scan.model || payload.selectedModel || fallback.selectedModel || '').trim(),
+    cohesiveFrontSide: Boolean(scan.cohesiveFrontSide || payload.cohesiveFrontSide || fallback.cohesiveFrontSide),
+    scannedAt: scanMillis ? new Date(scanMillis).toISOString() : new Date().toISOString(),
+    recoveredFromSavedScan: true,
+  };
+}
+
 function formatTimestamp(value, fallback = 'Unknown Time') {
   const millis = timestampToMillis(value);
   return millis ? new Date(millis).toLocaleString() : fallback;
@@ -2750,25 +2773,13 @@ const ScanningView = ({
       };
 
       const buildRecoveredScanPayload = (scan) => {
-        if (!scan || typeof scan !== 'object') return null;
-        const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : {};
-        const scanMillis = timestampToMillis(scan.timestamp || scan.scannedAt || payload.scannedAt);
-        return {
-          ...payload,
-          success: true,
-          scanId: scan.id || scan.scanId || payload.scanId,
-          profileId: scan.profileId || payload.profileId || profileId || 'default',
-          profileName: scan.profileName || payload.profileName,
-          visibility: scan.visibility || payload.visibility || 'private',
-          finalRating: scan.finalRating ?? payload.finalRating ?? null,
-          sideRating: scan.sideRating ?? payload.sideRating ?? null,
-          frontImage: scan.frontImageUrl || scan.frontImage || payload.frontImage || mainImageSrc || null,
-          sideImage: scan.sideImageUrl || scan.sideImage || payload.sideImage || sideImageUrl || null,
-          selectedModel: String(scan.model || payload.selectedModel || choice || '').trim(),
-          cohesiveFrontSide: Boolean(scan.cohesiveFrontSide || payload.cohesiveFrontSide),
-          scannedAt: scanMillis ? new Date(scanMillis).toISOString() : new Date().toISOString(),
-          recoveredFromSavedScan: true,
-        };
+        const recovered = buildSavedScanDashboardPayload(scan, {
+          profileId: profileId || 'default',
+          frontImage: mainImageSrc || null,
+          sideImage: sideImageUrl || null,
+          selectedModel: String(choice || '').trim(),
+        });
+        return recovered ? { success: true, ...recovered } : null;
       };
 
       const recoverCompletedScanFromHistory = async () => {
@@ -3397,36 +3408,25 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const handleDroppedScanResponse = useCallback((meta = {}) => {
     const completedAt = new Date().toISOString();
     const targetProfileId = meta.profileId || activeScanProfileId || selectedProfileId || 'default';
-    const pendingScan = {
-      success: true,
-      scanId: `pending-${Date.now()}`,
-      profileId: targetProfileId,
-      selectedModel: String(meta.selectedModel || selectedModel || '3'),
-      scannedAt: completedAt,
-      frontImage,
-      sideImage,
-      finalRating: null,
-      sideRating: null,
-      technicalSummary:
-        'The scan finished or reached the server, but the browser lost the final response. Open the matching profile below to load the saved scan history.',
-      recoveredFromDroppedResponse: true,
-    };
 
     setScanningCeleb(null);
     setIsScanning(false);
 
     try {
-      sessionStorage.setItem('mogcheck:lastCompletedScan', JSON.stringify(pendingScan));
+      sessionStorage.removeItem('mogcheck:lastCompletedScan');
       sessionStorage.setItem('mogcheck:scanRecoveryRequested', JSON.stringify({
         ...meta,
         profileId: targetProfileId,
         requestedAt: completedAt,
+        fallbackFrontImage: frontImage || null,
+        fallbackSideImage: sideImage || null,
+        fallbackModel: String(meta.selectedModel || selectedModel || '3'),
       }));
     } catch (e) {
       // Browser storage is a safety net only; never keep the user trapped on the scan screen.
     }
 
-    setDashboardData(pendingScan);
+    setDashboardData(null);
     setCurrentPage('dashboard');
     window.setTimeout(() => setCurrentPage('dashboard'), 0);
     window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 30);
@@ -7022,6 +7022,111 @@ const App = () => {
       // Ignore malformed handoff cache and let the normal dashboard/profile loader continue.
     }
   }, [currentPage, hasScanData]);
+
+  useEffect(() => {
+    if (currentPage !== 'dashboard') return undefined;
+    if (!authResolved || !user || hasScanData) return undefined;
+
+    let cancelled = false;
+
+    const recoverSavedScanAfterDroppedResponse = async () => {
+      let recoveryMeta = null;
+      try {
+        const raw = sessionStorage.getItem('mogcheck:scanRecoveryRequested');
+        if (!raw) return;
+        recoveryMeta = JSON.parse(raw);
+      } catch (e) {
+        return;
+      }
+
+      if (!recoveryMeta || typeof recoveryMeta !== 'object') return;
+
+      const expectedModel = String(
+        recoveryMeta.selectedModel || recoveryMeta.fallbackModel || ''
+      ).trim();
+      const expectedProfile = String(recoveryMeta.profileId || 'default').trim();
+      const shouldMatchProfile =
+        expectedProfile && expectedProfile !== 'new' && expectedProfile !== 'guest';
+      const startedAtMillis = timestampToMillis(
+        recoveryMeta.startedAt || recoveryMeta.requestedAt || Date.now()
+      );
+      const earliestReasonableScan = startedAtMillis - 2 * 60 * 1000;
+
+      for (let attempt = 1; attempt <= 10; attempt += 1) {
+        if (cancelled) return;
+
+        try {
+          await new Promise((resolve) => setTimeout(resolve, attempt === 1 ? 1000 : 2200));
+          if (cancelled) return;
+
+          const token = await user.getIdToken();
+          const historyRes = await fetch(`${API_BASE}/api/user/scans`, {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: 'no-store',
+          });
+          if (!historyRes.ok) continue;
+
+          const historyData = await historyRes.json();
+          const scans = Array.isArray(historyData?.scans) ? historyData.scans : [];
+
+          const candidates = scans
+            .map((scan) => ({
+              scan,
+              millis: timestampToMillis(scan.timestamp || scan.scannedAt || scan.payload?.scannedAt),
+            }))
+            .filter(({ scan, millis }) => {
+              if (!scan || !millis || millis < earliestReasonableScan) return false;
+
+              if (expectedModel) {
+                const scanModel = String(scan.model || scan.payload?.selectedModel || '').trim();
+                if (scanModel && scanModel !== expectedModel) return false;
+              }
+
+              if (shouldMatchProfile) {
+                const scanProfile = String(scan.profileId || scan.payload?.profileId || 'default').trim();
+                if (scanProfile !== expectedProfile) return false;
+              }
+
+              return true;
+            })
+            .sort((a, b) => b.millis - a.millis);
+
+          const recovered = buildSavedScanDashboardPayload(candidates[0]?.scan, {
+            profileId: expectedProfile || 'default',
+            selectedModel: expectedModel,
+            frontImage: recoveryMeta.fallbackFrontImage || null,
+            sideImage: recoveryMeta.fallbackSideImage || null,
+            scannedAt: recoveryMeta.requestedAt || recoveryMeta.startedAt || new Date().toISOString(),
+          });
+
+          if (!recovered) continue;
+
+          if (cancelled) return;
+
+          setDashboardData((prev) => {
+            if (prev?.scanId && prev.scanId === recovered.scanId) return prev;
+            return { success: true, ...recovered };
+          });
+
+          try {
+            sessionStorage.setItem('mogcheck:lastCompletedScan', JSON.stringify({ success: true, ...recovered }));
+            sessionStorage.removeItem('mogcheck:scanRecoveryRequested');
+          } catch (e) {
+            // Storage sync is best-effort only.
+          }
+          return;
+        } catch (err) {
+          console.warn(`[dashboard] saved-scan recovery attempt ${attempt} failed`, err);
+        }
+      }
+    };
+
+    recoverSavedScanAfterDroppedResponse();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [API_BASE, authResolved, currentPage, hasScanData, setDashboardData, user]);
 
   useEffect(() => {
     if (currentPage !== 'dashboard') return;
