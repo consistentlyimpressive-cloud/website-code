@@ -1,0 +1,823 @@
+{
+  "users": {
+    "yREGOC6qwfWSOWy9WChsXK7F5I63": {
+      "profiles": {
+        "xa66y7yx8hDglKdPARuw": {
+          "id": "xa66y7yx8hDglKdPARuw",
+          "userId": "yREGOC6qwfWSOWy9WChsXK7F5I63",
+          "name": "I am the penis gaot435345",
+          "visibility": "private",
+          "createdAt": "2026-04-17T11:30:49.109Z",
+          "updatedAt": "2026-04-17T11:33:53.253Z"
+        }
+      },
+      "scans": {
+        "6FU6DPQtIeZVaWBUfsg8": {
+          "timestamp": "2026-04-17T11:33:51.694Z",
+          "model": "1",
+          "cohesiveFrontSide": false,
+          "visibility": "private",
+          "finalRating": 68.1,
+          "sideRating": 56,
+          "frontImageUrl": "https://api.mogcheck.net/uploads/1776425450457-35188c8a101b1b35.png",
+          "sideImageUrl": "https://api.mogcheck.net/uploads/1776425450475-f61f2c9ed4a256ce.webp",
+          "frontImageDest": null,
+          "sideImageDest": null,
+          "success": true,
+          "payload": {
+            "success": true,
+            "sex": "MALE",
+            "finalRating": 68.1,
+            "sideRating": 56,
+            "technicalSummary": "The subject presents a *balanced* and *harmonious* facial structure. The *fWHR (1.707)* is well within the ideal range, providing a masculine but not overly wide appearance. A standout metric is the *Midface Ratio (0.88)*, which indicates a very compact midface, contributing significantly to overall aesthetic appeal. The *Bigonial Width (0.846)* provides a strong lower-face foundation. However, the rating is tempered by visible *signs of aging*, specifically *nasolabial folds* and mild *skin laxity* in the lower cheeks and under-eye area.",
+            "appealAssessment": "The subject possesses a *conventional masculine* phenotype with high universal appeal. The look is *natural and coherent*, avoiding any uncanny or overbuilt traits. The appeal is grounded in *symmetry* and *balanced proportions* rather than extreme dimorphism.",
+            "bestFeatures": [
+              {
+                "title": "Midface Ratio",
+                "description": "Exceptionally compact, enhancing overall harmony."
+              },
+              {
+                "title": "fWHR",
+                "description": "Perfectly balanced width-to-height ratio."
+              },
+              {
+                "title": "Symmetry",
+                "description": "Very high bilateral symmetry across all axes."
+              },
+              {
+                "title": "Bigonial Width",
+                "description": "Strong jaw base that supports the lower third."
+              },
+              {
+                "title": "Eye Spacing",
+                "description": "Ideal geometric IPD relative to bizygomatic width."
+              }
+            ],
+            "primaryFlaws": [
+              {
+                "title": "Nasolabial Folds",
+                "description": "Deepening folds due to aging and skin laxity."
+              },
+              {
+                "title": "Under-eye Puffiness",
+                "description": "Mild fat prolapse/puffiness in the infraorbital area."
+              },
+              {
+                "title": "Lower Third Length",
+                "description": "Slightly elongated relative to the upper thirds."
+              },
+              {
+                "title": "Skin Laxity",
+                "description": "Mild sagging in the jowl area."
+              },
+              {
+                "title": "Lip Volume",
+                "description": "Slightly thin vermilion border."
+              }
+            ],
+            "sideBestFeatures": [
+              {
+                "title": "Maxillary Projection",
+                "description": "Appears adequate based on frontal cheek support."
+              },
+              {
+                "title": "Jawline Definition",
+                "description": "Maintains a clean line despite soft tissue aging."
+              },
+              {
+                "title": "Nasal Bridge",
+                "description": "Appears straight and proportional."
+              },
+              {
+                "title": "Chin Projection",
+                "description": "Balanced relative to the lips."
+              },
+              {
+                "title": "Profile Harmony",
+                "description": "Coherent transition from brow to chin."
+              }
+            ],
+            "sidePrimaryFlaws": [
+              {
+                "title": "Maxillary Projection",
+                "description": "Not maximized; could be more prominent."
+              },
+              {
+                "title": "Chin Projection",
+                "description": "Average; lacks elite-tier forward growth."
+              },
+              {
+                "title": "Nasolabial Angle",
+                "description": "Standard; not exceptionally refined."
+              },
+              {
+                "title": "Orbital Vector",
+                "description": "Moderate; could have more forward support."
+              },
+              {
+                "title": "Gonial Angle",
+                "description": "Standard; not aggressively dimorphic."
+              }
+            ],
+            "categories": null,
+            "sideCategories": null,
+            "hexagonFront": {
+              "Skin": 5.5,
+              "Bone": 6.5,
+              "Harmony": 6.5,
+              "Symmetry": 7.5,
+              "Dimorphism": 6.5
+            },
+            "hexagonSide": {
+              "Skin": 5.5,
+              "Bone": 6.5,
+              "Harmony": 6.5,
+              "Symmetry": 7.5,
+              "Dimorphism": 6.5
+            },
+            "personalizedFeedback": [
+              {
+                "id": 1,
+                "title": "ADDRESSING SKIN LAXITY",
+                "description": "You have a very strong *bone foundation*, but visible *nasolabial folds* and mild sagging in the lower cheeks are the primary detractors from your score. This is a natural result of aging and loss of collagen.\r\nTo fix this, *skin tightening* treatments or *dermal fillers* in the mid-face/cheek area could lift the tissue and soften the folds, significantly improving your harmony."
+              },
+              {
+                "id": 2,
+                "title": "INFRAORBITAL REFINEMENT",
+                "description": "There is mild *puffiness* and a lack of extreme compactness in the under-eye area. This creates a slightly \"tired\" look that contrasts with your otherwise strong bone structure.\r\nA *lower blepharoplasty* to remove fat pads or the use of *tear trough fillers* would create a smoother transition from the eye to the cheek, increasing the \"elite\" feel of the eye area."
+              },
+              {
+                "id": 3,
+                "title": "LOWER THIRD BALANCE",
+                "description": "Your *lower third* is slightly longer than the upper and middle thirds. While not a major flaw, it prevents the face from achieving perfect vertical symmetry.\r\nWhile bone length cannot be changed without invasive surgery, *grooming the beard* to create a more squared-off, shorter appearance of the chin can visually compress the lower third."
+              },
+              {
+                "id": 4,
+                "title": "LIP VOLUME OPTIMIZATION",
+                "description": "The lips are functional and balanced but lack the *fullness* associated with high-tier aesthetic markers.\r\nA very subtle *lip augmentation* (filler) to the upper lip would balance the mouth width and improve the overall \"pretty\" appeal of the lower face."
+              },
+              {
+                "id": 5,
+                "title": "FACIAL DEFINITION",
+                "description": "You have a good amount of *facial fat* that softens your jawline and cheekbones. While this contributes to a friendly appearance, it hides the underlying bone structure.\r\nA slight *reduction in body fat percentage* would sharpen the jawline and make the cheekbones more prominent, potentially pushing your natural rating into the high 60s."
+              }
+            ],
+            "biometrics": [
+              {
+                "label": "Bigonial Width Index (0.846)",
+                "displayValue": "77/100",
+                "score": 77
+              },
+              {
+                "label": "Ipd Index (Geometric) (0.481)",
+                "displayValue": "83/100",
+                "score": 83
+              },
+              {
+                "label": "Mouth Width Index (0.364)",
+                "displayValue": "73/100",
+                "score": 73
+              },
+              {
+                "label": "Nose Width Index (0.24)",
+                "displayValue": "80/100",
+                "score": 80
+              },
+              {
+                "label": "Upper Third Length (0.46)",
+                "displayValue": "77/100",
+                "score": 77
+              },
+              {
+                "label": "Middle Third Length (0.477)",
+                "displayValue": "90/100",
+                "score": 90
+              },
+              {
+                "label": "Lower Third Length (0.495)",
+                "displayValue": "67/100",
+                "score": 67
+              },
+              {
+                "label": "Eye Height Index (0.049)",
+                "displayValue": "70/100",
+                "score": 70
+              },
+              {
+                "label": "Brow Compactness Index",
+                "displayValue": "65/100",
+                "score": 65
+              },
+              {
+                "label": "Philtrum Height Index (0.109)",
+                "displayValue": "75/100",
+                "score": 75
+              },
+              {
+                "label": "Total Lip Height Index (0.113)",
+                "displayValue": "69/100",
+                "score": 69
+              },
+              {
+                "label": "Fwhr (Zygo / Upper Face) (1.707)",
+                "displayValue": "83/100",
+                "score": 83
+              },
+              {
+                "label": "Midface Ratio (Mid/ipd) (0.88)",
+                "displayValue": "91/100",
+                "score": 91
+              },
+              {
+                "label": "Canthal Tilt Degrees (-0.63°)",
+                "displayValue": "67/100",
+                "score": 67
+              }
+            ],
+            "sideBiometrics": [],
+            "protocols": [
+              {
+                "id": 1,
+                "name": "Lower Blepharoplasty",
+                "description": "Remove infraorbital fat pads for a tighter eye area. [High Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 2,
+                "name": "Mid-face Fillers",
+                "description": "Lift nasolabial folds and restore cheek volume. [High Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 3,
+                "name": "Body Fat Reduction",
+                "description": "Lower BF% to 12-15% to sharpen jawline. [High Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 4,
+                "name": "Retinoids/Tretinoin",
+                "description": "Increase collagen production to fight skin laxity. [Medium Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 5,
+                "name": "Hyaluronic Acid Lip Filler",
+                "description": "Subtle increase in upper lip volume. [Medium Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 6,
+                "name": "Microneedling with PRP",
+                "description": "Improve skin texture and elasticity. [Medium Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 7,
+                "name": "Beard Shaping",
+                "description": "Trim chin length to visually shorten the lower third. [Medium Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 8,
+                "name": "Vitamin C Serum",
+                "description": "Brighten skin and reduce under-eye discoloration. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 9,
+                "name": "Gua Sha/Lymphatic Drainage",
+                "description": "Reduce temporary facial bloating. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 10,
+                "name": "Sunscreen (Daily)",
+                "description": "Prevent further collagen breakdown and aging. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 11,
+                "name": "Hydration Optimization",
+                "description": "Reduce puffiness through water intake. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 12,
+                "name": "Sleep Hygiene",
+                "description": "Reduce under-eye bags and systemic inflammation. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 13,
+                "name": "Collagen Supplements",
+                "description": "Support skin elasticity from within. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 14,
+                "name": "Chemical Peels",
+                "description": "Refine skin surface and remove dead cells. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 15,
+                "name": "Jawline Massage",
+                "description": "Maintain muscle tone in the lower face. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 16,
+                "name": "Cold Plunging/Face Icing",
+                "description": "Reduce morning facial edema. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 17,
+                "name": "Omega-3 Supplementation",
+                "description": "Improve skin barrier and hydration. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 18,
+                "name": "Brow Grooming",
+                "description": "Maintain a clean arch to frame the eyes. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 19,
+                "name": "Nasal Breathing",
+                "description": "Maintain optimal facial posture. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 20,
+                "name": "Salt Intake Reduction",
+                "description": "Minimize water retention in the cheeks. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 21,
+                "name": "Facial Yoga",
+                "description": "Tone the muscles of the mid-face. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 22,
+                "name": "High-Protein Diet",
+                "description": "Support skin and muscle maintenance. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 23,
+                "name": "Laser Skin Resurfacing",
+                "description": "Remove fine lines and age spots. [Medium Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 24,
+                "name": "Proper Pillow Ergonomics",
+                "description": "Prevent sleep-induced facial creases. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 25,
+                "name": "Consistent Skincare Routine",
+                "description": "Maintain overall skin health. [Low Impact]",
+                "impact": "Medium Impact",
+                "research": null
+              }
+            ],
+            "videoUrl": "https://api.mogcheck.net/loading_scan.mp4",
+            "rawOutput": "[DEBUG] Phase 1: Importing SDKs...\r\n[DEBUG] Analysis Engine A Loaded.\r\n[DEBUG] Engine.py Linked Successfully.\r\n[DEBUG] Animation_Engine.py Loaded.\r\n[DEBUG] engineside.py Linked Successfully.\r\n\r\n==============================\r\n      MODEL SELECTOR\r\n==============================\r\n1. ULTRA - Highest Quality\r\n2. ULTRA - Fast\r\n------------------------------\r\n3. OPTIC (Balance & Alignment)\r\n4. CORE (Objective Attractiveness)\r\n5. GENEVA (Mathematical Beauty)\r\n\r\n[DEBUG] Model selected via API args: 1\r\n[ðŸš€] Gathering Lateral Data from engineside.py...\r\n[🚀] Consulting Gemini 3.1 Pro (Using Key 1)...\r\n\r\n--- ANALYZING: C:\\Users\\Laith abu amsheh\\Desktop\\website-code\\backend\\uploads\\1776425450457-35188c8a101b1b35.png ---\r\n[OK] High-Tech Animation saved: loading_scan.mp4\r\n[1/3] Extracting Biometrics...\r\n\r\n============================================================\r\n        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)\r\n============================================================\r\nMETADATA:\r\n- Analysis Mode: Geometric Clinical Biometrics\r\n- Reference Scale (1.0): Bizygomatic Width (311.0px)\r\n- Auto-Leveling: Corrected 0.47 deg\r\n\r\n[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)\r\n------------------------------------------------------------\r\n- Bigonial_Width_Index:     0.846\r\n- IPD_Index (Geometric):    0.481\r\n- Mouth_Width_Index:        0.364\r\n- Nose_Width_Index:         0.24\r\n\r\n[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)\r\n------------------------------------------------------------\r\n- Upper_Third_Length:       0.46\r\n- Middle_Third_Length:      0.477\r\n- Lower_Third_Length:       0.495\r\n\r\n[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)\r\n------------------------------------------------------------\r\n- Eye_Height_Index:         0.049\r\n- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.16\r\n- Philtrum_Height_Index:    0.109\r\n- Total_Lip_Height_Index:   0.113\r\n\r\n[4] RELATIONAL RATIOS & ANGLES\r\n------------------------------------------------------------\r\n- fWHR (Zygo / Upper_Face): 1.707\r\n- Midface_Ratio (Mid/IPD):  0.88\r\n- Canthal_Tilt_Degrees:     -0.63 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)\r\n============================================================\r\n\r\n[2/3] Preparing Image...\r\n[3/3] Consulting AI...\r\n[DEBUG] Consulting ULTRA - Highest Quality... (Press Ctrl+C to Cancel)\r\n[DEBUG] Trying Gemini key 1/5...\r\n\r\n========================================\r\nOFFICIAL RATING\r\n========================================\r\n[Using: ULTRA - Highest Quality | Latency: 120.85s]\r\n### ANALYSIS [MALE]\r\n**Final Frontal Rating: 63/100**\r\n**Final Side Rating: 61/100**\r\n**Max Natural Potential: 68/100**\r\n**Max Potential with Surgery: 76/100**\r\n\r\n**Technical Summary:** The subject presents a *balanced* and *harmonious* facial structure. The *fWHR (1.707)* is well within the ideal range, providing a masculine but not overly wide appearance. A standout metric is the *Midface Ratio (0.88)*, which indicates a very compact midface, contributing significantly to overall aesthetic appeal. The *Bigonial Width (0.846)* provides a strong lower-face foundation. However, the rating is tempered by visible *signs of aging*, specifically *nasolabial folds* and mild *skin laxity* in the lower cheeks and under-eye area.\r\n\r\n**Appeal Assessment:** The subject possesses a *conventional masculine* phenotype with high universal appeal. The look is *natural and coherent*, avoiding any uncanny or overbuilt traits. The appeal is grounded in *symmetry* and *balanced proportions* rather than extreme dimorphism.\r\n\r\n**Hexagon Chart Ratings (front)**\r\n- Skin: 6/10\r\n- Bone: 7/10\r\n- Harmony: 7/10\r\n- Symmetry: 8/10\r\n- Dimorphism: 7/10\r\n\r\n**Hexagon Chart Ratings (side)**\r\n- Skin: 6/10\r\n- Bone: 7/10\r\n- Harmony: 7/10\r\n- Symmetry: 8/10\r\n- Dimorphism: 7/10\r\n\r\n**CORE CATEGORY SCORES (Front | Side):**\r\n- Harmony: 65 | 62\r\n- Bone: 72 | 68\r\n- Symmetry: 85 | N/A\r\n- Skin: 60 | 60 (Shared)\r\n- Dimorphism: 68 | 65\r\n- Maxillary/Cheekbone Projection: 65 | 65 (Shared)\r\n- Nose Projection: 70 | 70 (Shared)\r\n- Facial Fat: 62 | 62 (Shared)\r\n- Eye Depth: 68 | 68 (Shared)\r\n- Ear Shape: 75 | 75 (Shared)\r\n\r\n**CRITICAL MARKERS:**\r\n- #1 BEST FEATURE: Midface Compactness - The *Midface Ratio of 0.88* is elite, preventing the face from looking elongated and creating a very tight, attractive central harmony.\r\n- #1 WORST FEATURE: Aging/Skin Laxity - Visible *nasolabial folds* and mild *under-eye puffiness* disrupt the smoothness of the facial plane and lower the overall skin score.\r\n\r\n### DASHBOARD_DATA\r\nBEST FEATURES (10):\r\n1. [FRONT] Midface Ratio - Exceptionally compact, enhancing overall harmony.\r\n2. [FRONT] fWHR - Perfectly balanced width-to-height ratio.\r\n3. [FRONT] Symmetry - Very high bilateral symmetry across all axes.\r\n4. [FRONT] Bigonial Width - Strong jaw base that supports the lower third.\r\n5. [FRONT] Eye Spacing - Ideal geometric IPD relative to bizygomatic width.\r\n6. [SIDE] Maxillary Projection - Appears adequate based on frontal cheek support.\r\n7. [SIDE] Jawline Definition - Maintains a clean line despite soft tissue aging.\r\n8. [SIDE] Nasal Bridge - Appears straight and proportional.\r\n9. [SIDE] Chin Projection - Balanced relative to the lips.\r\n10. [SIDE] Profile Harmony - Coherent transition from brow to chin.\r\n\r\nPRIMARY FLAWS (10):\r\n1. [FRONT] Nasolabial Folds - Deepening folds due to aging and skin laxity.\r\n2. [FRONT] Under-eye Puffiness - Mild fat prolapse/puffiness in the infraorbital area.\r\n3. [FRONT] Lower Third Length - Slightly elongated relative to the upper thirds.\r\n4. [FRONT] Skin Laxity - Mild sagging in the jowl area.\r\n5. [FRONT] Lip Volume - Slightly thin vermilion border.\r\n6. [SIDE] Maxillary Projection - Not maximized; could be more prominent.\r\n7. [SIDE] Chin Projection - Average; lacks elite-tier forward growth.\r\n8. [SIDE] Nasolabial Angle - Standard; not exceptionally refined.\r\n9. [SIDE] Orbital Vector - Moderate; could have more forward support.\r\n10. [SIDE] Gonial Angle - Standard; not aggressively dimorphic.\r\n\r\n### RATINGS (USE THIS)\r\n- Bigonial_Width_Index: 82/100\r\n- IPD_Index (Geometric): 88/100\r\n- Mouth_Width_Index: 78/100\r\n- Nose_Width_Index: 85/100\r\n- Upper_Third_Length: 82/100\r\n- Middle_Third_Length: 95/100\r\n- Lower_Third_Length: 72/100\r\n- Eye_Height_Index: 75/100\r\n- Brow_Compactness_Index: 70/100\r\n- Philtrum_Height_Index: 80/100\r\n- Total_Lip_Height_Index: 74/100\r\n- fWHR (Zygo / Upper_Face): 88/100\r\n- Midface_Ratio (Mid/IPD): 96/100\r\n- Canthal_Tilt_Degrees: 72/100\r\n\r\n### Personalised feedback\r\n1. ADDRESSING SKIN LAXITY\r\nYou have a very strong *bone foundation*, but visible *nasolabial folds* and mild sagging in the lower cheeks are the primary detractors from your score. This is a natural result of aging and loss of collagen.\r\nTo fix this, *skin tightening* treatments or *dermal fillers* in the mid-face/cheek area could lift the tissue and soften the folds, significantly improving your harmony.\r\n\r\n2. INFRAORBITAL REFINEMENT\r\nThere is mild *puffiness* and a lack of extreme compactness in the under-eye area. This creates a slightly \"tired\" look that contrasts with your otherwise strong bone structure.\r\nA *lower blepharoplasty* to remove fat pads or the use of *tear trough fillers* would create a smoother transition from the eye to the cheek, increasing the \"elite\" feel of the eye area.\r\n\r\n3. LOWER THIRD BALANCE\r\nYour *lower third* is slightly longer than the upper and middle thirds. While not a major flaw, it prevents the face from achieving perfect vertical symmetry.\r\nWhile bone length cannot be changed without invasive surgery, *grooming the beard* to create a more squared-off, shorter appearance of the chin can visually compress the lower third.\r\n\r\n4. LIP VOLUME OPTIMIZATION\r\nThe lips are functional and balanced but lack the *fullness* associated with high-tier aesthetic markers.\r\nA very subtle *lip augmentation* (filler) to the upper lip would balance the mouth width and improve the overall \"pretty\" appeal of the lower face.\r\n\r\n5. FACIAL DEFINITION\r\nYou have a good amount of *facial fat* that softens your jawline and cheekbones. While this contributes to a friendly appearance, it hides the underlying bone structure.\r\nA slight *reduction in body fat percentage* would sharpen the jawline and make the cheekbones more prominent, potentially pushing your natural rating into the high 60s.\r\n\r\n### ACTIONABLE PROTOCOLS\r\n1. Lower Blepharoplasty: Remove infraorbital fat pads for a tighter eye area. [High Impact]\r\n2. Mid-face Fillers: Lift nasolabial folds and restore cheek volume. [High Impact]\r\n3. Body Fat Reduction: Lower BF% to 12-15% to sharpen jawline. [High Impact]\r\n4. Retinoids/Tretinoin: Increase collagen production to fight skin laxity. [Medium Impact]\r\n5. Hyaluronic Acid Lip Filler: Subtle increase in upper lip volume. [Medium Impact]\r\n6. Microneedling with PRP: Improve skin texture and elasticity. [Medium Impact]\r\n7. Beard Shaping: Trim chin length to visually shorten the lower third. [Medium Impact]\r\n8. Vitamin C Serum: Brighten skin and reduce under-eye discoloration. [Low Impact]\r\n9. Gua Sha/Lymphatic Drainage: Reduce temporary facial bloating. [Low Impact]\r\n10. Sunscreen (Daily): Prevent further collagen breakdown and aging. [Low Impact]\r\n11. Hydration Optimization: Reduce puffiness through water intake. [Low Impact]\r\n12. Sleep Hygiene: Reduce under-eye bags and systemic inflammation. [Low Impact]\r\n13. Collagen Supplements: Support skin elasticity from within. [Low Impact]\r\n14. Chemical Peels: Refine skin surface and remove dead cells. [Low Impact]\r\n15. Jawline Massage: Maintain muscle tone in the lower face. [Low Impact]\r\n16. Cold Plunging/Face Icing: Reduce morning facial edema. [Low Impact]\r\n17. Omega-3 Supplementation: Improve skin barrier and hydration. [Low Impact]\r\n18. Brow Grooming: Maintain a clean arch to frame the eyes. [Low Impact]\r\n19. Nasal Breathing: Maintain optimal facial posture. [Low Impact]\r\n20. Salt Intake Reduction: Minimize water retention in the cheeks. [Low Impact]\r\n21. Facial Yoga: Tone the muscles of the mid-face. [Low Impact]\r\n22. High-Protein Diet: Support skin and muscle maintenance. [Low Impact]\r\n23. Laser Skin Resurfacing: Remove fine lines and age spots. [Medium Impact]\r\n24. Proper Pillow Ergonomics: Prevent sleep-induced facial creases. [Low Impact]\r\n25. Consistent Skincare Routine: Maintain overall skin health. [Low Impact]\r\n\r\n### MOG_REPORT_REVISION\r\nBigonial_Width_Index: 82\r\nIPD_Index (Geometric): 88\r\nMouth_Width_Index: 78\r\nNose_Width_Index: 85\r\nUpper_Third_Length: 82\r\nMiddle_Third_Length: 95\r\nLower_Third_Length: 72\r\nEye_Height_Index: 75\r\nBrow_Compactness_Index: 70\r\nPhiltrum_Height_Index: 80\r\nTotal_Lip_Height_Index: 74\r\nfWHR (Zygo / Upper_Face): 88\r\nMidface_Ratio (Mid/IPD): 96\r\nCanthal_Tilt_Degrees: 72\r\nMaxillary_Projection: 65\r\nChin_Projection: 65\r\nNasolabial_Angle: 70\r\nOrbital_Vector: 68\r\nGonial_Angle: 65\r\nFacial_Convexity: 70\r\nTotal_Facial_Convexity: 70\r\nMandibular_Plane: 68\r\nNasal_Projection_Shape: 70\r\nLip_Projection: 65\r\nBrow_Ridge: 68\r\nOverall_Profile_Harmony: 65\r\nSkin_Quality: 60\r\nFacial_Fat: 62\r\nEye_Depth: 68\r\nEar_Shape: 75\r\n\r\n**JUSTIFICATION:** The subject has an excellent structural base, particularly the compact midface and balanced fWHR. The score is limited primarily by visible aging markers (nasolabial folds and skin laxity) and a lack of \"elite\" markers in the eye and lip areas. The symmetry is a major strength, but the overall rating reflects a \"decent/above-average\" tier rather than \"elite\" due to these soft-tissue factors.\r\n",
+            "frontImage": "https://api.mogcheck.net/uploads/1776425450457-35188c8a101b1b35.png",
+            "sideImage": "https://api.mogcheck.net/uploads/1776425450475-f61f2c9ed4a256ce.webp",
+            "scanId": "6FU6DPQtIeZVaWBUfsg8",
+            "profileId": "xa66y7yx8hDglKdPARuw",
+            "selectedModel": "1",
+            "cohesiveFrontSide": false
+          },
+          "profileId": "xa66y7yx8hDglKdPARuw",
+          "sex": "MALE",
+          "technicalSummary": "The subject presents a *balanced* and *harmonious* facial structure. The *fWHR (1.707)* is well within the ideal range, providing a masculine but not overly wide appearance. A standout metric is the *Midface Ratio (0.88)*, which indicates a very compact midface, contributing significantly to overall aesthetic appeal. The *Bigonial Width (0.846)* provides a strong lower-face foundation. However, the rating is tempered by visible *signs of aging*, specifically *nasolabial folds* and mild *skin laxity* in the lower cheeks and under-eye area.",
+          "appealAssessment": "The subject possesses a *conventional masculine* phenotype with high universal appeal. The look is *natural and coherent*, avoiding any uncanny or overbuilt traits. The appeal is grounded in *symmetry* and *balanced proportions* rather than extreme dimorphism.",
+          "bestFeatures": [
+            {
+              "title": "Midface Ratio",
+              "description": "Exceptionally compact, enhancing overall harmony."
+            },
+            {
+              "title": "fWHR",
+              "description": "Perfectly balanced width-to-height ratio."
+            },
+            {
+              "title": "Symmetry",
+              "description": "Very high bilateral symmetry across all axes."
+            },
+            {
+              "title": "Bigonial Width",
+              "description": "Strong jaw base that supports the lower third."
+            },
+            {
+              "title": "Eye Spacing",
+              "description": "Ideal geometric IPD relative to bizygomatic width."
+            }
+          ],
+          "primaryFlaws": [
+            {
+              "title": "Nasolabial Folds",
+              "description": "Deepening folds due to aging and skin laxity."
+            },
+            {
+              "title": "Under-eye Puffiness",
+              "description": "Mild fat prolapse/puffiness in the infraorbital area."
+            },
+            {
+              "title": "Lower Third Length",
+              "description": "Slightly elongated relative to the upper thirds."
+            },
+            {
+              "title": "Skin Laxity",
+              "description": "Mild sagging in the jowl area."
+            },
+            {
+              "title": "Lip Volume",
+              "description": "Slightly thin vermilion border."
+            }
+          ],
+          "sideBestFeatures": [
+            {
+              "title": "Maxillary Projection",
+              "description": "Appears adequate based on frontal cheek support."
+            },
+            {
+              "title": "Jawline Definition",
+              "description": "Maintains a clean line despite soft tissue aging."
+            },
+            {
+              "title": "Nasal Bridge",
+              "description": "Appears straight and proportional."
+            },
+            {
+              "title": "Chin Projection",
+              "description": "Balanced relative to the lips."
+            },
+            {
+              "title": "Profile Harmony",
+              "description": "Coherent transition from brow to chin."
+            }
+          ],
+          "sidePrimaryFlaws": [
+            {
+              "title": "Maxillary Projection",
+              "description": "Not maximized; could be more prominent."
+            },
+            {
+              "title": "Chin Projection",
+              "description": "Average; lacks elite-tier forward growth."
+            },
+            {
+              "title": "Nasolabial Angle",
+              "description": "Standard; not exceptionally refined."
+            },
+            {
+              "title": "Orbital Vector",
+              "description": "Moderate; could have more forward support."
+            },
+            {
+              "title": "Gonial Angle",
+              "description": "Standard; not aggressively dimorphic."
+            }
+          ],
+          "categories": null,
+          "sideCategories": null,
+          "hexagonFront": {
+            "Skin": 5.5,
+            "Bone": 6.5,
+            "Harmony": 6.5,
+            "Symmetry": 7.5,
+            "Dimorphism": 6.5
+          },
+          "hexagonSide": {
+            "Skin": 5.5,
+            "Bone": 6.5,
+            "Harmony": 6.5,
+            "Symmetry": 7.5,
+            "Dimorphism": 6.5
+          },
+          "personalizedFeedback": [
+            {
+              "id": 1,
+              "title": "ADDRESSING SKIN LAXITY",
+              "description": "You have a very strong *bone foundation*, but visible *nasolabial folds* and mild sagging in the lower cheeks are the primary detractors from your score. This is a natural result of aging and loss of collagen.\r\nTo fix this, *skin tightening* treatments or *dermal fillers* in the mid-face/cheek area could lift the tissue and soften the folds, significantly improving your harmony."
+            },
+            {
+              "id": 2,
+              "title": "INFRAORBITAL REFINEMENT",
+              "description": "There is mild *puffiness* and a lack of extreme compactness in the under-eye area. This creates a slightly \"tired\" look that contrasts with your otherwise strong bone structure.\r\nA *lower blepharoplasty* to remove fat pads or the use of *tear trough fillers* would create a smoother transition from the eye to the cheek, increasing the \"elite\" feel of the eye area."
+            },
+            {
+              "id": 3,
+              "title": "LOWER THIRD BALANCE",
+              "description": "Your *lower third* is slightly longer than the upper and middle thirds. While not a major flaw, it prevents the face from achieving perfect vertical symmetry.\r\nWhile bone length cannot be changed without invasive surgery, *grooming the beard* to create a more squared-off, shorter appearance of the chin can visually compress the lower third."
+            },
+            {
+              "id": 4,
+              "title": "LIP VOLUME OPTIMIZATION",
+              "description": "The lips are functional and balanced but lack the *fullness* associated with high-tier aesthetic markers.\r\nA very subtle *lip augmentation* (filler) to the upper lip would balance the mouth width and improve the overall \"pretty\" appeal of the lower face."
+            },
+            {
+              "id": 5,
+              "title": "FACIAL DEFINITION",
+              "description": "You have a good amount of *facial fat* that softens your jawline and cheekbones. While this contributes to a friendly appearance, it hides the underlying bone structure.\r\nA slight *reduction in body fat percentage* would sharpen the jawline and make the cheekbones more prominent, potentially pushing your natural rating into the high 60s."
+            }
+          ],
+          "biometrics": [
+            {
+              "label": "Bigonial Width Index (0.846)",
+              "displayValue": "77/100",
+              "score": 77
+            },
+            {
+              "label": "Ipd Index (Geometric) (0.481)",
+              "displayValue": "83/100",
+              "score": 83
+            },
+            {
+              "label": "Mouth Width Index (0.364)",
+              "displayValue": "73/100",
+              "score": 73
+            },
+            {
+              "label": "Nose Width Index (0.24)",
+              "displayValue": "80/100",
+              "score": 80
+            },
+            {
+              "label": "Upper Third Length (0.46)",
+              "displayValue": "77/100",
+              "score": 77
+            },
+            {
+              "label": "Middle Third Length (0.477)",
+              "displayValue": "90/100",
+              "score": 90
+            },
+            {
+              "label": "Lower Third Length (0.495)",
+              "displayValue": "67/100",
+              "score": 67
+            },
+            {
+              "label": "Eye Height Index (0.049)",
+              "displayValue": "70/100",
+              "score": 70
+            },
+            {
+              "label": "Brow Compactness Index",
+              "displayValue": "65/100",
+              "score": 65
+            },
+            {
+              "label": "Philtrum Height Index (0.109)",
+              "displayValue": "75/100",
+              "score": 75
+            },
+            {
+              "label": "Total Lip Height Index (0.113)",
+              "displayValue": "69/100",
+              "score": 69
+            },
+            {
+              "label": "Fwhr (Zygo / Upper Face) (1.707)",
+              "displayValue": "83/100",
+              "score": 83
+            },
+            {
+              "label": "Midface Ratio (Mid/ipd) (0.88)",
+              "displayValue": "91/100",
+              "score": 91
+            },
+            {
+              "label": "Canthal Tilt Degrees (-0.63°)",
+              "displayValue": "67/100",
+              "score": 67
+            }
+          ],
+          "sideBiometrics": [],
+          "protocols": [
+            {
+              "id": 1,
+              "name": "Lower Blepharoplasty",
+              "description": "Remove infraorbital fat pads for a tighter eye area. [High Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 2,
+              "name": "Mid-face Fillers",
+              "description": "Lift nasolabial folds and restore cheek volume. [High Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 3,
+              "name": "Body Fat Reduction",
+              "description": "Lower BF% to 12-15% to sharpen jawline. [High Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 4,
+              "name": "Retinoids/Tretinoin",
+              "description": "Increase collagen production to fight skin laxity. [Medium Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 5,
+              "name": "Hyaluronic Acid Lip Filler",
+              "description": "Subtle increase in upper lip volume. [Medium Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 6,
+              "name": "Microneedling with PRP",
+              "description": "Improve skin texture and elasticity. [Medium Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 7,
+              "name": "Beard Shaping",
+              "description": "Trim chin length to visually shorten the lower third. [Medium Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 8,
+              "name": "Vitamin C Serum",
+              "description": "Brighten skin and reduce under-eye discoloration. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 9,
+              "name": "Gua Sha/Lymphatic Drainage",
+              "description": "Reduce temporary facial bloating. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 10,
+              "name": "Sunscreen (Daily)",
+              "description": "Prevent further collagen breakdown and aging. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 11,
+              "name": "Hydration Optimization",
+              "description": "Reduce puffiness through water intake. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 12,
+              "name": "Sleep Hygiene",
+              "description": "Reduce under-eye bags and systemic inflammation. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 13,
+              "name": "Collagen Supplements",
+              "description": "Support skin elasticity from within. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 14,
+              "name": "Chemical Peels",
+              "description": "Refine skin surface and remove dead cells. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 15,
+              "name": "Jawline Massage",
+              "description": "Maintain muscle tone in the lower face. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 16,
+              "name": "Cold Plunging/Face Icing",
+              "description": "Reduce morning facial edema. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 17,
+              "name": "Omega-3 Supplementation",
+              "description": "Improve skin barrier and hydration. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 18,
+              "name": "Brow Grooming",
+              "description": "Maintain a clean arch to frame the eyes. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 19,
+              "name": "Nasal Breathing",
+              "description": "Maintain optimal facial posture. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 20,
+              "name": "Salt Intake Reduction",
+              "description": "Minimize water retention in the cheeks. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 21,
+              "name": "Facial Yoga",
+              "description": "Tone the muscles of the mid-face. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 22,
+              "name": "High-Protein Diet",
+              "description": "Support skin and muscle maintenance. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 23,
+              "name": "Laser Skin Resurfacing",
+              "description": "Remove fine lines and age spots. [Medium Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 24,
+              "name": "Proper Pillow Ergonomics",
+              "description": "Prevent sleep-induced facial creases. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 25,
+              "name": "Consistent Skincare Routine",
+              "description": "Maintain overall skin health. [Low Impact]",
+              "impact": "Medium Impact",
+              "research": null
+            }
+          ],
+          "videoUrl": "https://api.mogcheck.net/loading_scan.mp4",
+          "rawOutput": "[DEBUG] Phase 1: Importing SDKs...\r\n[DEBUG] Analysis Engine A Loaded.\r\n[DEBUG] Engine.py Linked Successfully.\r\n[DEBUG] Animation_Engine.py Loaded.\r\n[DEBUG] engineside.py Linked Successfully.\r\n\r\n==============================\r\n      MODEL SELECTOR\r\n==============================\r\n1. ULTRA - Highest Quality\r\n2. ULTRA - Fast\r\n------------------------------\r\n3. OPTIC (Balance & Alignment)\r\n4. CORE (Objective Attractiveness)\r\n5. GENEVA (Mathematical Beauty)\r\n\r\n[DEBUG] Model selected via API args: 1\r\n[ðŸš€] Gathering Lateral Data from engineside.py...\r\n[🚀] Consulting Gemini 3.1 Pro (Using Key 1)...\r\n\r\n--- ANALYZING: C:\\Users\\Laith abu amsheh\\Desktop\\website-code\\backend\\uploads\\1776425450457-35188c8a101b1b35.png ---\r\n[OK] High-Tech Animation saved: loading_scan.mp4\r\n[1/3] Extracting Biometrics...\r\n\r\n============================================================\r\n        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)\r\n============================================================\r\nMETADATA:\r\n- Analysis Mode: Geometric Clinical Biometrics\r\n- Reference Scale (1.0): Bizygomatic Width (311.0px)\r\n- Auto-Leveling: Corrected 0.47 deg\r\n\r\n[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)\r\n------------------------------------------------------------\r\n- Bigonial_Width_Index:     0.846\r\n- IPD_Index (Geometric):    0.481\r\n- Mouth_Width_Index:        0.364\r\n- Nose_Width_Index:         0.24\r\n\r\n[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)\r\n------------------------------------------------------------\r\n- Upper_Third_Length:       0.46\r\n- Middle_Third_Length:      0.477\r\n- Lower_Third_Length:       0.495\r\n\r\n[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)\r\n------------------------------------------------------------\r\n- Eye_Height_Index:         0.049\r\n- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.16\r\n- Philtrum_Height_Index:    0.109\r\n- Total_Lip_Height_Index:   0.113\r\n\r\n[4] RELATIONAL RATIOS & ANGLES\r\n------------------------------------------------------------\r\n- fWHR (Zygo / Upper_Face): 1.707\r\n- Midface_Ratio (Mid/IPD):  0.88\r\n- Canthal_Tilt_Degrees:     -0.63 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)\r\n============================================================\r\n\r\n[2/3] Preparing Image...\r\n[3/3] Consulting AI...\r\n[DEBUG] Consulting ULTRA - Highest Quality... (Press Ctrl+C to Cancel)\r\n[DEBUG] Trying Gemini key 1/5...\r\n\r\n========================================\r\nOFFICIAL RATING\r\n========================================\r\n[Using: ULTRA - Highest Quality | Latency: 120.85s]\r\n### ANALYSIS [MALE]\r\n**Final Frontal Rating: 63/100**\r\n**Final Side Rating: 61/100**\r\n**Max Natural Potential: 68/100**\r\n**Max Potential with Surgery: 76/100**\r\n\r\n**Technical Summary:** The subject presents a *balanced* and *harmonious* facial structure. The *fWHR (1.707)* is well within the ideal range, providing a masculine but not overly wide appearance. A standout metric is the *Midface Ratio (0.88)*, which indicates a very compact midface, contributing significantly to overall aesthetic appeal. The *Bigonial Width (0.846)* provides a strong lower-face foundation. However, the rating is tempered by visible *signs of aging*, specifically *nasolabial folds* and mild *skin laxity* in the lower cheeks and under-eye area.\r\n\r\n**Appeal Assessment:** The subject possesses a *conventional masculine* phenotype with high universal appeal. The look is *natural and coherent*, avoiding any uncanny or overbuilt traits. The appeal is grounded in *symmetry* and *balanced proportions* rather than extreme dimorphism.\r\n\r\n**Hexagon Chart Ratings (front)**\r\n- Skin: 6/10\r\n- Bone: 7/10\r\n- Harmony: 7/10\r\n- Symmetry: 8/10\r\n- Dimorphism: 7/10\r\n\r\n**Hexagon Chart Ratings (side)**\r\n- Skin: 6/10\r\n- Bone: 7/10\r\n- Harmony: 7/10\r\n- Symmetry: 8/10\r\n- Dimorphism: 7/10\r\n\r\n**CORE CATEGORY SCORES (Front | Side):**\r\n- Harmony: 65 | 62\r\n- Bone: 72 | 68\r\n- Symmetry: 85 | N/A\r\n- Skin: 60 | 60 (Shared)\r\n- Dimorphism: 68 | 65\r\n- Maxillary/Cheekbone Projection: 65 | 65 (Shared)\r\n- Nose Projection: 70 | 70 (Shared)\r\n- Facial Fat: 62 | 62 (Shared)\r\n- Eye Depth: 68 | 68 (Shared)\r\n- Ear Shape: 75 | 75 (Shared)\r\n\r\n**CRITICAL MARKERS:**\r\n- #1 BEST FEATURE: Midface Compactness - The *Midface Ratio of 0.88* is elite, preventing the face from looking elongated and creating a very tight, attractive central harmony.\r\n- #1 WORST FEATURE: Aging/Skin Laxity - Visible *nasolabial folds* and mild *under-eye puffiness* disrupt the smoothness of the facial plane and lower the overall skin score.\r\n\r\n### DASHBOARD_DATA\r\nBEST FEATURES (10):\r\n1. [FRONT] Midface Ratio - Exceptionally compact, enhancing overall harmony.\r\n2. [FRONT] fWHR - Perfectly balanced width-to-height ratio.\r\n3. [FRONT] Symmetry - Very high bilateral symmetry across all axes.\r\n4. [FRONT] Bigonial Width - Strong jaw base that supports the lower third.\r\n5. [FRONT] Eye Spacing - Ideal geometric IPD relative to bizygomatic width.\r\n6. [SIDE] Maxillary Projection - Appears adequate based on frontal cheek support.\r\n7. [SIDE] Jawline Definition - Maintains a clean line despite soft tissue aging.\r\n8. [SIDE] Nasal Bridge - Appears straight and proportional.\r\n9. [SIDE] Chin Projection - Balanced relative to the lips.\r\n10. [SIDE] Profile Harmony - Coherent transition from brow to chin.\r\n\r\nPRIMARY FLAWS (10):\r\n1. [FRONT] Nasolabial Folds - Deepening folds due to aging and skin laxity.\r\n2. [FRONT] Under-eye Puffiness - Mild fat prolapse/puffiness in the infraorbital area.\r\n3. [FRONT] Lower Third Length - Slightly elongated relative to the upper thirds.\r\n4. [FRONT] Skin Laxity - Mild sagging in the jowl area.\r\n5. [FRONT] Lip Volume - Slightly thin vermilion border.\r\n6. [SIDE] Maxillary Projection - Not maximized; could be more prominent.\r\n7. [SIDE] Chin Projection - Average; lacks elite-tier forward growth.\r\n8. [SIDE] Nasolabial Angle - Standard; not exceptionally refined.\r\n9. [SIDE] Orbital Vector - Moderate; could have more forward support.\r\n10. [SIDE] Gonial Angle - Standard; not aggressively dimorphic.\r\n\r\n### RATINGS (USE THIS)\r\n- Bigonial_Width_Index: 82/100\r\n- IPD_Index (Geometric): 88/100\r\n- Mouth_Width_Index: 78/100\r\n- Nose_Width_Index: 85/100\r\n- Upper_Third_Length: 82/100\r\n- Middle_Third_Length: 95/100\r\n- Lower_Third_Length: 72/100\r\n- Eye_Height_Index: 75/100\r\n- Brow_Compactness_Index: 70/100\r\n- Philtrum_Height_Index: 80/100\r\n- Total_Lip_Height_Index: 74/100\r\n- fWHR (Zygo / Upper_Face): 88/100\r\n- Midface_Ratio (Mid/IPD): 96/100\r\n- Canthal_Tilt_Degrees: 72/100\r\n\r\n### Personalised feedback\r\n1. ADDRESSING SKIN LAXITY\r\nYou have a very strong *bone foundation*, but visible *nasolabial folds* and mild sagging in the lower cheeks are the primary detractors from your score. This is a natural result of aging and loss of collagen.\r\nTo fix this, *skin tightening* treatments or *dermal fillers* in the mid-face/cheek area could lift the tissue and soften the folds, significantly improving your harmony.\r\n\r\n2. INFRAORBITAL REFINEMENT\r\nThere is mild *puffiness* and a lack of extreme compactness in the under-eye area. This creates a slightly \"tired\" look that contrasts with your otherwise strong bone structure.\r\nA *lower blepharoplasty* to remove fat pads or the use of *tear trough fillers* would create a smoother transition from the eye to the cheek, increasing the \"elite\" feel of the eye area.\r\n\r\n3. LOWER THIRD BALANCE\r\nYour *lower third* is slightly longer than the upper and middle thirds. While not a major flaw, it prevents the face from achieving perfect vertical symmetry.\r\nWhile bone length cannot be changed without invasive surgery, *grooming the beard* to create a more squared-off, shorter appearance of the chin can visually compress the lower third.\r\n\r\n4. LIP VOLUME OPTIMIZATION\r\nThe lips are functional and balanced but lack the *fullness* associated with high-tier aesthetic markers.\r\nA very subtle *lip augmentation* (filler) to the upper lip would balance the mouth width and improve the overall \"pretty\" appeal of the lower face.\r\n\r\n5. FACIAL DEFINITION\r\nYou have a good amount of *facial fat* that softens your jawline and cheekbones. While this contributes to a friendly appearance, it hides the underlying bone structure.\r\nA slight *reduction in body fat percentage* would sharpen the jawline and make the cheekbones more prominent, potentially pushing your natural rating into the high 60s.\r\n\r\n### ACTIONABLE PROTOCOLS\r\n1. Lower Blepharoplasty: Remove infraorbital fat pads for a tighter eye area. [High Impact]\r\n2. Mid-face Fillers: Lift nasolabial folds and restore cheek volume. [High Impact]\r\n3. Body Fat Reduction: Lower BF% to 12-15% to sharpen jawline. [High Impact]\r\n4. Retinoids/Tretinoin: Increase collagen production to fight skin laxity. [Medium Impact]\r\n5. Hyaluronic Acid Lip Filler: Subtle increase in upper lip volume. [Medium Impact]\r\n6. Microneedling with PRP: Improve skin texture and elasticity. [Medium Impact]\r\n7. Beard Shaping: Trim chin length to visually shorten the lower third. [Medium Impact]\r\n8. Vitamin C Serum: Brighten skin and reduce under-eye discoloration. [Low Impact]\r\n9. Gua Sha/Lymphatic Drainage: Reduce temporary facial bloating. [Low Impact]\r\n10. Sunscreen (Daily): Prevent further collagen breakdown and aging. [Low Impact]\r\n11. Hydration Optimization: Reduce puffiness through water intake. [Low Impact]\r\n12. Sleep Hygiene: Reduce under-eye bags and systemic inflammation. [Low Impact]\r\n13. Collagen Supplements: Support skin elasticity from within. [Low Impact]\r\n14. Chemical Peels: Refine skin surface and remove dead cells. [Low Impact]\r\n15. Jawline Massage: Maintain muscle tone in the lower face. [Low Impact]\r\n16. Cold Plunging/Face Icing: Reduce morning facial edema. [Low Impact]\r\n17. Omega-3 Supplementation: Improve skin barrier and hydration. [Low Impact]\r\n18. Brow Grooming: Maintain a clean arch to frame the eyes. [Low Impact]\r\n19. Nasal Breathing: Maintain optimal facial posture. [Low Impact]\r\n20. Salt Intake Reduction: Minimize water retention in the cheeks. [Low Impact]\r\n21. Facial Yoga: Tone the muscles of the mid-face. [Low Impact]\r\n22. High-Protein Diet: Support skin and muscle maintenance. [Low Impact]\r\n23. Laser Skin Resurfacing: Remove fine lines and age spots. [Medium Impact]\r\n24. Proper Pillow Ergonomics: Prevent sleep-induced facial creases. [Low Impact]\r\n25. Consistent Skincare Routine: Maintain overall skin health. [Low Impact]\r\n\r\n### MOG_REPORT_REVISION\r\nBigonial_Width_Index: 82\r\nIPD_Index (Geometric): 88\r\nMouth_Width_Index: 78\r\nNose_Width_Index: 85\r\nUpper_Third_Length: 82\r\nMiddle_Third_Length: 95\r\nLower_Third_Length: 72\r\nEye_Height_Index: 75\r\nBrow_Compactness_Index: 70\r\nPhiltrum_Height_Index: 80\r\nTotal_Lip_Height_Index: 74\r\nfWHR (Zygo / Upper_Face): 88\r\nMidface_Ratio (Mid/IPD): 96\r\nCanthal_Tilt_Degrees: 72\r\nMaxillary_Projection: 65\r\nChin_Projection: 65\r\nNasolabial_Angle: 70\r\nOrbital_Vector: 68\r\nGonial_Angle: 65\r\nFacial_Convexity: 70\r\nTotal_Facial_Convexity: 70\r\nMandibular_Plane: 68\r\nNasal_Projection_Shape: 70\r\nLip_Projection: 65\r\nBrow_Ridge: 68\r\nOverall_Profile_Harmony: 65\r\nSkin_Quality: 60\r\nFacial_Fat: 62\r\nEye_Depth: 68\r\nEar_Shape: 75\r\n\r\n**JUSTIFICATION:** The subject has an excellent structural base, particularly the compact midface and balanced fWHR. The score is limited primarily by visible aging markers (nasolabial folds and skin laxity) and a lack of \"elite\" markers in the eye and lip areas. The symmetry is a major strength, but the overall rating reflects a \"decent/above-average\" tier rather than \"elite\" due to these soft-tissue factors.\r\n",
+          "frontImage": "https://api.mogcheck.net/uploads/1776425450457-35188c8a101b1b35.png",
+          "sideImage": "https://api.mogcheck.net/uploads/1776425450475-f61f2c9ed4a256ce.webp",
+          "scanId": "6FU6DPQtIeZVaWBUfsg8",
+          "selectedModel": "1",
+          "scannedAt": "2026-04-17T11:33:51.694Z",
+          "id": "6FU6DPQtIeZVaWBUfsg8",
+          "userId": "yREGOC6qwfWSOWy9WChsXK7F5I63",
+          "updatedAt": "2026-04-17T11:33:53.253Z"
+        }
+      }
+    }
+  }
+}

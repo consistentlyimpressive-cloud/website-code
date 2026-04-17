@@ -37,19 +37,50 @@ def _corner_strength(a, b, c):
 
 def refine_gonion(lms, side="right"):
     candidate_ids = RIGHT_JAW_CANDIDATES if side == "right" else LEFT_JAW_CANDIDATES
-    best_idx = candidate_ids[len(candidate_ids) // 2]
+    raw_idx = 172 if side == "right" else 397
+    chin = lms[152]
+    mouth = (lms[61] + lms[291]) / 2.0
+    jaw_height = max(chin[1] - mouth[1], 1.0)
+    y_min = mouth[1] + jaw_height * 0.28
+    y_max = chin[1] - jaw_height * 0.10
+
+    lateral_ref = lms[234][0] if side == "right" else lms[454][0]
+    raw_point = lms[raw_idx]
+    best_idx = raw_idx
     best_score = -1.0
 
     for i in range(1, len(candidate_ids) - 1):
         prev_idx = candidate_ids[i - 1]
         curr_idx = candidate_ids[i]
         next_idx = candidate_ids[i + 1]
+        curr = lms[curr_idx]
+        if curr[1] < y_min or curr[1] > y_max:
+            continue
+        if side == "right" and curr[0] > lateral_ref + 4:
+            continue
+        if side == "left" and curr[0] < lateral_ref - 4:
+            continue
         score = _corner_strength(lms[prev_idx], lms[curr_idx], lms[next_idx])
+        # Favor candidates near the original landmark so the point stays in the true jaw-angle neighborhood.
+        score -= np.linalg.norm(curr - raw_point) * 0.08
         if score > best_score:
             best_score = score
             best_idx = curr_idx
 
-    return lms[best_idx].copy()
+    candidate = lms[best_idx].copy()
+    # Blend with MediaPipe's original gonion landmark so the refined point doesn't drift into the cheek.
+    blended = (raw_point * 0.72) + (candidate * 0.28)
+    # Small presentation nudge: move gonions slightly upward and slightly farther outward
+    # while keeping them anchored in the jaw-angle region.
+    lateral_push = jaw_height * 0.035
+    upward_push = jaw_height * 0.06
+    if side == "right":
+        blended[0] -= lateral_push
+    else:
+        blended[0] += lateral_push
+    blended[1] -= upward_push
+    blended[1] = float(np.clip(blended[1], y_min, y_max))
+    return blended.astype(np.float32)
 
 
 def refine_hairline(lms, img_bgr):

@@ -10,6 +10,7 @@ const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const { parseAnalysisOutput } = require('./parse-analysis-output');
 const adminStore = require('./admin-store');
+const localUserStore = require('./local-user-store');
 const {
   shouldSkipFirebaseStorage,
   sanitizeFirebaseError,
@@ -1134,7 +1135,22 @@ app.get('/api/user/status', extractUserOptional, async (req, res) => {
 
 app.get('/api/user/plan', extractUserOptional, async (req, res) => {
   if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
-  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+  const userEmail = String(req.userEmail || '').toLowerCase();
+  const isAdminEmail =
+    userEmail.endsWith('@looksmaxxing.com') ||
+    userEmail === 'serenity.eyb@gmail.com' ||
+    userEmail === 'laithbu07@gmail.com' ||
+    userEmail === 'laithabuamsheh@gmail.com';
+  if (!firestore) {
+    return res.json({
+      ok: true,
+      plan: isAdminEmail ? 'pro' : 'free',
+      scanCredits: isAdminEmail ? 999 : 0,
+      subscriptionId: null,
+      subscriptionStatus: null,
+      warning: 'Firestore not available. Using fallback plan state.',
+    });
+  }
 
   try {
     const snap = await firestore.collection('users').doc(req.uid).get();
@@ -1152,7 +1168,14 @@ app.get('/api/user/plan', extractUserOptional, async (req, res) => {
   } catch (e) {
     console.error('[user/plan] Failed to read user plan:', e.message);
     if (isQuotaExceededError(e)) {
-      return res.status(503).json({ error: 'Firestore quota exceeded. Try again when quota resets.' });
+      return res.json({
+        ok: true,
+        plan: isAdminEmail ? 'pro' : 'free',
+        scanCredits: isAdminEmail ? 999 : 0,
+        subscriptionId: null,
+        subscriptionStatus: null,
+        warning: 'Firestore quota exceeded. Using fallback plan state.',
+      });
     }
     return res.status(500).json({ error: e.message || 'Failed to read user plan' });
   }
@@ -1511,6 +1534,7 @@ async function extractUserOptional(req, res, next) {
   try {
     const decoded = await admin.auth().verifyIdToken(token);
     req.uid = decoded.uid;
+    req.userEmail = (decoded.email || '').toLowerCase();
   } catch (e) {
     // ignore invalid token for optional auth
   }
@@ -1906,6 +1930,24 @@ app.post(
     }
   }
 
+  if (success && req.uid) {
+    const localScanId = payload.scanId || `local-scan-${Date.now()}`;
+    payload.scanId = localScanId;
+    localUserStore.upsertScan(req.uid, localScanId, {
+      ...(savedScanBase || {}),
+      ...payload,
+      timestamp: new Date().toISOString(),
+      scannedAt: new Date().toISOString(),
+      frontImageUrl: frontFallbackUrl || payload.frontImage || null,
+      sideImageUrl: sideFallbackUrl || payload.sideImage || null,
+      payload: {
+        ...payload,
+        frontImage: frontFallbackUrl || payload.frontImage || null,
+        sideImage: sideFallbackUrl || payload.sideImage || null,
+      },
+    });
+  }
+
   res.json(payload);
 
       setImmediate(async () => {
@@ -1937,6 +1979,19 @@ app.post(
           console.log(`[analyze] Scan history image URLs finalized: ${savedScanRef.id}`);
         } catch (e) {
           console.error('[analyze] Failed to finalize scan history images:', e.message);
+        }
+
+        if (req.uid && payload.scanId) {
+          localUserStore.upsertScan(req.uid, payload.scanId, {
+            frontImageUrl: frontUpload ? frontUpload.url : (savedScanBase?.frontImageUrl || frontFallbackUrl || null),
+            sideImageUrl: sideUpload ? sideUpload.url : (savedScanBase?.sideImageUrl || sideFallbackUrl || null),
+            payload: {
+              ...payload,
+              frontImage: frontUpload ? frontUpload.url : (savedScanBase?.frontImageUrl || frontFallbackUrl || null),
+              sideImage: sideUpload ? sideUpload.url : (savedScanBase?.sideImageUrl || sideFallbackUrl || null),
+            },
+            updatedAt: new Date().toISOString(),
+          });
         }
       });
     });
@@ -2198,10 +2253,14 @@ app.get('/api/admin/users/:uid/scans', async (req, res) => {
   try {
     const snap = await firestore.collection('users').doc(req.params.uid).collection('scans').orderBy('timestamp', 'desc').get();
     const scans = [];
-    snap.forEach(doc => scans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
+    snap.forEach(doc => {
+      const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
+      scans.push(scan);
+      localUserStore.upsertScan(req.params.uid, doc.id, scan);
+    });
     res.json({ scans });
   } catch (e) {
-    if (isQuotaExceededError(e)) return res.json({ scans: [], warning: 'Firestore quota exceeded.' });
+    if (isQuotaExceededError(e)) return res.json({ scans: localUserStore.listScans(req.params.uid), warning: 'Firestore quota exceeded. Using local fallback.' });
     res.status(500).json({ error: e.message });
   }
 });
@@ -2275,28 +2334,38 @@ const profilesRoutes = require('./profiles-routes.js');
 profilesRoutes(app, firestore, admin, extractUserOptional);
 
 app.get('/api/user/scans', extractUserOptional, async (req, res) => {
-  if (!req.uid || !firestore) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
+  if (!firestore) return res.json({ scans: localUserStore.listScans(req.uid), warning: 'Firestore unavailable. Using local fallback.' });
   try {
     const snap = await firestore.collection('users').doc(req.uid).collection('scans').orderBy('timestamp', 'desc').get();
     const scans = [];
-    snap.forEach(doc => scans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
+    snap.forEach(doc => {
+      const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
+      scans.push(scan);
+      localUserStore.upsertScan(req.uid, doc.id, scan);
+    });
     res.json({ scans });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error('[user/scans] GET failed:', e.message || e);
+    res.json({ scans: localUserStore.listScans(req.uid), warning: 'Firestore failed. Using local fallback.' });
   }
 });
 
 app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
-  if (!req.uid || !firestore) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
   const { scanId } = req.params;
   try {
-    const docRef = firestore.collection('users').doc(req.uid).collection('scans').doc(scanId);
-    const doc = await docRef.get();
-    if (!doc.exists) return res.status(404).json({ error: 'Scan not found' });
+    let currentData = localUserStore.getScan(req.uid, scanId) || {};
+    let docRef = null;
+    if (firestore) {
+      docRef = firestore.collection('users').doc(req.uid).collection('scans').doc(scanId);
+      const doc = await docRef.get();
+      if (doc.exists) currentData = doc.data() || currentData;
+    }
+    if (!currentData || !Object.keys(currentData).length) return res.status(404).json({ error: 'Scan not found' });
 
-    const currentData = doc.data() || {};
     const updateData = {
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: new Date().toISOString(),
     };
 
     if (Object.prototype.hasOwnProperty.call(req.body || {}, 'visibility')) {
@@ -2307,8 +2376,14 @@ app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
       return res.json({ ok: true, scan: normalizeStoredScanUrls({ id: doc.id, ...currentData }) });
     }
 
-    await docRef.set(updateData, { merge: true });
+    if (docRef) {
+      await docRef.set({
+        ...updateData,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
     const nextData = { ...currentData, ...updateData };
+    localUserStore.upsertScan(req.uid, scanId, nextData);
 
     if (Object.prototype.hasOwnProperty.call(updateData, 'visibility')) {
       await syncCommunityScanVisibility(req.uid, scanId, nextData, updateData.visibility);
@@ -2322,29 +2397,42 @@ app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
     });
   } catch (e) {
     console.error('[user/scans] PUT failed:', e);
+    const localScan = localUserStore.getScan(req.uid, scanId);
+    if (localScan) {
+      const fallbackUpdate = {};
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, 'visibility')) {
+        fallbackUpdate.visibility = normalizeScanVisibility(req.body.visibility);
+      }
+      localUserStore.upsertScan(req.uid, scanId, fallbackUpdate);
+      return res.json({ ok: true, scan: normalizeStoredScanUrls({ ...localScan, ...fallbackUpdate }), localFallback: true });
+    }
     res.status(500).json({ error: e.message });
   }
 });
 
 app.delete('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
-  if (!req.uid || !firestore) return res.status(401).json({ error: 'Unauthorized' });
+  if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
   const { scanId } = req.params;
   try {
-    const docRef = firestore.collection('users').doc(req.uid).collection('scans').doc(scanId);
-    const doc = await docRef.get();
-    if (doc.exists) {
-      const d = doc.data();
-      if (!shouldSkipFirebaseStorage()) {
-        const bucket = admin.storage().bucket();
-        if (d.frontImageDest) await bucket.file(d.frontImageDest).delete().catch(() => {});
-        if (d.sideImageDest) await bucket.file(d.sideImageDest).delete().catch(() => {});
+    if (firestore) {
+      const docRef = firestore.collection('users').doc(req.uid).collection('scans').doc(scanId);
+      const doc = await docRef.get();
+      if (doc.exists) {
+        const d = doc.data();
+        if (!shouldSkipFirebaseStorage()) {
+          const bucket = admin.storage().bucket();
+          if (d.frontImageDest) await bucket.file(d.frontImageDest).delete().catch(() => {});
+          if (d.sideImageDest) await bucket.file(d.sideImageDest).delete().catch(() => {});
+        }
+        await syncCommunityScanVisibility(req.uid, scanId, d, 'private');
+        await docRef.delete();
       }
-      await syncCommunityScanVisibility(req.uid, scanId, d, 'private');
-      await docRef.delete();
     }
+    localUserStore.deleteScan(req.uid, scanId);
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    localUserStore.deleteScan(req.uid, scanId);
+    res.json({ ok: true, localFallback: true });
   }
 });
 

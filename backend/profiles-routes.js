@@ -1,4 +1,5 @@
 const { sanitizeFirebaseError, shouldSkipFirebaseStorage } = require('./firebase-errors');
+const localUserStore = require('./local-user-store');
 
 function isPublicScanVisibility(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -38,91 +39,114 @@ module.exports = function(app, firestore, admin, extractUserOptional) {
   app.get('/api/user/profiles', extractUserOptional, async (req, res) => {
     if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
     if (!firestore) {
-      return res.json({ profiles: [], profilesUnavailable: true, reason: 'firestore_not_configured' });
+      return res.json({ profiles: localUserStore.listProfiles(req.uid), profilesUnavailable: false, reason: 'local_fallback' });
     }
     try {
       const snap = await firestore.collection('users').doc(req.uid).collection('profiles').orderBy('createdAt', 'desc').get();
       const profiles = [];
-      snap.forEach(doc => profiles.push({ id: doc.id, ...doc.data() }));
+      snap.forEach(doc => {
+        const profile = { id: doc.id, ...doc.data() };
+        profiles.push(profile);
+        localUserStore.upsertProfile(req.uid, doc.id, profile);
+      });
       res.json({ profiles });
     } catch (e) {
-      const { status, error } = sanitizeFirebaseError(e);
       console.error('[profiles] GET failed:', e.message || e);
-      res.status(status).json({ error });
+      res.json({
+        profiles: localUserStore.listProfiles(req.uid),
+        profilesUnavailable: false,
+        reason: 'local_fallback_after_firestore_error',
+        warning: e.message || 'Firestore failed',
+      });
     }
   });
 
   app.post('/api/user/profiles', extractUserOptional, async (req, res) => {
     if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
-    if (!firestore) {
-      return res.status(503).json({
-        error: 'Profiles need Firestore on the API. Set FIREBASE_SERVICE_ACCOUNT_JSON (or run the Firestore emulator) and restart the backend.',
-      });
-    }
     try {
       const { name, visibility } = req.body;
-      const docRef = await firestore.collection('users').doc(req.uid).collection('profiles').add({
+      const localId = `local-profile-${Date.now()}`;
+      let responseId = localId;
+      if (firestore) {
+        const docRef = await firestore.collection('users').doc(req.uid).collection('profiles').add({
+          name: name || 'New Profile',
+          visibility: visibility || 'private',
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        responseId = docRef.id;
+      }
+      localUserStore.upsertProfile(req.uid, responseId, {
         name: name || 'New Profile',
         visibility: visibility || 'private',
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
-      res.json({ id: docRef.id, name, visibility });
+      res.json({ id: responseId, name, visibility });
     } catch (e) {
-      const { status, error } = sanitizeFirebaseError(e);
       console.error('[profiles] POST failed:', e.message || e);
-      res.status(status).json({ error });
+      const fallbackId = `local-profile-${Date.now()}`;
+      localUserStore.upsertProfile(req.uid, fallbackId, {
+        name: req.body?.name || 'New Profile',
+        visibility: req.body?.visibility || 'private',
+      });
+      res.json({ id: fallbackId, name: req.body?.name || 'New Profile', visibility: req.body?.visibility || 'private', localFallback: true });
     }
   });
 
   app.put('/api/user/profiles/:profileId', extractUserOptional, async (req, res) => {
     if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
-    if (!firestore) {
-      return res.status(503).json({
-        error: 'Profiles need Firestore credentials. Set FIREBASE_SERVICE_ACCOUNT_JSON in backend/.env or use the Firestore emulator.',
-      });
-    }
     const { profileId } = req.params;
     try {
       const { name, visibility } = req.body;
-      const updateData = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+      const updateData = { updatedAt: new Date().toISOString() };
       if (name) updateData.name = name;
       if (visibility) updateData.visibility = visibility;
-      
-      await firestore.collection('users').doc(req.uid).collection('profiles').doc(profileId).update(updateData);
+
+      if (firestore) {
+        await firestore.collection('users').doc(req.uid).collection('profiles').doc(profileId).update({
+          ...updateData,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+      localUserStore.upsertProfile(req.uid, profileId, updateData);
       res.json({ ok: true });
     } catch (e) {
-      const { status, error } = sanitizeFirebaseError(e);
       console.error('[profiles] PUT failed:', e.message || e);
-      res.status(status).json({ error });
+      localUserStore.upsertProfile(req.uid, profileId, {
+        name: req.body?.name,
+        visibility: req.body?.visibility,
+        updatedAt: new Date().toISOString(),
+      });
+      res.json({ ok: true, localFallback: true });
     }
   });
 
   app.delete('/api/user/profiles/:profileId', extractUserOptional, async (req, res) => {
     if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
-    if (!firestore) {
-      return res.status(503).json({ error: 'Firestore not available on this server.' });
-    }
     const { profileId } = req.params;
     try {
-      await firestore.collection('users').doc(req.uid).collection('profiles').doc(profileId).delete();
-      
-      const scansSnap = await firestore.collection('users').doc(req.uid).collection('scans').where('profileId', '==', profileId).get();
-      
-      for (const doc of scansSnap.docs) {
-        const d = doc.data();
-        if (!shouldSkipFirebaseStorage()) {
-          const bucket = admin.storage().bucket();
-          if (d.frontImageDest) await bucket.file(d.frontImageDest).delete().catch(() => {});
-          if (d.sideImageDest) await bucket.file(d.sideImageDest).delete().catch(() => {});
+      if (firestore) {
+        await firestore.collection('users').doc(req.uid).collection('profiles').doc(profileId).delete();
+
+        const scansSnap = await firestore.collection('users').doc(req.uid).collection('scans').where('profileId', '==', profileId).get();
+
+        for (const doc of scansSnap.docs) {
+          const d = doc.data();
+          if (!shouldSkipFirebaseStorage()) {
+            const bucket = admin.storage().bucket();
+            if (d.frontImageDest) await bucket.file(d.frontImageDest).delete().catch(() => {});
+            if (d.sideImageDest) await bucket.file(d.sideImageDest).delete().catch(() => {});
+          }
+          await doc.ref.delete(); // Delete scan
         }
-        await doc.ref.delete(); // Delete scan
       }
+      localUserStore.deleteProfile(req.uid, profileId);
       res.json({ ok: true });
     } catch (e) {
-      const { status, error } = sanitizeFirebaseError(e);
       console.error('[profiles] DELETE failed:', e.message || e);
-      res.status(status).json({ error });
+      localUserStore.deleteProfile(req.uid, profileId);
+      res.json({ ok: true, localFallback: true });
     }
   });
 
