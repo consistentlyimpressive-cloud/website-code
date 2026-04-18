@@ -22,7 +22,7 @@ Assumes this repo is **already on GitHub** and you **already have a domain**. Ed
    - **`PUBLIC_BACKEND_URL=https://api.<your-domain>`**
    - **`CORS_ORIGINS=https://www.<your-domain>,https://<your-domain>`**
    - **`FIREBASE_SERVICE_ACCOUNT_JSON`** (full service account JSON)
-   - **`NODE_ENV=production`**, **`ADMIN_PASSWORD`**, **`LEMONSQUEEZY_WEBHOOK_SECRET`** when applicable
+  - **`NODE_ENV=production`**, **`ADMIN_PASSWORD`**, **`PADDLE_WEBHOOK_SECRET`** when applicable
 3. Attach custom hostname **`api.<your-domain>`** and add the **CNAME** they give you at your DNS provider.
 
 ## 3. DNS
@@ -42,4 +42,4 @@ Connected hosts redeploy on push (if you enabled that).
 ## More detail
 
 - Full checklist: **[DEPLOYMENT.md](../DEPLOYMENT.md)**  
-- Lemon Squeezy webhook (when approved): `https://api.<your-domain>/api/webhooks/lemonsqueezy`
+- Paddle webhook: `https://api.<your-domain>/api/webhooks/paddle`

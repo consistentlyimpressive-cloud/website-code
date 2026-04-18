@@ -206,6 +206,49 @@ const unlockLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const PADDLE_PRICE_SINGLE_SCAN =
+  process.env.PADDLE_PRICE_SINGLE_SCAN || 'pri_01kph4qjjrtbdbnswrvdt16jkn';
+const PADDLE_PRICE_PRO = process.env.PADDLE_PRICE_PRO || 'pri_01kph4pr6xpxhq7c4jfztdmr44';
+
+function parsePaddleSignature(signatureHeader = '') {
+  return String(signatureHeader)
+    .split(';')
+    .map((part) => part.trim())
+    .reduce((acc, part) => {
+      const [key, value] = part.split('=');
+      if (!key || !value) return acc;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(value);
+      return acc;
+    }, {});
+}
+
+function hasMatchingPaddleSignature(rawBodyBuffer, signatureHeader, secret) {
+  const parsed = parsePaddleSignature(signatureHeader);
+  const timestamp = parsed.ts?.[0];
+  const signatures = parsed.h1 || [];
+  if (!timestamp || !signatures.length) return false;
+
+  const signedPayload = `${timestamp}:${rawBodyBuffer.toString()}`;
+  const expected = crypto.createHmac('sha256', secret).update(signedPayload).digest('hex');
+
+  return signatures.some((candidate) => {
+    try {
+      return crypto.timingSafeEqual(Buffer.from(candidate, 'utf8'), Buffer.from(expected, 'utf8'));
+    } catch {
+      return false;
+    }
+  });
+}
+
+function extractPaddlePriceIds(data = {}) {
+  return Array.isArray(data.items)
+    ? data.items
+        .map((item) => item?.price?.id || item?.price_id || null)
+        .filter(Boolean)
+    : [];
+}
+
 app.post(
   '/api/webhooks/lemonsqueezy',
   express.raw({ type: 'application/json' }),
@@ -297,6 +340,115 @@ app.post(
       }
     } catch (err) {
       console.error('[webhook] Firestore write failed:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    res.sendStatus(200);
+  }
+);
+
+app.post(
+  '/api/webhooks/paddle',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    const secret = process.env.PADDLE_WEBHOOK_SECRET;
+    const signature = req.headers['paddle-signature'] || '';
+    const rawBody = req.body;
+
+    if (!secret) {
+      console.error('[webhook] PADDLE_WEBHOOK_SECRET not set');
+      return res.status(500).json({ error: 'Webhook not configured' });
+    }
+
+    if (!hasMatchingPaddleSignature(rawBody, signature, secret)) {
+      console.error('[webhook] Invalid Paddle signature');
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    let event;
+    try {
+      event = JSON.parse(rawBody.toString());
+    } catch (e) {
+      return res.status(400).json({ error: 'Invalid JSON' });
+    }
+
+    const eventName = event.event_type;
+    const data = event.data || {};
+    const userId = data.custom_data?.user_id;
+    const priceIds = extractPaddlePriceIds(data);
+
+    console.log(`[webhook:paddle] Event: ${eventName} | User: ${userId} | Prices: ${priceIds.join(', ')}`);
+
+    if (!userId) {
+      console.warn('[webhook:paddle] No user_id in custom data - cannot update plan');
+      return res.sendStatus(200);
+    }
+
+    const userRef = firestore.collection('users').doc(userId);
+
+    try {
+      if (eventName === 'transaction.completed') {
+        if (priceIds.includes(PADDLE_PRICE_SINGLE_SCAN)) {
+          await userRef.set(
+            {
+              plan: 'single_scan',
+              scanCredits: admin.firestore.FieldValue.increment(1),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+          console.log(`[webhook:paddle] User ${userId} -> single_scan (+1 credit)`);
+        }
+
+        if (priceIds.includes(PADDLE_PRICE_PRO) || data.subscription_id) {
+          await userRef.set(
+            {
+              plan: 'pro',
+              scanCredits: 999,
+              subscriptionId: String(data.subscription_id || ''),
+              subscriptionStatus: 'active',
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          );
+          console.log(`[webhook:paddle] User ${userId} -> pro (transaction completed)`);
+        }
+      }
+
+      if (
+        ['subscription.created', 'subscription.activated', 'subscription.updated', 'subscription.resumed', 'subscription.trialing'].includes(eventName)
+      ) {
+        const status = String(data.status || 'active').toLowerCase();
+        await userRef.set(
+          {
+            plan: 'pro',
+            scanCredits: 999,
+            subscriptionId: String(data.id || ''),
+            subscriptionStatus: status || 'active',
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+        console.log(`[webhook:paddle] User ${userId} -> pro (${status || eventName})`);
+      }
+
+      if (
+        ['subscription.canceled', 'subscription.paused', 'subscription.past_due', 'subscription.expired'].includes(eventName)
+      ) {
+        const status = String(data.status || eventName.replace('subscription.', '')).toLowerCase();
+        await userRef.set(
+          {
+            plan: 'free',
+            scanCredits: 0,
+            subscriptionStatus: status,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+        console.log(`[webhook:paddle] User ${userId} -> free (${status})`);
+      }
+    } catch (err) {
+      console.error('[webhook:paddle] Firestore write failed:', err);
       return res.status(500).json({ error: 'Database error' });
     }
 
@@ -2038,11 +2190,13 @@ app.post(
             sideImageUrl: persistedSideImage || null,
             frontImageDest: frontUpload ? frontUpload.dest : null,
             sideImageDest: sideUpload ? sideUpload.dest : null,
+            scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             payload: {
               ...payload,
               frontImage: persistedFrontImage || payload.frontImage || null,
               sideImage: persistedSideImage || payload.sideImage || null,
+              scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
               selectedModel: String(modelChoice || payload.selectedModel || '').trim() || '1',
               cohesiveFrontSide: false,
             },
