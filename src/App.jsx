@@ -5541,7 +5541,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
       return;
     }
     if (!openPaddleCheckout(plan, user)) {
-      setPlanNotice('Paddle checkout is not configured yet. Add the Paddle script and env vars, then try again.');
+      setPlanNotice('Paddle checkout is not configured yet. Please refresh and try again in a moment.');
     }
   };
 
