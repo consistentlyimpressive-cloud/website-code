@@ -264,28 +264,6 @@
     "sourceImage": "Scan9/Gemini_Generated_Image_5lwbe15lwbe15lwb.png"
   },
   {
-    "id": "exaggerated_but_coherent_scan_5_front_jpg",
-    "target": 76,
-    "metrics": {
-      "Bigonial": 0.982,
-      "IPD": 0.514,
-      "Mouth": 0.422,
-      "Nose": 0.272,
-      "Upper": 0.332,
-      "Middle": 0.499,
-      "Lower": 0.49,
-      "Eye": 0.076,
-      "Brow": 0.137,
-      "Philtrum": 0.097,
-      "Lip": 0.216,
-      "fWHR": 1.679,
-      "Midface": 0.893,
-      "Canthal": 6.21
-    },
-    "sourceFolder": "Exatraggted But not uncanny",
-    "sourceImage": "Scan 5/Front.jpg"
-  },
-  {
     "id": "exaggerated_but_coherent_scan_6_front_jpg",
     "target": 76,
     "metrics": {
@@ -616,8 +594,8 @@
     "sourceImage": "Scan8/Front.png.png"
   },
   {
-    "id": "tier_5s_charlie_kirk_dead_png",
-    "target": 55,
+    "id": "tier_4s_scan9_charlie_kirk_dead_png",
+    "target": 45,
     "metrics": {
       "Bigonial": 0.974,
       "IPD": 0.405,
@@ -634,8 +612,30 @@
       "Midface": 0.974,
       "Canthal": 1.83
     },
+    "sourceFolder": "The 4s",
+    "sourceImage": "Scan9/charlie-kirk-dead.png"
+  },
+  {
+    "id": "tier_5s_3c602db24ff5bbeb67be9d3d460891ec_jpg",
+    "target": 55,
+    "metrics": {
+      "Bigonial": 0.979,
+      "IPD": 0.483,
+      "Mouth": 0.314,
+      "Nose": 0.22,
+      "Upper": 0.36,
+      "Middle": 0.446,
+      "Lower": 0.469,
+      "Eye": 0.063,
+      "Brow": 0.151,
+      "Philtrum": 0.081,
+      "Lip": 0.157,
+      "fWHR": 1.899,
+      "Midface": 0.775,
+      "Canthal": 2.7
+    },
     "sourceFolder": "The 5s",
-    "sourceImage": "charlie-kirk-dead.png"
+    "sourceImage": "3c602db24ff5bbeb67be9d3d460891ec.jpg"
   },
   {
     "id": "tier_5s_daniel_radcliffe_webp",
@@ -658,6 +658,28 @@
     },
     "sourceFolder": "The 5s",
     "sourceImage": "Daniel_Radcliffe.webp"
+  },
+  {
+    "id": "tier_5s_front_jpg",
+    "target": 55,
+    "metrics": {
+      "Bigonial": 0.982,
+      "IPD": 0.514,
+      "Mouth": 0.422,
+      "Nose": 0.272,
+      "Upper": 0.332,
+      "Middle": 0.499,
+      "Lower": 0.49,
+      "Eye": 0.076,
+      "Brow": 0.137,
+      "Philtrum": 0.097,
+      "Lip": 0.216,
+      "fWHR": 1.679,
+      "Midface": 0.893,
+      "Canthal": 6.21
+    },
+    "sourceFolder": "The 5s",
+    "sourceImage": "Front.jpg"
   },
   {
     "id": "tier_5s_img_5388_jpg",
@@ -748,6 +770,28 @@
     "sourceImage": "will-smith-032824-015d1367ff764df09ccdfe4cca12d3ad.png"
   },
   {
+    "id": "tier_6s_32a86552e6da1b52c2a3f174a6e763e8_png",
+    "target": 65,
+    "metrics": {
+      "Bigonial": 0.991,
+      "IPD": 0.454,
+      "Mouth": 0.401,
+      "Nose": 0.245,
+      "Upper": 0.532,
+      "Middle": 0.481,
+      "Lower": 0.512,
+      "Eye": 0.054,
+      "Brow": 0.108,
+      "Philtrum": 0.116,
+      "Lip": 0.127,
+      "fWHR": 1.676,
+      "Midface": 1.071,
+      "Canthal": 4.75
+    },
+    "sourceFolder": "The 6s",
+    "sourceImage": "32a86552e6da1b52c2a3f174a6e763e8.png"
+  },
+  {
     "id": "tier_6s_aoi_d_8qgn5miwjbilwlasrg1csuvdbr0lnofa8elsjx6eftm4c_txlxhl7yavfdis3yx1aljuevmrspwguy_fn4qw25s2omegjjvpx9kwvrvwe2fdcohfri8ldoj91bb2dc3gn8peqhbbkhzavvhd8umosowrou7rs3qoptu6d5bepdtke2jqs1600_rj_png",
     "target": 65,
     "metrics": {
@@ -790,28 +834,6 @@
     },
     "sourceFolder": "The 6s",
     "sourceImage": "AOI_d__2r1jb4xlh0i4ZNQRD8uvQI7sESF4TXsT5Pxy517zQZD3dEYqWAHEqDaatcCZIzwr0hlHbnLkzxinzhAOzb8j7c8Kup26wUZGFoVd9wtaC658H319XQqo4dOrSUubSTj8uUfoU3swCqmt9BEs6VVBQHcr9Den23zdYN4kbRhcxIx1xLws1024-rj.png"
-  },
-  {
-    "id": "tier_6s_dsafsdfdsfsd_png",
-    "target": 65,
-    "metrics": {
-      "Bigonial": 0.972,
-      "IPD": 0.438,
-      "Mouth": 0.373,
-      "Nose": 0.242,
-      "Upper": 0.277,
-      "Middle": 0.478,
-      "Lower": 0.492,
-      "Eye": 0.055,
-      "Brow": 0.153,
-      "Philtrum": 0.084,
-      "Lip": 0.171,
-      "fWHR": 1.779,
-      "Midface": 0.936,
-      "Canthal": 2.75
-    },
-    "sourceFolder": "The 6s",
-    "sourceImage": "dsafsdfdsfsd.png"
   },
   {
     "id": "tier_6s_e78697d6b5b549af3fde5bf5f6b03781_jpg",
@@ -946,6 +968,28 @@
     "sourceImage": "00f58c8042ca49eba50f4d2081c42642.jpg"
   },
   {
+    "id": "tier_7s_2480c810b30fdc775a8e33adbce748ec_jpg",
+    "target": 75,
+    "metrics": {
+      "Bigonial": 0.983,
+      "IPD": 0.454,
+      "Mouth": 0.376,
+      "Nose": 0.229,
+      "Upper": 0.386,
+      "Middle": 0.44,
+      "Lower": 0.498,
+      "Eye": 0.059,
+      "Brow": 0.109,
+      "Philtrum": 0.115,
+      "Lip": 0.133,
+      "fWHR": 1.801,
+      "Midface": 0.972,
+      "Canthal": 4.57
+    },
+    "sourceFolder": "7s",
+    "sourceImage": "2480c810b30fdc775a8e33adbce748ec.jpg"
+  },
+  {
     "id": "tier_7s_27a13a9bf74916be71b0300850cc0e85_jpg",
     "target": 75,
     "metrics": {
@@ -1012,6 +1056,28 @@
     "sourceImage": "3ec257a12a6e4529d3fe34f763455003.jpg"
   },
   {
+    "id": "tier_7s_5e1b7e6a633e539b2babdd79d1a3bac1_png",
+    "target": 75,
+    "metrics": {
+      "Bigonial": 0.992,
+      "IPD": 0.467,
+      "Mouth": 0.37,
+      "Nose": 0.23,
+      "Upper": 0.484,
+      "Middle": 0.475,
+      "Lower": 0.498,
+      "Eye": 0.072,
+      "Brow": 0.13,
+      "Philtrum": 0.121,
+      "Lip": 0.136,
+      "fWHR": 1.679,
+      "Midface": 0.994,
+      "Canthal": 3.12
+    },
+    "sourceFolder": "7s",
+    "sourceImage": "5e1b7e6a633e539b2babdd79d1a3bac1.png"
+  },
+  {
     "id": "tier_7s_67a5767a77e969c0efdc1bb3d42dd283_jpg",
     "target": 75,
     "metrics": {
@@ -1032,6 +1098,28 @@
     },
     "sourceFolder": "7s",
     "sourceImage": "67a5767a77e969c0efdc1bb3d42dd283.jpg"
+  },
+  {
+    "id": "tier_7s_755cb760ec0237b0920e0316952f3280_jpg",
+    "target": 75,
+    "metrics": {
+      "Bigonial": 0.975,
+      "IPD": 0.444,
+      "Mouth": 0.348,
+      "Nose": 0.214,
+      "Upper": 0.473,
+      "Middle": 0.435,
+      "Lower": 0.443,
+      "Eye": 0.055,
+      "Brow": 0.073,
+      "Philtrum": 0.095,
+      "Lip": 0.103,
+      "fWHR": 1.886,
+      "Midface": 1.017,
+      "Canthal": 4.09
+    },
+    "sourceFolder": "7s",
+    "sourceImage": "755cb760ec0237b0920e0316952f3280.jpg"
   },
   {
     "id": "tier_7s_877bf5cf8fdd0ed680cc5a9b069044b1_jpg",
@@ -1100,6 +1188,50 @@
     "sourceImage": "acf924f1930638b08fd1304ccaa1fd45.jpg"
   },
   {
+    "id": "tier_7s_asdasdasdasdasda_png",
+    "target": 75,
+    "metrics": {
+      "Bigonial": 0.994,
+      "IPD": 0.462,
+      "Mouth": 0.334,
+      "Nose": 0.229,
+      "Upper": 0.364,
+      "Middle": 0.447,
+      "Lower": 0.497,
+      "Eye": 0.051,
+      "Brow": 0.074,
+      "Philtrum": 0.117,
+      "Lip": 0.099,
+      "fWHR": 1.772,
+      "Midface": 1.06,
+      "Canthal": 3.67
+    },
+    "sourceFolder": "7s",
+    "sourceImage": "asdasdasdasdasda.png"
+  },
+  {
+    "id": "tier_7s_dsafsdfdsfsd_png",
+    "target": 75,
+    "metrics": {
+      "Bigonial": 0.972,
+      "IPD": 0.438,
+      "Mouth": 0.373,
+      "Nose": 0.242,
+      "Upper": 0.277,
+      "Middle": 0.478,
+      "Lower": 0.492,
+      "Eye": 0.055,
+      "Brow": 0.153,
+      "Philtrum": 0.084,
+      "Lip": 0.171,
+      "fWHR": 1.779,
+      "Midface": 0.936,
+      "Canthal": 2.75
+    },
+    "sourceFolder": "7s",
+    "sourceImage": "dsafsdfdsfsd.png"
+  },
+  {
     "id": "tier_7s_f674c8ec58ea46591df6caf99c9a5d2c_jpg",
     "target": 75,
     "metrics": {
@@ -1122,26 +1254,70 @@
     "sourceImage": "f674c8ec58ea46591df6caf99c9a5d2c.jpg"
   },
   {
-    "id": "tier_7s_marlon_jpg",
+    "id": "tier_7s_gettyimages_89847766_webp",
     "target": 75,
     "metrics": {
-      "Bigonial": 0.968,
-      "IPD": 0.499,
-      "Mouth": 0.387,
-      "Nose": 0.245,
-      "Upper": 0.488,
-      "Middle": 0.454,
-      "Lower": 0.525,
-      "Eye": 0.056,
-      "Brow": 0.113,
-      "Philtrum": 0.119,
-      "Lip": 0.188,
-      "fWHR": 1.746,
-      "Midface": 0.916,
-      "Canthal": 1.9
+      "Bigonial": 0.979,
+      "IPD": 0.445,
+      "Mouth": 0.356,
+      "Nose": 0.219,
+      "Upper": 0.419,
+      "Middle": 0.444,
+      "Lower": 0.449,
+      "Eye": 0.054,
+      "Brow": 0.103,
+      "Philtrum": 0.095,
+      "Lip": 0.105,
+      "fWHR": 1.857,
+      "Midface": 0.975,
+      "Canthal": 4.92
     },
     "sourceFolder": "7s",
-    "sourceImage": "MArlon.jpg"
+    "sourceImage": "GettyImages-89847766.webp"
+  },
+  {
+    "id": "tier_7s_hemsworth_chris_image_webp",
+    "target": 75,
+    "metrics": {
+      "Bigonial": 0.989,
+      "IPD": 0.439,
+      "Mouth": 0.371,
+      "Nose": 0.226,
+      "Upper": 0.347,
+      "Middle": 0.432,
+      "Lower": 0.475,
+      "Eye": 0.049,
+      "Brow": 0.076,
+      "Philtrum": 0.118,
+      "Lip": 0.089,
+      "fWHR": 1.819,
+      "Midface": 1.077,
+      "Canthal": 5.38
+    },
+    "sourceFolder": "7s",
+    "sourceImage": "hemsworth-chris-image.webp"
+  },
+  {
+    "id": "tier_7s_robert_pattinson_arrives_at_the_go_campaigns_13th_annual_go_news_photo_1580914614_png",
+    "target": 75,
+    "metrics": {
+      "Bigonial": 0.983,
+      "IPD": 0.452,
+      "Mouth": 0.369,
+      "Nose": 0.218,
+      "Upper": 0.485,
+      "Middle": 0.428,
+      "Lower": 0.476,
+      "Eye": 0.054,
+      "Brow": 0.096,
+      "Philtrum": 0.101,
+      "Lip": 0.077,
+      "fWHR": 1.891,
+      "Midface": 0.962,
+      "Canthal": 3.36
+    },
+    "sourceFolder": "7s",
+    "sourceImage": "robert-pattinson-arrives-at-the-go-campaigns-13th-annual-go-news-photo-1580914614.png"
   },
   {
     "id": "tier_7s_screenshot_2026_04_13_001406_png",
@@ -1164,5 +1340,291 @@
     },
     "sourceFolder": "7s",
     "sourceImage": "Screenshot 2026-04-13 001406.png"
+  },
+  {
+    "id": "tier_8s_0ad25c92f39cc6432a5eba81beff6921_jpg",
+    "target": 85,
+    "metrics": {
+      "Bigonial": 0.988,
+      "IPD": 0.445,
+      "Mouth": 0.369,
+      "Nose": 0.232,
+      "Upper": 0.485,
+      "Middle": 0.444,
+      "Lower": 0.486,
+      "Eye": 0.053,
+      "Brow": 0.087,
+      "Philtrum": 0.116,
+      "Lip": 0.108,
+      "fWHR": 1.787,
+      "Midface": 1.056,
+      "Canthal": 4.11
+    },
+    "sourceFolder": "The 8s",
+    "sourceImage": "0ad25c92f39cc6432a5eba81beff6921.jpg"
+  },
+  {
+    "id": "tier_8s_3264576567567_png",
+    "target": 85,
+    "metrics": {
+      "Bigonial": 0.963,
+      "IPD": 0.438,
+      "Mouth": 0.315,
+      "Nose": 0.201,
+      "Upper": 0.373,
+      "Middle": 0.462,
+      "Lower": 0.466,
+      "Eye": 0.054,
+      "Brow": 0.127,
+      "Philtrum": 0.105,
+      "Lip": 0.135,
+      "fWHR": 1.762,
+      "Midface": 1.001,
+      "Canthal": 4.43
+    },
+    "sourceFolder": "The 8s",
+    "sourceImage": "3264576567567.png"
+  },
+  {
+    "id": "tier_8s_488ad12b567f9a39130697db67735904_jpg",
+    "target": 85,
+    "metrics": {
+      "Bigonial": 0.982,
+      "IPD": 0.442,
+      "Mouth": 0.364,
+      "Nose": 0.228,
+      "Upper": 0.583,
+      "Middle": 0.467,
+      "Lower": 0.466,
+      "Eye": 0.061,
+      "Brow": 0.113,
+      "Philtrum": 0.102,
+      "Lip": 0.117,
+      "fWHR": 1.757,
+      "Midface": 1.044,
+      "Canthal": 5.57
+    },
+    "sourceFolder": "The 8s",
+    "sourceImage": "488ad12b567f9a39130697db67735904.jpg"
+  },
+  {
+    "id": "tier_8s_aea804bcfdd53117b989c74ca1e70646_png",
+    "target": 85,
+    "metrics": {
+      "Bigonial": 0.989,
+      "IPD": 0.486,
+      "Mouth": 0.408,
+      "Nose": 0.273,
+      "Upper": 0.39,
+      "Middle": 0.456,
+      "Lower": 0.455,
+      "Eye": 0.058,
+      "Brow": 0.095,
+      "Philtrum": 0.085,
+      "Lip": 0.205,
+      "fWHR": 1.851,
+      "Midface": 0.917,
+      "Canthal": 5.91
+    },
+    "sourceFolder": "The 8s",
+    "sourceImage": "aea804bcfdd53117b989c74ca1e70646.png"
+  },
+  {
+    "id": "tier_8s_brad_pitt_news_photo_121990725_1553098403_png",
+    "target": 85,
+    "metrics": {
+      "Bigonial": 0.986,
+      "IPD": 0.452,
+      "Mouth": 0.386,
+      "Nose": 0.228,
+      "Upper": 0.554,
+      "Middle": 0.454,
+      "Lower": 0.494,
+      "Eye": 0.056,
+      "Brow": 0.114,
+      "Philtrum": 0.114,
+      "Lip": 0.131,
+      "fWHR": 1.761,
+      "Midface": 1.004,
+      "Canthal": 5.54
+    },
+    "sourceFolder": "The 8s",
+    "sourceImage": "brad-pitt-news-photo-121990725-1553098403.png"
+  },
+  {
+    "id": "tier_8s_cavill_tasche_1_jpg",
+    "target": 85,
+    "metrics": {
+      "Bigonial": 1.0,
+      "IPD": 0.452,
+      "Mouth": 0.361,
+      "Nose": 0.234,
+      "Upper": 0.462,
+      "Middle": 0.415,
+      "Lower": 0.489,
+      "Eye": 0.061,
+      "Brow": 0.101,
+      "Philtrum": 0.126,
+      "Lip": 0.082,
+      "fWHR": 1.849,
+      "Midface": 0.982,
+      "Canthal": 2.68
+    },
+    "sourceFolder": "The 8s",
+    "sourceImage": "cavill-tasche-1.jpg"
+  },
+  {
+    "id": "tier_8s_chico_lachowski_damn_this_dude_is_handsome_personified_def_v0_jxho9uw7rx0d1_png",
+    "target": 85,
+    "metrics": {
+      "Bigonial": 0.981,
+      "IPD": 0.473,
+      "Mouth": 0.362,
+      "Nose": 0.229,
+      "Upper": 0.501,
+      "Middle": 0.494,
+      "Lower": 0.485,
+      "Eye": 0.057,
+      "Brow": 0.114,
+      "Philtrum": 0.114,
+      "Lip": 0.135,
+      "fWHR": 1.645,
+      "Midface": 1.034,
+      "Canthal": 4.88
+    },
+    "sourceFolder": "The 8s",
+    "sourceImage": "chico-lachowski-damn-this-dude-is-handsome-personified-def-v0-jxho9uw7rx0d1.png"
+  },
+  {
+    "id": "tier_8s_clavicular_is_an_american_online_streamer_and_influencer_he_v0_nqfq4wwif25hpmnw0_6ydvk8kchzauf_hrolf_k5pq_webp",
+    "target": 85,
+    "metrics": {
+      "Bigonial": 0.991,
+      "IPD": 0.47,
+      "Mouth": 0.375,
+      "Nose": 0.234,
+      "Upper": 0.445,
+      "Middle": 0.435,
+      "Lower": 0.481,
+      "Eye": 0.067,
+      "Brow": 0.086,
+      "Philtrum": 0.109,
+      "Lip": 0.145,
+      "fWHR": 1.839,
+      "Midface": 0.976,
+      "Canthal": 5.38
+    },
+    "sourceFolder": "The 8s",
+    "sourceImage": "clavicular-is-an-american-online-streamer-and-influencer-he-v0-nqFq4WWif25hPmnW0_6YDVk8kcHzaUf-HROLF__K5PQ.webp"
+  },
+  {
+    "id": "tier_8s_marlom_png",
+    "target": 85,
+    "metrics": {
+      "Bigonial": 0.986,
+      "IPD": 0.478,
+      "Mouth": 0.375,
+      "Nose": 0.212,
+      "Upper": 0.421,
+      "Middle": 0.446,
+      "Lower": 0.508,
+      "Eye": 0.058,
+      "Brow": 0.128,
+      "Philtrum": 0.112,
+      "Lip": 0.152,
+      "fWHR": 1.79,
+      "Midface": 0.887,
+      "Canthal": 2.2
+    },
+    "sourceFolder": "The 8s",
+    "sourceImage": "Marlom.png"
+  },
+  {
+    "id": "tier_8s_s_png",
+    "target": 85,
+    "metrics": {
+      "Bigonial": 0.963,
+      "IPD": 0.438,
+      "Mouth": 0.315,
+      "Nose": 0.201,
+      "Upper": 0.373,
+      "Middle": 0.462,
+      "Lower": 0.466,
+      "Eye": 0.054,
+      "Brow": 0.127,
+      "Philtrum": 0.105,
+      "Lip": 0.135,
+      "fWHR": 1.762,
+      "Midface": 1.001,
+      "Canthal": 4.43
+    },
+    "sourceFolder": "The 8s",
+    "sourceImage": "s.png"
+  },
+  {
+    "id": "tier_8s_screenshot_2026_04_17_213950_png",
+    "target": 85,
+    "metrics": {
+      "Bigonial": 0.994,
+      "IPD": 0.431,
+      "Mouth": 0.38,
+      "Nose": 0.227,
+      "Upper": 0.481,
+      "Middle": 0.415,
+      "Lower": 0.501,
+      "Eye": 0.053,
+      "Brow": 0.099,
+      "Philtrum": 0.111,
+      "Lip": 0.118,
+      "fWHR": 1.9,
+      "Midface": 0.995,
+      "Canthal": 2.15
+    },
+    "sourceFolder": "The 8s",
+    "sourceImage": "Screenshot 2026-04-17 213950.png"
+  },
+  {
+    "id": "tier_8s_screenshot_2026_04_18_082659_png",
+    "target": 85,
+    "metrics": {
+      "Bigonial": 0.997,
+      "IPD": 0.46,
+      "Mouth": 0.434,
+      "Nose": 0.23,
+      "Upper": 0.505,
+      "Middle": 0.417,
+      "Lower": 0.506,
+      "Eye": 0.042,
+      "Brow": 0.123,
+      "Philtrum": 0.094,
+      "Lip": 0.161,
+      "fWHR": 1.96,
+      "Midface": 0.838,
+      "Canthal": 2.02
+    },
+    "sourceFolder": "The 8s",
+    "sourceImage": "Screenshot 2026-04-18 082659.png"
+  },
+  {
+    "id": "tier_8s_screenshot_2026_04_18_180002_png",
+    "target": 85,
+    "metrics": {
+      "Bigonial": 0.991,
+      "IPD": 0.456,
+      "Mouth": 0.377,
+      "Nose": 0.212,
+      "Upper": 0.444,
+      "Middle": 0.459,
+      "Lower": 0.522,
+      "Eye": 0.053,
+      "Brow": 0.153,
+      "Philtrum": 0.116,
+      "Lip": 0.148,
+      "fWHR": 1.74,
+      "Midface": 0.919,
+      "Canthal": -0.98
+    },
+    "sourceFolder": "The 8s",
+    "sourceImage": "Screenshot 2026-04-18 180002.png"
   }
 ]

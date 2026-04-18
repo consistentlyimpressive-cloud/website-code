@@ -2758,6 +2758,10 @@ const ScanningView = ({
     const startScan = async () => {
       const minScanMs = 3200;
       const scanStartedAt = Date.now();
+      const scanRequestId =
+        (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+          ? crypto.randomUUID()
+          : `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       let scanSucceeded = false;
       let analyzeRequestStarted = false;
       const fetchWithTimeoutRetry = async (url, options = {}, attempt = 1) => {
@@ -2793,6 +2797,7 @@ const ScanningView = ({
         const activeUser = userRef.current;
         if (!activeUser) return null;
 
+        const expectedScanRequestId = String(scanRequestId || '').trim();
         const expectedModel = String(choice || '').trim();
         const expectedProfile = String(profileId || '').trim();
         const shouldMatchProfile =
@@ -2826,31 +2831,33 @@ const ScanningView = ({
                 millis: timestampToMillis(scan.timestamp || scan.scannedAt || scan.payload?.scannedAt),
               }));
 
-            const candidates = indexedScans
-              .filter(({ scan, millis }) => {
-                if (!millis || millis < earliestReasonableScan) return false;
-                if (expectedModel) {
-                  const scanModel = String(scan.model || scan.payload?.selectedModel || '').trim();
-                  if (scanModel && scanModel !== expectedModel) return false;
-                }
-                if (shouldMatchProfile) {
-                  const scanProfile = String(scan.profileId || scan.payload?.profileId || 'default').trim();
-                  if (scanProfile !== expectedProfile) return false;
-                }
-                return true;
+            const exactRequestCandidates = indexedScans
+              .filter(({ scan }) => {
+                const storedScanRequestId = String(
+                  scan?.scanRequestId || scan?.payload?.scanRequestId || ''
+                ).trim();
+                return !!expectedScanRequestId && storedScanRequestId === expectedScanRequestId;
               })
               .sort((a, b) => b.millis - a.millis);
 
-            const relaxedCandidates = attempt >= 3
+            const legacyCandidates = !expectedScanRequestId
               ? indexedScans
-                  .filter(({ millis }, index) => {
-                    if (!millis) return index === 0;
-                    return millis >= earliestReasonableScan;
+                  .filter(({ scan, millis }) => {
+                    if (!millis || millis < earliestReasonableScan) return false;
+                    if (expectedModel) {
+                      const scanModel = String(scan.model || scan.payload?.selectedModel || '').trim();
+                      if (scanModel && scanModel !== expectedModel) return false;
+                    }
+                    if (shouldMatchProfile) {
+                      const scanProfile = String(scan.profileId || scan.payload?.profileId || 'default').trim();
+                      if (scanProfile !== expectedProfile) return false;
+                    }
+                    return true;
                   })
                   .sort((a, b) => b.millis - a.millis)
               : [];
 
-            const recovered = candidates[0]?.scan || relaxedCandidates[0]?.scan || null;
+            const recovered = exactRequestCandidates[0]?.scan || legacyCandidates[0]?.scan || null;
             const recoveredPayload = buildRecoveredScanPayload(recovered);
             if (recoveredPayload) return recoveredPayload;
           } catch (recoveryErr) {
@@ -2953,6 +2960,7 @@ const ScanningView = ({
           formData.append('image', blob, 'upload.jpg');
         }
         formData.append('choice', choice || "3");
+        formData.append('scanRequestId', scanRequestId);
         if (profileId) formData.append('profileId', profileId);
 
         if (isUltra && (sideImageUrl || sideImageFile)) {
@@ -3417,6 +3425,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       sessionStorage.setItem('mogcheck:scanRecoveryRequested', JSON.stringify({
         ...meta,
         profileId: targetProfileId,
+        scanRequestId: meta.scanRequestId || null,
         requestedAt: completedAt,
         fallbackFrontImage: frontImage || null,
         fallbackSideImage: sideImage || null,
@@ -5178,7 +5187,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </div>
           </div>
 
-          {!isRestrictedPreview && <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={activeProfileView} showFeatureLists={false} />}
+          {!isRestrictedPreview && <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={activeProfileView} showFeatureLists />}
 
           {/* Actionable Protocol */}
           {!hideActionableProtocols && (
@@ -7043,6 +7052,7 @@ const App = () => {
       const expectedModel = String(
         recoveryMeta.selectedModel || recoveryMeta.fallbackModel || ''
       ).trim();
+      const expectedScanRequestId = String(recoveryMeta.scanRequestId || '').trim();
       const expectedProfile = String(recoveryMeta.profileId || 'default').trim();
       const shouldMatchProfile =
         expectedProfile && expectedProfile !== 'new' && expectedProfile !== 'guest';
@@ -7075,6 +7085,13 @@ const App = () => {
             }))
             .filter(({ scan, millis }) => {
               if (!scan || !millis || millis < earliestReasonableScan) return false;
+
+              if (expectedScanRequestId) {
+                const storedScanRequestId = String(
+                  scan.scanRequestId || scan.payload?.scanRequestId || ''
+                ).trim();
+                return storedScanRequestId === expectedScanRequestId;
+              }
 
               if (expectedModel) {
                 const scanModel = String(scan.model || scan.payload?.selectedModel || '').trim();

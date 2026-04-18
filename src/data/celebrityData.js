@@ -110,8 +110,8 @@ export const celebrityData = [
   },
   {
     name: 'Regé-Jean Page',
-    rating: '86',
-    tier: tierFromRating100(86),
+    rating: '73',
+    tier: tierFromRating100(73),
     flags: ['gb-eng', 'zw'],
     sex: 'Male',
     imgSrc: IMG.regeJeanPage,
@@ -121,8 +121,8 @@ export const celebrityData = [
   },
   {
     name: 'Tom Holland',
-    rating: '68',
-    tier: tierFromRating100(68),
+    rating: '63',
+    tier: tierFromRating100(63),
     flags: ['gb-eng'],
     sex: 'Male',
     imgSrc: IMG.tomHolland,

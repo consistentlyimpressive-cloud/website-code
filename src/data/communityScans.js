@@ -7,7 +7,7 @@
 const user1 = {
   frontImage: '/community/user1-front.png',
   sideImage: '/community/user1-side.png',
-  finalRating: 74,
+  finalRating: 65,
   sideRating: 71,
   sex: 'Male',
   categories: {
@@ -81,7 +81,7 @@ const user1 = {
 const user2 = {
   frontImage: '/community/user2-front.png',
   sideImage: '/community/user2-side.png',
-  finalRating: 71,
+  finalRating: 58,
   sideRating: 68,
   sex: 'Male',
   categories: {
@@ -326,7 +326,7 @@ const asianMale = {
 const blackMale = {
   frontImage: '/community-scans/black-front.png',
   sideImage: '/community-scans/black-side.png',
-  finalRating: 85,
+  finalRating: 68,
   sideRating: 87,
   sex: 'Male',
   categories: {
@@ -416,7 +416,7 @@ const blackMale = {
 const whiteMale = {
   frontImage: '/community-scans/white-front.png',
   sideImage: '/community-scans/white-side.png',
-  finalRating: 82,
+  finalRating: 63,
   sideRating: 81,
   sex: 'Male',
   categories: {
@@ -547,19 +547,19 @@ export const COMMUNITY_SCANS = [
   {
     id: 'user1',
     displayName: 'Zero_Dawn',
-    tier: 'A-Tier',
+    tier: 'C-Tier',
     dashboardData: user1,
   },
   {
     id: 'user2',
     displayName: 'NovaStar',
-    tier: 'B-Tier',
+    tier: 'D-Tier',
     dashboardData: user2,
   },
   {
     id: 'community-black-male',
     displayName: 'xVoidReaper',
-    tier: 'S-Tier',
+    tier: 'C-Tier',
     dashboardData: blackMale,
   },
   {
@@ -571,7 +571,7 @@ export const COMMUNITY_SCANS = [
   {
     id: 'community-white-male',
     displayName: 'PixelMyth_5691',
-    tier: 'A-Tier',
+    tier: 'C-Tier',
     dashboardData: whiteMale,
   },
 ];

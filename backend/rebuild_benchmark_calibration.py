@@ -19,6 +19,7 @@ TIER_SPECS = {
     "The 5s": {"target": 55, "slug": "tier_5s"},
     "The 6s": {"target": 65, "slug": "tier_6s"},
     "7s": {"target": 75, "slug": "tier_7s"},
+    "The 8s": {"target": 85, "slug": "tier_8s"},
 }
 
 REPORT_KEY_MAP = {

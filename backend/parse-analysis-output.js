@@ -48,6 +48,7 @@ const BENCHMARK_SOURCE_FOLDERS = new Set([
   'The 5s',
   'The 6s',
   '7s',
+  'The 8s',
 ]);
 
 function loadGeminiBenchmarkCalibration() {
@@ -226,14 +227,23 @@ function computeMetricBenchmarkScore(metricKey, rawValue, fallbackScore = null) 
 
   const nearestDistance = topNeighbors[0]?.distance ?? 0;
   const benchmarkAverage = weightedTargetSum / weightedTargetTotal;
+  const confidence = clamp(1 - nearestDistance / 1.45, 0, 1);
 
-  // A single metric should not look as elite as a full-face calibrated score,
-  // so pull it back toward a neutral middle before applying distance penalties.
-  let score = benchmarkAverage * 0.62 + 55 * 0.38;
-  score -= clamp((nearestDistance - 0.35) * 8.5, 0, 16);
+  // Keep single-metric bars a little more conservative than the full face,
+  // but do not crush strong benchmark matches back into the low 60s.
+  const neutralAnchor = benchmarkAverage >= 80 ? 68 : benchmarkAverage >= 70 ? 62 : 57;
+  const benchmarkWeight = 0.76 + confidence * 0.16;
+  let score = benchmarkAverage * benchmarkWeight + neutralAnchor * (1 - benchmarkWeight);
+  score -= clamp((nearestDistance - 0.55) * 5.5, 0, 8);
+
+  if (benchmarkAverage >= 80 && nearestDistance <= 0.18) {
+    score = Math.max(score, benchmarkAverage - 4);
+  } else if (benchmarkAverage >= 70 && nearestDistance <= 0.14) {
+    score = Math.max(score, benchmarkAverage - 3);
+  }
 
   if (Number.isFinite(Number(fallbackScore))) {
-    score = score * 0.82 + Number(fallbackScore) * 0.18;
+    score = score * 0.9 + Number(fallbackScore) * 0.1;
   }
 
   return Math.round(clamp(score, 25, 92));
@@ -1264,7 +1274,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   const objectiveSideRating = computeObjectiveFaceRating(sideScoreMap, sideCategories);
   const rawCalibrationMetrics = extractCalibrationMetrics(rawValues);
   const benchmarkFrontBaseline =
-    explicitFrontRating != null ? explicitFrontRating : objectiveFrontRating ?? finalRating;
+    objectiveFrontRating != null ? objectiveFrontRating : explicitFrontRating ?? finalRating;
   const benchmarkFrontCalibration = computeBenchmarkCalibrationAnalysis(
     rawCalibrationMetrics,
     benchmarkFrontBaseline
@@ -1272,6 +1282,23 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   const benchmarkFrontRating = benchmarkFrontCalibration?.rating ?? null;
 
   if (benchmarkFrontRating != null) {
+    const obviousHighTierUndercall =
+      Number.isFinite(explicitFrontRating) &&
+      Number.isFinite(objectiveFrontRating) &&
+      explicitFrontRating <= objectiveFrontRating - 14 &&
+      objectiveFrontRating >= 66 &&
+      Number.isFinite(benchmarkFrontCalibration?.nearestTarget) &&
+      benchmarkFrontCalibration.nearestTarget >= 70 &&
+      benchmarkFrontCalibration.highTierNeighborCount >= 2 &&
+      Number.isFinite(benchmarkFrontCalibration?.nearestDistance) &&
+      benchmarkFrontCalibration.nearestDistance <= 0.28;
+    const obviousEliteUndercall =
+      obviousHighTierUndercall &&
+      benchmarkFrontCalibration.nearestTarget >= 80 &&
+      objectiveFrontRating >= 72 &&
+      explicitFrontRating <= objectiveFrontRating - 18 &&
+      benchmarkFrontCalibration.highTierNeighborCount >= 3 &&
+      benchmarkFrontCalibration.nearestDistance <= 0.22;
     const exactOrNearExactHighTierMatch =
       explicitFrontRating != null &&
       Number.isFinite(benchmarkFrontCalibration?.nearestDistance) &&
@@ -1285,8 +1312,47 @@ function parseAnalysisOutput(rawOutput, backendDir) {
           benchmarkFrontCalibration.lowTierNeighborCount <= 1
         )
       );
+    const strongEliteBenchmarkMatch =
+      exactOrNearExactHighTierMatch &&
+      benchmarkFrontCalibration.nearestTarget >= 80 &&
+      (
+        benchmarkFrontCalibration.nearestDistance <= 0.03 ||
+        (
+          benchmarkFrontCalibration.nearestDistance <= 0.08 &&
+          benchmarkFrontCalibration.highTierNeighborCount >= 2
+        )
+      );
+    const exactEliteBenchmarkMatch =
+      strongEliteBenchmarkMatch &&
+      benchmarkFrontCalibration.nearestTarget >= 80 &&
+      benchmarkFrontCalibration.nearestDistance <= 0.01;
 
-    if (exactOrNearExactHighTierMatch) {
+    if (obviousEliteUndercall) {
+      finalRating = Math.max(
+        objectiveFrontRating,
+        Math.min(benchmarkFrontRating, benchmarkFrontCalibration.nearestTarget)
+      );
+    } else if (obviousHighTierUndercall) {
+      finalRating = Math.max(
+        objectiveFrontRating,
+        Math.min(benchmarkFrontRating, objectiveFrontRating + 8)
+      );
+    } else if (exactEliteBenchmarkMatch) {
+      // If the biometrics are an exact or near-exact match to a known elite
+      // benchmark sample, trust the benchmark-calibrated rating directly.
+      finalRating = benchmarkFrontRating;
+    } else if (strongEliteBenchmarkMatch) {
+      // Strong 8s-tier matches were still getting flattened because the
+      // conservative cap leaned too hard on Gemma's explicit front score.
+      // Allow a much larger uplift here while still preventing runaway jumps.
+      const eliteLiftCap =
+        explicitFrontRating +
+        Math.min(
+          30,
+          Math.max(16, benchmarkFrontCalibration.nearestTarget - explicitFrontRating + 2)
+        );
+      finalRating = Math.min(benchmarkFrontRating, eliteLiftCap);
+    } else if (exactOrNearExactHighTierMatch) {
       // If the scan is an extremely tight benchmark match to a known high-tier
       // sample, allow calibration to pull a model undercall upward instead of
       // hard-capping it at Gemma's explicit front rating.

@@ -1837,13 +1837,29 @@ app.post(
         parsed.hexagonSide = null;
       }
 
-      // Treat as success if Python exited cleanly and we got either a full parse or at least a numeric rating.
+      const hasPremiumStructuredParse =
+        Array.isArray(parsed.biometrics) && parsed.biometrics.length > 0 &&
+        (
+          (Array.isArray(parsed.bestFeatures) && parsed.bestFeatures.length > 0) ||
+          (Array.isArray(parsed.primaryFlaws) && parsed.primaryFlaws.length > 0) ||
+          parsed.categories ||
+          parsed.hexagonFront ||
+          (typeof parsed.technicalSummary === 'string' && parsed.technicalSummary.trim().length > 24)
+        );
+
       // Free models are descriptive-only, so a substantive text parse is enough.
+      // Premium models should not be marked successful unless the structured scan data is actually there.
       const success =
         code === 0 &&
-        (parsed.hasSubstantiveParse === true ||
-          isFreeModelChoice ||
-          (parsed.finalRating != null && !Number.isNaN(Number(parsed.finalRating))));
+        (
+          isFreeModelChoice
+            ? parsed.hasSubstantiveParse === true
+            : (
+                parsed.finalRating != null &&
+                !Number.isNaN(Number(parsed.finalRating)) &&
+                hasPremiumStructuredParse
+              )
+        );
 
   const finalRating =
     parsed.finalRating != null && !Number.isNaN(parsed.finalRating) ? parsed.finalRating : null;
@@ -1940,7 +1956,11 @@ app.post(
   if (success && req.uid && firestore) {
     try {
       savedScanRef = firestore.collection('users').doc(req.uid).collection('scans').doc();
+      const scanRequestId =
+        String(req.body.scanRequestId || payload.scanRequestId || '').trim() ||
+        `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       payload.scanId = savedScanRef.id;
+      payload.scanRequestId = scanRequestId;
       payload.profileId = req.body.profileId || 'default';
       payload.selectedModel = String(modelChoice || payload.selectedModel || '').trim() || '1';
       payload.cohesiveFrontSide = false;
@@ -1957,10 +1977,12 @@ app.post(
         frontImageDest: null,
         sideImageDest: null,
         success: true,
+        scanRequestId,
         payload: {
           ...payload,
           frontImage: frontFallbackUrl || payload.frontImage || null,
           sideImage: sideFallbackUrl || payload.sideImage || null,
+          scanRequestId,
           selectedModel: payload.selectedModel,
           cohesiveFrontSide: false,
         },
@@ -1983,6 +2005,7 @@ app.post(
     localUserStore.upsertScan(req.uid, localScanId, {
       ...(savedScanBase || {}),
       ...payload,
+      scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
       timestamp: new Date().toISOString(),
       scannedAt: new Date().toISOString(),
       frontImageUrl: frontFallbackUrl || payload.frontImage || null,
@@ -1991,6 +2014,7 @@ app.post(
         ...payload,
         frontImage: frontFallbackUrl || payload.frontImage || null,
         sideImage: sideFallbackUrl || payload.sideImage || null,
+        scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
       },
     });
   }
@@ -2030,12 +2054,14 @@ app.post(
 
         if (req.uid && payload.scanId) {
           localUserStore.upsertScan(req.uid, payload.scanId, {
+            scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
             frontImageUrl: frontUpload ? frontUpload.url : (savedScanBase?.frontImageUrl || frontFallbackUrl || null),
             sideImageUrl: sideUpload ? sideUpload.url : (savedScanBase?.sideImageUrl || sideFallbackUrl || null),
             payload: {
               ...payload,
               frontImage: frontUpload ? frontUpload.url : (savedScanBase?.frontImageUrl || frontFallbackUrl || null),
               sideImage: sideUpload ? sideUpload.url : (savedScanBase?.sideImageUrl || sideFallbackUrl || null),
+              scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
             },
             updatedAt: new Date().toISOString(),
           });
