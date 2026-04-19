@@ -1,6 +1,6 @@
 # Production deployment checklist
 
-This document matches the work done in the codebase and what you must do in hosting accounts (GitHub, Firebase, Vercel, Railway, Lemon Squeezy, DNS).
+This document matches the work done in the codebase and what you must do in hosting accounts (GitHub, Firebase, Vercel, Railway, Paddle, DNS).
 
 ## Go live on a public domain (order of operations)
 
@@ -28,7 +28,7 @@ You need **two deployed URLs** plus **DNS**:
 
 6. **Align config**: Backend `CORS_ORIGINS` must list your real site origins. Rebuild/redeploy the frontend if you change `VITE_API_URL`. Deploy Firestore rules (`firebase deploy --only firestore:rules`) if you use Firebase.
 
-7. **Payments**: When Lemon Squeezy approves you, set webhook `https://api.yourdomain.com/api/webhooks/lemonsqueezy` and `LEMONSQUEEZY_WEBHOOK_SECRET` (§3).
+7. **Payments**: Configure Paddle with webhook `https://api.yourdomain.com/api/webhooks/paddle` and set `PADDLE_WEBHOOK_SECRET` (§3).
 
 That’s the full path from “localhost” to **www + api on your domain**. Details below are the same steps with more context.
 
@@ -90,9 +90,9 @@ Quick production steps (domain + GitHub already in place): **[.github/WEBSITE.md
 
 2. Set all variables from `backend/.env.example` (real secrets on the host, not in git).
 
-3. **Lemon Squeezy (when your vendor account is approved)**: In the Lemon Squeezy dashboard, set the webhook URL to  
-   `https://YOUR_API_HOST/api/webhooks/lemonsqueezy`  
-   and set `LEMONSQUEEZY_WEBHOOK_SECRET` on the backend to match the signing secret they provide. Until then, subscriptions and webhook-driven plan updates will not run in production.
+3. **Paddle**: In the Paddle dashboard, set the webhook URL to
+`https://YOUR_API_HOST/api/webhooks/paddle`
+and set `PADDLE_WEBHOOK_SECRET` on the backend to match the signing secret they provide. Also set the frontend env vars `VITE_PADDLE_CLIENT_TOKEN`, `VITE_PADDLE_PRICE_SINGLE_SCAN`, and `VITE_PADDLE_PRICE_PRO`. Until then, subscriptions and webhook-driven plan updates will not run in production.
 
 4. **Loading video**: Ship `loading_scan.mp4` with the container (next to `server.js` in the image) **or** host the MP4 on a CDN and set `LOADING_VIDEO_URL` (full URL). You can also rely on `PUBLIC_BACKEND_URL` + `/loading_scan.mp4` when the file is served from the API host. The file may be gitignored locally.
 

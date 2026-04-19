@@ -609,19 +609,65 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
-const CHECKOUT_URLS = {
-  single_scan: 'https://mogcheck.lemonsqueezy.com/checkout/buy/b61ebcdf-48c1-4a08-b04d-6a1184df0211',
-  pro: 'https://mogcheck.lemonsqueezy.com/checkout/buy/79dc90c2-1197-415a-ab3d-896c27ac6962',
+const PADDLE_CLIENT_TOKEN =
+  import.meta.env.VITE_PADDLE_CLIENT_TOKEN || 'live_41a7033635d9efa677b7d3a8521';
+
+const PADDLE_PRICE_IDS = {
+  single_scan:
+    import.meta.env.VITE_PADDLE_PRICE_SINGLE_SCAN || 'pri_01kph4qjjrtbdbnswrvdt16jkn',
+  pro: import.meta.env.VITE_PADDLE_PRICE_PRO || 'pri_01kph4pr6xpxhq7c4jfztdmr44',
 };
 
-const getCheckoutUrl = (plan, user) => {
-  const base = CHECKOUT_URLS[plan];
-  if (!base) return '#';
-  const params = new URLSearchParams();
-  if (user?.uid) params.set('checkout[custom][user_id]', user.uid);
-  if (user?.email) params.set('checkout[email]', user.email);
-  return `${base}?${params.toString()}`;
-};
+function initializePaddle() {
+  if (typeof window === 'undefined' || !window.Paddle || !PADDLE_CLIENT_TOKEN) return false;
+  if (window.__mogcheckPaddleInitialized) return true;
+
+  try {
+    window.Paddle.Initialize({
+      token: PADDLE_CLIENT_TOKEN,
+      checkout: {
+        settings: {
+          displayMode: 'overlay',
+          theme: 'dark',
+          locale: 'en',
+        },
+      },
+    });
+    window.__mogcheckPaddleInitialized = true;
+    return true;
+  } catch (error) {
+    if (/initialize/i.test(String(error?.message || ''))) {
+      window.__mogcheckPaddleInitialized = true;
+      return true;
+    }
+    console.error('[billing] Paddle init failed', error);
+    return false;
+  }
+}
+
+function openPaddleCheckout(plan, user) {
+  const priceId = PADDLE_PRICE_IDS[plan];
+  if (!priceId || typeof window === 'undefined' || !window.Paddle) return false;
+  if (!initializePaddle()) return false;
+
+  window.Paddle.Checkout.open({
+    items: [{ priceId, quantity: 1 }],
+    customer: user?.email ? { email: user.email } : undefined,
+    customData: {
+      plan,
+      user_id: user?.uid || '',
+      user_email: user?.email || '',
+    },
+    settings: {
+      displayMode: 'overlay',
+      theme: 'dark',
+      allowLogout: false,
+      successUrl: `${window.location.origin}/dashboard?checkout=success`,
+    },
+  });
+
+  return true;
+}
 
 const API_BASE = getApiBase();
 
@@ -2877,6 +2923,18 @@ const ScanningView = ({
           return true;
         }
 
+        if (active && analyzeRequestStarted) {
+          scanSucceeded = true;
+          setStatusText('The scan response dropped. Opening your dashboard history...');
+          onRecoverToDashboardRef.current?.({
+            reason: 'dropped-analyze-response',
+            profileId: profileId || 'default',
+            selectedModel: String(choice || '').trim(),
+            scanRequestId,
+            startedAt: new Date(scanStartedAt).toISOString(),
+          });
+          return true;
+        }
         return false;
       };
 
@@ -4994,7 +5052,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           {/* Free vs Pro Adaptive Layout */}
           {isRestrictedPreview ? (
             <>
-              <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={activeProfileView} showFeatureLists={false} />
+              <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={activeProfileView} showFeatureLists={true} />
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
@@ -5482,12 +5540,8 @@ const PlansPage = ({ setCurrentPage, user }) => {
       setCurrentPage('login');
       return;
     }
-    const url = getCheckoutUrl(plan, user);
-    if (window.createLemonSqueezy) window.createLemonSqueezy();
-    if (window.LemonSqueezy) {
-      window.LemonSqueezy.Url.Open(url);
-    } else {
-      window.open(url, '_blank');
+    if (!openPaddleCheckout(plan, user)) {
+      setPlanNotice('Paddle checkout is not configured yet. Please refresh and try again in a moment.');
     }
   };
 
@@ -5675,7 +5729,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
 
     <FadeUp delay={700}>
       <p className="mt-16 text-zinc-600 font-sans text-[10px] uppercase tracking-widest text-center relative z-10">
-        Secure payment via Lemon Squeezy - Cancel anytime - Instant access
+        Secure payment via Paddle - Cancel anytime - Instant access
       </p>
     </FadeUp>
 
