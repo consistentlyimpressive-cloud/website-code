@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const STORE_FILE = path.join(__dirname, 'local-user-store.json');
+const PROFILE_SCAN_HISTORY_LIMIT = 10;
 
 function defaults() {
   return { users: {} };
@@ -165,6 +166,13 @@ function upsertScan(uid, scanId, scan) {
   } else {
     user.profiles[profileId].updatedAt = new Date().toISOString();
   }
+
+  const profileScanEntries = Object.entries(user.scans || {})
+    .filter(([, item]) => (item?.profileId || 'default') === profileId)
+    .sort(([, a], [, b]) => timestampValue(b.timestamp || b.scannedAt) - timestampValue(a.timestamp || a.scannedAt));
+  profileScanEntries.slice(PROFILE_SCAN_HISTORY_LIMIT).forEach(([oldScanId]) => {
+    delete user.scans[oldScanId];
+  });
 
   save();
   return clone(next);

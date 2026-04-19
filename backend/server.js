@@ -465,6 +465,33 @@ const localCommunityBattles = []; // Array of community battles
 const localCommunityScans = [];
 const localNotifications = {}; // { uid: [{ id, title, body, url, read, createdAt }] }
 const localMogBattleFollows = {}; // { battleId: { uid: true } }
+const PROFILE_SCAN_HISTORY_LIMIT = 10;
+
+function storedTimestampMillis(value) {
+  if (!value) return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value?.toMillis === 'function') return value.toMillis();
+  if (typeof value?.seconds === 'number') return value.seconds * 1000;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+async function pruneFirestoreProfileScans(uid, profileId = 'default', limit = PROFILE_SCAN_HISTORY_LIMIT) {
+  if (!firestore || !uid) return;
+  const normalizedProfileId = profileId || 'default';
+  const snap = await firestore.collection('users').doc(uid).collection('scans').get();
+  const profileDocs = [];
+  snap.forEach((doc) => {
+    const data = doc.data() || {};
+    if ((data.profileId || data.payload?.profileId || 'default') !== normalizedProfileId) return;
+    profileDocs.push({ ref: doc.ref, data });
+  });
+  profileDocs.sort((a, b) => storedTimestampMillis(b.data.timestamp || b.data.scannedAt) - storedTimestampMillis(a.data.timestamp || a.data.scannedAt));
+  const staleDocs = profileDocs.slice(limit);
+  if (!staleDocs.length) return;
+  await Promise.all(staleDocs.map((doc) => doc.ref.delete()));
+  console.log(`[analyze] Pruned ${staleDocs.length} old scan(s) for profile ${normalizedProfileId}`);
+}
 
 function normalizeScanVisibility(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -2144,6 +2171,9 @@ app.post(
       // Save the scan before responding so the frontend can recover if the response is dropped.
       await savedScanRef.set(savedScanBase);
       console.log(`[analyze] Scan history pre-saved: ${savedScanRef.id}`);
+      pruneFirestoreProfileScans(req.uid, payload.profileId).catch((e) => {
+        console.warn('[analyze] Failed to prune old profile scans:', e.message);
+      });
     } catch (e) {
       savedScanRef = null;
       savedScanBase = null;

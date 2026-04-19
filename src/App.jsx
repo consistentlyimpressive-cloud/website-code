@@ -610,12 +610,12 @@ const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
 const PADDLE_CLIENT_TOKEN =
-  import.meta.env.VITE_PADDLE_CLIENT_TOKEN || 'live_41a7033635d9efa677b7d3a8521';
+  String(import.meta.env.VITE_PADDLE_CLIENT_TOKEN || 'live_41a7033635d9efa677b7d3a8521').trim();
 
 const PADDLE_PRICE_IDS = {
   single_scan:
-    import.meta.env.VITE_PADDLE_PRICE_SINGLE_SCAN || 'pri_01kph4qjjrtbdbnswrvdt16jkn',
-  pro: import.meta.env.VITE_PADDLE_PRICE_PRO || 'pri_01kph4pr6xpxhq7c4jfztdmr44',
+    String(import.meta.env.VITE_PADDLE_PRICE_SINGLE_SCAN || 'pri_01kph4qjjrtbdbnswrvdt16jkn').trim(),
+  pro: String(import.meta.env.VITE_PADDLE_PRICE_PRO || 'pri_01kph4pr6xpxhq7c4jfztdmr44').trim(),
 };
 
 function initializePaddle() {
@@ -670,6 +670,7 @@ function openPaddleCheckout(plan, user) {
 }
 
 const API_BASE = getApiBase();
+const PROFILE_SCAN_HISTORY_LIMIT = 10;
 
 const ANALYSIS_MODEL_LABELS = {
   '1': 'Premium Ultra',
@@ -3459,10 +3460,13 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
         newRatingHistory.push(Number(completedScan.finalRating));
       }
 
+      const cappedScanHistory = newScanHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT);
+      const cappedRatingHistory = newRatingHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT);
+
       return {
         ...completedScan,
-        scanHistory: newScanHistory,
-        ratingHistory: newRatingHistory
+        scanHistory: cappedScanHistory,
+        ratingHistory: cappedRatingHistory
       };
     });
 
@@ -4705,7 +4709,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   const selectedModel = String(dashboardData?.selectedModel || '').trim();
   const isFreeModelResult = ['3', '4', '5'].includes(selectedModel);
   const hasFullProUnlock = userPlan?.plan === 'pro';
-  const isRestrictedPreview = false;
+  const isRestrictedPreview = isFreeModelResult;
   const showBestFlaw = !hideBestFlawSection;
 
   const renderBlurredOverlay = (title) => (
@@ -5215,6 +5219,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           )}
 
           {/* Detailed Ratios Section */}
+          {!isFreeModelResult && (
           <div className="relative bg-[#0c0d0e] p-6 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
             {isRestrictedPreview && renderBlurredOverlay("Detailed Ratios")}
             <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
@@ -5244,11 +5249,12 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </div>
             </div>
           </div>
+          )}
 
           {!isRestrictedPreview && <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={activeProfileView} showFeatureLists />}
 
           {/* Actionable Protocol */}
-          {!hideActionableProtocols && (
+          {!isFreeModelResult && !hideActionableProtocols && (
             <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 shadow-lg group hover:border-zinc-700 transition-colors">
               {isRestrictedPreview && renderBlurredOverlay("Actionable Protocol")}
               <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
@@ -5301,7 +5307,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </div>
           )}
 
-          {!hidePersonalizedFeedback && (
+          {!isFreeModelResult && !hidePersonalizedFeedback && (
             <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 shadow-lg group hover:border-zinc-700 transition-colors">
               {isRestrictedPreview && renderBlurredOverlay("Personalized Feedback")}
               <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
@@ -5327,7 +5333,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </div>
           )}
 
-          {!hideUnlockPotential && (
+          {!isFreeModelResult && !hideUnlockPotential && (
           <div className="bg-gradient-to-br from-zinc-900/80 to-black p-1 rounded-2xl overflow-hidden mt-4 relative shadow-[0_10px_50px_rgba(0,0,0,0.5)] border border-zinc-800/50 group hover:border-zinc-700 transition-colors">
             {isRestrictedPreview && renderBlurredOverlay("Analyze Potential")}
             <div className={`bg-[#0a0a0b] p-8 md:p-12 rounded-[14px] flex flex-col md:flex-row items-center gap-12 relative overflow-hidden ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
@@ -7068,7 +7074,7 @@ const App = () => {
     return model === '1' || model === '2';
   }, [dashboardData?.selectedModel]);
 
-  const useProDashboard = Boolean(user || hasScanData);
+  const useProDashboard = Boolean(user || hasScanData) && !isFreeModelDashboard;
   const isScanOnlyPage = currentPage === 'public-scan';
 
   useEffect(() => {
