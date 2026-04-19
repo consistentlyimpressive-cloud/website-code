@@ -611,6 +611,8 @@ const googleProvider = new GoogleAuthProvider();
 
 const PADDLE_CLIENT_TOKEN =
   String(import.meta.env.VITE_PADDLE_CLIENT_TOKEN || 'live_41a7033635d9efa677b7d3a8521').trim();
+const PADDLE_ENVIRONMENT =
+  String(import.meta.env.VITE_PADDLE_ENV || 'production').trim().toLowerCase();
 
 const PADDLE_PRICE_IDS = {
   single_scan:
@@ -618,11 +620,24 @@ const PADDLE_PRICE_IDS = {
   pro: String(import.meta.env.VITE_PADDLE_PRICE_PRO || 'pri_01kph4pr6xpxhq7c4jfztdmr44').trim(),
 };
 
+function isLocalPaddleHost() {
+  if (typeof window === 'undefined') return false;
+  return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+}
+
+function isLivePaddleBlockedOnLocalhost() {
+  return isLocalPaddleHost() && PADDLE_ENVIRONMENT !== 'sandbox';
+}
+
 function initializePaddle() {
   if (typeof window === 'undefined' || !window.Paddle || !PADDLE_CLIENT_TOKEN) return false;
   if (window.__mogcheckPaddleInitialized) return true;
 
   try {
+    if (PADDLE_ENVIRONMENT === 'sandbox' && window.Paddle.Environment?.set) {
+      window.Paddle.Environment.set('sandbox');
+    }
+
     window.Paddle.Initialize({
       token: PADDLE_CLIENT_TOKEN,
       checkout: {
@@ -647,6 +662,7 @@ function initializePaddle() {
 
 function openPaddleCheckout(plan, user) {
   const priceId = PADDLE_PRICE_IDS[plan];
+  if (isLivePaddleBlockedOnLocalhost()) return false;
   if (!priceId || typeof window === 'undefined' || !window.Paddle) return false;
   if (!initializePaddle()) return false;
 
@@ -5544,6 +5560,10 @@ const PlansPage = ({ setCurrentPage, user }) => {
     }
     if (!user) {
       setCurrentPage('login');
+      return;
+    }
+    if (isLivePaddleBlockedOnLocalhost()) {
+      setPlanNotice('Paddle live checkout cannot run on localhost. Use mogcheck.net for live checkout, or add Paddle sandbox token/price IDs to .env.local for local testing.');
       return;
     }
     if (!openPaddleCheckout(plan, user)) {
