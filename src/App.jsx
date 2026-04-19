@@ -7019,6 +7019,7 @@ const App = () => {
 
   useEffect(() => {
     if (currentPage !== 'dashboard' || hasScanData) return;
+    if (user) return;
     try {
       const cached = sessionStorage.getItem('mogcheck:lastCompletedScan');
       if (!cached) return;

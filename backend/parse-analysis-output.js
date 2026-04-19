@@ -126,6 +126,16 @@ function average(values) {
   return nums.reduce((sum, v) => sum + v, 0) / nums.length;
 }
 
+function normalizeImpactLabel(rawImpact) {
+  const text = String(rawImpact || '').trim();
+  if (!text) return 'Medium Impact';
+  if (/extreme|critical|highest/i.test(text)) return 'Extreme Impact';
+  if (/high/i.test(text)) return 'High Impact';
+  if (/medium/i.test(text)) return 'Medium Impact';
+  if (/low/i.test(text)) return 'Low Impact';
+  return text;
+}
+
 function scoreMapFromBiometrics(biometrics) {
   const map = {};
   for (const item of biometrics || []) {
@@ -463,6 +473,14 @@ function getScoreByLabel(scoreMap, labelStartsWith) {
 
 function buildStylizationSignalSummary(rawOutput, appealAssessment) {
   const text = `${rawOutput || ''}\n${appealAssessment || ''}`.toLowerCase();
+  const exaggeratedButCoherentCue =
+    /\bexaggerated but coherent\b|\bexaggerated\s+yet\s+coherent\b|\boverbuilt but coherent\b/.test(text);
+  const aggressiveLowerThirdCue =
+    /\baggressive jawline\b|\bstriking,\s*aggressive jawline\b|\bsheer breadth of the lower third\b|\bbreadth of the lower third\b|\blower third breadth\b|\bwide lower-?third\b|\bpowerful,\s*wide lower-?third\b|\boverbuilt lower third\b|\blower third dominance\b|\bintensity of the jaw and brow ridge\b/.test(text);
+  const extremeMasculinityCue =
+    /\bhighly masculine\b|\bextreme masculinity\b|\bhyper-?masculine\b|\bstriking phenotype\b|\bbrutalist aesthetic\b/.test(text);
+  const dimorphismPraiseCue =
+    /\bextreme dimorphism\b|\bhigh dimorphism\b|\bhighly dimorphic\b|\belite in terms of breadth and definition\b|\belite breadth\b|\belite definition\b/.test(text);
   const hasNegatedUncannyCue =
     /\b(?:without|not|rather than|avoid(?:s|ing)?|avoids?|doesn't|does not|never)\b[^.\n]{0,48}\buncanny\b/.test(text) ||
     /\buncanny territory\b/.test(text) ||
@@ -472,14 +490,30 @@ function buildStylizationSignalSummary(rawOutput, appealAssessment) {
   const hasSyntheticCue = hasExplicitSyntheticCue && !hasNegatedUncannyCue;
   const hasEditorialCue = /\beditorial\b|\bhigh-?fashion\b|\bmodern masculine\b/.test(text);
   const hasCoherentCue =
-    hasEditorialCue ||
     /\bpretty facial harmony\b|\bbroad demographic\b|\bbroad appeal\b|\bcoherent\b|\belite structural foundation\b|\bwithout crossing into uncanny\b/.test(text);
-  const hasAggressiveCueRaw = /\bover-?dimorphic\b|\bbrutalist\b|\boverly aggressive\b|\bhyper-?masculine\b|\bfantasy male\b|\bextreme masculinity\b/.test(text);
-  const hasAggressiveCue = hasAggressiveCueRaw && !(hasCoherentCue && !hasSyntheticCue);
+  const hasAggressiveCueRaw =
+    /\bover-?dimorphic\b|\bbrutalist\b|\boverly aggressive\b|\bhyper-?masculine\b|\bfantasy male\b|\bextreme masculinity\b/.test(text) ||
+    aggressiveLowerThirdCue ||
+    extremeMasculinityCue ||
+    dimorphismPraiseCue;
+  const hasAggressiveCue =
+    hasAggressiveCueRaw &&
+    !(
+      hasCoherentCue &&
+      !hasSyntheticCue &&
+      !exaggeratedButCoherentCue &&
+      !aggressiveLowerThirdCue &&
+      !extremeMasculinityCue &&
+      !dimorphismPraiseCue
+    );
   const hasDisharmonyCue = /\bmaxillary recession\b|\bmaxillary hypoplasia\b|\bmandibular dominance\b|\bconcave profile\b|\bnegative orbital vector\b|\blateral disharmony\b|\bclass iii\b|\brecessed maxilla\b/.test(text);
 
   return {
     text,
+    exaggeratedButCoherentCue,
+    aggressiveLowerThirdCue,
+    extremeMasculinityCue,
+    dimorphismPraiseCue,
     hasNegatedUncannyCue,
     hasExplicitSyntheticCue,
     hasSyntheticCue,
@@ -493,6 +527,10 @@ function buildStylizationSignalSummary(rawOutput, appealAssessment) {
 function detectUncannyRatingCap(rawOutput, metricScoreMap, categories, sideCategories, appealAssessment, explicitFrontRating, explicitSideRating) {
   const {
     text,
+    exaggeratedButCoherentCue,
+    aggressiveLowerThirdCue,
+    extremeMasculinityCue,
+    dimorphismPraiseCue,
     hasSyntheticCue,
     hasEditorialCue,
     hasCoherentCue,
@@ -513,10 +551,25 @@ function detectUncannyRatingCap(rawOutput, metricScoreMap, categories, sideCateg
   if (/\bexaggerated but coherent\b|\balpha aesthetics\b|\bstrong-?jawed\b|\bmale-model render\b/.test(text)) {
     stylizedCueScore += 1;
   }
-  if (hasEditorialCue && !hasSyntheticCue && !hasDisharmonyCue) {
+  if (dimorphismPraiseCue) {
+    signalScore += 1;
+    stylizedCueScore += 1;
+  }
+  if (exaggeratedButCoherentCue) {
+    signalScore += 1;
+    stylizedCueScore += 1;
+  }
+  if (aggressiveLowerThirdCue) {
+    signalScore += 1;
+    stylizedCueScore += 1;
+  }
+  if (extremeMasculinityCue && !hasSyntheticCue) {
+    signalScore += 1;
+  }
+  if (hasEditorialCue && !hasSyntheticCue && !hasDisharmonyCue && !exaggeratedButCoherentCue && !aggressiveLowerThirdCue && !extremeMasculinityCue) {
     stylizedCueScore = Math.max(0, stylizedCueScore - 1);
   }
-  if (hasCoherentCue && !hasSyntheticCue && !hasDisharmonyCue) {
+  if (hasCoherentCue && !hasSyntheticCue && !hasDisharmonyCue && !exaggeratedButCoherentCue && !aggressiveLowerThirdCue) {
     stylizedCueScore = Math.max(0, stylizedCueScore - 1);
   }
 
@@ -550,6 +603,9 @@ function detectUncannyRatingCap(rawOutput, metricScoreMap, categories, sideCateg
     hasEditorialCue &&
     !hasSyntheticCue &&
     !hasDisharmonyCue &&
+    !exaggeratedButCoherentCue &&
+    !aggressiveLowerThirdCue &&
+    !extremeMasculinityCue &&
     Number.isFinite(explicitFrontRating) &&
     explicitFrontRating >= 74 &&
     (
@@ -572,12 +628,36 @@ function detectUncannyRatingCap(rawOutput, metricScoreMap, categories, sideCateg
       (Number.isFinite(explicitSideRating) && explicitSideRating <= 45) ||
       (Number.isFinite(maxillaryProjection) && maxillaryProjection <= 45)
     );
+  const exaggeratedAggressiveCase =
+    exaggeratedButCoherentCue &&
+    (aggressiveLowerThirdCue || extremeMasculinityCue || dimorphismPraiseCue || hasAggressiveCue) &&
+    (
+      overbuiltMetricScore >= 2 ||
+      (Number.isFinite(harmony) && harmony <= 74) ||
+      (Number.isFinite(dimorphism) && dimorphism >= 82) ||
+      (Number.isFinite(bigonial) && bigonial >= 84) ||
+      (Number.isFinite(fwhr) && fwhr >= 80)
+    );
+  const textOnlyOverbuiltEditorialCase =
+    exaggeratedButCoherentCue &&
+    (aggressiveLowerThirdCue || extremeMasculinityCue || dimorphismPraiseCue) &&
+    /\bstriking,\s*aggressive jawline\b|\bsheer breadth of the lower third\b|\bwide lower-?third\b|\bintensity of the jaw and brow ridge\b|\bbrutalist aesthetic\b|\bhighly masculine and striking phenotype\b|\bextreme dimorphism\b|\bhighly dimorphic\b|\belite in terms of breadth and definition\b/.test(text);
+  const brutalistOverbuiltFallback =
+    exaggeratedButCoherentCue &&
+    hasEditorialCue &&
+    (aggressiveLowerThirdCue || extremeMasculinityCue || dimorphismPraiseCue || /\bbrutalist aesthetic\b/.test(text)) &&
+    (
+      /\bwide lower-?third\b|\bintensity of the jaw and brow ridge\b|\bbrutalist aesthetic\b|\bniche,\s*editorial\b/.test(text) ||
+      (Number.isFinite(bigonial) && bigonial >= 90) ||
+      (Number.isFinite(fwhr) && fwhr >= 88)
+    );
 
   if (
     aggressiveDisharmonyCase ||
     extremeOverbuilt ||
     signalScore >= 8 ||
-    (signalScore >= 7 && Number.isFinite(harmony) && harmony <= 68)
+    (signalScore >= 7 && Number.isFinite(harmony) && harmony <= 68) ||
+    (exaggeratedAggressiveCase && overbuiltMetricScore >= 4)
   ) {
     return 52;
   }
@@ -585,18 +665,35 @@ function detectUncannyRatingCap(rawOutput, metricScoreMap, categories, sideCateg
     signalScore >= 6 ||
     (signalScore >= 5 && Number.isFinite(harmony) && harmony <= 60) ||
     (stylizedCueScore >= 2 && overbuiltMetricScore >= 4) ||
-    (stylizedCueScore >= 3 && overbuiltMetricScore >= 3)
+    (stylizedCueScore >= 3 && overbuiltMetricScore >= 3) ||
+    (exaggeratedAggressiveCase && overbuiltMetricScore >= 3) ||
+    brutalistOverbuiltFallback ||
+    textOnlyOverbuiltEditorialCase
   ) {
     return 56;
   }
-  if (signalScore >= 4 || (stylizedCueScore >= 1 && overbuiltMetricScore >= 3)) {
+  if (
+    signalScore >= 4 ||
+    (stylizedCueScore >= 1 && overbuiltMetricScore >= 3) ||
+    exaggeratedAggressiveCase
+  ) {
     return 60;
   }
   return null;
 }
 
 function buildUncannyPrimaryFlawEntries(rawOutput, categories, appealAssessment) {
-  const { text, hasSyntheticCue, hasEditorialCue, hasCoherentCue, hasAggressiveCue, hasDisharmonyCue } =
+  const {
+    text,
+    exaggeratedButCoherentCue,
+    aggressiveLowerThirdCue,
+    extremeMasculinityCue,
+    hasSyntheticCue,
+    hasEditorialCue,
+    hasCoherentCue,
+    hasAggressiveCue,
+    hasDisharmonyCue
+  } =
     buildStylizationSignalSummary(rawOutput, appealAssessment);
   const entries = [];
   const harmony = Number(categories?.Harmony);
@@ -620,6 +717,13 @@ function buildUncannyPrimaryFlawEntries(rawOutput, categories, appealAssessment)
     entries.push({
       title: 'Overbuilt Lower Third',
       description: 'The lower third is too carved and dominant relative to the midface, making the result feel less natural.'
+    });
+  }
+
+  if (exaggeratedButCoherentCue && (aggressiveLowerThirdCue || extremeMasculinityCue || hasAggressiveCue)) {
+    entries.push({
+      title: 'Overbuilt / Editorial Read',
+      description: 'The face reads more aggressively stylized than naturally harmonious, which narrows the appeal despite the striking structure.'
     });
   }
 
@@ -1272,6 +1376,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   const sideScoreMap = scoreMapFromBiometrics(sideBiometrics);
   const objectiveFrontRating = computeObjectiveFaceRating(frontScoreMap, categories);
   const objectiveSideRating = computeObjectiveFaceRating(sideScoreMap, sideCategories);
+  const stylizationSignals = buildStylizationSignalSummary(rawOutput, appealAssessment);
   const rawCalibrationMetrics = extractCalibrationMetrics(rawValues);
   const benchmarkFrontBaseline =
     objectiveFrontRating != null ? objectiveFrontRating : explicitFrontRating ?? finalRating;
@@ -1326,6 +1431,17 @@ function parseAnalysisOutput(rawOutput, backendDir) {
       strongEliteBenchmarkMatch &&
       benchmarkFrontCalibration.nearestTarget >= 80 &&
       benchmarkFrontCalibration.nearestDistance <= 0.01;
+    const moderateNaturalHighTierMatch =
+      !stylizationSignals.hasSyntheticCue &&
+      !stylizationSignals.exaggeratedButCoherentCue &&
+      !stylizationSignals.hasAggressiveCue &&
+      Number.isFinite(explicitFrontRating) &&
+      Number.isFinite(benchmarkFrontCalibration?.nearestDistance) &&
+      benchmarkFrontCalibration.nearestDistance <= 0.45 &&
+      Number.isFinite(benchmarkFrontCalibration?.nearestTarget) &&
+      benchmarkFrontCalibration.nearestTarget >= 72 &&
+      Number.isFinite(benchmarkFrontRating) &&
+      benchmarkFrontRating >= explicitFrontRating + 0.75;
 
     if (obviousEliteUndercall) {
       finalRating = Math.max(
@@ -1358,13 +1474,47 @@ function parseAnalysisOutput(rawOutput, backendDir) {
       // hard-capping it at Gemma's explicit front rating.
       const guardedLift = explicitFrontRating + Math.min(18, Math.max(8, benchmarkFrontCalibration.nearestTarget - explicitFrontRating));
       finalRating = Math.min(benchmarkFrontRating, guardedLift);
+    } else if (moderateNaturalHighTierMatch) {
+      // Prevent coherent high-tier faces from getting pinned to the common
+      // explicit-front fallback band (for example repeated 71s after the -5
+      // offset) when calibration clearly places them in the low/mid 70s+.
+      const guardedLift =
+        explicitFrontRating +
+        Math.min(
+          8,
+          Math.max(3, benchmarkFrontCalibration.nearestTarget - explicitFrontRating)
+        );
+      finalRating = Math.min(benchmarkFrontRating, guardedLift);
     } else {
-      // Default behavior stays conservative so benchmark calibration can pull
-      // overcalled faces downward without reopening the generous-score issue.
-      finalRating =
-        explicitFrontRating != null
-          ? Math.min(benchmarkFrontRating, explicitFrontRating)
-          : benchmarkFrontRating;
+      const stuckExplicitBand =
+        Number.isFinite(explicitFrontRating) &&
+        explicitFrontRating >= 69 &&
+        explicitFrontRating <= 72 &&
+        Number.isFinite(objectiveFrontRating) &&
+        objectiveFrontRating >= explicitFrontRating + 2 &&
+        Number.isFinite(benchmarkFrontCalibration?.nearestDistance) &&
+        benchmarkFrontCalibration.nearestDistance <= 0.6;
+
+      if (stuckExplicitBand) {
+        // Break the repeated 71/72 lock: when Gemma's explicit front score
+        // lands in the common post-offset band but the objective/benchmark
+        // signals are both higher, let the stored dashboard score lift above
+        // the explicit read instead of freezing there.
+        const unlockedBlend =
+          objectiveFrontRating * 0.55 +
+          benchmarkFrontRating * 0.45;
+        finalRating = Math.min(
+          benchmarkFrontRating,
+          Math.max(explicitFrontRating + 2, unlockedBlend)
+        );
+      } else {
+        // Default behavior stays conservative so benchmark calibration can pull
+        // overcalled faces downward without reopening the generous-score issue.
+        finalRating =
+          explicitFrontRating != null
+            ? Math.min(benchmarkFrontRating, explicitFrontRating)
+            : benchmarkFrontRating;
+      }
     }
   } else if (objectiveFrontRating != null) {
     finalRating =
@@ -1408,17 +1558,18 @@ function parseAnalysisOutput(rawOutput, backendDir) {
       if (!m2) continue;
 
       const rest = m2[3];
-      const impMatch = rest.match(/\(([^)]*Impact[^)]*)\)/i);
+      const impMatch = rest.match(/(?:\(([^)]*Impact[^)]*)\)|\[([^\]]*Impact[^\]]*)\])/i);
       const resMatch = rest.match(/\[RESEARCH:\s*(.+?)\]\s*$/i);
+      const impactText = normalizeImpactLabel(impMatch ? (impMatch[1] || impMatch[2]) : '');
 
       protocols.push({
         id: parseInt(m2[1]),
         name: m2[2].trim(),
         description: rest
-          .replace(/\([^)]*Impact[^)]*\)/i, '')
+          .replace(/(?:\([^)]*Impact[^)]*\)|\[[^\]]*Impact[^\]]*\])/i, '')
           .replace(/\[RESEARCH:\s*.+?\]\s*$/i, '')
           .trim().replace(/\.$/, ''),
-        impact: impMatch ? impMatch[1].trim() : 'Medium Impact',
+        impact: impactText || 'Medium Impact',
         research: resMatch ? resMatch[1].trim() : null
       });
     }

@@ -704,6 +704,28 @@
     "sourceImage": "IMG_5388.jpg"
   },
   {
+    "id": "tier_5s_img_5728_jpg",
+    "target": 55,
+    "metrics": {
+      "Bigonial": 0.979,
+      "IPD": 0.447,
+      "Mouth": 0.336,
+      "Nose": 0.223,
+      "Upper": 0.448,
+      "Middle": 0.462,
+      "Lower": 0.531,
+      "Eye": 0.055,
+      "Brow": 0.11,
+      "Philtrum": 0.135,
+      "Lip": 0.135,
+      "fWHR": 1.677,
+      "Midface": 1.08,
+      "Canthal": 2.68
+    },
+    "sourceFolder": "The 5s",
+    "sourceImage": "IMG_5728.jpg"
+  },
+  {
     "id": "tier_5s_kai_cenat_jan_2024_a_billboard_1548_webp",
     "target": 55,
     "metrics": {
