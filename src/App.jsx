@@ -306,79 +306,6 @@ function findCommunityScanTemplate(scan) {
     .map(getCommunityImageToken)
     .filter(Boolean);
 
-  if (compact) {
-    return (
-      <div className="overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#0c0d0e]/95 shadow-[0_0_28px_rgba(34,211,238,0.12)] backdrop-blur-xl">
-        <div className="flex items-center gap-3 px-3 py-2.5">
-          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-cyan-500/25 bg-zinc-950">
-            {videoUrl ? (
-              <video src={videoUrl} autoPlay loop muted playsInline className="absolute inset-0 h-full w-full object-cover" />
-            ) : (
-              <>
-                <img
-                  src={mainImageSrc}
-                  alt="Scan target"
-                  className="absolute inset-0 h-full w-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%]"
-                />
-                <div className="absolute inset-0 bg-blue-900/20 mix-blend-overlay" />
-              </>
-            )}
-
-            {!videoUrl && (
-              <FaceScanOverlay
-                landmarksData={landmarks}
-                revealDurationSeconds={overlayRevealSeconds}
-                scanLoopSeconds={overlayScanLoopSeconds}
-              />
-            )}
-
-            <div className="absolute left-2 top-2 h-3 w-3 border-l-2 border-t-2 border-cyan-500/80" />
-            <div className="absolute right-2 top-2 h-3 w-3 border-r-2 border-t-2 border-cyan-500/80" />
-            <div className="absolute bottom-2 left-2 h-3 w-3 border-b-2 border-l-2 border-cyan-500/80" />
-            <div className="absolute bottom-2 right-2 h-3 w-3 border-b-2 border-r-2 border-cyan-500/80" />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className={`inline-flex h-2.5 w-2.5 rounded-full ${hasError ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.85)]' : 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.85)] animate-pulse'}`} />
-              <p className={`truncate text-[10px] font-black uppercase tracking-[0.28em] ${hasError ? 'text-red-300/85' : 'text-cyan-300/85'}`}>
-                {hasError ? 'Scan paused' : 'Scan in progress'}
-              </p>
-            </div>
-            <p className="mt-1 truncate text-[11px] font-black uppercase tracking-[0.22em] text-white">
-              {analysisLabel || 'Profile'}
-            </p>
-            <p className="mt-0.5 truncate text-[10px] font-sans uppercase tracking-[0.2em] text-zinc-500">
-              {hasError ? 'Action needed' : getAnalysisModelLabel(choice)}
-            </p>
-            {lowPriorityBadge && !hasError && (
-              <div className="mt-1 inline-flex max-w-full rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-red-300">
-                <span className="truncate">{lowPriorityBadge}</span>
-              </div>
-            )}
-            <p className="mt-1 truncate text-[10px] leading-relaxed text-zinc-400">
-              {hasError ? statusText : 'Working in background'}
-            </p>
-            {!hasError && (
-              <div className="mt-2 overflow-hidden rounded-full border border-cyan-500/15 bg-zinc-900/80 p-1">
-                <div className="h-1.5 rounded-full bg-gradient-to-r from-cyan-700/40 via-cyan-300 to-cyan-700/40 animate-pulse" />
-              </div>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => (onDismiss ? onDismiss() : onScanFailedRef.current?.())}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-500 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
-            aria-label="Dismiss analysis"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     COMMUNITY_SCANS.find((entry) => {
       const entryIds = [
@@ -2911,6 +2838,7 @@ const ScanningView = ({
       let scanSucceeded = false;
       let analyzeRequestStarted = false;
       let currentFairUsage = null;
+      let authToken = null;
 
       const fetchWithTimeoutRetry = async (url, options = {}, attempt = 1) => {
         const { timeoutMs = 8000, ...fetchOptions } = options;
@@ -2929,6 +2857,66 @@ const ScanningView = ({
         } finally {
           clearTimeout(timer);
         }
+      };
+
+      const normalizeRecoveredScan = (scan) => {
+        if (!scan || typeof scan !== 'object') return null;
+        const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : scan;
+        const frontImage = payload.frontImage || scan.frontImage || scan.frontImageUrl || null;
+        const sideImage = payload.sideImage || scan.sideImage || scan.sideImageUrl || null;
+        return {
+          ...payload,
+          success: true,
+          scanId: payload.scanId || scan.scanId || scan.id || null,
+          scanRequestId: payload.scanRequestId || scan.scanRequestId || scanRequestId,
+          frontImage,
+          sideImage,
+          selectedModel: String(payload.selectedModel || scan.selectedModel || scan.model || choice || '3'),
+          profileId: payload.profileId || scan.profileId || profileId || 'default',
+          scannedAt: payload.scannedAt || scan.scannedAt || scan.timestamp || new Date().toISOString(),
+        };
+      };
+
+      const recoverSavedScan = async () => {
+        if (!authToken || !scanRequestId) return null;
+        setStatusText('Connection dropped. Checking whether the saved scan finished...');
+        const maxRecoveryAttempts = 150;
+        for (let attempt = 0; attempt < maxRecoveryAttempts; attempt += 1) {
+          if (!active) return null;
+          try {
+            const res = await fetchWithTimeoutRetry(`${API_BASE}/api/user/scans`, {
+              timeoutMs: 12000,
+              headers: { Authorization: `Bearer ${authToken}` },
+            });
+            if (res.ok) {
+              const body = await res.json().catch(() => ({}));
+              const scans = Array.isArray(body.scans) ? body.scans : [];
+              const matchedScan = scans.find((scan) => {
+                const payload = scan?.payload && typeof scan.payload === 'object' ? scan.payload : {};
+                return (
+                  scan?.scanRequestId === scanRequestId ||
+                  payload.scanRequestId === scanRequestId
+                );
+              });
+              const recovered = normalizeRecoveredScan(matchedScan);
+              if (
+                recovered &&
+                (
+                  recovered.finalRating != null ||
+                  recovered.technicalSummary ||
+                  recovered.rawOutput
+                )
+              ) {
+                return recovered;
+              }
+            }
+          } catch (pollErr) {
+            console.warn('Saved scan recovery poll failed', pollErr);
+          }
+          setStatusText(`Connection dropped. Checking saved result... ${attempt + 1}/${maxRecoveryAttempts}`);
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+        }
+        return null;
       };
 
       try {
@@ -2960,7 +2948,6 @@ const ScanningView = ({
           return;
         }
 
-        let authToken = null;
         if (isUltra) {
           setStatusText("Checking premium access...");
           try {
@@ -3092,12 +3079,26 @@ const ScanningView = ({
           data = await apiRes.json();
         } catch (parseErr) {
           console.error("Analyze response not JSON", parseErr);
+          const recovered = await recoverSavedScan();
+          if (recovered && active) {
+            scanSucceeded = true;
+            setStatusText("Analysis Complete! Opening saved result...");
+            onCompleteRef.current(recovered);
+            return;
+          }
           setStatusText(GENERIC_ERROR);
           setHasError(true);
           return;
         }
 
         if (!apiRes.ok) {
+          const recovered = await recoverSavedScan();
+          if (recovered && active) {
+            scanSucceeded = true;
+            setStatusText("Analysis Complete! Opening saved result...");
+            onCompleteRef.current(recovered);
+            return;
+          }
           if (data?.fairUsage && active) {
             currentFairUsage = data.fairUsage;
             setFairUsageState(data.fairUsage);
@@ -3142,6 +3143,15 @@ const ScanningView = ({
         }
       } catch (err) {
         console.error("API failed", err);
+        if (analyzeRequestStarted) {
+          const recovered = await recoverSavedScan();
+          if (recovered && active) {
+            scanSucceeded = true;
+            setStatusText("Analysis Complete! Opening saved result...");
+            onCompleteRef.current(recovered);
+            return;
+          }
+        }
         setStatusText(
           err?.name === 'AbortError'
             ? 'Analysis timed out after about 10 minutes. Please try again with a smaller image or try again in a moment.'
@@ -3166,6 +3176,79 @@ const ScanningView = ({
       cancelAnalyzeRequest();
     };
   }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, profileId]);
+
+  if (compact) {
+    return (
+      <div className="overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#0c0d0e]/95 shadow-[0_0_28px_rgba(34,211,238,0.12)] backdrop-blur-xl">
+        <div className="flex items-center gap-3 px-3 py-2.5">
+          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-cyan-500/25 bg-zinc-950">
+            {videoUrl ? (
+              <video src={videoUrl} autoPlay loop muted playsInline className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <>
+                <img
+                  src={mainImageSrc}
+                  alt="Scan target"
+                  className="absolute inset-0 h-full w-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%]"
+                />
+                <div className="absolute inset-0 bg-blue-900/20 mix-blend-overlay" />
+              </>
+            )}
+
+            {!videoUrl && (
+              <FaceScanOverlay
+                landmarksData={landmarks}
+                revealDurationSeconds={overlayRevealSeconds}
+                scanLoopSeconds={overlayScanLoopSeconds}
+              />
+            )}
+
+            <div className="absolute left-2 top-2 h-3 w-3 border-l-2 border-t-2 border-cyan-500/80" />
+            <div className="absolute right-2 top-2 h-3 w-3 border-r-2 border-t-2 border-cyan-500/80" />
+            <div className="absolute bottom-2 left-2 h-3 w-3 border-b-2 border-l-2 border-cyan-500/80" />
+            <div className="absolute bottom-2 right-2 h-3 w-3 border-b-2 border-r-2 border-cyan-500/80" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex h-2.5 w-2.5 rounded-full ${hasError ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.85)]' : 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.85)] animate-pulse'}`} />
+              <p className={`truncate text-[10px] font-black uppercase tracking-[0.28em] ${hasError ? 'text-red-300/85' : 'text-cyan-300/85'}`}>
+                {hasError ? 'Scan paused' : 'Scan in progress'}
+              </p>
+            </div>
+            <p className="mt-1 truncate text-[11px] font-black uppercase tracking-[0.22em] text-white">
+              {analysisLabel || 'Profile'}
+            </p>
+            <p className="mt-0.5 truncate text-[10px] font-sans uppercase tracking-[0.2em] text-zinc-500">
+              {hasError ? 'Action needed' : getAnalysisModelLabel(choice)}
+            </p>
+            {lowPriorityBadge && !hasError && (
+              <div className="mt-1 inline-flex max-w-full rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-red-300">
+                <span className="truncate">{lowPriorityBadge}</span>
+              </div>
+            )}
+            <p className="mt-1 truncate text-[10px] leading-relaxed text-zinc-400">
+              {hasError ? statusText : 'Working in background'}
+            </p>
+            {!hasError && (
+              <div className="mt-2 overflow-hidden rounded-full border border-cyan-500/15 bg-zinc-900/80 p-1">
+                <div className="h-1.5 rounded-full bg-gradient-to-r from-cyan-700/40 via-cyan-300 to-cyan-700/40 animate-pulse" />
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => (onDismiss ? onDismiss() : onScanFailedRef.current?.())}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-500 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
+            aria-label="Dismiss analysis"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full flex flex-col items-center justify-center animate-[fadeIn_0.5s_ease-out]">
@@ -5141,6 +5224,21 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   const displayedFinalRating = isFreeModelResult
     ? 'Descriptive'
     : (numericDisplayedFinalRating ?? 85);
+  const cohesiveExperimentToggle = hasBothProfileViews && !isFreeModelResult ? (
+    <button
+      type="button"
+      onClick={() => setExperimentalCohesiveEnabled((prev) => !prev)}
+      className={`mb-4 inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] transition-colors ${
+        effectiveCohesiveEnabled
+          ? 'border-amber-400/35 bg-amber-400/10 text-amber-300'
+          : 'border-zinc-700 bg-zinc-900/80 text-zinc-400 hover:border-amber-400/25 hover:text-amber-300'
+      }`}
+      title="Experimental: let front and side influence each other slightly instead of staying fully separate."
+    >
+      <Sparkles size={12} />
+      {effectiveCohesiveEnabled ? 'Experimental cohesive on' : 'Experimental cohesive off'}
+    </button>
+  ) : null;
   const radarFinalScore = Number(numericDisplayedFinalRating ?? dashboardData?.finalRating ?? 0) || 0;
 
   return (
@@ -5206,20 +5304,6 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
               AI used: {getAnalysisModelLabel(selectedModel || dashboardData?.model)}
             </span>
-            {hasBothProfileViews && !isFreeModelResult && (
-              <button
-                type="button"
-                onClick={() => setExperimentalCohesiveEnabled((prev) => !prev)}
-                className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] transition-colors ${
-                  effectiveCohesiveEnabled
-                    ? 'border-amber-400/35 bg-amber-400/10 text-amber-300'
-                    : 'border-zinc-700 bg-zinc-900/80 text-zinc-400 hover:border-amber-400/25 hover:text-amber-300'
-                }`}
-                title="Experimental: let front and side influence each other slightly instead of staying fully separate."
-              >
-                {effectiveCohesiveEnabled ? 'Experimental cohesive on' : 'Experimental cohesive off'}
-              </button>
-            )}
             {isFreeModelResult && (
               <span className="rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-400">
                       Descriptive result - no score
@@ -5337,6 +5421,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                 </div>
 
                 <div className="col-span-1 md:col-span-3 bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
+                  {cohesiveExperimentToggle}
                   <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2">
                     <Target size={14} className="text-zinc-500" /> Structure
                   </h3>
@@ -5409,6 +5494,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                 </div>
 
                 <div className="col-span-1 md:col-span-3 bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
+                  {cohesiveExperimentToggle}
                   <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2">
                     <Target size={14} className="text-zinc-500" /> Structure
                   </h3>
