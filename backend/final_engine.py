@@ -268,8 +268,10 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         {prompt_visual_inputs}
         INPUT D (Local Benchmark Calibration): {benchmark_calibration}
         TECHNICAL VISIBILITY & OVERRIDE RULES:
-        - CANTHAL TILT OVERRIDE: IGNORE any Canthal Tilt data provided in INPUT A (Metadata).
-        You MUST evaluate Canthal Tilt primarily from the actual visual evidence in the image(s), not just the raw number.
+        - CANTHAL TILT MUST NOT BE IGNORED: Use BOTH the Canthal_Tilt_Degrees value from INPUT A and the actual visible eye tilt in the frontal image.
+        If the metadata and the photo disagree, explain the uncertainty internally and use the clearer evidence, but never discard the canthal tilt measurement by default.
+        Negative canthal tilt is a real eye-area flaw and must reduce eye-area, harmony, and final frontal score when it is visually obvious or supported by the metadata.
+        Positive canthal tilt can help only when it looks natural, balanced, and harmonious; do not over-reward tiny positive values.
         - SIDE PROFILE JUDGMENT CRITERIA: Reward a nice, clean, and harmonious look.
         Bone structure does not necessarily have to be amazingly projected to score well.
         A slightly weak chin is acceptable as long as it is not completely terrible/recessed.
@@ -280,6 +282,11 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         - NOSE BASE LENIENCY: Do not penalize for slightly wide nose bases unless it is very bad and severely disrupts facial balance.
         - DO NOT include minor asymmetries as flaws. ONLY penalize for asymmetry if it is VERY OBVIOUS and structurally disruptive.
         - Only override eye area data if signs of poor infraorbital growth are SEVERE and CLEARLY visible.
+        - SCLERAL SHOW: Punish scleral show when it is very obvious, especially lower scleral show that creates a tired, exposed, droopy, or weak orbital look.
+        Minor lighting/reflection artifacts should not be over-penalized, but clear visible white beneath the iris should materially reduce Eye Area, Harmony, and Appeal.
+        - SIDE HYOID / NECK-JAW TRANSITION: On the side profile, evaluate the hyoid/cervicomental area from visual evidence and side metadata.
+        A low hyoid, soft under-chin area, weak neck-jaw transition, obtuse cervicomental angle, or sagging submental fullness should punish the Final Side Rating and side Harmony/Bone categories.
+        A clean, high, tight hyoid/neck-jaw transition can help the side profile, but it must not boost the frontal rating unless it is also visible frontally.
         - TROLL/NON-HUMAN IMAGE DETECTION: If the input image is clearly not a human face (e.g., a cat, a dog, a drawn cartoon, or an inanimate object), rate its symmetry and ratios normally from 1-100, but prominently include a humorous disclaimer in the Technical Summary or insights (e.g., "Ratings may be inaccurate as the face appears to be a cat!").
         Do not let this affect the actual structural math generation.
         - HIGHLIGHTING & FORMATTING: In your insights and descriptions, highlight *key words* and *core concepts* by wrapping them in single asterisks for bold emphasis.
@@ -318,6 +325,9 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - UPPER THIRD: Penalize strictly for an elongated upper third/forehead relative to the rest of the face.
            - PHILTRUM: Penalize HARSHLY for long philtrums that disrupt lower-third harmony.
            - EYE AREA: Penalize for puffy undereyes (eye bags/fat prolapse).
+           Penalize clearly negative canthal tilt when visible or when the Canthal_Tilt_Degrees measurement supports it.
+           Penalize very obvious scleral show, especially lower scleral show, because it weakens compactness, alertness, and orbital harmony.
+           Do not hallucinate scleral show from normal eye highlights or tiny eyelid gaps; only punish it when the white exposure is obvious.
            Reward genuinely exceptional eye areas more than you currently do.
            If the subject has compact, attractive, well-framed eyes with good shape, good spacing, low upper eyelid exposure, and a strong overall orbital aesthetic, allow that to lift harmony and attractiveness in a noticeable but controlled way.
            Elite eyes should be able to add a meaningful boost, but they should NOT completely rescue a face with multiple obvious structural problems.
@@ -332,6 +342,10 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            Strong jaw width, bigonial width, or brute lower-third breadth should be treated as SUPPORTING traits, not as major carry traits.
            A wide jaw / bigonial width alone should never rescue weak harmony, tired soft tissue, mediocre eyes, aging, or an overall non-elite read.
            If the jaw or gonial width becomes too expanded, too blocky, or too brutish relative to the rest of the face, treat it as a harmony negative rather than a bonus.
+           - SIDE HYOID / CERVICOMENTAL AREA: For the side profile only, punish a bad hyoid/neck-jaw transition when visible.
+           A low hyoid, soft submental area, obtuse cervicomental angle, weak under-chin definition, or sagging throat/neck line should noticeably reduce the Final Side Rating.
+           Do not let a strong jaw or chin fully rescue a bad hyoid area if the side profile still reads soft, saggy, or poorly defined under the mandible.
+           A clean hyoid and sharp neck-jaw transition should help the side profile, but should not affect the frontal rating unless visible from the front.
            - DEFINITION / FACIAL FAT: Penalize high facial fat and poor definition more than you currently do.
            A soft, puffy, bloated, or poorly defined face should noticeably hurt harmony, bone visibility, and perceived attractiveness.
            If the cheek/jaw/under-chin definition is weak due to visible body fat or facial fullness, this should produce a meaningful deduction rather than just a tiny one.
@@ -412,8 +426,9 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         3. CONDITIONAL CAPS:
            - HARD BASE CAP 60: If the structural base (Bone, Harmony, Symmetry) is below 60, external enhancements like hair framing, grooming, or styling CANNOT push the final score above 60.
            - HARD CAP 60: If the subject has MORE THAN 3 of the following, the final score CANNOT EXCEED 60:
-             (Very prominent ears, negative canthal tilt, bad upper eyelid exposure, undereye puffiness, unideal FWHR, high
-             set eyebrows, bulbous nose shape).
+           (Very prominent ears, negative canthal tilt, bad upper eyelid exposure, undereye puffiness, unideal FWHR, high
+            set eyebrows, bulbous nose shape, very obvious scleral show).
+           - SIDE PROFILE CAP: If the side profile has a clearly poor hyoid/cervicomental area combined with weak chin/mandibular plane or soft under-chin definition, the Final Side Rating should usually not exceed the low-to-mid 60s unless there are exceptional compensating side-profile traits.
            - CAP 60: If the face lacks "pretty" appeal or a genuinely high-tier harmonious read.
            - LOW-TIER FLOOR LOGIC: If the face is clearly very narrow, elongated, asymmetric, and weak overall, do NOT keep it artificially in the 40s or 50s just because a few isolated measurements are not disastrous.
            - MODERATE UNCANNY CAP 60: If the face is clearly exaggerated, overbuilt, AI-looking, synthetic, or "fantasy male model" but still somewhat coherent, it should usually NOT exceed 60.
