@@ -410,11 +410,21 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         ]);
         if (profilesRes.ok) {
           const data = await profilesRes.json();
-          setProfiles(data.profiles || []);
+          const fetchedProfiles = data.profiles || [];
+          setProfiles((prev) => (
+            fetchedProfiles.length > 0 || prev.length === 0 || !data.warning
+              ? fetchedProfiles
+              : prev
+          ));
         }
         if (scansRes.ok) {
           const data = await scansRes.json();
-          setAllScans(data.scans || []);
+          const fetchedScans = data.scans || [];
+          setAllScans((prev) => (
+            fetchedScans.length > 0 || prev.length === 0 || !data.warning
+              ? fetchedScans
+              : prev
+          ));
         }
       } catch (e) {
         console.error('Failed to fetch profiles', e);

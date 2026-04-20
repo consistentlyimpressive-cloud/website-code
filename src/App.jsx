@@ -2836,7 +2836,6 @@ const ScanningView = ({
           ? crypto.randomUUID()
           : `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       let scanSucceeded = false;
-      let analyzeRequestStarted = false;
       let currentFairUsage = null;
       let authToken = null;
 
@@ -2857,66 +2856,6 @@ const ScanningView = ({
         } finally {
           clearTimeout(timer);
         }
-      };
-
-      const normalizeRecoveredScan = (scan) => {
-        if (!scan || typeof scan !== 'object') return null;
-        const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : scan;
-        const frontImage = payload.frontImage || scan.frontImage || scan.frontImageUrl || null;
-        const sideImage = payload.sideImage || scan.sideImage || scan.sideImageUrl || null;
-        return {
-          ...payload,
-          success: true,
-          scanId: payload.scanId || scan.scanId || scan.id || null,
-          scanRequestId: payload.scanRequestId || scan.scanRequestId || scanRequestId,
-          frontImage,
-          sideImage,
-          selectedModel: String(payload.selectedModel || scan.selectedModel || scan.model || choice || '3'),
-          profileId: payload.profileId || scan.profileId || profileId || 'default',
-          scannedAt: payload.scannedAt || scan.scannedAt || scan.timestamp || new Date().toISOString(),
-        };
-      };
-
-      const recoverSavedScan = async () => {
-        if (!authToken || !scanRequestId) return null;
-        setStatusText('Connection dropped. Checking whether the saved scan finished...');
-        const maxRecoveryAttempts = 150;
-        for (let attempt = 0; attempt < maxRecoveryAttempts; attempt += 1) {
-          if (!active) return null;
-          try {
-            const res = await fetchWithTimeoutRetry(`${API_BASE}/api/user/scans`, {
-              timeoutMs: 12000,
-              headers: { Authorization: `Bearer ${authToken}` },
-            });
-            if (res.ok) {
-              const body = await res.json().catch(() => ({}));
-              const scans = Array.isArray(body.scans) ? body.scans : [];
-              const matchedScan = scans.find((scan) => {
-                const payload = scan?.payload && typeof scan.payload === 'object' ? scan.payload : {};
-                return (
-                  scan?.scanRequestId === scanRequestId ||
-                  payload.scanRequestId === scanRequestId
-                );
-              });
-              const recovered = normalizeRecoveredScan(matchedScan);
-              if (
-                recovered &&
-                (
-                  recovered.finalRating != null ||
-                  recovered.technicalSummary ||
-                  recovered.rawOutput
-                )
-              ) {
-                return recovered;
-              }
-            }
-          } catch (pollErr) {
-            console.warn('Saved scan recovery poll failed', pollErr);
-          }
-          setStatusText(`Connection dropped. Checking saved result... ${attempt + 1}/${maxRecoveryAttempts}`);
-          await new Promise((resolve) => setTimeout(resolve, 4000));
-        }
-        return null;
       };
 
       try {
@@ -3066,7 +3005,6 @@ const ScanningView = ({
 
         let apiRes;
         try {
-          analyzeRequestStarted = true;
           apiRes = await runAnalyzeRequest();
         } finally {
           clearTimeout(analyzeHardStop);
@@ -3079,26 +3017,12 @@ const ScanningView = ({
           data = await apiRes.json();
         } catch (parseErr) {
           console.error("Analyze response not JSON", parseErr);
-          const recovered = await recoverSavedScan();
-          if (recovered && active) {
-            scanSucceeded = true;
-            setStatusText("Analysis Complete! Opening saved result...");
-            onCompleteRef.current(recovered);
-            return;
-          }
           setStatusText(GENERIC_ERROR);
           setHasError(true);
           return;
         }
 
         if (!apiRes.ok) {
-          const recovered = await recoverSavedScan();
-          if (recovered && active) {
-            scanSucceeded = true;
-            setStatusText("Analysis Complete! Opening saved result...");
-            onCompleteRef.current(recovered);
-            return;
-          }
           if (data?.fairUsage && active) {
             currentFairUsage = data.fairUsage;
             setFairUsageState(data.fairUsage);
@@ -3143,15 +3067,6 @@ const ScanningView = ({
         }
       } catch (err) {
         console.error("API failed", err);
-        if (analyzeRequestStarted) {
-          const recovered = await recoverSavedScan();
-          if (recovered && active) {
-            scanSucceeded = true;
-            setStatusText("Analysis Complete! Opening saved result...");
-            onCompleteRef.current(recovered);
-            return;
-          }
-        }
         setStatusText(
           err?.name === 'AbortError'
             ? 'Analysis timed out after about 10 minutes. Please try again with a smaller image or try again in a moment.'
@@ -3539,7 +3454,11 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
             const data = await res.json();
             const fetchedProfiles = data.profiles || [];
             setProfilesUnavailable(Boolean(data.profilesUnavailable));
-            setProfiles(fetchedProfiles);
+            setProfiles((prev) => (
+              fetchedProfiles.length > 0 || prev.length === 0 || !data.warning
+                ? fetchedProfiles
+                : prev
+            ));
             if (initialProfileId && fetchedProfiles.some((p) => p.id === initialProfileId)) {
               setSelectedProfileId(initialProfileId);
             } else if (fetchedProfiles.length > 0) {
@@ -3551,9 +3470,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
             }
         } else {
         // 401 = token not accepted by server; 503 = Firestore off - avoid invalid <select> value
-          setProfiles([]);
           setProfilesUnavailable(false);
-          setSelectedProfileId('new');
           if (res.status !== 401 && res.status !== 503) {
             console.warn('fetch profiles HTTP', res.status);
           }
@@ -3561,7 +3478,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       } catch (e) {
         console.error('Failed to fetch profiles', e);
         setProfilesUnavailable(false);
-        setSelectedProfileId('new');
       }
     };
     fetchProfiles();

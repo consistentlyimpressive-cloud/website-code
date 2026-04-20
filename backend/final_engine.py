@@ -291,6 +291,12 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         Do not let this affect the actual structural math generation.
         - HIGHLIGHTING & FORMATTING: In your insights and descriptions, highlight *key words* and *core concepts* by wrapping them in single asterisks for bold emphasis.
         - Do NOT use color-code wrappers like &blue&, &green&, $red$, #blue#, or @yellow@ anywhere in the output.
+        - DIMORPHISM LANGUAGE RULE: Never describe aggressive dimorphism, brutal masculinity, extreme breadth, or an overbuilt jaw/brow as something "required" for high-tier appeal.
+        A face should NOT be criticized for lacking aggressive dimorphism.
+        High-tier appeal comes from balanced harmony, clean proportions, health, symmetry, attractive eye area, refined soft tissue, and a controlled mix of masculine and feminine traits.
+        If a face is soft, youthful, or less aggressively masculine but harmonious, describe it as conventional / balanced / youthful rather than "missing" a required feature.
+        If a face is extremely masculine, very broad, brutalist, or hyper-dimorphic, treat that as a possible limitation once it disrupts harmony or universal appeal.
+        Forbidden wording/logic: "lacks the aggressive dimorphism required for high-tier appeal", "needs more aggressive dimorphism", "more masculine means better", "extreme dimorphism is elite by default".
 {feature_selection_rules}
 
         SHARED RATING PROTOCOL:
@@ -443,6 +449,8 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            If the face is only exaggerated but still coherent and natural-looking, apply only a minor-to-moderate deduction instead.
            Extreme masculinity is NOT automatically a positive. The ideal is balanced beauty: a clean mix of masculinity and femininity.
            Faces that become too brutish, too wide, too heavy, too hollowed, too aged, too tired, or too aggressively dimorphic should lose harmony points once the extremes are visually obvious.
+           Lack of aggressive dimorphism is NOT a flaw by itself. A softer or more youthful face can still score high when harmony, eyes, skin, ratios, and overall appeal are strong.
+           Do not write that a face lacks "required aggressive dimorphism"; this is incorrect.
            - NATURAL PENALTY PHRASING: NEVER explicitly state "the face is hard capped at 60 due to X" or mention the internal caps directly.
            Instead, make the limitation sound natural and logically explain it.
            For example: "the rating is limited by several overly dimorphic features" or "structural harmony is disrupted by unnatural proportions".
@@ -492,7 +500,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         **Technical Summary:** [Blend Frontal Metadata with Side Profile Metadata.
         Use *bolding* sparingly when emphasis is helpful].
 
-        **Appeal Assessment:** [Identify phenotype and target audience appeal. If the face falls into the EXAGGERATED BUT COHERENT bucket, explicitly say that the appeal is more niche / editorial / high-fashion rather than universally conventional. Do NOT frame extreme masculinity or aggressive breadth as elite natural appeal.]
+        **Appeal Assessment:** [Identify phenotype and target audience appeal. If the face falls into the EXAGGERATED BUT COHERENT bucket, explicitly say that the appeal is more niche / editorial / high-fashion rather than universally conventional. Do NOT frame extreme masculinity or aggressive breadth as elite natural appeal. Do NOT say aggressive dimorphism is required for high-tier appeal; balanced harmony is the goal.]
         **Hexagon Chart Ratings (front)**
         - Skin: [Score 1-10]
         - Bone: [Score 1-10]
@@ -627,7 +635,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
             MANDATE: Conduct a specialized evaluation focused on OBJECTIVE ATTRACTIVENESS.
             INPUT A: {clinical_data}
             INPUT B: Frontal visual provided.
-            Focus on sexual dimorphism, mass-market appeal, and 'pretty' harmony. Assess how well the features project an image of health, vitality, and aesthetic refinement.
+            Focus on balanced attractiveness, mass-market appeal, and 'pretty' harmony. Assess how well the features project an image of health, vitality, and aesthetic refinement. Do NOT treat aggressive dimorphism as required or automatically better; extreme masculinity should be framed as niche/limiting when it disrupts harmony.
             Choose the best and worst feature using BOTH the raw measurements and the actual visual appearance.
             If a visual issue is more obvious than any ratio issue, name that instead.
             Give a brief explanation after each feature label.

@@ -134,24 +134,21 @@ def get_clinical_biometrics(img_path):
         
         # 3. Brow Ridge Midpoint
         synth_brow_ridge = (lms[282] + lms[52]) / 2.0
-        # 4. Refined Gonions: use jaw contour corner strength instead of trusting one fixed raw landmark
-        refined_gonion_r = refine_gonion(lms, "right")
-        refined_gonion_l = refine_gonion(lms, "left")
 
-        lms = np.vstack([lms, synth_hairline, synth_glabella, synth_brow_ridge, refined_gonion_r, refined_gonion_l])
+        lms = np.vstack([lms, synth_hairline, synth_glabella, synth_brow_ridge])
 
         p = {
             "zygo_r": 234,
             "zygo_l": 454,
-            "gonion_r": len(lms) - 2,
-            "gonion_l": len(lms) - 1,
+            "gonion_r": 172,
+            "gonion_l": 397,
             "pupil_r": 468,
             "pupil_l": 473,
-            "glabella": len(lms) - 4,
+            "glabella": len(lms) - 2,
             "subnasale": 2,
             "chin": 152,
-            "hairline": len(lms) - 5,
-            "brow_ridge": len(lms) - 3,
+            "hairline": len(lms) - 3,
+            "brow_ridge": len(lms) - 1,
             "top_lip": 0,
             "bot_lip": 17,
             "mouth_r": 61,
