@@ -1133,7 +1133,7 @@ const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, isFollowed
   );
 };
 
-const LatestBattleCard = ({ battle, onOpen, onShare }) => {
+const LatestBattleCard = ({ battle, isFollowed = false, onOpen, onShare, onToggleFollow }) => {
   const labelA = fighterLabel(battle.fighterA);
   const labelB = fighterLabel(battle.fighterB);
 
@@ -1159,7 +1159,19 @@ const LatestBattleCard = ({ battle, onOpen, onShare }) => {
         </span>
       </div>
       </button>
-      <div className="border-t border-white/10 px-4 py-3">
+      <div className="flex flex-wrap items-center gap-2 border-t border-white/10 px-4 py-3">
+        <button
+          type="button"
+          onClick={() => onToggleFollow?.(battle.id)}
+          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] transition-all ${
+            isFollowed
+              ? 'border-emerald-400/35 bg-emerald-400/10 text-emerald-200'
+              : 'border-white/10 bg-black/40 text-zinc-400 hover:border-emerald-400/30 hover:text-white'
+          }`}
+        >
+          <Heart size={11} className={isFollowed ? 'fill-emerald-300 text-emerald-300' : ''} />
+          {isFollowed ? 'Following' : 'Follow'}
+        </button>
         <button
           type="button"
           onClick={() => onShare?.(battle.id)}
@@ -1560,7 +1572,14 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                 <div className="grid gap-5 md:grid-cols-2">
                   {latestBattles.length ? (
                     latestBattles.map((battle) => (
-                      <LatestBattleCard key={battle.id} battle={battle} onOpen={setVoteModalBattle} onShare={shareBattle} />
+                      <LatestBattleCard
+                        key={battle.id}
+                        battle={battle}
+                        isFollowed={followedBattleIds.includes(String(battle.id))}
+                        onOpen={setVoteModalBattle}
+                        onShare={shareBattle}
+                        onToggleFollow={toggleFollowBattle}
+                      />
                     ))
                   ) : (
                     <div className="col-span-full flex min-h-[280px] items-center justify-center rounded-[28px] border border-white/10 bg-white/[0.02] text-sm text-zinc-500">

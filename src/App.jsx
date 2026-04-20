@@ -3762,8 +3762,11 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                setActiveAnalysisJob(null);
              }}
              onComplete={(data) => {
-               activeAnalysisJob.onComplete?.(data, { skipDashboardUpdate: true });
-               handleScanComplete(data);
+               const completedScan = activeAnalysisJob.onComplete?.(data, { skipDashboardUpdate: true }) || data;
+               handleScanComplete(completedScan);
+               setIsScanning(false);
+               setActiveAnalysisJob(null);
+               setCurrentPage('dashboard');
              }}
            />
           <div className="mt-16 flex flex-col items-center gap-3 animate-bounce cursor-pointer hover:scale-105 transition-transform" onClick={() => window.scrollBy({ top: 600, behavior: 'smooth' })}>
