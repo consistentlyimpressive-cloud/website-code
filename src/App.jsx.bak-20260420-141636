@@ -308,9 +308,28 @@ function findCommunityScanTemplate(scan) {
 
   if (compact) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#0c0d0e]/95 shadow-[0_0_28px_rgba(34,211,238,0.12)] backdrop-blur-xl">
-        <div className="flex items-center gap-3 px-3 py-3">
-          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-cyan-500/25 bg-zinc-950">
+      <div className="overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#0c0d0e]/95 shadow-[0_0_40px_rgba(34,211,238,0.12)] backdrop-blur-xl">
+        <div className="flex items-start justify-between gap-3 border-b border-zinc-800/80 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-sans uppercase tracking-[0.3em] text-cyan-400/80">
+              {analysisLabel}
+            </p>
+            <p className="mt-1 text-[11px] font-bold uppercase tracking-widest text-white">
+              {getAnalysisModelLabel(choice)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => (onDismiss ? onDismiss() : onScanFailedRef.current?.())}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-500 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
+            aria-label="Dismiss analysis"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="flex gap-3 px-4 py-4">
+          <div className="relative aspect-[3/4] w-24 shrink-0 overflow-hidden rounded-2xl border border-cyan-500/30 bg-zinc-950">
             {videoUrl ? (
               <video src={videoUrl} autoPlay loop muted playsInline className="absolute inset-0 h-full w-full object-cover" />
             ) : (
@@ -332,40 +351,40 @@ function findCommunityScanTemplate(scan) {
               />
             )}
 
-            <div className="absolute left-2 top-2 h-3 w-3 border-l-2 border-t-2 border-cyan-500/80" />
-            <div className="absolute right-2 top-2 h-3 w-3 border-r-2 border-t-2 border-cyan-500/80" />
-            <div className="absolute bottom-2 left-2 h-3 w-3 border-b-2 border-l-2 border-cyan-500/80" />
-            <div className="absolute bottom-2 right-2 h-3 w-3 border-b-2 border-r-2 border-cyan-500/80" />
+            <div className="absolute left-3 top-3 h-4 w-4 border-l-2 border-t-2 border-cyan-500/80" />
+            <div className="absolute right-3 top-3 h-4 w-4 border-r-2 border-t-2 border-cyan-500/80" />
+            <div className="absolute bottom-3 left-3 h-4 w-4 border-b-2 border-l-2 border-cyan-500/80" />
+            <div className="absolute bottom-3 right-3 h-4 w-4 border-b-2 border-r-2 border-cyan-500/80" />
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="mb-2 flex items-center gap-2">
               <span className={`inline-flex h-2.5 w-2.5 rounded-full ${hasError ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.85)]' : 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.85)] animate-pulse'}`} />
-              <p className="truncate text-[10px] font-sans uppercase tracking-[0.28em] text-cyan-400/85">
-                {analysisLabel}
-              </p>
+              <span className="text-[10px] font-sans uppercase tracking-[0.3em] text-zinc-500">
+                {hasError ? 'Needs attention' : 'Running'}
+              </span>
             </div>
-            <p className="mt-1 truncate text-[11px] font-black uppercase tracking-widest text-white">
-              {hasError ? 'Analysis paused' : getAnalysisModelLabel(choice)}
+            <p className="text-sm font-black uppercase tracking-widest text-white">
+              {hasError ? 'Analysis paused' : 'Consulting AI'}
             </p>
-            <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-zinc-400">
+            <p className="mt-2 text-xs leading-relaxed text-zinc-400">
               {statusText}
             </p>
             {!hasError && (
-              <div className="mt-2 overflow-hidden rounded-full border border-cyan-500/15 bg-zinc-900/80 p-1">
+              <div className="mt-4 overflow-hidden rounded-full border border-cyan-500/20 bg-zinc-900/80 p-1">
                 <div className="h-1.5 rounded-full bg-gradient-to-r from-cyan-700/40 via-cyan-300 to-cyan-700/40 animate-pulse" />
               </div>
             )}
+            {hasError && (
+              <button
+                type="button"
+                onClick={() => (onDismiss ? onDismiss() : onScanFailedRef.current?.())}
+                className="mt-4 inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:border-zinc-500 hover:text-white"
+              >
+                <X size={12} /> Dismiss
+              </button>
+            )}
           </div>
-
-          <button
-            type="button"
-            onClick={() => (onDismiss ? onDismiss() : onScanFailedRef.current?.())}
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-500 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
-            aria-label="Dismiss analysis"
-          >
-            <X size={14} />
-          </button>
         </div>
       </div>
     );
@@ -3299,53 +3318,63 @@ const ScanningView = ({
 };
 
 const AnalysisDockSummaryCard = ({ job, onOpenResult, onDismiss }) => (
-  <div className="overflow-hidden rounded-2xl border border-emerald-500/20 bg-[#0c0d0e]/95 shadow-[0_0_28px_rgba(16,185,129,0.12)] backdrop-blur-xl">
-    <div className="flex items-center gap-3 px-3 py-3">
+  <div className="overflow-hidden rounded-2xl border border-emerald-500/20 bg-[#0c0d0e]/95 shadow-[0_0_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
+    <div className="flex items-start justify-between gap-3 border-b border-zinc-800/80 px-4 py-3">
+      <div className="min-w-0">
+        <p className="text-[10px] font-sans uppercase tracking-[0.3em] text-emerald-400/80">
+          {job.analysisLabel || 'Analysis'}
+        </p>
+        <p className="mt-1 text-[11px] font-bold uppercase tracking-widest text-white">
+          Completed
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => onDismiss(job.id)}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-500 transition-colors hover:border-emerald-500/40 hover:text-emerald-300"
+        aria-label="Dismiss completed analysis"
+      >
+        <X size={14} />
+      </button>
+    </div>
+    <div className="flex gap-3 px-4 py-4">
       <img
         src={job.result?.frontImage || job.mainImageSrc}
         alt="Completed scan"
-        className="h-16 w-16 shrink-0 rounded-xl border border-emerald-500/25 object-cover"
+        className="aspect-[3/4] w-24 shrink-0 rounded-2xl border border-emerald-500/25 object-cover"
       />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="mb-2 flex items-center gap-2">
           <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.9)]" />
-          <p className="truncate text-[10px] font-sans uppercase tracking-[0.28em] text-emerald-400/85">
-            {job.analysisLabel || 'Analysis'}
-          </p>
+          <span className="text-[10px] font-sans uppercase tracking-[0.3em] text-zinc-500">
+            Ready
+          </span>
         </div>
-        <p className="mt-1 truncate text-[11px] font-black uppercase tracking-widest text-white">
+        <p className="text-sm font-black uppercase tracking-widest text-white">
           {job.result?.finalRating != null
             ? `Final rating ${Number(job.result.finalRating).toFixed(1)}`
             : 'Description ready'}
         </p>
-        <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-zinc-400">
-          Your scan finished and is ready to open.
+        <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+          Your scan finished and is ready to open in the dashboard.
         </p>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-4 flex gap-2">
           <button
             type="button"
             onClick={() => onOpenResult(job.id)}
-            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-black shadow-[0_0_20px_rgba(16,185,129,0.25)] transition-transform hover:scale-[1.02]"
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-black shadow-[0_0_20px_rgba(16,185,129,0.25)] transition-transform hover:scale-[1.02]"
           >
-            <ArrowUpRight size={12} /> Open
+            <ArrowUpRight size={12} /> Open result
           </button>
           <button
             type="button"
             onClick={() => onDismiss(job.id)}
-            className="inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:border-zinc-500 hover:text-white"
+            className="inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:border-zinc-500 hover:text-white"
           >
             Dismiss
           </button>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={() => onDismiss(job.id)}
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-500 transition-colors hover:border-emerald-500/40 hover:text-emerald-300"
-        aria-label="Dismiss completed analysis"
-      >
-        <X size={14} />
-      </button>
     </div>
   </div>
 );
@@ -3361,108 +3390,69 @@ const AnalysisDock = ({
 
   const runningCount = jobs.filter((job) => job.state === 'running').length;
   const completedCount = jobs.filter((job) => job.state === 'complete').length;
-  const visibleJobs = jobs.slice(0, 4);
-  const hiddenJobsCount = Math.max(0, jobs.length - visibleJobs.length);
 
   if (collapsed) {
     return (
-      <div
-        className="fixed bottom-5 z-[240] flex flex-col items-end gap-2"
-        style={{ right: '1.6rem' }}
-      >
-        {jobs.slice(0, 4).map((job) => (
-          <button
-            key={job.id}
-            type="button"
-            onClick={() => setCollapsed(false)}
-            className="inline-flex items-center gap-3 rounded-full border border-cyan-500/25 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_35px_rgba(34,211,238,0.18)] backdrop-blur-xl transition-transform hover:scale-[1.01]"
-          >
-            <span className={`inline-flex h-2.5 w-2.5 rounded-full ${job.state === 'complete' ? 'bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.85)]' : 'bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse'}`} />
-            <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${job.state === 'complete' ? 'text-emerald-300' : 'text-cyan-300'}`}>
-              {job.state === 'complete' ? 'Ready' : '1 Running'}
-            </span>
-          </button>
-        ))}
-        {jobs.length > 4 && (
-          <button
-            type="button"
-            onClick={() => setCollapsed(false)}
-            className="inline-flex items-center gap-3 rounded-full border border-zinc-800 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_25px_rgba(255,255,255,0.05)] backdrop-blur-xl transition-transform hover:scale-[1.01]"
-          >
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300">
-              +{jobs.length - 4} more
-            </span>
-          </button>
-        )}
+      <div className="fixed bottom-5 right-5 z-[240]">
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          className="inline-flex items-center gap-3 rounded-full border border-cyan-500/25 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_35px_rgba(34,211,238,0.18)] backdrop-blur-xl transition-transform hover:scale-[1.01]"
+        >
+          <span className="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse" />
+          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-300">
+            {runningCount > 0 ? `${runningCount} running` : `${completedCount} ready`}
+          </span>
+        </button>
       </div>
     );
   }
 
   return (
-    <div
-      className="fixed bottom-5 z-[240] flex max-w-[92vw] flex-col items-end gap-2"
-      style={{ right: '1.6rem' }}
-    >
-      <div className="inline-flex items-center justify-between gap-5 rounded-full border border-zinc-800 bg-[#0c0d0e]/95 px-4 py-2 shadow-[0_0_35px_rgba(34,211,238,0.08)] backdrop-blur-xl">
+    <div className="fixed bottom-5 right-5 z-[240] w-[min(92vw,360px)]">
+      <div className="mb-3 flex items-center justify-between rounded-full border border-zinc-800 bg-[#0c0d0e]/95 px-4 py-2 shadow-[0_0_35px_rgba(34,211,238,0.08)] backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <span className="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse" />
           <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white">
             Analysis queue
           </span>
         </div>
-        <div className="flex items-center gap-4">
-          {runningCount > 0 && (
-            <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
-              {runningCount} running
-            </span>
-          )}
-          {completedCount > 0 && (
-            <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">
-              {completedCount} ready
-            </span>
-          )}
-          {hiddenJobsCount > 0 && (
-            <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-500">
-              +{hiddenJobsCount} more
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => setCollapsed(true)}
-            className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 transition-colors hover:text-cyan-300"
-          >
-            Minimize
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setCollapsed(true)}
+          className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 transition-colors hover:text-cyan-300"
+        >
+          Minimize
+        </button>
       </div>
-      <div className="flex flex-col items-end gap-2">
-        {visibleJobs.map((job) =>
-          <div key={job.id} className="w-[min(92vw,340px)]">
-            {job.state === 'complete' ? (
-              <AnalysisDockSummaryCard
-                job={job}
-                onOpenResult={onOpenResult}
-                onDismiss={onDismiss}
-              />
-            ) : (
-              <ScanningView
-                compact
-                analysisLabel={job.analysisLabel}
-                onDismiss={() => onDismiss(job.id)}
-                mainImageSrc={job.mainImageSrc}
-                mainImageFile={job.mainImageFile}
-                sideImageUrl={job.sideImageUrl}
-                sideImageFile={job.sideImageFile}
-                sideMetricData={job.sideMetricData || sideMetricDataGlobal}
-                choice={job.choice}
-                onComplete={job.onComplete}
-                onScanFailed={() => onDismiss(job.id)}
-                onRecoverToDashboard={job.onRecoverToDashboard}
-                user={job.user}
-                profileId={job.profileId}
-              />
-            )}
-          </div>
+      <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+        {jobs.map((job) =>
+          job.state === 'complete' ? (
+            <AnalysisDockSummaryCard
+              key={job.id}
+              job={job}
+              onOpenResult={onOpenResult}
+              onDismiss={onDismiss}
+            />
+          ) : (
+            <ScanningView
+              key={job.id}
+              compact
+              analysisLabel={job.analysisLabel}
+              onDismiss={() => onDismiss(job.id)}
+              mainImageSrc={job.mainImageSrc}
+              mainImageFile={job.mainImageFile}
+              sideImageUrl={job.sideImageUrl}
+              sideImageFile={job.sideImageFile}
+              sideMetricData={job.sideMetricData || sideMetricDataGlobal}
+              choice={job.choice}
+              onComplete={job.onComplete}
+              onScanFailed={() => onDismiss(job.id)}
+              onRecoverToDashboard={job.onRecoverToDashboard}
+              user={job.user}
+              profileId={job.profileId}
+            />
+          )
         )}
       </div>
     </div>
