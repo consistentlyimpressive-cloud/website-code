@@ -3425,6 +3425,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [dropdownAnimOpen, setDropdownAnimOpen] = useState(false);
   const [justUnlocked, setJustUnlocked] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [activeAnalysisJob, setActiveAnalysisJob] = useState(null);
   const [scanningCeleb, setScanningCeleb] = useState(null);
   const [uploadNotice, setUploadNotice] = useState('');
   const modelMenuRef = useRef(null);
@@ -3620,7 +3621,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     };
 
     setScanningCeleb(null);
-    setIsScanning(false);
 
     setDashboardData(prev => {
       const newScanHistory = prev?.scanHistory ? [...prev.scanHistory] : [];
@@ -3650,11 +3650,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
         ratingHistory: cappedRatingHistory
       };
     });
-
-    // Route after the payload is cached locally so every scan entry point leaves the Consulting AI screen.
-    setCurrentPage('dashboard');
-    window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 30);
-  }, [activeScanProfileId, frontImage, selectedModel, selectedProfileId, setCurrentPage, setDashboardData, sideImage]);
+  }, [activeScanProfileId, frontImage, selectedModel, selectedProfileId, setDashboardData, sideImage]);
 
   useEffect(() => {
     if (!isScanning) return undefined;
@@ -3664,21 +3660,28 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     return () => clearTimeout(id);
   }, [isScanning]);
 
-  if (isScanning) {
+  if (isScanning && activeAnalysisJob) {
     return (
       <div ref={scanTopRef} className="flex-grow flex flex-col bg-[#0c0d0e] scroll-mt-20">
         <div className="flex flex-col items-center pt-24 pb-16 px-6 lg:px-12 relative min-h-screen">
           <ScanningView
-             mainImageSrc={frontImage}
-             mainImageFile={frontFile}
-             sideImageUrl={sideImage}
-             sideImageFile={sideFile}
-              sideMetricData={sideMetricDataGlobal}
-              choice={selectedModel}
-              user={user}
-              profileId={activeScanProfileId}
-              onScanFailed={() => setIsScanning(false)}
-              onComplete={handleScanComplete}
+             mainImageSrc={activeAnalysisJob.mainImageSrc}
+             mainImageFile={activeAnalysisJob.mainImageFile}
+             sideImageUrl={activeAnalysisJob.sideImageUrl}
+             sideImageFile={activeAnalysisJob.sideImageFile}
+             sideMetricData={activeAnalysisJob.sideMetricData || sideMetricDataGlobal}
+             choice={activeAnalysisJob.choice}
+             user={activeAnalysisJob.user || user}
+             profileId={activeAnalysisJob.profileId || activeScanProfileId}
+             analysisLabel={activeAnalysisJob.analysisLabel || 'Analysis'}
+             onScanFailed={() => {
+               setIsScanning(false);
+               setActiveAnalysisJob(null);
+             }}
+             onComplete={(data) => {
+               activeAnalysisJob.onComplete?.(data, { skipDashboardUpdate: true });
+               handleScanComplete(data);
+             }}
            />
           <div className="mt-16 flex flex-col items-center gap-3 animate-bounce cursor-pointer hover:scale-105 transition-transform" onClick={() => window.scrollBy({ top: 600, behavior: 'smooth' })}>
             <div className="bg-cyan-500/10 border border-cyan-500/30 px-6 py-2 rounded-full shadow-[0_0_15px_rgba(34,211,238,0.2)]">
@@ -4038,7 +4041,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                 }
                 setSelectedProfileId(actualProfileId);
                 setActiveScanProfileId(actualProfileId);
-                queueAnalysisJob?.({
+                const queuedJob = queueAnalysisJob?.({
                   analysisLabel:
                     selectedProfileId === 'new'
                       ? (newProfileName.trim() || 'New profile')
@@ -4052,6 +4055,8 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                   user,
                   profileId: actualProfileId,
                 });
+                setActiveAnalysisJob(queuedJob || null);
+                setIsScanning(true);
 
                 setFrontImage(null);
                 setFrontFile(null);
@@ -4201,6 +4206,32 @@ const hexagonToRadarData = (hexagon, fallbackRaw) => {
     label: item.label,
     val: item.val == null ? categoryToRadar10(null, fallbackRaw) : item.val,
   }));
+};
+
+const blendNumeric = (primaryValue, secondaryValue, weight = 0.18) => {
+  const primary = Number(primaryValue);
+  if (Number.isNaN(primary)) return null;
+  const secondary = Number(secondaryValue);
+  if (Number.isNaN(secondary)) return primary;
+  return Math.round((primary * (1 - weight) + secondary * weight) * 10) / 10;
+};
+
+const blendRadarSets = (primaryData, secondaryData, weight = 0.18) => {
+  if (!Array.isArray(primaryData) || primaryData.length === 0) return primaryData;
+  if (!Array.isArray(secondaryData) || secondaryData.length === 0) return primaryData;
+
+  const secondaryByLabel = new Map(
+    secondaryData.map((item) => [String(item?.label || '').toLowerCase(), Number(item?.val)])
+  );
+
+  return primaryData.map((item) => {
+    const secondary = secondaryByLabel.get(String(item?.label || '').toLowerCase());
+    const blended = blendNumeric(item?.val, secondary, weight);
+    return {
+      ...item,
+      val: blended == null ? item?.val : blended,
+    };
+  });
 };
 
 // --- Radar Chart Component ---
@@ -4974,11 +5005,21 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
 
   const [activeProfileView, setActiveProfileView] = useState('front');
   const [freeRatingLoop, setFreeRatingLoop] = useState(70);
+  const [experimentalCohesiveEnabled, setExperimentalCohesiveEnabled] = useState(Boolean(dashboardData?.cohesiveFrontSide));
+
+  useEffect(() => {
+    setExperimentalCohesiveEnabled(Boolean(dashboardData?.cohesiveFrontSide));
+  }, [dashboardData?.scanId, dashboardData?.cohesiveFrontSide]);
 
   const isSideView = activeProfileView === 'side';
+  const hasBothProfileViews = Boolean(dashboardData?.frontImage && dashboardData?.sideImage);
+  const effectiveCohesiveEnabled = hasBothProfileViews && experimentalCohesiveEnabled;
   const activeCats = isSideView && dashboardData?.sideCategories
     ? dashboardData.sideCategories
     : dashboardData?.categories;
+  const oppositeCats = !isSideView && dashboardData?.sideCategories
+    ? dashboardData.sideCategories
+    : (isSideView ? dashboardData?.categories : null);
 
   const defaultRadar = [
     { label: 'Skin', val: 6.4 },
@@ -4991,8 +5032,12 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   const frForRadar = isSideView
     ? (dashboardData?.sideRating ?? dashboardData?.finalRating)
     : dashboardData?.finalRating;
+  const oppositeRawRating = isSideView
+    ? (dashboardData?.finalRating ?? dashboardData?.sideRating)
+    : (dashboardData?.sideRating ?? dashboardData?.finalRating);
   const activeHexagon = isSideView ? dashboardData?.hexagonSide : dashboardData?.hexagonFront;
-  const radarData =
+  const oppositeHexagon = !isSideView ? dashboardData?.hexagonSide : dashboardData?.hexagonFront;
+  const primaryRadarData =
     hexagonToRadarData(activeHexagon, frForRadar) ||
     (activeCats
       ? [
@@ -5003,6 +5048,20 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           { label: 'Bone', val: categoryToRadar10(activeCats.Bone, frForRadar) },
         ]
       : defaultRadar);
+  const secondaryRadarData =
+    hexagonToRadarData(oppositeHexagon, oppositeRawRating) ||
+    (oppositeCats
+      ? [
+          { label: 'Skin', val: categoryToRadar10(oppositeCats.Skin, oppositeRawRating) },
+          { label: 'Dimorphism', val: categoryToRadar10(oppositeCats.Dimorphism, oppositeRawRating) },
+          { label: 'Symmetry', val: categoryToRadar10(oppositeCats.Symmetry, oppositeRawRating) },
+          { label: 'Harmony', val: categoryToRadar10(oppositeCats.Harmony, oppositeRawRating) },
+          { label: 'Bone', val: categoryToRadar10(oppositeCats.Bone, oppositeRawRating) },
+        ]
+      : null);
+  const radarData = effectiveCohesiveEnabled
+    ? blendRadarSets(primaryRadarData, secondaryRadarData, 0.18)
+    : primaryRadarData;
 
   const getCatScore = (catName) => {
     if (!dashboardData?.categories) return null;
@@ -5073,9 +5132,12 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
     return () => clearInterval(interval);
   }, [isRestrictedPreview]);
 
-  const numericDisplayedFinalRating = isSideView
+  const baseDisplayedFinalRating = isSideView
     ? (dashboardData?.sideRating ?? dashboardData?.finalRating ?? null)
     : (dashboardData?.finalRating ?? null);
+  const numericDisplayedFinalRating = effectiveCohesiveEnabled
+    ? blendNumeric(baseDisplayedFinalRating, oppositeRawRating, 0.18)
+    : baseDisplayedFinalRating;
   const displayedFinalRating = isFreeModelResult
     ? 'Descriptive'
     : (numericDisplayedFinalRating ?? 85);
@@ -5144,12 +5206,26 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
               AI used: {getAnalysisModelLabel(selectedModel || dashboardData?.model)}
             </span>
+            {hasBothProfileViews && !isFreeModelResult && (
+              <button
+                type="button"
+                onClick={() => setExperimentalCohesiveEnabled((prev) => !prev)}
+                className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] transition-colors ${
+                  effectiveCohesiveEnabled
+                    ? 'border-amber-400/35 bg-amber-400/10 text-amber-300'
+                    : 'border-zinc-700 bg-zinc-900/80 text-zinc-400 hover:border-amber-400/25 hover:text-amber-300'
+                }`}
+                title="Experimental: let front and side influence each other slightly instead of staying fully separate."
+              >
+                {effectiveCohesiveEnabled ? 'Experimental cohesive on' : 'Experimental cohesive off'}
+              </button>
+            )}
             {isFreeModelResult && (
               <span className="rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-400">
                       Descriptive result - no score
               </span>
             )}
-            {dashboardData?.cohesiveFrontSide && (
+            {(dashboardData?.cohesiveFrontSide || effectiveCohesiveEnabled) && (
               <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">
                 Cohesive side/front enabled
               </span>
@@ -7321,7 +7397,7 @@ const App = () => {
   const useProDashboard = Boolean(user || hasScanData) && !isFreeModelDashboard;
   const isScanOnlyPage = currentPage === 'public-scan';
 
-  const registerCompletedScan = useCallback((data, meta = {}) => {
+  const registerCompletedScan = useCallback((data, meta = {}, options = {}) => {
     const completedAt = new Date().toISOString();
     const completedScan = {
       ...data,
@@ -7334,31 +7410,33 @@ const App = () => {
       _handoffSavedAt: completedAt,
     };
 
-    setDashboardData((prev) => {
-      const newScanHistory = prev?.scanHistory ? [...prev.scanHistory] : [];
-      const newRatingHistory = prev?.ratingHistory ? [...prev.ratingHistory] : [];
+    if (!options?.skipDashboardUpdate) {
+      setDashboardData((prev) => {
+        const newScanHistory = prev?.scanHistory ? [...prev.scanHistory] : [];
+        const newRatingHistory = prev?.ratingHistory ? [...prev.ratingHistory] : [];
 
-      if (prev && prev.frontImage && prev.finalRating && newScanHistory.length === 0) {
-        newScanHistory.push({
-          ...prev,
-          scannedAt: prev.scannedAt || completedAt,
-        });
-      }
-      if (prev && prev.finalRating && newRatingHistory.length === 0) {
-        newRatingHistory.push(prev.finalRating);
-      }
+        if (prev && prev.frontImage && prev.finalRating && newScanHistory.length === 0) {
+          newScanHistory.push({
+            ...prev,
+            scannedAt: prev.scannedAt || completedAt,
+          });
+        }
+        if (prev && prev.finalRating && newRatingHistory.length === 0) {
+          newRatingHistory.push(prev.finalRating);
+        }
 
-      newScanHistory.push(completedScan);
-      if (completedScan.finalRating != null && !Number.isNaN(Number(completedScan.finalRating))) {
-        newRatingHistory.push(Number(completedScan.finalRating));
-      }
+        newScanHistory.push(completedScan);
+        if (completedScan.finalRating != null && !Number.isNaN(Number(completedScan.finalRating))) {
+          newRatingHistory.push(Number(completedScan.finalRating));
+        }
 
-      return {
-        ...completedScan,
-        scanHistory: newScanHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT),
-        ratingHistory: newRatingHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT),
-      };
-    });
+        return {
+          ...completedScan,
+          scanHistory: newScanHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT),
+          ratingHistory: newRatingHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT),
+        };
+      });
+    }
 
     return completedScan;
   }, []);
@@ -7376,9 +7454,9 @@ const App = () => {
       ...jobInput,
     };
 
-    const onComplete = (data) => {
+    const onComplete = (data, options = {}) => {
       const latestJob = analysisJobsRef.current.find((job) => job.id === jobId) || baseJob;
-      const completedScan = registerCompletedScan(data, latestJob);
+      const completedScan = registerCompletedScan(data, latestJob, options);
       setAnalysisJobs((prev) =>
         prev.map((job) =>
           job.id === jobId
@@ -7388,9 +7466,10 @@ const App = () => {
       );
     };
 
+    const queuedJob = { ...baseJob, onComplete };
     setAnalysisDockCollapsed(false);
-    setAnalysisJobs((prev) => [{ ...baseJob, onComplete }, ...prev]);
-    return jobId;
+    setAnalysisJobs((prev) => [queuedJob, ...prev]);
+    return queuedJob;
   }, [registerCompletedScan]);
 
   const dismissAnalysisJob = useCallback((jobId) => {
