@@ -309,8 +309,8 @@ function findCommunityScanTemplate(scan) {
   if (compact) {
     return (
       <div className="overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#0c0d0e]/95 shadow-[0_0_28px_rgba(34,211,238,0.12)] backdrop-blur-xl">
-        <div className="flex items-center gap-3 px-3 py-3">
-          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-cyan-500/25 bg-zinc-950">
+        <div className="flex items-center gap-3 px-3 py-2.5">
+          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-cyan-500/25 bg-zinc-950">
             {videoUrl ? (
               <video src={videoUrl} autoPlay loop muted playsInline className="absolute inset-0 h-full w-full object-cover" />
             ) : (
@@ -341,15 +341,23 @@ function findCommunityScanTemplate(scan) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className={`inline-flex h-2.5 w-2.5 rounded-full ${hasError ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.85)]' : 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.85)] animate-pulse'}`} />
-              <p className="truncate text-[10px] font-sans uppercase tracking-[0.28em] text-cyan-400/85">
-                {analysisLabel}
+              <p className={`truncate text-[10px] font-black uppercase tracking-[0.28em] ${hasError ? 'text-red-300/85' : 'text-cyan-300/85'}`}>
+                {hasError ? 'Scan paused' : 'Scan in progress'}
               </p>
             </div>
-            <p className="mt-1 truncate text-[11px] font-black uppercase tracking-widest text-white">
-              {hasError ? 'Analysis paused' : getAnalysisModelLabel(choice)}
+            <p className="mt-1 truncate text-[11px] font-black uppercase tracking-[0.22em] text-white">
+              {analysisLabel || 'Profile'}
             </p>
-            <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-zinc-400">
-              {statusText}
+            <p className="mt-0.5 truncate text-[10px] font-sans uppercase tracking-[0.2em] text-zinc-500">
+              {hasError ? 'Action needed' : getAnalysisModelLabel(choice)}
+            </p>
+            {lowPriorityBadge && !hasError && (
+              <div className="mt-1 inline-flex max-w-full rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-red-300">
+                <span className="truncate">{lowPriorityBadge}</span>
+              </div>
+            )}
+            <p className="mt-1 truncate text-[10px] leading-relaxed text-zinc-400">
+              {hasError ? statusText : 'Working in background'}
             </p>
             {!hasError && (
               <div className="mt-2 overflow-hidden rounded-full border border-cyan-500/15 bg-zinc-900/80 p-1">
@@ -563,31 +571,6 @@ function timestampToMillis(value) {
   }
   const fallback = new Date(value).getTime();
   return Number.isFinite(fallback) ? fallback : 0;
-}
-
-function buildSavedScanDashboardPayload(scan, fallback = {}) {
-  if (!scan || typeof scan !== 'object') return null;
-
-  const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : {};
-  const scanMillis = timestampToMillis(scan.timestamp || scan.scannedAt || payload.scannedAt || fallback.scannedAt);
-
-  return {
-    ...payload,
-    scanId: scan.id || scan.scanId || payload.scanId || fallback.scanId || null,
-    scanRequestId:
-      scan.scanRequestId || payload.scanRequestId || fallback.scanRequestId || null,
-    profileId: scan.profileId || payload.profileId || fallback.profileId || 'default',
-    profileName: scan.profileName || payload.profileName || fallback.profileName,
-    visibility: scan.visibility || payload.visibility || fallback.visibility || 'private',
-    finalRating: scan.finalRating ?? payload.finalRating ?? fallback.finalRating ?? null,
-    sideRating: scan.sideRating ?? payload.sideRating ?? fallback.sideRating ?? null,
-    frontImage: scan.frontImageUrl || scan.frontImage || payload.frontImage || fallback.frontImage || null,
-    sideImage: scan.sideImageUrl || scan.sideImage || payload.sideImage || fallback.sideImage || null,
-    selectedModel: String(scan.model || payload.selectedModel || fallback.selectedModel || '').trim(),
-    cohesiveFrontSide: Boolean(scan.cohesiveFrontSide || payload.cohesiveFrontSide || fallback.cohesiveFrontSide),
-    scannedAt: scanMillis ? new Date(scanMillis).toISOString() : new Date().toISOString(),
-    recoveredFromSavedScan: true,
-  };
 }
 
 function formatTimestamp(value, fallback = 'Unknown Time') {
@@ -1649,6 +1632,34 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
         }));
       } catch(e) {
         console.error(e);
+        const merged = new Map();
+        [
+          ...OFFICIAL_CELEBRITY_COMMUNITY_SCANS,
+          ...COMMUNITY_SCANS.map((scan, idx) =>
+            hydrateCommunityScanEntry(
+              {
+                ...scan,
+                name: scan.name || `User ${idx + 1}`,
+                isCommunity: true,
+                profileId: scan.profileId || `mock-${idx}`,
+              },
+              idx
+            )
+          ),
+        ].forEach((scan, idx) => {
+          const hydrated = hydrateCommunityScanEntry(scan, idx);
+          const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
+          if (!merged.has(key)) merged.set(key, hydrated);
+        });
+
+        setCommunityScans(
+          Array.from(merged.values()).sort((a, b) => {
+            const ratingDiff = (Number(b.finalRating) || 0) - (Number(a.finalRating) || 0);
+            if (ratingDiff) return ratingDiff;
+            if (Boolean(a.officialScan) !== Boolean(b.officialScan)) return a.officialScan ? -1 : 1;
+            return timestampToMillis(b.timestamp) - timestampToMillis(a.timestamp);
+          })
+        );
       }
     };
     fetchCommunity();
@@ -2818,7 +2829,6 @@ const ScanningView = ({
   choice,
   onComplete,
   onScanFailed,
-  onRecoverToDashboard,
   user,
   profileId,
   compact = false,
@@ -2829,10 +2839,14 @@ const ScanningView = ({
   const [videoUrl, setVideoUrl] = useState(null);
   const [landmarks, setLandmarks] = useState(null);
   const [hasError, setHasError] = useState(false);
+  const [fairUsageState, setFairUsageState] = useState(null);
   const isUltra31 = choice === "1";
   const isCompactViewport = typeof window !== 'undefined' && window.innerWidth < 768;
   const overlayRevealSeconds = isUltra31 ? 34 : choice === "2" ? 24 : 36;
   const overlayScanLoopSeconds = isUltra31 ? 4 : choice === "2" ? 4.5 : 4;
+  const lowPriorityBadge = fairUsageState?.lowPriority
+    ? (fairUsageState.badgeText || 'High usage detected. You have been placed in low priority queue')
+    : '';
   const getQuotaAwareScanMessage = useCallback((rawMessage, fallbackMessage = '') => {
     const source = `${rawMessage || ''} ${fallbackMessage || ''}`.trim();
     if (/RESOURCE_EXHAUSTED|quota exceeded|firestore quota/i.test(source)) {
@@ -2846,8 +2860,6 @@ const ScanningView = ({
   onCompleteRef.current = onComplete;
   const onScanFailedRef = useRef(onScanFailed);
   onScanFailedRef.current = onScanFailed;
-  const onRecoverToDashboardRef = useRef(onRecoverToDashboard);
-  onRecoverToDashboardRef.current = onRecoverToDashboard;
   const userRef = useRef(user);
   userRef.current = user;
 
@@ -2898,13 +2910,7 @@ const ScanningView = ({
           : `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       let scanSucceeded = false;
       let analyzeRequestStarted = false;
-
-      try {
-        sessionStorage.removeItem('mogcheck:lastCompletedScan');
-        sessionStorage.removeItem('mogcheck:scanRecoveryRequested');
-      } catch (e) {
-        // Storage cleanup is best-effort only.
-      }
+      let currentFairUsage = null;
 
       const fetchWithTimeoutRetry = async (url, options = {}, attempt = 1) => {
         const { timeoutMs = 8000, ...fetchOptions } = options;
@@ -2923,91 +2929,6 @@ const ScanningView = ({
         } finally {
           clearTimeout(timer);
         }
-      };
-
-      const buildRecoveredScanPayload = (scan) => {
-        const recovered = buildSavedScanDashboardPayload(scan, {
-          profileId: profileId || 'default',
-          frontImage: mainImageSrc || null,
-          sideImage: sideImageUrl || null,
-          selectedModel: String(choice || '').trim(),
-        });
-        return recovered ? { success: true, ...recovered } : null;
-      };
-
-      const recoverCompletedScanFromHistory = async () => {
-        const activeUser = userRef.current;
-        if (!activeUser) return null;
-
-        const expectedScanRequestId = String(scanRequestId || '').trim();
-
-        if (!expectedScanRequestId) {
-          console.warn('[analyze] skipped saved-scan recovery because scanRequestId is missing');
-          return null;
-        }
-
-        for (let attempt = 1; attempt <= 8; attempt += 1) {
-          if (!active) return null;
-          try {
-            if (attempt === 1) {
-              setStatusText('The response dropped, checking saved scan history...');
-            } else {
-              setStatusText(`Still checking for the saved scan (${attempt}/8)...`);
-            }
-
-            await new Promise((resolve) => setTimeout(resolve, attempt === 1 ? 1600 : 2500));
-            if (!active) return null;
-
-            const token = await activeUser.getIdToken();
-            const historyRes = await fetchWithTimeoutRetry(`${API_BASE}/api/user/scans`, {
-              timeoutMs: 12000,
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!historyRes.ok) continue;
-
-            const historyData = await historyRes.json();
-            const scans = Array.isArray(historyData?.scans) ? historyData.scans : [];
-            const indexedScans = scans
-              .map((scan) => ({
-                scan,
-                millis: timestampToMillis(scan.timestamp || scan.scannedAt || scan.payload?.scannedAt),
-              }));
-
-            const exactRequestCandidates = indexedScans
-              .filter(({ scan }) => {
-                const storedScanRequestId = String(
-                  scan?.scanRequestId || scan?.payload?.scanRequestId || ''
-                ).trim();
-                return !!expectedScanRequestId && storedScanRequestId === expectedScanRequestId;
-              })
-              .sort((a, b) => b.millis - a.millis);
-
-            const recovered = exactRequestCandidates[0]?.scan || null;
-            const recoveredPayload = buildRecoveredScanPayload(recovered);
-            if (recoveredPayload) return recoveredPayload;
-          } catch (recoveryErr) {
-            console.warn(`[analyze] saved-scan recovery attempt ${attempt} failed`, recoveryErr);
-          }
-        }
-
-        return null;
-      };
-
-      const recoverSavedScan = async () => {
-        const recovered = await recoverCompletedScanFromHistory();
-        if (active && recovered) {
-          scanSucceeded = true;
-          setStatusText('Analysis recovered from saved scan. Opening dashboard...');
-          onCompleteRef.current(recovered);
-          return true;
-        }
-
-        if (active && analyzeRequestStarted) {
-          setStatusText(
-            'The response dropped, but no completed saved scan matched this request yet. Please keep this page open or try again; the dashboard will only open after a real completed analysis.'
-          );
-        }
-        return false;
       };
 
       try {
@@ -3077,6 +2998,20 @@ const ScanningView = ({
             setHasError(true);
             return;
           }
+
+          try {
+            const planRes = await fetchWithTimeoutRetry(`${API_BASE}/api/user/plan`, {
+              timeoutMs: 12000,
+              headers: { Authorization: `Bearer ${authToken}` },
+            });
+            if (planRes.ok) {
+              const planData = await planRes.json();
+              currentFairUsage = planData?.fairUsage || null;
+              if (active) setFairUsageState(currentFairUsage);
+            }
+          } catch (fairUsageErr) {
+            console.warn('Unable to prefetch fair usage state', fairUsageErr);
+          }
         }
 
         setStatusText("Uploading image to secure AI server...");
@@ -3126,7 +3061,9 @@ const ScanningView = ({
         const progressTick = setInterval(() => {
           if (!active) return;
             setStatusText(
-              `Running AI analysis... ${formatElapsed()} elapsed. Ultra scans can take a few minutes.`
+              currentFairUsage?.lowPriority
+                ? `Running AI analysis... ${formatElapsed()} elapsed. You are in the low priority queue.`
+                : `Running AI analysis... ${formatElapsed()} elapsed. Ultra scans can take a few minutes.`
             );
         }, 4000);
 
@@ -3155,15 +3092,15 @@ const ScanningView = ({
           data = await apiRes.json();
         } catch (parseErr) {
           console.error("Analyze response not JSON", parseErr);
-          if (await recoverSavedScan()) return;
           setStatusText(GENERIC_ERROR);
           setHasError(true);
           return;
         }
 
         if (!apiRes.ok) {
-          if (apiRes.status >= 500) {
-            if (await recoverSavedScan()) return;
+          if (data?.fairUsage && active) {
+            currentFairUsage = data.fairUsage;
+            setFairUsageState(data.fairUsage);
           }
           const msg =
             (data && typeof data.error === 'string' && data.error.trim()) ||
@@ -3186,6 +3123,10 @@ const ScanningView = ({
         if (!active) return;
         
         if (data.success) {
+           if (active && data?.fairUsage) {
+             currentFairUsage = data.fairUsage;
+             setFairUsageState(data.fairUsage);
+           }
            scanSucceeded = true;
            setStatusText("Analysis Complete! Transitioning...");
            setVideoUrl(data.videoUrl);
@@ -3201,9 +3142,6 @@ const ScanningView = ({
         }
       } catch (err) {
         console.error("API failed", err);
-        if (err?.name !== 'AbortError') {
-          if (await recoverSavedScan()) return;
-        }
         setStatusText(
           err?.name === 'AbortError'
             ? 'Analysis timed out after about 10 minutes. Please try again with a smaller image or try again in a moment.'
@@ -3260,6 +3198,11 @@ const ScanningView = ({
         >
           {statusText}
         </p>
+        {lowPriorityBadge && (
+          <div className="mt-4 inline-flex max-w-[min(92vw,720px)] rounded-full border border-red-500/35 bg-red-500/12 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-red-300">
+            <span className="truncate">{lowPriorityBadge}</span>
+          </div>
+        )}
       </div>
 
       <div className="relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
@@ -3356,8 +3299,10 @@ const AnalysisDock = ({
   setCollapsed,
   onOpenResult,
   onDismiss,
+  currentPage,
 }) => {
   if (!Array.isArray(jobs) || jobs.length === 0) return null;
+  if (currentPage === 'upload-photo' || currentPage === 'upload-ultra') return null;
 
   const runningCount = jobs.filter((job) => job.state === 'running').length;
   const completedCount = jobs.filter((job) => job.state === 'complete').length;
@@ -3375,7 +3320,7 @@ const AnalysisDock = ({
             key={job.id}
             type="button"
             onClick={() => setCollapsed(false)}
-            className="inline-flex items-center gap-3 rounded-full border border-cyan-500/25 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_35px_rgba(34,211,238,0.18)] backdrop-blur-xl transition-transform hover:scale-[1.01]"
+            className="inline-flex min-w-[184px] items-center gap-3 rounded-full border border-cyan-500/25 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_35px_rgba(34,211,238,0.18)] backdrop-blur-xl transition-transform hover:scale-[1.01]"
           >
             <span className={`inline-flex h-2.5 w-2.5 rounded-full ${job.state === 'complete' ? 'bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.85)]' : 'bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse'}`} />
             <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${job.state === 'complete' ? 'text-emerald-300' : 'text-cyan-300'}`}>
@@ -3401,7 +3346,7 @@ const AnalysisDock = ({
   return (
     <div
       className="fixed bottom-5 z-[240] flex max-w-[92vw] flex-col items-end gap-2"
-      style={{ right: '1.6rem' }}
+      style={{ right: '2.35rem' }}
     >
       <div className="inline-flex items-center justify-between gap-5 rounded-full border border-zinc-800 bg-[#0c0d0e]/95 px-4 py-2 shadow-[0_0_35px_rgba(34,211,238,0.08)] backdrop-blur-xl">
         <div className="flex items-center gap-3">
@@ -3437,7 +3382,7 @@ const AnalysisDock = ({
       </div>
       <div className="flex flex-col items-end gap-2">
         {visibleJobs.map((job) =>
-          <div key={job.id} className="w-[min(92vw,340px)]">
+          <div key={job.id} className="w-[min(92vw,320px)]">
             {job.state === 'complete' ? (
               <AnalysisDockSummaryCard
                 job={job}
@@ -3457,7 +3402,6 @@ const AnalysisDock = ({
                 choice={job.choice}
                 onComplete={job.onComplete}
                 onScanFailed={() => onDismiss(job.id)}
-                onRecoverToDashboard={job.onRecoverToDashboard}
                 user={job.user}
                 profileId={job.profileId}
               />
@@ -3678,13 +3622,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     setScanningCeleb(null);
     setIsScanning(false);
 
-    try {
-      sessionStorage.removeItem('mogcheck:scanRecoveryRequested');
-      sessionStorage.setItem('mogcheck:lastCompletedScan', JSON.stringify(completedScan));
-    } catch (e) {
-      // Session storage is only a safety net for scan handoff; ignore browser quota/privacy failures.
-    }
-
     setDashboardData(prev => {
       const newScanHistory = prev?.scanHistory ? [...prev.scanHistory] : [];
       const newRatingHistory = prev?.ratingHistory ? [...prev.ratingHistory] : [];
@@ -3719,33 +3656,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 30);
   }, [activeScanProfileId, frontImage, selectedModel, selectedProfileId, setCurrentPage, setDashboardData, sideImage]);
 
-  const handleDroppedScanResponse = useCallback((meta = {}) => {
-    const completedAt = new Date().toISOString();
-    const targetProfileId = meta.profileId || activeScanProfileId || selectedProfileId || 'default';
-
-    setScanningCeleb(null);
-    setIsScanning(false);
-
-    try {
-      sessionStorage.removeItem('mogcheck:lastCompletedScan');
-      sessionStorage.setItem('mogcheck:scanRecoveryRequested', JSON.stringify({
-        ...meta,
-        profileId: targetProfileId,
-        scanRequestId: meta.scanRequestId || null,
-        requestedAt: completedAt,
-        fallbackFrontImage: frontImage || null,
-        fallbackSideImage: sideImage || null,
-        fallbackModel: String(meta.selectedModel || selectedModel || '3'),
-      }));
-    } catch (e) {
-      // Browser storage is a safety net only; never keep the user trapped on the scan screen.
-    }
-
-    setDashboardData(null);
-    setCurrentPage('dashboard');
-    window.setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 30);
-  }, [activeScanProfileId, frontImage, selectedModel, selectedProfileId, setCurrentPage, setDashboardData, sideImage]);
-
   useEffect(() => {
     if (!isScanning) return undefined;
     const id = window.setTimeout(() => {
@@ -3768,7 +3678,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
               user={user}
               profileId={activeScanProfileId}
               onScanFailed={() => setIsScanning(false)}
-              onRecoverToDashboard={handleDroppedScanResponse}
               onComplete={handleScanComplete}
            />
           <div className="mt-16 flex flex-col items-center gap-3 animate-bounce cursor-pointer hover:scale-105 transition-transform" onClick={() => window.scrollBy({ top: 600, behavior: 'smooth' })}>
@@ -5963,7 +5872,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
 
           <p className="text-yellow-500/60 font-sans text-[10px] uppercase tracking-widest mb-5">Everything in Single Scan, plus</p>
           <ul className="flex flex-col gap-4 text-sm font-sans text-zinc-300 w-full mb-10">
-            <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Up to 2 full scans per day</span></li>
+              <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Unlimited analysis (fair usage)</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>AI potential analysis - see your projected best self</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Full-detail AI facial analysis with 40+ biometric measurements</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Customized personal improvement protocols</span></li>
@@ -6017,7 +5926,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
           <p className="text-emerald-400/60 font-sans text-[10px] uppercase tracking-widest mb-5">Everything in monthly Pro, plus</p>
           <ul className="flex flex-col gap-4 text-sm font-sans text-zinc-300 w-full mb-10">
             <li className="flex items-start gap-3"><Check size={15} className="text-emerald-400 mt-0.5 shrink-0" /> <span>Best monthly rate for long-term access</span></li>
-            <li className="flex items-start gap-3"><Check size={15} className="text-emerald-400 mt-0.5 shrink-0" /> <span>Up to 2 full scans per day</span></li>
+              <li className="flex items-start gap-3"><Check size={15} className="text-emerald-400 mt-0.5 shrink-0" /> <span>Unlimited analysis (fair usage)</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-emerald-400 mt-0.5 shrink-0" /> <span>AI potential analysis, protocols, and progress tracking</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-emerald-400 mt-0.5 shrink-0" /> <span>Full-detail biometric breakdowns and premium dashboard access</span></li>
           </ul>
@@ -7425,12 +7334,6 @@ const App = () => {
       _handoffSavedAt: completedAt,
     };
 
-    try {
-      sessionStorage.setItem('mogcheck:lastCompletedScan', JSON.stringify(completedScan));
-    } catch (e) {
-      // Session storage is only a convenience layer.
-    }
-
     setDashboardData((prev) => {
       const newScanHistory = prev?.scanHistory ? [...prev.scanHistory] : [];
       const newRatingHistory = prev?.ratingHistory ? [...prev.ratingHistory] : [];
@@ -7485,23 +7388,8 @@ const App = () => {
       );
     };
 
-    const onRecoverToDashboard = (meta = {}) => {
-      setAnalysisJobs((prev) =>
-        prev.map((job) =>
-          job.id === jobId
-            ? {
-                ...job,
-                state: 'running',
-                recoveryPending: true,
-                scanRequestId: meta.scanRequestId || job.scanRequestId || null,
-              }
-            : job
-        )
-      );
-    };
-
     setAnalysisDockCollapsed(false);
-    setAnalysisJobs((prev) => [{ ...baseJob, onComplete, onRecoverToDashboard }, ...prev]);
+    setAnalysisJobs((prev) => [{ ...baseJob, onComplete }, ...prev]);
     return jobId;
   }, [registerCompletedScan]);
 
@@ -7516,134 +7404,6 @@ const App = () => {
     setCurrentPage('dashboard');
     setAnalysisJobs((prev) => prev.filter((entry) => entry.id !== jobId));
   }, [setCurrentPage]);
-
-  useEffect(() => {
-    if (currentPage !== 'dashboard' || hasScanData) return;
-    if (user) return;
-    try {
-      const cached = sessionStorage.getItem('mogcheck:lastCompletedScan');
-      if (!cached) return;
-      const parsed = JSON.parse(cached);
-      if (!parsed || typeof parsed !== 'object') return;
-      const handoffAge =
-        Date.now() - timestampToMillis(parsed._handoffSavedAt || parsed.scannedAt || Date.now());
-      if (!parsed.scanRequestId || handoffAge > 20 * 60 * 1000) {
-        sessionStorage.removeItem('mogcheck:lastCompletedScan');
-        return;
-      }
-      if (!parsed.frontImage && parsed.finalRating == null && !Array.isArray(parsed.biometrics)) return;
-      setDashboardData(parsed);
-      sessionStorage.removeItem('mogcheck:lastCompletedScan');
-    } catch (e) {
-      // Ignore malformed handoff cache and let the normal dashboard/profile loader continue.
-    }
-  }, [currentPage, hasScanData]);
-
-  useEffect(() => {
-    if (currentPage !== 'dashboard') return undefined;
-    if (!authResolved || !user || hasScanData) return undefined;
-
-    let cancelled = false;
-
-    const recoverSavedScanAfterDroppedResponse = async () => {
-      let recoveryMeta = null;
-      try {
-        const raw = sessionStorage.getItem('mogcheck:scanRecoveryRequested');
-        if (!raw) return;
-        recoveryMeta = JSON.parse(raw);
-      } catch (e) {
-        return;
-      }
-
-      if (!recoveryMeta || typeof recoveryMeta !== 'object') return;
-
-      const expectedModel = String(
-        recoveryMeta.selectedModel || recoveryMeta.fallbackModel || ''
-      ).trim();
-      const expectedScanRequestId = String(recoveryMeta.scanRequestId || '').trim();
-      const expectedProfile = String(recoveryMeta.profileId || 'default').trim();
-
-      if (!expectedScanRequestId) {
-        try {
-          sessionStorage.removeItem('mogcheck:scanRecoveryRequested');
-        } catch (e) {
-          // Ignore storage cleanup errors.
-        }
-        return;
-      }
-
-      for (let attempt = 1; attempt <= 10; attempt += 1) {
-        if (cancelled) return;
-
-        try {
-          await new Promise((resolve) => setTimeout(resolve, attempt === 1 ? 1000 : 2200));
-          if (cancelled) return;
-
-          const token = await user.getIdToken();
-          const historyRes = await fetch(`${API_BASE}/api/user/scans`, {
-            headers: { Authorization: `Bearer ${token}` },
-            cache: 'no-store',
-          });
-          if (!historyRes.ok) continue;
-
-          const historyData = await historyRes.json();
-          const scans = Array.isArray(historyData?.scans) ? historyData.scans : [];
-
-          const candidates = scans
-            .map((scan) => ({
-              scan,
-              millis: timestampToMillis(scan.timestamp || scan.scannedAt || scan.payload?.scannedAt),
-            }))
-            .filter(({ scan, millis }) => {
-              if (!scan || !millis) return false;
-
-              if (expectedScanRequestId) {
-                const storedScanRequestId = String(
-                  scan.scanRequestId || scan.payload?.scanRequestId || ''
-                ).trim();
-                return storedScanRequestId === expectedScanRequestId;
-              }
-              return false;
-            })
-            .sort((a, b) => b.millis - a.millis);
-
-          const recovered = buildSavedScanDashboardPayload(candidates[0]?.scan, {
-            profileId: expectedProfile || 'default',
-            selectedModel: expectedModel,
-            scanRequestId: expectedScanRequestId,
-            frontImage: recoveryMeta.fallbackFrontImage || null,
-            sideImage: recoveryMeta.fallbackSideImage || null,
-            scannedAt: recoveryMeta.requestedAt || recoveryMeta.startedAt || new Date().toISOString(),
-          });
-
-          if (!recovered) continue;
-
-          if (cancelled) return;
-
-          setDashboardData((prev) => {
-            if (prev?.scanId && prev.scanId === recovered.scanId) return prev;
-            return { success: true, ...recovered };
-          });
-
-          try {
-            sessionStorage.setItem('mogcheck:lastCompletedScan', JSON.stringify({ success: true, ...recovered }));
-            sessionStorage.removeItem('mogcheck:scanRecoveryRequested');
-          } catch (e) {
-            // Storage sync is best-effort only.
-          }
-          return;
-        } catch (err) {
-          console.warn(`[dashboard] saved-scan recovery attempt ${attempt} failed`, err);
-        }
-      }
-    };
-
-    recoverSavedScanAfterDroppedResponse();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [API_BASE, authResolved, currentPage, hasScanData, setDashboardData, user]);
 
   useEffect(() => {
     if (currentPage !== 'dashboard') return;
@@ -7764,6 +7524,7 @@ const App = () => {
         setCollapsed={setAnalysisDockCollapsed}
         onOpenResult={openAnalysisResult}
         onDismiss={dismissAnalysisJob}
+        currentPage={currentPage}
       />
       {!isScanOnlyPage && (
         <footer className="py-12 border-t border-zinc-900 flex flex-col items-center gap-6 bg-[#090a0b]">

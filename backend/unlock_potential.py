@@ -3,7 +3,7 @@ import sys
 import base64
 
 if os.path.exists(os.path.join(os.path.dirname(__file__), ".env")):
-    with open(os.path.join(os.path.dirname(__file__), ".env")) as f:
+    with open(os.path.join(os.path.dirname(__file__), ".env"), encoding="utf-8", errors="ignore") as f:
         for line in f:
             if '=' in line and not line.startswith('#'):
                 k, v = line.strip().split('=', 1)

@@ -155,6 +155,70 @@ function firestoreQuotaCooldownWarning() {
   return `Firestore quota exceeded recently. Using local fallback for about ${remainingMin} more minute(s).`;
 }
 
+const FAIR_USAGE_DELAY_AFTER_8_MS = 8 * 60 * 1000;
+const FAIR_USAGE_DELAY_AFTER_16_MS = 13 * 60 * 1000;
+const activeAnalysisByUser = new Map();
+
+function getDayBounds(now = new Date()) {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { startMs: start.getTime(), endMs: end.getTime() };
+}
+
+function countSuccessfulScansToday(uid) {
+  if (!uid) return 0;
+  const { startMs, endMs } = getDayBounds();
+  return localUserStore
+    .listScans(uid)
+    .filter((scan) => {
+      if (!scan || scan.success === false) return false;
+      const ts = new Date(scan.timestamp || scan.scannedAt || scan.payload?.scannedAt || 0).getTime();
+      return Number.isFinite(ts) && ts >= startMs && ts < endMs;
+    })
+    .length;
+}
+
+function buildFairUsagePolicy(plan, uid) {
+  const normalizedPlan = String(plan || '').trim().toLowerCase();
+  const eligible =
+    normalizedPlan === 'pro' ||
+    normalizedPlan === 'pro_yearly' ||
+    normalizedPlan === 'quota_bypass';
+
+  const scansToday = eligible && uid ? countSuccessfulScansToday(uid) : 0;
+  let minimumDurationMs = 0;
+  if (scansToday >= 16) minimumDurationMs = FAIR_USAGE_DELAY_AFTER_16_MS;
+  else if (scansToday >= 8) minimumDurationMs = FAIR_USAGE_DELAY_AFTER_8_MS;
+
+  return {
+    enabled: eligible,
+    scansToday,
+    minimumDurationMs,
+    lowPriority: minimumDurationMs > 0,
+    maxConcurrent: eligible ? 1 : null,
+    activeCount: uid && activeAnalysisByUser.has(uid) ? 1 : 0,
+    badgeText:
+      minimumDurationMs > 0
+        ? 'High usage detected. You have been placed in low priority queue'
+        : '',
+  };
+}
+
+function markUserAnalysisStarted(uid, metadata = {}) {
+  if (!uid) return;
+  activeAnalysisByUser.set(uid, {
+    startedAt: Date.now(),
+    ...metadata,
+  });
+}
+
+function clearUserAnalysis(uid) {
+  if (!uid) return;
+  activeAnalysisByUser.delete(uid);
+}
+
 /** Process start time for /api/health uptime */
 const SERVER_BOOT_AT = Date.now();
 
@@ -1353,23 +1417,27 @@ app.get('/api/user/plan', extractUserOptional, async (req, res) => {
     userEmail === 'laithbu07@gmail.com' ||
     userEmail === 'laithabuamsheh@gmail.com';
   if (!firestore) {
+    const fallbackPlan = isAdminEmail ? 'pro' : 'free';
     return res.json({
       ok: true,
-      plan: isAdminEmail ? 'pro' : 'free',
+      plan: fallbackPlan,
       scanCredits: isAdminEmail ? 999 : 0,
       subscriptionId: null,
       subscriptionStatus: null,
+      fairUsage: buildFairUsagePolicy(fallbackPlan, req.uid),
       warning: 'Firestore not available. Using fallback plan state.',
     });
   }
 
   if (isFirestoreQuotaCoolingDown()) {
+    const fallbackPlan = isAdminEmail ? 'pro' : 'free';
     return res.json({
       ok: true,
-      plan: isAdminEmail ? 'pro' : 'free',
+      plan: fallbackPlan,
       scanCredits: isAdminEmail ? 999 : 0,
       subscriptionId: null,
       subscriptionStatus: null,
+      fairUsage: buildFairUsagePolicy(fallbackPlan, req.uid),
       warning: firestoreQuotaCooldownWarning(),
     });
   }
@@ -1383,6 +1451,7 @@ app.get('/api/user/plan', extractUserOptional, async (req, res) => {
       scanCredits: Number(data.scanCredits) || 0,
       subscriptionId: data.subscriptionId || null,
       subscriptionStatus: data.subscriptionStatus || null,
+      fairUsage: buildFairUsagePolicy(data.plan || 'free', req.uid),
       updatedAt:
         data.updatedAt?.toDate?.()?.toISOString?.() ||
         (typeof data.updatedAt?.seconds === 'number' ? new Date(data.updatedAt.seconds * 1000).toISOString() : data.updatedAt || null),
@@ -1390,12 +1459,14 @@ app.get('/api/user/plan', extractUserOptional, async (req, res) => {
   } catch (e) {
     if (isQuotaExceededError(e)) {
       noteFirestoreQuotaExceeded('user/plan');
+      const fallbackPlan = isAdminEmail ? 'pro' : 'free';
       return res.json({
         ok: true,
-        plan: isAdminEmail ? 'pro' : 'free',
+        plan: fallbackPlan,
         scanCredits: isAdminEmail ? 999 : 0,
         subscriptionId: null,
         subscriptionStatus: null,
+        fairUsage: buildFairUsagePolicy(fallbackPlan, req.uid),
         warning: firestoreQuotaCooldownWarning(),
       });
     }
@@ -1837,8 +1908,8 @@ async function verifyUltraAccess(req, res, next) {
     const plan = String(data.plan || 'free');
     const scanCredits = Number(data.scanCredits) || 0;
 
-    if (plan === 'pro' || data.isAdmin || isAdminEmail) {
-      req.ultraContext = { uid, plan: 'pro' };
+    if (plan === 'pro' || plan === 'pro_yearly' || data.isAdmin || isAdminEmail) {
+      req.ultraContext = { uid, plan: plan === 'pro_yearly' ? 'pro_yearly' : 'pro' };
       return next();
     }
     if (plan === 'single_scan' && scanCredits > 0) {
@@ -1910,6 +1981,20 @@ app.post(
       return res.status(400).json({ error: 'No image provided' });
     }
 
+    const fairUsage = buildFairUsagePolicy(req.ultraContext?.plan || 'free', req.uid);
+    if (
+      fairUsage.enabled &&
+      req.uid &&
+      fairUsage.activeCount >= 1
+    ) {
+      return res.status(429).json({
+        success: false,
+        code: 'SCAN_ALREADY_RUNNING',
+        error: 'Only one Pro scan can be in progress at a time. Wait for the current analysis to finish, then start the next one.',
+        fairUsage,
+      });
+    }
+
     const imagePath = frontFile.path;
     const sideFile = req.files && req.files['sideImage'] && req.files['sideImage'][0];
     const sideImagePath = sideFile ? sideFile.path : '';
@@ -1931,6 +2016,12 @@ app.post(
     args.push(sideImagePath || '');
 
     const pythonExecutable = getPythonExecutable();
+    if (req.uid && fairUsage.enabled) {
+      markUserAnalysisStarted(req.uid, {
+        profileId: req.body.profileId || 'default',
+        modelChoice,
+      });
+    }
 
     const py = spawn(pythonExecutable, args, {
       cwd: __dirname,
@@ -1956,6 +2047,7 @@ app.post(
 
     py.on('error', (err) => {
       clearTimeout(killTimer);
+      clearUserAnalysis(req.uid);
       console.error('Failed to start Python process:', err);
       if (!res.headersSent) {
         res.json({
@@ -1982,6 +2074,7 @@ app.post(
 
     py.on('close', async (code) => {
       clearTimeout(killTimer);
+      clearUserAnalysis(req.uid);
       if (res.headersSent) return;
 
       if (analyzeTimedOut) {
@@ -2075,6 +2168,7 @@ app.post(
       pythonStderr.trim().length > 0
         ? `${pythonOutput}\n\n--- Python stderr ---\n${pythonStderr}`
         : pythonOutput,
+    fairUsage,
   };
 
   const frontFallbackUrl = getLocalUploadUrl(req, imagePath);
@@ -2206,6 +2300,14 @@ app.post(
         scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
       },
     });
+  }
+
+  if (success && fairUsage.minimumDurationMs > 0) {
+    const elapsedMs = Date.now() - analysisStartTime;
+    const remainingDelayMs = fairUsage.minimumDurationMs - elapsedMs;
+    if (remainingDelayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, remainingDelayMs));
+    }
   }
 
   res.json(payload);
