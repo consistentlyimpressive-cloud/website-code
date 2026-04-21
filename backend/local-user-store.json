@@ -16,7 +16,7 @@
           "name": "Im a pedophile",
           "visibility": "private",
           "createdAt": "2026-04-20T20:03:05.031Z",
-          "updatedAt": "2026-04-21T12:05:27.533Z"
+          "updatedAt": "2026-04-21T18:05:48.785Z"
         },
         "BJISKNFSB4LZRsz8XMnn": {
           "id": "BJISKNFSB4LZRsz8XMnn",
@@ -24,7 +24,7 @@
           "name": "I have as relalytl fdgdfgdfgfdgfdgfd",
           "visibility": "private",
           "createdAt": "2026-04-21T11:39:17.500Z",
-          "updatedAt": "2026-04-21T12:05:28.111Z"
+          "updatedAt": "2026-04-21T18:05:48.766Z"
         },
         "JDlxfxjbsXa7Lx2r5Kok": {
           "id": "JDlxfxjbsXa7Lx2r5Kok",
@@ -8354,7 +8354,10 @@
           "scannedAt": "2026-04-21T12:05:27.012Z",
           "id": "KaWEifStXtD6KULBXXUd",
           "userId": "yREGOC6qwfWSOWy9WChsXK7F5I63",
-          "updatedAt": "2026-04-21T12:05:28.110Z"
+          "updatedAt": {
+            "_seconds": 1776773128,
+            "_nanoseconds": 828000000
+          }
         },
         "4NZQMvLqGx26Jfz25ccq": {
           "timestamp": {
@@ -9187,6 +9190,819 @@
             "_seconds": 1776776451,
             "_nanoseconds": 98000000
           }
+        },
+        "Z6BjfL6ws7BQcxcZkKl9": {
+          "timestamp": {
+            "_seconds": 1776794544,
+            "_nanoseconds": 989000000
+          },
+          "model": "1",
+          "cohesiveFrontSide": false,
+          "visibility": "private",
+          "finalRating": 65.2,
+          "sideRating": 67,
+          "frontImageUrl": "https://api.mogcheck.net/uploads/1776794431446-e58f6bc983ce5b8e.png",
+          "sideImageUrl": null,
+          "frontImageDest": null,
+          "sideImageDest": null,
+          "success": true,
+          "scanRequestId": "39c1ab92-9704-4ae7-b6c8-0fa046dfc146",
+          "payload": {
+            "success": true,
+            "sex": "MALE",
+            "finalRating": 65.2,
+            "sideRating": 67,
+            "authenticityFlag": null,
+            "technicalSummary": "The subject presents a *highly harmonious* and *youthful* East Asian phenotype. Frontal biometrics reveal a very compact *midface ratio* (0.978) and a strong *positive canthal tilt* (6.93°), which significantly elevates the eye area's appeal. The *fWHR* is balanced, avoiding both the weakness of a narrow face and the brutality of an overbuilt one. The *bigonial width index* (0.765) indicates a tapered lower third, which aligns with a \"pretty boy\" aesthetic rather than a hyper-masculine one.",
+            "appealAssessment": "The appeal is *universally conventional* and *youthful*. The subject possesses a refined, clean look that prioritizes *harmony* and *symmetry* over aggressive dimorphism. This phenotype is highly valued in East Asian beauty standards, leaning towards a balanced, polished, and approachable aesthetic.",
+            "bestFeatures": [
+              {
+                "title": "Canthal Tilt",
+                "description": "Strong positive angle creates a sharp, attractive eye shape."
+              },
+              {
+                "title": "Midface Ratio",
+                "description": "Very compact midface prevents a \"long\" look and enhances harmony."
+              },
+              {
+                "title": "Skin Quality",
+                "description": "Exceptional clarity and texture with minimal blemishes."
+              },
+              {
+                "title": "Symmetry",
+                "description": "High degree of bilateral balance across all facial thirds."
+              },
+              {
+                "title": "Philtrum Length",
+                "description": "Compact philtrum height contributes to a youthful lower third."
+              }
+            ],
+            "primaryFlaws": [
+              {
+                "title": "Upper Eyelid Exposure",
+                "description": "Slight exposure on the double eyelids reduces orbital compactness."
+              },
+              {
+                "title": "Brow Compactness",
+                "description": "Moderate distance from brow to eye; could be more hooded."
+              },
+              {
+                "title": "Eye Depth",
+                "description": "Moderate orbital depth; lacks a \"deep-set\" elite look."
+              }
+            ],
+            "sideBestFeatures": [
+              {
+                "title": "Maxillary Support",
+                "description": "Adequate forward growth providing a clean facial profile."
+              },
+              {
+                "title": "Nose Bridge",
+                "description": "Straight and well-proportioned relative to the face."
+              },
+              {
+                "title": "Lip Fullness",
+                "description": "Balanced volume that complements the chin projection."
+              },
+              {
+                "title": "Ear Alignment",
+                "description": "Well-positioned and proportional to the skull."
+              },
+              {
+                "title": "Nasolabial Angle",
+                "description": "Harmonious transition from the nose to the upper lip."
+              }
+            ],
+            "sidePrimaryFlaws": [
+              {
+                "title": "Mandibular Definition",
+                "description": "Softness in the jaw-to-neck transition."
+              },
+              {
+                "title": "Chin Prominence",
+                "description": "Adequate, but lacks the sharp projection of elite bone structure."
+              },
+              {
+                "title": "Gonial Angle",
+                "description": "Relatively obtuse, contributing to the tapered look."
+              },
+              {
+                "title": "Submental Definition",
+                "description": "Slight softness under the chin area."
+              },
+              {
+                "title": "Zygomatic Prominence",
+                "description": "Cheekbones are present but lack high-tier lateral projection."
+              }
+            ],
+            "categories": null,
+            "sideCategories": null,
+            "hexagonFront": {
+              "Skin": 8.5,
+              "Bone": 5.5,
+              "Harmony": 7.5,
+              "Symmetry": 8.5,
+              "Dimorphism": 4.5
+            },
+            "hexagonSide": {
+              "Skin": 8.5,
+              "Bone": 5.5,
+              "Harmony": 6.5,
+              "Symmetry": 8.5,
+              "Dimorphism": 4.5
+            },
+            "personalizedFeedback": [
+              {
+                "id": 1,
+                "title": "LOWERING FACIAL FAT",
+                "description": "Your skin and symmetry are elite, but your bone structure is slightly masked by *soft tissue fullness* in the lower third. By reducing your overall body fat percentage, you can increase the visibility of your mandible and sharpen the transition between your jaw and neck. This would move your look from \"youthful/soft\" to \"defined/structured.\""
+              },
+              {
+                "id": 2,
+                "title": "MAXILLARY AND MANDIBULAR DEFINITION",
+                "description": "The primary structural limitation is the *narrow bigonial width*. While this fits a specific aesthetic, increasing the muscle mass of the masseters through targeted chewing or resistance can slightly widen the lower face. However, for a significant change in the jaw's lateral breadth, surgical intervention (gonial angle widening) would be the only definitive fix."
+              },
+              {
+                "id": 3,
+                "title": "ORBITAL COMPACTNESS",
+                "description": "You have a great canthal tilt, but there is some *upper eyelid exposure*. This can sometimes make the eyes look less \"intense.\" While this is largely genetic, maintaining a low body fat percentage and ensuring no systemic inflammation (which causes puffiness) will keep the orbital area as compact as possible."
+              },
+              {
+                "id": 4,
+                "title": "SKIN MAINTENANCE",
+                "description": "Your skin is currently a *major carry trait*. To maintain this high score, continue your current regimen. Avoid any aggressive treatments that could cause redness or texture issues, as your clear complexion is a primary driver of your high harmony score."
+              },
+              {
+                "id": 5,
+                "title": "LOWER THIRD PROJECTION",
+                "description": "Your chin is balanced, but adding a small amount of *anterior projection* via a chin implant or genioplasty would create a more decisive jawline. This would balance the bizygomatic width and create a more \"diamond\" or \"square\" shape, increasing your dimorphism score."
+              }
+            ],
+            "biometrics": [
+              {
+                "label": "Bigonial Width Index (0.765)",
+                "displayValue": "59/100",
+                "score": 59
+              },
+              {
+                "label": "Ipd Index (Geometric) (0.453)",
+                "displayValue": "70/100",
+                "score": 70
+              },
+              {
+                "label": "Mouth Width Index (0.323)",
+                "displayValue": "63/100",
+                "score": 63
+              },
+              {
+                "label": "Nose Width Index (0.207)",
+                "displayValue": "62/100",
+                "score": 62
+              },
+              {
+                "label": "Upper Third Length (0.411)",
+                "displayValue": "68/100",
+                "score": 68
+              },
+              {
+                "label": "Middle Third Length (0.48)",
+                "displayValue": "60/100",
+                "score": 60
+              },
+              {
+                "label": "Lower Third Length (0.443)",
+                "displayValue": "67/100",
+                "score": 67
+              },
+              {
+                "label": "Eye Height Index (0.066)",
+                "displayValue": "71/100",
+                "score": 71
+              },
+              {
+                "label": "Brow Compactness Index",
+                "displayValue": "60/100",
+                "score": 60
+              },
+              {
+                "label": "Philtrum Height Index (0.093)",
+                "displayValue": "70/100",
+                "score": 70
+              },
+              {
+                "label": "Total Lip Height Index (0.135)",
+                "displayValue": "75/100",
+                "score": 75
+              },
+              {
+                "label": "Fwhr (Zygo / Upper Face) (1.746)",
+                "displayValue": "71/100",
+                "score": 71
+              },
+              {
+                "label": "Midface Ratio (Mid/ipd) (0.978)",
+                "displayValue": "71/100",
+                "score": 71
+              },
+              {
+                "label": "Canthal Tilt Degrees (6.93°)",
+                "displayValue": "71/100",
+                "score": 71
+              }
+            ],
+            "sideBiometrics": [],
+            "protocols": [
+              {
+                "id": 1,
+                "name": "Body Fat Reduction",
+                "description": "Reach 10-12% BF to reveal hidden bone structure",
+                "impact": "High Impact",
+                "research": null
+              },
+              {
+                "id": 2,
+                "name": "Masseter Hypertrophy",
+                "description": "Use hard mastic gum to increase lower face width",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 3,
+                "name": "Genioplasty",
+                "description": "Surgical advancement of the chin for better projection",
+                "impact": "High Impact",
+                "research": null
+              },
+              {
+                "id": 4,
+                "name": "Gonial Angle Widening",
+                "description": "Surgical widening of the jaw angles",
+                "impact": "High Impact",
+                "research": null
+              },
+              {
+                "id": 5,
+                "name": "Retain Skin Regimen",
+                "description": "Maintain current skincare to preserve elite skin score",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 6,
+                "name": "Sodium Control",
+                "description": "Reduce salt intake to minimize facial bloating/puffiness",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 7,
+                "name": "Hydration Optimization",
+                "description": "Ensure 3L+ water daily for skin elasticity",
+                "impact": "Low Impact",
+                "research": null
+              },
+              {
+                "id": 8,
+                "name": "Sleep Hygiene",
+                "description": "8 hours of quality sleep to prevent under-eye bags",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 9,
+                "name": "Cold Exposure",
+                "description": "Use ice rollers to reduce morning facial edema",
+                "impact": "Low Impact",
+                "research": null
+              },
+              {
+                "id": 10,
+                "name": "Posture Correction",
+                "description": "Maintain a neutral cervical spine to improve jawline appearance",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 11,
+                "name": "Tongue Posture",
+                "description": "Ensure the tongue is resting on the palate (Mewing) for long-term support",
+                "impact": "Low Impact",
+                "research": null
+              },
+              {
+                "id": 12,
+                "name": "Resistance Training",
+                "description": "Increase overall lean muscle mass to improve facial leaness",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 13,
+                "name": "Vitamin D3/K2",
+                "description": "Support bone density and overall health",
+                "impact": "Low Impact",
+                "research": null
+              },
+              {
+                "id": 14,
+                "name": "Omega-3 Supplementation",
+                "description": "Maintain skin lipid barrier and reduce inflammation",
+                "impact": "Low Impact",
+                "research": null
+              },
+              {
+                "id": 15,
+                "name": "Facial Massage",
+                "description": "Lymphatic drainage to sharpen the cheekbones",
+                "impact": "Low Impact",
+                "research": null
+              },
+              {
+                "id": 16,
+                "name": "Eyebrow Grooming",
+                "description": "Keep brows full but clean to frame the eyes better",
+                "impact": "Low Impact",
+                "research": null
+              },
+              {
+                "id": 17,
+                "name": "Sun Protection",
+                "description": "Daily SPF 50 to prevent premature aging of elite skin",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 18,
+                "name": "Magnesium Supplementation",
+                "description": "Improve sleep and muscle recovery",
+                "impact": "Low Impact",
+                "research": null
+              },
+              {
+                "id": 19,
+                "name": "Avoid Refined Sugars",
+                "description": "Prevent glycation and skin breakouts",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 20,
+                "name": "Proper Breathing",
+                "description": "Ensure nasal breathing to prevent facial elongation",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 21,
+                "name": "Zinc Supplementation",
+                "description": "Support skin healing and testosterone levels",
+                "impact": "Low Impact",
+                "research": null
+              },
+              {
+                "id": 22,
+                "name": "Contrast Showers",
+                "description": "Improve circulation and skin tone",
+                "impact": "Low Impact",
+                "research": null
+              },
+              {
+                "id": 23,
+                "name": "Weight Training",
+                "description": "Focus on compound lifts to boost natural growth hormone",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 24,
+                "name": "Avoid Alcohol",
+                "description": "Prevent systemic inflammation and facial puffiness",
+                "impact": "Medium Impact",
+                "research": null
+              },
+              {
+                "id": 25,
+                "name": "Regular Dental Checkups",
+                "description": "Ensure occlusion is optimal for jaw support",
+                "impact": "Low Impact",
+                "research": null
+              }
+            ],
+            "videoUrl": "https://api.mogcheck.net/loading_scan.mp4",
+            "rawOutput": "[DEBUG] Phase 1: Importing SDKs...\r\n[DEBUG] Analysis Engine A Loaded.\r\n[DEBUG] Engine.py Linked Successfully.\r\n[DEBUG] Animation_Engine.py Loaded.\r\n[DEBUG] engineside.py Linked Successfully.\r\n\r\n==============================\r\n      MODEL SELECTOR\r\n==============================\r\n1. ULTRA - Highest Quality\r\n2. ULTRA - Fast\r\n------------------------------\r\n3. OPTIC (Balance & Alignment)\r\n4. CORE (Objective Attractiveness)\r\n5. GENEVA (Mathematical Beauty)\r\n\r\n[DEBUG] Model selected via API args: 1\r\n[ðŸš€] Gathering Lateral Data from engineside.py...\r\n\r\n--- ANALYZING: C:\\Users\\Laith abu amsheh\\Desktop\\website-code\\backend\\uploads\\1776794431446-e58f6bc983ce5b8e.png ---\r\n[OK] High-Tech Animation saved: loading_scan.mp4\r\n[1/3] Extracting Biometrics...\r\n\r\n============================================================\r\n        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)\r\n============================================================\r\nMETADATA:\r\n- Analysis Mode: Geometric Clinical Biometrics\r\n- Reference Scale (1.0): Bizygomatic Width (169.0px)\r\n- Auto-Leveling: Corrected -4.71 deg\r\n\r\n[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)\r\n------------------------------------------------------------\r\n- Bigonial_Width_Index:     0.765\r\n- IPD_Index (Geometric):    0.453\r\n- Mouth_Width_Index:        0.323\r\n- Nose_Width_Index:         0.207\r\n\r\n[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)\r\n------------------------------------------------------------\r\n- Upper_Third_Length:       0.411\r\n- Middle_Third_Length:      0.48\r\n- Lower_Third_Length:       0.443\r\n\r\n[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)\r\n------------------------------------------------------------\r\n- Eye_Height_Index:         0.066\r\n- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.124\r\n- Philtrum_Height_Index:    0.093\r\n- Total_Lip_Height_Index:   0.135\r\n\r\n[4] RELATIONAL RATIOS & ANGLES\r\n------------------------------------------------------------\r\n- fWHR (Zygo / Upper_Face): 1.746\r\n- Midface_Ratio (Mid/IPD):  0.978\r\n- Canthal_Tilt_Degrees:     6.93 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)\r\n============================================================\r\n\r\n[2/3] Preparing Image...\r\n[3/3] Consulting AI...\r\n[DEBUG] Consulting ULTRA - Highest Quality... (Press Ctrl+C to Cancel)\r\n[DEBUG] Trying Google GenAI/Gemma key 1/5...\r\n      [!] ULTRA - Highest Quality key 1 failed: 500 INTERNAL. {'error': {'code': 500, 'message': 'Internal error encountered.', 'status': 'INTERNAL'}}\r\n[DEBUG] Trying Google GenAI/Gemma key 2/5...\r\n      [!] ULTRA - Highest Quality Google GenAI key 2 quota exhausted. Trying next key...\r\n[DEBUG] Trying Google GenAI/Gemma key 3/5...\r\n\r\n========================================\r\nOFFICIAL RATING\r\n========================================\r\n[Using: ULTRA - Highest Quality | Latency: 110.78s]\r\n### ANALYSIS [MALE]\r\n**Final Frontal Rating: 74/100**\r\n**Final Side Rating: 72/100**\r\n**Max Natural Potential: 78/100**\r\n**Max Potential with Surgery: 83/100**\r\n\r\n**Technical Summary:** The subject presents a *highly harmonious* and *youthful* East Asian phenotype. Frontal biometrics reveal a very compact *midface ratio* (0.978) and a strong *positive canthal tilt* (6.93°), which significantly elevates the eye area's appeal. The *fWHR* is balanced, avoiding both the weakness of a narrow face and the brutality of an overbuilt one. The *bigonial width index* (0.765) indicates a tapered lower third, which aligns with a \"pretty boy\" aesthetic rather than a hyper-masculine one.\r\n\r\n**Appeal Assessment:** The appeal is *universally conventional* and *youthful*. The subject possesses a refined, clean look that prioritizes *harmony* and *symmetry* over aggressive dimorphism. This phenotype is highly valued in East Asian beauty standards, leaning towards a balanced, polished, and approachable aesthetic.\r\n\r\n**Hexagon Chart Ratings (front)**\r\n- Skin: 9/10\r\n- Bone: 6/10\r\n- Harmony: 8/10\r\n- Symmetry: 9/10\r\n- Dimorphism: 5/10\r\n\r\n**Hexagon Chart Ratings (side)**\r\n- Skin: 9/10\r\n- Bone: 6/10\r\n- Harmony: 7/10\r\n- Symmetry: 9/10\r\n- Dimorphism: 5/10\r\n\r\n**CORE CATEGORY SCORES (Front | Side):**\r\n- Harmony: 78 | 74\r\n- Bone: 65 | 65\r\n- Symmetry: 92 | N/A\r\n- Skin: 90 | 90 (Shared)\r\n- Dimorphism: 55 | 55\r\n- Maxillary/Cheekbone Projection: 68 | 68 (Shared)\r\n- Nose Projection: 72 | 72 (Shared)\r\n- Facial Fat: 75 | 75 (Shared)\r\n- Eye Depth: 62 | 62 (Shared)\r\n- Ear Shape: 80 | 80 (Shared)\r\n\r\n**CRITICAL MARKERS:**\r\n- #1 BEST FEATURE: Eye Area - The combination of a *strong positive canthal tilt* and compact spacing creates an alert, attractive, and high-tier orbital look.\r\n- #1 WORST FEATURE: Bigonial Width - The jaw is *relatively narrow* compared to the bizygomatic width, which reduces the overall structural presence of the lower third.\r\n\r\n### DASHBOARD_DATA\r\nBEST FEATURES (10):\r\n1. [FRONT] Canthal Tilt - Strong positive angle creates a sharp, attractive eye shape.\r\n2. [FRONT] Midface Ratio - Very compact midface prevents a \"long\" look and enhances harmony.\r\n3. [FRONT] Skin Quality - Exceptional clarity and texture with minimal blemishes.\r\n4. [FRONT] Symmetry - High degree of bilateral balance across all facial thirds.\r\n5. [FRONT] Philtrum Length - Compact philtrum height contributes to a youthful lower third.\r\n6. [SIDE] Maxillary Support - Adequate forward growth providing a clean facial profile.\r\n7. [SIDE] Nose Bridge - Straight and well-proportioned relative to the face.\r\n8. [SIDE] Lip Fullness - Balanced volume that complements the chin projection.\r\n9. [SIDE] Ear Alignment - Well-positioned and proportional to the skull.\r\n10. [SIDE] Nasolabial Angle - Harmonious transition from the nose to the upper lip.\r\n\r\nPRIMARY FLAWS (10):\r\n1. [FRONT] Bigonial Width - Narrow jawline reduces masculine structural definition.\r\n2. [FRONT] Upper Eyelid Exposure - Slight exposure on the double eyelids reduces orbital compactness.\r\n3. [FRONT] Lower Third Breadth - Lack of gonial flare makes the face appear very tapered.\r\n4. [FRONT] Brow Compactness - Moderate distance from brow to eye; could be more hooded.\r\n5. [FRONT] Eye Depth - Moderate orbital depth; lacks a \"deep-set\" elite look.\r\n6. [SIDE] Mandibular Definition - Softness in the jaw-to-neck transition.\r\n7. [SIDE] Chin Prominence - Adequate, but lacks the sharp projection of elite bone structure.\r\n8. [SIDE] Gonial Angle - Relatively obtuse, contributing to the tapered look.\r\n9. [SIDE] Submental Definition - Slight softness under the chin area.\r\n10. [SIDE] Zygomatic Prominence - Cheekbones are present but lack high-tier lateral projection.\r\n\r\n### RATINGS (USE THIS)\r\n- Bigonial_Width_Index: 58/100\r\n- IPD_Index (Geometric): 88/100\r\n- Mouth_Width_Index: 82/100\r\n- Nose_Width_Index: 85/100\r\n- Upper_Third_Length: 80/100\r\n- Middle_Third_Length: 75/100\r\n- Lower_Third_Length: 82/100\r\n- Eye_Height_Index: 70/100\r\n- Brow_Compactness_Index: 65/100\r\n- Philtrum_Height_Index: 88/100\r\n- Total_Lip_Height_Index: 80/100\r\n- fWHR (Zygo / Upper_Face): 85/100\r\n- Midface_Ratio (Mid/IPD): 92/100\r\n- Canthal_Tilt_Degrees: 95/100\r\n\r\n### Personalised feedback\r\n1. LOWERING FACIAL FAT\r\nYour skin and symmetry are elite, but your bone structure is slightly masked by *soft tissue fullness* in the lower third. By reducing your overall body fat percentage, you can increase the visibility of your mandible and sharpen the transition between your jaw and neck. This would move your look from \"youthful/soft\" to \"defined/structured.\"\r\n\r\n2. MAXILLARY AND MANDIBULAR DEFINITION\r\nThe primary structural limitation is the *narrow bigonial width*. While this fits a specific aesthetic, increasing the muscle mass of the masseters through targeted chewing or resistance can slightly widen the lower face. However, for a significant change in the jaw's lateral breadth, surgical intervention (gonial angle widening) would be the only definitive fix.\r\n\r\n3. ORBITAL COMPACTNESS\r\nYou have a great canthal tilt, but there is some *upper eyelid exposure*. This can sometimes make the eyes look less \"intense.\" While this is largely genetic, maintaining a low body fat percentage and ensuring no systemic inflammation (which causes puffiness) will keep the orbital area as compact as possible.\r\n\r\n4. SKIN MAINTENANCE\r\nYour skin is currently a *major carry trait*. To maintain this high score, continue your current regimen. Avoid any aggressive treatments that could cause redness or texture issues, as your clear complexion is a primary driver of your high harmony score.\r\n\r\n5. LOWER THIRD PROJECTION\r\nYour chin is balanced, but adding a small amount of *anterior projection* via a chin implant or genioplasty would create a more decisive jawline. This would balance the bizygomatic width and create a more \"diamond\" or \"square\" shape, increasing your dimorphism score.\r\n\r\n### ACTIONABLE PROTOCOLS\r\n1. Body Fat Reduction: Reach 10-12% BF to reveal hidden bone structure. [High Impact]\r\n2. Masseter Hypertrophy: Use hard mastic gum to increase lower face width. [Medium Impact]\r\n3. Genioplasty: Surgical advancement of the chin for better projection. [High Impact]\r\n4. Gonial Angle Widening: Surgical widening of the jaw angles. [High Impact]\r\n5. Retain Skin Regimen: Maintain current skincare to preserve elite skin score. [Medium Impact]\r\n6. Sodium Control: Reduce salt intake to minimize facial bloating/puffiness. [Medium Impact]\r\n7. Hydration Optimization: Ensure 3L+ water daily for skin elasticity. [Low Impact]\r\n8. Sleep Hygiene: 8 hours of quality sleep to prevent under-eye bags. [Medium Impact]\r\n9. Cold Exposure: Use ice rollers to reduce morning facial edema. [Low Impact]\r\n10. Posture Correction: Maintain a neutral cervical spine to improve jawline appearance. [Medium Impact]\r\n11. Tongue Posture: Ensure the tongue is resting on the palate (Mewing) for long-term support. [Low Impact]\r\n12. Resistance Training: Increase overall lean muscle mass to improve facial leaness. [Medium Impact]\r\n13. Vitamin D3/K2: Support bone density and overall health. [Low Impact]\r\n14. Omega-3 Supplementation: Maintain skin lipid barrier and reduce inflammation. [Low Impact]\r\n15. Facial Massage: Lymphatic drainage to sharpen the cheekbones. [Low Impact]\r\n16. Eyebrow Grooming: Keep brows full but clean to frame the eyes better. [Low Impact]\r\n17. Sun Protection: Daily SPF 50 to prevent premature aging of elite skin. [Medium Impact]\r\n18. Magnesium Supplementation: Improve sleep and muscle recovery. [Low Impact]\r\n19. Avoid Refined Sugars: Prevent glycation and skin breakouts. [Medium Impact]\r\n20. Proper Breathing: Ensure nasal breathing to prevent facial elongation. [Medium Impact]\r\n21. Zinc Supplementation: Support skin healing and testosterone levels. [Low Impact]\r\n22. Contrast Showers: Improve circulation and skin tone. [Low Impact]\r\n23. Weight Training: Focus on compound lifts to boost natural growth hormone. [Medium Impact]\r\n24. Avoid Alcohol: Prevent systemic inflammation and facial puffiness. [Medium Impact]\r\n25. Regular Dental Checkups: Ensure occlusion is optimal for jaw support. [Low Impact]\r\n\r\n### MOG_REPORT_REVISION\r\nBigonial_Width_Index: 58\r\nIPD_Index (Geometric): 88\r\nMouth_Width_Index: 82\r\nNose_Width_Index: 85\r\nUpper_Third_Length: 80\r\nMiddle_Third_Length: 75\r\nLower_Third_Length: 82\r\nEye_Height_Index: 70\r\nBrow_Compactness_Index: 65\r\nPhiltrum_Height_Index: 88\r\nTotal_Lip_Height_Index: 80\r\nfWHR (Zygo / Upper_Face): 85\r\nMidface_Ratio (Mid/IPD): 92\r\nCanthal_Tilt_Degrees: 95\r\nMaxillary/Cheekbone Projection: 68\r\nNose Projection: 72\r\nFacial Fat: 75\r\nEye Depth: 62\r\nEar Shape: 80\r\nSkin Quality: 90\r\n\r\n**JUSTIFICATION:** The score is anchored by exceptional symmetry, skin quality, and a very strong eye area (canthal tilt). It is prevented from reaching the 80s due to a lack of aggressive bone structure in the lower third and moderate orbital depth. The overall read is highly attractive but leans more towards a youthful/pretty aesthetic than an elite structural one.\r\n",
+            "fairUsage": {
+              "enabled": true,
+              "scansToday": 0,
+              "minimumDurationMs": 0,
+              "lowPriority": false,
+              "maxConcurrent": 1,
+              "activeCount": 0,
+              "badgeText": ""
+            },
+            "frontImage": "https://api.mogcheck.net/uploads/1776794431446-e58f6bc983ce5b8e.png",
+            "scanId": "Z6BjfL6ws7BQcxcZkKl9",
+            "scanRequestId": "39c1ab92-9704-4ae7-b6c8-0fa046dfc146",
+            "profileId": "BJISKNFSB4LZRsz8XMnn",
+            "selectedModel": "1",
+            "cohesiveFrontSide": false,
+            "sideImage": null
+          },
+          "profileId": "BJISKNFSB4LZRsz8XMnn",
+          "sex": "MALE",
+          "authenticityFlag": null,
+          "technicalSummary": "The subject presents a *highly harmonious* and *youthful* East Asian phenotype. Frontal biometrics reveal a very compact *midface ratio* (0.978) and a strong *positive canthal tilt* (6.93°), which significantly elevates the eye area's appeal. The *fWHR* is balanced, avoiding both the weakness of a narrow face and the brutality of an overbuilt one. The *bigonial width index* (0.765) indicates a tapered lower third, which aligns with a \"pretty boy\" aesthetic rather than a hyper-masculine one.",
+          "appealAssessment": "The appeal is *universally conventional* and *youthful*. The subject possesses a refined, clean look that prioritizes *harmony* and *symmetry* over aggressive dimorphism. This phenotype is highly valued in East Asian beauty standards, leaning towards a balanced, polished, and approachable aesthetic.",
+          "bestFeatures": [
+            {
+              "title": "Canthal Tilt",
+              "description": "Strong positive angle creates a sharp, attractive eye shape."
+            },
+            {
+              "title": "Midface Ratio",
+              "description": "Very compact midface prevents a \"long\" look and enhances harmony."
+            },
+            {
+              "title": "Skin Quality",
+              "description": "Exceptional clarity and texture with minimal blemishes."
+            },
+            {
+              "title": "Symmetry",
+              "description": "High degree of bilateral balance across all facial thirds."
+            },
+            {
+              "title": "Philtrum Length",
+              "description": "Compact philtrum height contributes to a youthful lower third."
+            }
+          ],
+          "primaryFlaws": [
+            {
+              "title": "Upper Eyelid Exposure",
+              "description": "Slight exposure on the double eyelids reduces orbital compactness."
+            },
+            {
+              "title": "Brow Compactness",
+              "description": "Moderate distance from brow to eye; could be more hooded."
+            },
+            {
+              "title": "Eye Depth",
+              "description": "Moderate orbital depth; lacks a \"deep-set\" elite look."
+            }
+          ],
+          "sideBestFeatures": [
+            {
+              "title": "Maxillary Support",
+              "description": "Adequate forward growth providing a clean facial profile."
+            },
+            {
+              "title": "Nose Bridge",
+              "description": "Straight and well-proportioned relative to the face."
+            },
+            {
+              "title": "Lip Fullness",
+              "description": "Balanced volume that complements the chin projection."
+            },
+            {
+              "title": "Ear Alignment",
+              "description": "Well-positioned and proportional to the skull."
+            },
+            {
+              "title": "Nasolabial Angle",
+              "description": "Harmonious transition from the nose to the upper lip."
+            }
+          ],
+          "sidePrimaryFlaws": [
+            {
+              "title": "Mandibular Definition",
+              "description": "Softness in the jaw-to-neck transition."
+            },
+            {
+              "title": "Chin Prominence",
+              "description": "Adequate, but lacks the sharp projection of elite bone structure."
+            },
+            {
+              "title": "Gonial Angle",
+              "description": "Relatively obtuse, contributing to the tapered look."
+            },
+            {
+              "title": "Submental Definition",
+              "description": "Slight softness under the chin area."
+            },
+            {
+              "title": "Zygomatic Prominence",
+              "description": "Cheekbones are present but lack high-tier lateral projection."
+            }
+          ],
+          "categories": null,
+          "sideCategories": null,
+          "hexagonFront": {
+            "Skin": 8.5,
+            "Bone": 5.5,
+            "Harmony": 7.5,
+            "Symmetry": 8.5,
+            "Dimorphism": 4.5
+          },
+          "hexagonSide": {
+            "Skin": 8.5,
+            "Bone": 5.5,
+            "Harmony": 6.5,
+            "Symmetry": 8.5,
+            "Dimorphism": 4.5
+          },
+          "personalizedFeedback": [
+            {
+              "id": 1,
+              "title": "LOWERING FACIAL FAT",
+              "description": "Your skin and symmetry are elite, but your bone structure is slightly masked by *soft tissue fullness* in the lower third. By reducing your overall body fat percentage, you can increase the visibility of your mandible and sharpen the transition between your jaw and neck. This would move your look from \"youthful/soft\" to \"defined/structured.\""
+            },
+            {
+              "id": 2,
+              "title": "MAXILLARY AND MANDIBULAR DEFINITION",
+              "description": "The primary structural limitation is the *narrow bigonial width*. While this fits a specific aesthetic, increasing the muscle mass of the masseters through targeted chewing or resistance can slightly widen the lower face. However, for a significant change in the jaw's lateral breadth, surgical intervention (gonial angle widening) would be the only definitive fix."
+            },
+            {
+              "id": 3,
+              "title": "ORBITAL COMPACTNESS",
+              "description": "You have a great canthal tilt, but there is some *upper eyelid exposure*. This can sometimes make the eyes look less \"intense.\" While this is largely genetic, maintaining a low body fat percentage and ensuring no systemic inflammation (which causes puffiness) will keep the orbital area as compact as possible."
+            },
+            {
+              "id": 4,
+              "title": "SKIN MAINTENANCE",
+              "description": "Your skin is currently a *major carry trait*. To maintain this high score, continue your current regimen. Avoid any aggressive treatments that could cause redness or texture issues, as your clear complexion is a primary driver of your high harmony score."
+            },
+            {
+              "id": 5,
+              "title": "LOWER THIRD PROJECTION",
+              "description": "Your chin is balanced, but adding a small amount of *anterior projection* via a chin implant or genioplasty would create a more decisive jawline. This would balance the bizygomatic width and create a more \"diamond\" or \"square\" shape, increasing your dimorphism score."
+            }
+          ],
+          "biometrics": [
+            {
+              "label": "Bigonial Width Index (0.765)",
+              "displayValue": "59/100",
+              "score": 59
+            },
+            {
+              "label": "Ipd Index (Geometric) (0.453)",
+              "displayValue": "70/100",
+              "score": 70
+            },
+            {
+              "label": "Mouth Width Index (0.323)",
+              "displayValue": "63/100",
+              "score": 63
+            },
+            {
+              "label": "Nose Width Index (0.207)",
+              "displayValue": "62/100",
+              "score": 62
+            },
+            {
+              "label": "Upper Third Length (0.411)",
+              "displayValue": "68/100",
+              "score": 68
+            },
+            {
+              "label": "Middle Third Length (0.48)",
+              "displayValue": "60/100",
+              "score": 60
+            },
+            {
+              "label": "Lower Third Length (0.443)",
+              "displayValue": "67/100",
+              "score": 67
+            },
+            {
+              "label": "Eye Height Index (0.066)",
+              "displayValue": "71/100",
+              "score": 71
+            },
+            {
+              "label": "Brow Compactness Index",
+              "displayValue": "60/100",
+              "score": 60
+            },
+            {
+              "label": "Philtrum Height Index (0.093)",
+              "displayValue": "70/100",
+              "score": 70
+            },
+            {
+              "label": "Total Lip Height Index (0.135)",
+              "displayValue": "75/100",
+              "score": 75
+            },
+            {
+              "label": "Fwhr (Zygo / Upper Face) (1.746)",
+              "displayValue": "71/100",
+              "score": 71
+            },
+            {
+              "label": "Midface Ratio (Mid/ipd) (0.978)",
+              "displayValue": "71/100",
+              "score": 71
+            },
+            {
+              "label": "Canthal Tilt Degrees (6.93°)",
+              "displayValue": "71/100",
+              "score": 71
+            }
+          ],
+          "sideBiometrics": [],
+          "protocols": [
+            {
+              "id": 1,
+              "name": "Body Fat Reduction",
+              "description": "Reach 10-12% BF to reveal hidden bone structure",
+              "impact": "High Impact",
+              "research": null
+            },
+            {
+              "id": 2,
+              "name": "Masseter Hypertrophy",
+              "description": "Use hard mastic gum to increase lower face width",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 3,
+              "name": "Genioplasty",
+              "description": "Surgical advancement of the chin for better projection",
+              "impact": "High Impact",
+              "research": null
+            },
+            {
+              "id": 4,
+              "name": "Gonial Angle Widening",
+              "description": "Surgical widening of the jaw angles",
+              "impact": "High Impact",
+              "research": null
+            },
+            {
+              "id": 5,
+              "name": "Retain Skin Regimen",
+              "description": "Maintain current skincare to preserve elite skin score",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 6,
+              "name": "Sodium Control",
+              "description": "Reduce salt intake to minimize facial bloating/puffiness",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 7,
+              "name": "Hydration Optimization",
+              "description": "Ensure 3L+ water daily for skin elasticity",
+              "impact": "Low Impact",
+              "research": null
+            },
+            {
+              "id": 8,
+              "name": "Sleep Hygiene",
+              "description": "8 hours of quality sleep to prevent under-eye bags",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 9,
+              "name": "Cold Exposure",
+              "description": "Use ice rollers to reduce morning facial edema",
+              "impact": "Low Impact",
+              "research": null
+            },
+            {
+              "id": 10,
+              "name": "Posture Correction",
+              "description": "Maintain a neutral cervical spine to improve jawline appearance",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 11,
+              "name": "Tongue Posture",
+              "description": "Ensure the tongue is resting on the palate (Mewing) for long-term support",
+              "impact": "Low Impact",
+              "research": null
+            },
+            {
+              "id": 12,
+              "name": "Resistance Training",
+              "description": "Increase overall lean muscle mass to improve facial leaness",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 13,
+              "name": "Vitamin D3/K2",
+              "description": "Support bone density and overall health",
+              "impact": "Low Impact",
+              "research": null
+            },
+            {
+              "id": 14,
+              "name": "Omega-3 Supplementation",
+              "description": "Maintain skin lipid barrier and reduce inflammation",
+              "impact": "Low Impact",
+              "research": null
+            },
+            {
+              "id": 15,
+              "name": "Facial Massage",
+              "description": "Lymphatic drainage to sharpen the cheekbones",
+              "impact": "Low Impact",
+              "research": null
+            },
+            {
+              "id": 16,
+              "name": "Eyebrow Grooming",
+              "description": "Keep brows full but clean to frame the eyes better",
+              "impact": "Low Impact",
+              "research": null
+            },
+            {
+              "id": 17,
+              "name": "Sun Protection",
+              "description": "Daily SPF 50 to prevent premature aging of elite skin",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 18,
+              "name": "Magnesium Supplementation",
+              "description": "Improve sleep and muscle recovery",
+              "impact": "Low Impact",
+              "research": null
+            },
+            {
+              "id": 19,
+              "name": "Avoid Refined Sugars",
+              "description": "Prevent glycation and skin breakouts",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 20,
+              "name": "Proper Breathing",
+              "description": "Ensure nasal breathing to prevent facial elongation",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 21,
+              "name": "Zinc Supplementation",
+              "description": "Support skin healing and testosterone levels",
+              "impact": "Low Impact",
+              "research": null
+            },
+            {
+              "id": 22,
+              "name": "Contrast Showers",
+              "description": "Improve circulation and skin tone",
+              "impact": "Low Impact",
+              "research": null
+            },
+            {
+              "id": 23,
+              "name": "Weight Training",
+              "description": "Focus on compound lifts to boost natural growth hormone",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 24,
+              "name": "Avoid Alcohol",
+              "description": "Prevent systemic inflammation and facial puffiness",
+              "impact": "Medium Impact",
+              "research": null
+            },
+            {
+              "id": 25,
+              "name": "Regular Dental Checkups",
+              "description": "Ensure occlusion is optimal for jaw support",
+              "impact": "Low Impact",
+              "research": null
+            }
+          ],
+          "videoUrl": "https://api.mogcheck.net/loading_scan.mp4",
+          "rawOutput": "[DEBUG] Phase 1: Importing SDKs...\r\n[DEBUG] Analysis Engine A Loaded.\r\n[DEBUG] Engine.py Linked Successfully.\r\n[DEBUG] Animation_Engine.py Loaded.\r\n[DEBUG] engineside.py Linked Successfully.\r\n\r\n==============================\r\n      MODEL SELECTOR\r\n==============================\r\n1. ULTRA - Highest Quality\r\n2. ULTRA - Fast\r\n------------------------------\r\n3. OPTIC (Balance & Alignment)\r\n4. CORE (Objective Attractiveness)\r\n5. GENEVA (Mathematical Beauty)\r\n\r\n[DEBUG] Model selected via API args: 1\r\n[ðŸš€] Gathering Lateral Data from engineside.py...\r\n\r\n--- ANALYZING: C:\\Users\\Laith abu amsheh\\Desktop\\website-code\\backend\\uploads\\1776794431446-e58f6bc983ce5b8e.png ---\r\n[OK] High-Tech Animation saved: loading_scan.mp4\r\n[1/3] Extracting Biometrics...\r\n\r\n============================================================\r\n        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)\r\n============================================================\r\nMETADATA:\r\n- Analysis Mode: Geometric Clinical Biometrics\r\n- Reference Scale (1.0): Bizygomatic Width (169.0px)\r\n- Auto-Leveling: Corrected -4.71 deg\r\n\r\n[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)\r\n------------------------------------------------------------\r\n- Bigonial_Width_Index:     0.765\r\n- IPD_Index (Geometric):    0.453\r\n- Mouth_Width_Index:        0.323\r\n- Nose_Width_Index:         0.207\r\n\r\n[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)\r\n------------------------------------------------------------\r\n- Upper_Third_Length:       0.411\r\n- Middle_Third_Length:      0.48\r\n- Lower_Third_Length:       0.443\r\n\r\n[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)\r\n------------------------------------------------------------\r\n- Eye_Height_Index:         0.066\r\n- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.124\r\n- Philtrum_Height_Index:    0.093\r\n- Total_Lip_Height_Index:   0.135\r\n\r\n[4] RELATIONAL RATIOS & ANGLES\r\n------------------------------------------------------------\r\n- fWHR (Zygo / Upper_Face): 1.746\r\n- Midface_Ratio (Mid/IPD):  0.978\r\n- Canthal_Tilt_Degrees:     6.93 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)\r\n============================================================\r\n\r\n[2/3] Preparing Image...\r\n[3/3] Consulting AI...\r\n[DEBUG] Consulting ULTRA - Highest Quality... (Press Ctrl+C to Cancel)\r\n[DEBUG] Trying Google GenAI/Gemma key 1/5...\r\n      [!] ULTRA - Highest Quality key 1 failed: 500 INTERNAL. {'error': {'code': 500, 'message': 'Internal error encountered.', 'status': 'INTERNAL'}}\r\n[DEBUG] Trying Google GenAI/Gemma key 2/5...\r\n      [!] ULTRA - Highest Quality Google GenAI key 2 quota exhausted. Trying next key...\r\n[DEBUG] Trying Google GenAI/Gemma key 3/5...\r\n\r\n========================================\r\nOFFICIAL RATING\r\n========================================\r\n[Using: ULTRA - Highest Quality | Latency: 110.78s]\r\n### ANALYSIS [MALE]\r\n**Final Frontal Rating: 74/100**\r\n**Final Side Rating: 72/100**\r\n**Max Natural Potential: 78/100**\r\n**Max Potential with Surgery: 83/100**\r\n\r\n**Technical Summary:** The subject presents a *highly harmonious* and *youthful* East Asian phenotype. Frontal biometrics reveal a very compact *midface ratio* (0.978) and a strong *positive canthal tilt* (6.93°), which significantly elevates the eye area's appeal. The *fWHR* is balanced, avoiding both the weakness of a narrow face and the brutality of an overbuilt one. The *bigonial width index* (0.765) indicates a tapered lower third, which aligns with a \"pretty boy\" aesthetic rather than a hyper-masculine one.\r\n\r\n**Appeal Assessment:** The appeal is *universally conventional* and *youthful*. The subject possesses a refined, clean look that prioritizes *harmony* and *symmetry* over aggressive dimorphism. This phenotype is highly valued in East Asian beauty standards, leaning towards a balanced, polished, and approachable aesthetic.\r\n\r\n**Hexagon Chart Ratings (front)**\r\n- Skin: 9/10\r\n- Bone: 6/10\r\n- Harmony: 8/10\r\n- Symmetry: 9/10\r\n- Dimorphism: 5/10\r\n\r\n**Hexagon Chart Ratings (side)**\r\n- Skin: 9/10\r\n- Bone: 6/10\r\n- Harmony: 7/10\r\n- Symmetry: 9/10\r\n- Dimorphism: 5/10\r\n\r\n**CORE CATEGORY SCORES (Front | Side):**\r\n- Harmony: 78 | 74\r\n- Bone: 65 | 65\r\n- Symmetry: 92 | N/A\r\n- Skin: 90 | 90 (Shared)\r\n- Dimorphism: 55 | 55\r\n- Maxillary/Cheekbone Projection: 68 | 68 (Shared)\r\n- Nose Projection: 72 | 72 (Shared)\r\n- Facial Fat: 75 | 75 (Shared)\r\n- Eye Depth: 62 | 62 (Shared)\r\n- Ear Shape: 80 | 80 (Shared)\r\n\r\n**CRITICAL MARKERS:**\r\n- #1 BEST FEATURE: Eye Area - The combination of a *strong positive canthal tilt* and compact spacing creates an alert, attractive, and high-tier orbital look.\r\n- #1 WORST FEATURE: Bigonial Width - The jaw is *relatively narrow* compared to the bizygomatic width, which reduces the overall structural presence of the lower third.\r\n\r\n### DASHBOARD_DATA\r\nBEST FEATURES (10):\r\n1. [FRONT] Canthal Tilt - Strong positive angle creates a sharp, attractive eye shape.\r\n2. [FRONT] Midface Ratio - Very compact midface prevents a \"long\" look and enhances harmony.\r\n3. [FRONT] Skin Quality - Exceptional clarity and texture with minimal blemishes.\r\n4. [FRONT] Symmetry - High degree of bilateral balance across all facial thirds.\r\n5. [FRONT] Philtrum Length - Compact philtrum height contributes to a youthful lower third.\r\n6. [SIDE] Maxillary Support - Adequate forward growth providing a clean facial profile.\r\n7. [SIDE] Nose Bridge - Straight and well-proportioned relative to the face.\r\n8. [SIDE] Lip Fullness - Balanced volume that complements the chin projection.\r\n9. [SIDE] Ear Alignment - Well-positioned and proportional to the skull.\r\n10. [SIDE] Nasolabial Angle - Harmonious transition from the nose to the upper lip.\r\n\r\nPRIMARY FLAWS (10):\r\n1. [FRONT] Bigonial Width - Narrow jawline reduces masculine structural definition.\r\n2. [FRONT] Upper Eyelid Exposure - Slight exposure on the double eyelids reduces orbital compactness.\r\n3. [FRONT] Lower Third Breadth - Lack of gonial flare makes the face appear very tapered.\r\n4. [FRONT] Brow Compactness - Moderate distance from brow to eye; could be more hooded.\r\n5. [FRONT] Eye Depth - Moderate orbital depth; lacks a \"deep-set\" elite look.\r\n6. [SIDE] Mandibular Definition - Softness in the jaw-to-neck transition.\r\n7. [SIDE] Chin Prominence - Adequate, but lacks the sharp projection of elite bone structure.\r\n8. [SIDE] Gonial Angle - Relatively obtuse, contributing to the tapered look.\r\n9. [SIDE] Submental Definition - Slight softness under the chin area.\r\n10. [SIDE] Zygomatic Prominence - Cheekbones are present but lack high-tier lateral projection.\r\n\r\n### RATINGS (USE THIS)\r\n- Bigonial_Width_Index: 58/100\r\n- IPD_Index (Geometric): 88/100\r\n- Mouth_Width_Index: 82/100\r\n- Nose_Width_Index: 85/100\r\n- Upper_Third_Length: 80/100\r\n- Middle_Third_Length: 75/100\r\n- Lower_Third_Length: 82/100\r\n- Eye_Height_Index: 70/100\r\n- Brow_Compactness_Index: 65/100\r\n- Philtrum_Height_Index: 88/100\r\n- Total_Lip_Height_Index: 80/100\r\n- fWHR (Zygo / Upper_Face): 85/100\r\n- Midface_Ratio (Mid/IPD): 92/100\r\n- Canthal_Tilt_Degrees: 95/100\r\n\r\n### Personalised feedback\r\n1. LOWERING FACIAL FAT\r\nYour skin and symmetry are elite, but your bone structure is slightly masked by *soft tissue fullness* in the lower third. By reducing your overall body fat percentage, you can increase the visibility of your mandible and sharpen the transition between your jaw and neck. This would move your look from \"youthful/soft\" to \"defined/structured.\"\r\n\r\n2. MAXILLARY AND MANDIBULAR DEFINITION\r\nThe primary structural limitation is the *narrow bigonial width*. While this fits a specific aesthetic, increasing the muscle mass of the masseters through targeted chewing or resistance can slightly widen the lower face. However, for a significant change in the jaw's lateral breadth, surgical intervention (gonial angle widening) would be the only definitive fix.\r\n\r\n3. ORBITAL COMPACTNESS\r\nYou have a great canthal tilt, but there is some *upper eyelid exposure*. This can sometimes make the eyes look less \"intense.\" While this is largely genetic, maintaining a low body fat percentage and ensuring no systemic inflammation (which causes puffiness) will keep the orbital area as compact as possible.\r\n\r\n4. SKIN MAINTENANCE\r\nYour skin is currently a *major carry trait*. To maintain this high score, continue your current regimen. Avoid any aggressive treatments that could cause redness or texture issues, as your clear complexion is a primary driver of your high harmony score.\r\n\r\n5. LOWER THIRD PROJECTION\r\nYour chin is balanced, but adding a small amount of *anterior projection* via a chin implant or genioplasty would create a more decisive jawline. This would balance the bizygomatic width and create a more \"diamond\" or \"square\" shape, increasing your dimorphism score.\r\n\r\n### ACTIONABLE PROTOCOLS\r\n1. Body Fat Reduction: Reach 10-12% BF to reveal hidden bone structure. [High Impact]\r\n2. Masseter Hypertrophy: Use hard mastic gum to increase lower face width. [Medium Impact]\r\n3. Genioplasty: Surgical advancement of the chin for better projection. [High Impact]\r\n4. Gonial Angle Widening: Surgical widening of the jaw angles. [High Impact]\r\n5. Retain Skin Regimen: Maintain current skincare to preserve elite skin score. [Medium Impact]\r\n6. Sodium Control: Reduce salt intake to minimize facial bloating/puffiness. [Medium Impact]\r\n7. Hydration Optimization: Ensure 3L+ water daily for skin elasticity. [Low Impact]\r\n8. Sleep Hygiene: 8 hours of quality sleep to prevent under-eye bags. [Medium Impact]\r\n9. Cold Exposure: Use ice rollers to reduce morning facial edema. [Low Impact]\r\n10. Posture Correction: Maintain a neutral cervical spine to improve jawline appearance. [Medium Impact]\r\n11. Tongue Posture: Ensure the tongue is resting on the palate (Mewing) for long-term support. [Low Impact]\r\n12. Resistance Training: Increase overall lean muscle mass to improve facial leaness. [Medium Impact]\r\n13. Vitamin D3/K2: Support bone density and overall health. [Low Impact]\r\n14. Omega-3 Supplementation: Maintain skin lipid barrier and reduce inflammation. [Low Impact]\r\n15. Facial Massage: Lymphatic drainage to sharpen the cheekbones. [Low Impact]\r\n16. Eyebrow Grooming: Keep brows full but clean to frame the eyes better. [Low Impact]\r\n17. Sun Protection: Daily SPF 50 to prevent premature aging of elite skin. [Medium Impact]\r\n18. Magnesium Supplementation: Improve sleep and muscle recovery. [Low Impact]\r\n19. Avoid Refined Sugars: Prevent glycation and skin breakouts. [Medium Impact]\r\n20. Proper Breathing: Ensure nasal breathing to prevent facial elongation. [Medium Impact]\r\n21. Zinc Supplementation: Support skin healing and testosterone levels. [Low Impact]\r\n22. Contrast Showers: Improve circulation and skin tone. [Low Impact]\r\n23. Weight Training: Focus on compound lifts to boost natural growth hormone. [Medium Impact]\r\n24. Avoid Alcohol: Prevent systemic inflammation and facial puffiness. [Medium Impact]\r\n25. Regular Dental Checkups: Ensure occlusion is optimal for jaw support. [Low Impact]\r\n\r\n### MOG_REPORT_REVISION\r\nBigonial_Width_Index: 58\r\nIPD_Index (Geometric): 88\r\nMouth_Width_Index: 82\r\nNose_Width_Index: 85\r\nUpper_Third_Length: 80\r\nMiddle_Third_Length: 75\r\nLower_Third_Length: 82\r\nEye_Height_Index: 70\r\nBrow_Compactness_Index: 65\r\nPhiltrum_Height_Index: 88\r\nTotal_Lip_Height_Index: 80\r\nfWHR (Zygo / Upper_Face): 85\r\nMidface_Ratio (Mid/IPD): 92\r\nCanthal_Tilt_Degrees: 95\r\nMaxillary/Cheekbone Projection: 68\r\nNose Projection: 72\r\nFacial Fat: 75\r\nEye Depth: 62\r\nEar Shape: 80\r\nSkin Quality: 90\r\n\r\n**JUSTIFICATION:** The score is anchored by exceptional symmetry, skin quality, and a very strong eye area (canthal tilt). It is prevented from reaching the 80s due to a lack of aggressive bone structure in the lower third and moderate orbital depth. The overall read is highly attractive but leans more towards a youthful/pretty aesthetic than an elite structural one.\r\n",
+          "fairUsage": {
+            "enabled": true,
+            "scansToday": 0,
+            "minimumDurationMs": 0,
+            "lowPriority": false,
+            "maxConcurrent": 1,
+            "activeCount": 0,
+            "badgeText": ""
+          },
+          "frontImage": "https://api.mogcheck.net/uploads/1776794431446-e58f6bc983ce5b8e.png",
+          "scanId": "Z6BjfL6ws7BQcxcZkKl9",
+          "selectedModel": "1",
+          "scannedAt": "2026-04-21T18:02:24.194Z",
+          "id": "Z6BjfL6ws7BQcxcZkKl9",
+          "userId": "yREGOC6qwfWSOWy9WChsXK7F5I63",
+          "updatedAt": "2026-04-21T18:02:25.192Z"
         }
       }
     },
