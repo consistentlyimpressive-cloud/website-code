@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, AlertTriangle } from 'lucide-react';
 
 export function SiteModal({ title, subtitle = '', onClose, children, maxWidth = 'max-w-2xl' }) {
@@ -73,7 +74,7 @@ export function ConfirmDialog({
 export function ImageLightbox({ src, alt = '', subtitle = '', onClose }) {
   if (!src) return null;
 
-  return (
+  const lightbox = (
     <div
       className="fixed inset-0 z-[260] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
       role="dialog"
@@ -103,4 +104,6 @@ export function ImageLightbox({ src, alt = '', subtitle = '', onClose }) {
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(lightbox, document.body) : lightbox;
 }

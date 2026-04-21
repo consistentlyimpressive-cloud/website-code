@@ -1756,6 +1756,28 @@ function getLocalUploadUrl(req, localPath) {
   return `${getPublicBackendBase(req)}/uploads/${encodeURIComponent(filename)}`;
 }
 
+function copyDebugArtifactToUploads(req, sourceName, label = 'debug') {
+  const sourcePath = path.join(__dirname, sourceName);
+  if (!fs.existsSync(sourcePath)) return null;
+
+  try {
+    const uploadDir = path.join(__dirname, 'uploads');
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+    const sourceExt = path.extname(sourceName) || '.jpg';
+    const safeLabel = String(label || 'debug').replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
+    const destPath = path.join(
+      uploadDir,
+      `${Date.now()}-${crypto.randomBytes(6).toString('hex')}-${safeLabel}${sourceExt}`
+    );
+    fs.copyFileSync(sourcePath, destPath);
+    return getLocalUploadUrl(req, destPath);
+  } catch (error) {
+    console.warn(`[debug-artifact] Failed to preserve ${sourceName}:`, error.message);
+    return null;
+  }
+}
+
 function publicizeStoredUploadUrl(value) {
   if (typeof value !== 'string' || !value.includes('/uploads/')) return value || null;
   const rawBase = (process.env.PUBLIC_BACKEND_URL || '').trim().replace(/\/$/, '');
@@ -1771,16 +1793,28 @@ function normalizeStoredScanUrls(scan) {
   const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : null;
   const frontImageUrl = publicizeStoredUploadUrl(scan.frontImageUrl || payload?.frontImage || null);
   const sideImageUrl = publicizeStoredUploadUrl(scan.sideImageUrl || payload?.sideImage || null);
+  const debugAnchorsImageUrl = publicizeStoredUploadUrl(
+    scan.debugAnchorsImageUrl || payload?.debugAnchorsImage || payload?.debugAnchorsImageUrl || null
+  );
+  const debugRatiosImageUrl = publicizeStoredUploadUrl(
+    scan.debugRatiosImageUrl || payload?.debugRatiosImage || payload?.debugRatiosImageUrl || null
+  );
 
   return {
     ...scan,
     frontImageUrl,
     sideImageUrl,
+    debugAnchorsImageUrl,
+    debugRatiosImageUrl,
     payload: payload
       ? {
           ...payload,
           frontImage: publicizeStoredUploadUrl(payload.frontImage || frontImageUrl),
           sideImage: publicizeStoredUploadUrl(payload.sideImage || sideImageUrl),
+          debugAnchorsImage: debugAnchorsImageUrl,
+          debugAnchorsImageUrl,
+          debugRatiosImage: debugRatiosImageUrl,
+          debugRatiosImageUrl,
         }
       : scan.payload,
   };
@@ -2174,8 +2208,18 @@ app.post(
 
   const frontFallbackUrl = getLocalUploadUrl(req, imagePath);
   const sideFallbackUrl = getLocalUploadUrl(req, sideImagePath);
+  const debugAnchorsUrl = copyDebugArtifactToUploads(req, 'debug_final_anchors.jpg', 'debug-anchors');
+  const debugRatiosUrl = copyDebugArtifactToUploads(req, 'debug_ratios.jpg', 'debug-ratios');
   if (frontFallbackUrl) payload.frontImage = frontFallbackUrl;
   if (sideFallbackUrl) payload.sideImage = sideFallbackUrl;
+  if (debugAnchorsUrl) {
+    payload.debugAnchorsImage = debugAnchorsUrl;
+    payload.debugAnchorsImageUrl = debugAnchorsUrl;
+  }
+  if (debugRatiosUrl) {
+    payload.debugRatiosImage = debugRatiosUrl;
+    payload.debugRatiosImageUrl = debugRatiosUrl;
+  }
 
   if (!success) {
     if (code !== 0) {
@@ -2255,6 +2299,8 @@ app.post(
         sideRating,
         frontImageUrl: frontFallbackUrl || payload.frontImage || null,
         sideImageUrl: sideFallbackUrl || payload.sideImage || null,
+        debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
+        debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
         frontImageDest: null,
         sideImageDest: null,
         success: true,
@@ -2263,6 +2309,10 @@ app.post(
           ...payload,
           frontImage: frontFallbackUrl || payload.frontImage || null,
           sideImage: sideFallbackUrl || payload.sideImage || null,
+          debugAnchorsImage: debugAnchorsUrl || payload.debugAnchorsImage || null,
+          debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
+          debugRatiosImage: debugRatiosUrl || payload.debugRatiosImage || null,
+          debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
           scanRequestId,
           selectedModel: payload.selectedModel,
           cohesiveFrontSide: false,
@@ -2294,10 +2344,16 @@ app.post(
       scannedAt: new Date().toISOString(),
       frontImageUrl: frontFallbackUrl || payload.frontImage || null,
       sideImageUrl: sideFallbackUrl || payload.sideImage || null,
+      debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
+      debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
       payload: {
         ...payload,
         frontImage: frontFallbackUrl || payload.frontImage || null,
         sideImage: sideFallbackUrl || payload.sideImage || null,
+        debugAnchorsImage: debugAnchorsUrl || payload.debugAnchorsImage || null,
+        debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
+        debugRatiosImage: debugRatiosUrl || payload.debugRatiosImage || null,
+        debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
         scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
       },
     });
@@ -2328,6 +2384,8 @@ app.post(
           await savedScanRef.set({
             frontImageUrl: persistedFrontImage || null,
             sideImageUrl: persistedSideImage || null,
+            debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
+            debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
             frontImageDest: frontUpload ? frontUpload.dest : null,
             sideImageDest: sideUpload ? sideUpload.dest : null,
             scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
@@ -2336,6 +2394,10 @@ app.post(
               ...payload,
               frontImage: persistedFrontImage || payload.frontImage || null,
               sideImage: persistedSideImage || payload.sideImage || null,
+              debugAnchorsImage: debugAnchorsUrl || payload.debugAnchorsImage || null,
+              debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
+              debugRatiosImage: debugRatiosUrl || payload.debugRatiosImage || null,
+              debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
               scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
               selectedModel: String(modelChoice || payload.selectedModel || '').trim() || '1',
               cohesiveFrontSide: false,
@@ -2351,10 +2413,16 @@ app.post(
             scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
             frontImageUrl: frontUpload ? frontUpload.url : (savedScanBase?.frontImageUrl || frontFallbackUrl || null),
             sideImageUrl: sideUpload ? sideUpload.url : (savedScanBase?.sideImageUrl || sideFallbackUrl || null),
+            debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
+            debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
             payload: {
               ...payload,
               frontImage: frontUpload ? frontUpload.url : (savedScanBase?.frontImageUrl || frontFallbackUrl || null),
               sideImage: sideUpload ? sideUpload.url : (savedScanBase?.sideImageUrl || sideFallbackUrl || null),
+              debugAnchorsImage: debugAnchorsUrl || payload.debugAnchorsImage || null,
+              debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
+              debugRatiosImage: debugRatiosUrl || payload.debugRatiosImage || null,
+              debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
               scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
             },
             updatedAt: new Date().toISOString(),

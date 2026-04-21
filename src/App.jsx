@@ -3714,6 +3714,10 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       scanRequestId: data?.scanRequestId || null,
       frontImage: data?.frontImage || frontImage,
       sideImage: shouldUseSideProfile ? (data?.sideImage || sideImage) : null,
+      debugAnchorsImage: data?.debugAnchorsImage || data?.debugAnchorsImageUrl || null,
+      debugAnchorsImageUrl: data?.debugAnchorsImageUrl || data?.debugAnchorsImage || null,
+      debugRatiosImage: data?.debugRatiosImage || data?.debugRatiosImageUrl || null,
+      debugRatiosImageUrl: data?.debugRatiosImageUrl || data?.debugRatiosImage || null,
       selectedModel,
       profileId: targetProfileId && targetProfileId !== 'new' ? targetProfileId : 'default',
       scannedAt: data?.scannedAt || completedAt,
@@ -5172,9 +5176,25 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
     setExperimentalCohesiveEnabled(Boolean(dashboardData?.cohesiveFrontSide));
   }, [dashboardData?.scanId, dashboardData?.cohesiveFrontSide]);
 
-  const isSideView = activeProfileView === 'side';
-  const hasBothProfileViews = Boolean(dashboardData?.frontImage && dashboardData?.sideImage);
+  const placeholderProfileImage = "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png";
+  const hasUsableImage = (src) => Boolean(
+    typeof src === 'string' &&
+    src.trim() &&
+    !src.includes('Portrait_Placeholder')
+  );
+  const hasSideProfileImage = hasUsableImage(dashboardData?.sideImage);
+  const hasFrontProfileImage = hasUsableImage(dashboardData?.frontImage);
+  const effectiveProfileView = activeProfileView === 'side' && hasSideProfileImage ? 'side' : 'front';
+  const isSideView = effectiveProfileView === 'side';
+  const hasBothProfileViews = hasFrontProfileImage && hasSideProfileImage;
   const effectiveCohesiveEnabled = hasBothProfileViews && experimentalCohesiveEnabled;
+
+  useEffect(() => {
+    if (!hasSideProfileImage && activeProfileView === 'side') {
+      setActiveProfileView('front');
+    }
+  }, [activeProfileView, hasSideProfileImage]);
+
   const activeCats = isSideView && dashboardData?.sideCategories
     ? dashboardData.sideCategories
     : dashboardData?.categories;
@@ -5264,9 +5284,9 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
     ? (dashboardData?.sideBiometrics?.length ? dashboardData.sideBiometrics : sideMetricDataGlobal)
     : (frontalBiometrics.length ? frontalBiometrics : frontMetricData);
 
-  const activeImageUrl = activeProfileView === 'front' 
-    ? (dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png")
-    : (dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png");
+  const activeImageUrl = effectiveProfileView === 'front'
+    ? (dashboardData?.frontImage || placeholderProfileImage)
+    : (dashboardData?.sideImage || dashboardData?.frontImage || placeholderProfileImage);
 
   const activeBestFeatures = useMemo(
     () => resolveNormalizedFeatures(dashboardData, 'best', isSideView),
@@ -5279,6 +5299,12 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   const primaryBestFeature = showBestFlaw ? activeBestFeatures[0] ?? null : null;
   const primaryFlawFeature = showBestFlaw ? activePrimaryFlaws[0] ?? null : null;
   const appealAssessment = String(dashboardData?.appealAssessment || '').trim();
+  const debugAnchorsImage =
+    dashboardData?.debugAnchorsImage ||
+    dashboardData?.debugAnchorsImageUrl ||
+    dashboardData?.payload?.debugAnchorsImage ||
+    dashboardData?.payload?.debugAnchorsImageUrl ||
+    null;
   const authenticityFlag = getAuthenticityFlag(dashboardData);
   const personalizedFeedback = Array.isArray(dashboardData?.personalizedFeedback)
     ? dashboardData.personalizedFeedback.filter((item) => item && (item.title || item.description))
@@ -5470,7 +5496,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           {/* Free vs Pro Adaptive Layout */}
           {isRestrictedPreview ? (
             <>
-              <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={activeProfileView} showFeatureLists={true} />
+              <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={effectiveProfileView} showFeatureLists={true} />
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
@@ -5506,30 +5532,43 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
 
                 <div className="col-span-1 md:col-span-3 bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
                   {cohesiveExperimentToggle}
-                  <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2">
-                    <Target size={14} className="text-zinc-500" /> Structure
-                  </h3>
+                  <div className="mb-6 flex items-center justify-between gap-3">
+                    <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest flex items-center gap-2">
+                      <Target size={14} className="text-zinc-500" /> Structure
+                    </h3>
+                    {debugAnchorsImage && (
+                      <button
+                        type="button"
+                        onClick={() => setScanLightbox({ src: debugAnchorsImage, subtitle: 'Debug anchors - landmark overlay' })}
+                        className="inline-flex items-center gap-2 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-cyan-200 transition-colors hover:border-cyan-300/50 hover:bg-cyan-500/15"
+                      >
+                        <Eye size={12} /> Debug
+                      </button>
+                    )}
+                  </div>
                   <div className="flex flex-col md:flex-row gap-8 items-center justify-center flex-grow">
                     <StructureMap 
                       activeImageUrl={activeImageUrl} 
                       bestFeature={primaryBestFeature} 
                       primaryFlaw={primaryFlawFeature} 
                       activeHover={showBestFlaw ? activeHover : null}
-                      onImageClick={(src) => setScanLightbox({ src, subtitle: `${activeProfileView === 'side' ? 'Side' : 'Front'} profile` })}
+                      onImageClick={(src) => setScanLightbox({ src, subtitle: `${effectiveProfileView === 'side' ? 'Side' : 'Front'} profile` })}
                     />
                     <div className="flex-grow space-y-3 w-full flex flex-col justify-center max-w-[15rem]">
                        {!isRestrictedPreview && (
-                       <div className="flex gap-2 mb-1 w-full max-w-[13rem] mx-auto md:mx-0">
-                         <div onClick={() => setActiveProfileView('front')} className={`relative flex-1 aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
-                          <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover object-center scale-[1.08]" alt="Front" />
+                       <div className={`flex gap-2 mb-1 w-full ${hasSideProfileImage ? 'max-w-[13rem]' : 'max-w-[8rem]'} mx-auto md:mx-0`}>
+                         <div onClick={() => setActiveProfileView('front')} className={`relative ${hasSideProfileImage ? 'flex-1' : 'w-full'} aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                          <img src={dashboardData?.frontImage || placeholderProfileImage} className="w-full h-full object-cover object-center scale-[1.08]" alt="Front" />
                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
+                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${effectiveProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
                          </div>
-                         <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
-                          <img src={dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover scale-[1.08]" style={{objectPosition: 'center top'}} alt="Side" />
-                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
-                         </div>
+                         {hasSideProfileImage && (
+                           <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                            <img src={dashboardData?.sideImage || placeholderProfileImage} className="w-full h-full object-cover scale-[1.08]" style={{objectPosition: 'center top'}} alt="Side" />
+                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+                             <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${effectiveProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
+                           </div>
+                         )}
                        </div>
                        )}
                       {showBestFlaw && (
@@ -5584,29 +5623,42 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
 
                 <div className="col-span-1 md:col-span-3 bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
                   {cohesiveExperimentToggle}
-                  <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2">
-                    <Target size={14} className="text-zinc-500" /> Structure
-                  </h3>
+                  <div className="mb-6 flex items-center justify-between gap-3">
+                    <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest flex items-center gap-2">
+                      <Target size={14} className="text-zinc-500" /> Structure
+                    </h3>
+                    {debugAnchorsImage && (
+                      <button
+                        type="button"
+                        onClick={() => setScanLightbox({ src: debugAnchorsImage, subtitle: 'Debug anchors - landmark overlay' })}
+                        className="inline-flex items-center gap-2 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-cyan-200 transition-colors hover:border-cyan-300/50 hover:bg-cyan-500/15"
+                      >
+                        <Eye size={12} /> Debug
+                      </button>
+                    )}
+                  </div>
                   <div className="flex flex-col md:flex-row gap-8 items-center justify-center flex-grow">
                     <StructureMap 
                       activeImageUrl={activeImageUrl} 
                       bestFeature={primaryBestFeature} 
                       primaryFlaw={primaryFlawFeature} 
                       activeHover={showBestFlaw ? activeHover : null}
-                      onImageClick={(src) => setScanLightbox({ src, subtitle: `${activeProfileView === 'side' ? 'Side' : 'Front'} profile` })}
+                      onImageClick={(src) => setScanLightbox({ src, subtitle: `${effectiveProfileView === 'side' ? 'Side' : 'Front'} profile` })}
                     />
                     <div className="flex-grow space-y-3 w-full flex flex-col justify-center max-w-[15rem]">
-                       <div className="flex gap-2 mb-1 w-full max-w-[13rem] mx-auto md:mx-0">
-                         <div onClick={() => setActiveProfileView('front')} className={`relative flex-1 aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
-                          <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover object-center scale-[1.08]" alt="Front" />
+                       <div className={`flex gap-2 mb-1 w-full ${hasSideProfileImage ? 'max-w-[13rem]' : 'max-w-[8rem]'} mx-auto md:mx-0`}>
+                         <div onClick={() => setActiveProfileView('front')} className={`relative ${hasSideProfileImage ? 'flex-1' : 'w-full'} aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                          <img src={dashboardData?.frontImage || placeholderProfileImage} className="w-full h-full object-cover object-center scale-[1.08]" alt="Front" />
                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${activeProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
+                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${effectiveProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
                          </div>
-                         <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${activeProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
-                          <img src={dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className="w-full h-full object-cover scale-[1.08]" style={{objectPosition: 'center top'}} alt="Side" />
-                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                           <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${activeProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
-                         </div>
+                         {hasSideProfileImage && (
+                           <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                            <img src={dashboardData?.sideImage || placeholderProfileImage} className="w-full h-full object-cover scale-[1.08]" style={{objectPosition: 'center top'}} alt="Side" />
+                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+                             <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${effectiveProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
+                           </div>
+                         )}
                        </div>
                       {showBestFlaw && (
                         <div className="space-y-4">
@@ -5677,7 +5729,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           </div>
           )}
 
-          {!isRestrictedPreview && <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={activeProfileView} showFeatureLists />}
+          {!isRestrictedPreview && <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={effectiveProfileView} showFeatureLists />}
 
           {/* Actionable Protocol */}
           {!isFreeModelResult && !hideActionableProtocols && (
@@ -7580,6 +7632,10 @@ const App = () => {
       scanRequestId: data?.scanRequestId || meta.scanRequestId || null,
       frontImage: data?.frontImage || meta.mainImageSrc || null,
       sideImage: usesSideProfile ? (data?.sideImage || meta.sideImageUrl || null) : null,
+      debugAnchorsImage: data?.debugAnchorsImage || data?.debugAnchorsImageUrl || null,
+      debugAnchorsImageUrl: data?.debugAnchorsImageUrl || data?.debugAnchorsImage || null,
+      debugRatiosImage: data?.debugRatiosImage || data?.debugRatiosImageUrl || null,
+      debugRatiosImageUrl: data?.debugRatiosImageUrl || data?.debugRatiosImage || null,
       selectedModel: String(data?.selectedModel || meta.choice || '3'),
       profileId: meta.profileId && meta.profileId !== 'new' ? meta.profileId : 'default',
       scannedAt: data?.scannedAt || completedAt,
