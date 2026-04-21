@@ -163,6 +163,97 @@ function looksLikeFeatureSectionLeak(value) {
   return /###\s*(?:DASHBOARD_DATA|RATINGS|PERSONALISED\s+FEEDBACK|ACTIONABLE\s+PROTOCOLS|MOG_REPORT_REVISION)|\b(?:BEST FEATURES|PRIMARY FLAWS)\s*\(10\)|\bJUSTIFICATION\b/i.test(cleaned);
 }
 
+function getAuthenticityFlag(dashboardData) {
+  const directFlag = String(dashboardData?.authenticityFlag || '').replace(/\*/g, '').trim();
+  if (directFlag) {
+    return directFlag.length > 96 ? `${directFlag.slice(0, 93).trim()}...` : directFlag;
+  }
+
+  const raw = [
+    dashboardData?.rawOutput,
+    dashboardData?.technicalSummary,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  if (!raw) return '';
+
+  const match = raw.match(/(?:\*\*)?Authenticity Flag(?:\*\*)?\s*:\s*([^\n]+)/i);
+  const flagText = match?.[1]?.replace(/\*/g, '').trim();
+  if (!flagText) return '';
+
+  return flagText.length > 96 ? `${flagText.slice(0, 93).trim()}...` : flagText;
+}
+
+function hasConventionalAppealCue(dashboardData) {
+  const text = String(dashboardData?.appealAssessment || '').toLowerCase();
+  return /\buniversally conventional\b|\byouthful\b|\brefined,\s*clean look\b|\bclean look\b|\bprioriti[sz]es harmony\b|\bharmony and symmetry over aggressive dimorphism\b|\bbalance,\s*skin clarity,\s*and orbital harmony\b|\bbalanced,\s*polished\b|\bapproachable\b|\bsoft,\s*youthful appeal\b/.test(text);
+}
+
+function getDashboardMetricScore(dashboardData, labelStartsWith) {
+  const target = String(labelStartsWith || '').toLowerCase();
+  const metrics = [
+    ...(Array.isArray(dashboardData?.biometrics) ? dashboardData.biometrics : []),
+    ...(Array.isArray(dashboardData?.sideBiometrics) ? dashboardData.sideBiometrics : []),
+  ];
+
+  for (const metric of metrics) {
+    const label = String(metric?.label || '').toLowerCase();
+    if (!label.startsWith(target)) continue;
+    const directScore = Number(metric?.score);
+    if (Number.isFinite(directScore)) return directScore;
+    const displayScore = String(metric?.displayValue || '').match(/(\d+(?:\.\d+)?)/);
+    if (displayScore) return Number(displayScore[1]);
+  }
+  return null;
+}
+
+function getDashboardMetricRawValue(dashboardData, labelStartsWith) {
+  const target = String(labelStartsWith || '').toLowerCase();
+  const metrics = [
+    ...(Array.isArray(dashboardData?.biometrics) ? dashboardData.biometrics : []),
+    ...(Array.isArray(dashboardData?.sideBiometrics) ? dashboardData.sideBiometrics : []),
+  ];
+
+  for (const metric of metrics) {
+    const label = String(metric?.label || '');
+    if (!label.toLowerCase().startsWith(target)) continue;
+    const rawMatch = label.match(/\(([-+]?\d+(?:\.\d+)?)/);
+    if (rawMatch) return Number(rawMatch[1]);
+  }
+  return null;
+}
+
+function isContradictoryAggressiveStyleFeature(feature) {
+  const text = `${feature?.title || ''} ${feature?.description || ''}`.toLowerCase();
+  return /\bbrutalist\b|\boverbuilt\s*\/\s*editorial\b|\boverbuilt\b|\bover-?aggressive\b|\baggressive dimorphism\b|\btoo heavily on sharp\b|\bextreme dimorphism\b|\bhyper-?masculine\b/.test(text);
+}
+
+function isModerateBigonialStandaloneFeature(feature, dashboardData) {
+  const text = `${feature?.title || ''} ${feature?.description || ''}`.toLowerCase();
+  const looksBigonial =
+    /\bbigonial\b|\blower face width\b|\bnarrow jaw\b|\bnarrow jawline\b|\bjaw relative to cheekbones\b|\blower third breadth\b|\btapered jawline\b/.test(text);
+  if (!looksBigonial) return false;
+
+  const score = getDashboardMetricScore(dashboardData, 'bigonial width index');
+  const rawIndex = getDashboardMetricRawValue(dashboardData, 'bigonial width index');
+  const hasExtremeScore = Number.isFinite(score) && (score <= 45 || score >= 88);
+  const hasExtremeRaw = Number.isFinite(rawIndex) && (rawIndex < 0.72 || rawIndex > 1.12);
+  return !hasExtremeScore && !hasExtremeRaw;
+}
+
+function sanitizeResolvedFeatures(features, dashboardData, type) {
+  if (type !== 'flaw') return features;
+  const conventionalCue = hasConventionalAppealCue(dashboardData);
+  const authenticityFlag = getAuthenticityFlag(dashboardData);
+
+  return (features || []).filter((feature) => {
+    if (isModerateBigonialStandaloneFeature(feature, dashboardData)) return false;
+    if (conventionalCue && !authenticityFlag && isContradictoryAggressiveStyleFeature(feature)) return false;
+    return true;
+  });
+}
+
 function splitDashboardFeatureItems(value) {
   if (typeof value !== 'string') return [];
   let working = value.replace(/\r/g, '').trim();
@@ -470,12 +561,18 @@ function resolveNormalizedFeatures(dashboardData, type, isSideView = false) {
     return merged.slice(0, max);
   };
   if (rawList.length > normalized.length) {
-    return mergeFeatureEntryLists(rawList, normalized, 5);
+    return sanitizeResolvedFeatures(mergeFeatureEntryLists(rawList, normalized, 5), dashboardData, type);
   }
-  if (normalized.length > 0) return mergeFeatureEntryLists(normalized, rawList, 5);
+  if (normalized.length > 0) {
+    return sanitizeResolvedFeatures(mergeFeatureEntryLists(normalized, rawList, 5), dashboardData, type);
+  }
 
   const fallback = extractFeatureHighlightsFromRawOutput(dashboardData?.rawOutput || '');
-  return (type === 'best' ? fallback.bestFeatures : fallback.primaryFlaws).slice(0, 5);
+  return sanitizeResolvedFeatures(
+    (type === 'best' ? fallback.bestFeatures : fallback.primaryFlaws).slice(0, 5),
+    dashboardData,
+    type
+  );
 }
 
 function timestampToMillis(value) {
@@ -3418,6 +3515,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [frontFile, setFrontFile] = useState(null);
   const [sideImage, setSideImage] = useState(null);
   const [sideFile, setSideFile] = useState(null);
+  const [useSideProfile, setUseSideProfile] = useState(true);
   const [selectedModel, setSelectedModel] = useState(initialModel);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [dropdownAnimOpen, setDropdownAnimOpen] = useState(false);
@@ -3528,6 +3626,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   ];
 
   const isUltraModel = selectedModel === "1" || selectedModel === "2";
+  const shouldUseSideProfile = isUltraModel && useSideProfile;
 
   // Check if current user is an admin by email domain or specific email
   const isAdmin = user?.email && (
@@ -3545,6 +3644,8 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       (planResolved &&
         (userPlan?.plan === 'pro' ||
           (userPlan?.plan === 'single_scan' && (userPlan?.scanCredits ?? 0) > 0))));
+  const missingRequiredImage = shouldUseSideProfile ? (!frontImage || !sideImage) : !frontImage;
+  const scanAccessLocked = isUltraModel && (ultraAccessPending || !canUseUltra);
 
   useEffect(() => {
     if (ultraAccessPending) return;
@@ -3554,20 +3655,20 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   }, [canUseUltra, selectedModel, ultraAccessPending]);
 
   useEffect(() => {
-    if (!isUltraModel) {
+    if (!shouldUseSideProfile) {
       setSideImage(null);
       setSideFile(null);
     }
-  }, [isUltraModel]);
+  }, [shouldUseSideProfile]);
 
   useEffect(() => {
-    const bothReady = isUltraModel ? (frontImage && sideImage) : frontImage;
+    const bothReady = shouldUseSideProfile ? (frontImage && sideImage) : frontImage;
     if (bothReady) {
       setJustUnlocked(true);
       const timer = setTimeout(() => setJustUnlocked(false), 2000);
       return () => clearTimeout(timer);
     }
-  }, [frontImage, sideImage, isUltraModel]);
+  }, [frontImage, sideImage, shouldUseSideProfile]);
 
   useEffect(() => {
     if (!isModelMenuOpen) return;
@@ -3612,7 +3713,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       ...data,
       scanRequestId: data?.scanRequestId || null,
       frontImage: data?.frontImage || frontImage,
-      sideImage: data?.sideImage || sideImage,
+      sideImage: shouldUseSideProfile ? (data?.sideImage || sideImage) : null,
       selectedModel,
       profileId: targetProfileId && targetProfileId !== 'new' ? targetProfileId : 'default',
       scannedAt: data?.scannedAt || completedAt,
@@ -3649,7 +3750,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
         ratingHistory: cappedRatingHistory
       };
     });
-  }, [activeScanProfileId, frontImage, selectedModel, selectedProfileId, setDashboardData, sideImage]);
+  }, [activeScanProfileId, frontImage, selectedModel, selectedProfileId, setDashboardData, shouldUseSideProfile, sideImage]);
 
   useEffect(() => {
     if (!isScanning) return undefined;
@@ -3737,25 +3838,83 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       <FadeUp>
         <div className="w-full max-w-[1200px] flex flex-col items-center outline-none">
           <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white mb-16 text-center drop-shadow-2xl">Upload Photo</h2>
+
+          <div className="mb-10 flex w-full justify-center px-4">
+            <button
+              type="button"
+              onClick={() => {
+                setUseSideProfile((prev) => {
+                  const next = !prev;
+                  if (!next) {
+                    setSideImage(null);
+                    setSideFile(null);
+                  }
+                  return next;
+                });
+              }}
+              className={[
+                "group flex w-full max-w-md items-center justify-between gap-4 rounded-2xl border px-5 py-4 transition-all duration-300",
+                useSideProfile
+                  ? "border-cyan-500/35 bg-cyan-500/10 shadow-[0_0_28px_rgba(34,211,238,0.10)]"
+                  : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-700"
+              ].join(' ')}
+              aria-pressed={useSideProfile}
+            >
+              <span className="flex min-w-0 flex-col text-left">
+                <span className="text-[11px] font-black uppercase tracking-[0.28em] text-zinc-100">
+                  Use side profile
+                </span>
+                <span className="mt-1 text-[10px] font-sans uppercase tracking-[0.22em] text-zinc-500">
+                  {useSideProfile ? "Front + side analysis" : "Front-only scan"}
+                </span>
+              </span>
+              <span
+                className={[
+                  "relative h-7 w-14 shrink-0 rounded-full border transition-all duration-300",
+                  useSideProfile
+                    ? "border-cyan-400/40 bg-cyan-400/20"
+                    : "border-zinc-700 bg-zinc-900"
+                ].join(' ')}
+              >
+                <span
+                  className={[
+                    "absolute top-1 h-5 w-5 rounded-full transition-all duration-300",
+                    useSideProfile
+                      ? "left-8 bg-cyan-300 shadow-[0_0_18px_rgba(34,211,238,0.7)]"
+                      : "left-1 bg-zinc-500"
+                  ].join(' ')}
+                />
+              </span>
+            </button>
+          </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-24 w-full mb-16 px-4">
-            <FileDropzone label="Front Profile" file={frontImage} setFile={(url, f) => { setFrontImage(url); setFrontFile(f ?? null); }} isPulsing={(isUltraModel ? sideImage : false) && !frontImage} />
-            <div className="relative">
-              <div className={!isUltraModel ? 'blur-[6px] pointer-events-none select-none' : ''}>
-                <FileDropzone label="Side Profile" file={sideImage} setFile={(url, f) => { setSideImage(url); setSideFile(f ?? null); }} isPulsing={isUltraModel && frontImage && !sideImage} />
-              </div>
-              {!isUltraModel && (
-                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none translate-y-8 px-6 text-center">
-                  <Lock size={24} className="text-yellow-500 mb-2 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]" />
-                  <span className="text-yellow-400 font-black italic uppercase tracking-widest text-xs">Premium only</span>
-                  <span className="text-zinc-500 font-sans text-[9px] uppercase tracking-[0.28em] mt-2 leading-[1.7] max-w-[220px]">
-                    Side profile requires
-                    <br />
-                    a premium model
-                  </span>
+          <div
+            className={[
+              "grid grid-cols-1 w-full mb-16 px-4 transition-all duration-500",
+              useSideProfile
+                ? "md:grid-cols-2 gap-12 md:gap-24"
+                : "max-w-sm mx-auto"
+            ].join(' ')}
+          >
+            <FileDropzone label="Front Profile" file={frontImage} setFile={(url, f) => { setFrontImage(url); setFrontFile(f ?? null); }} isPulsing={shouldUseSideProfile && sideImage && !frontImage} />
+            {useSideProfile && (
+              <div className="relative">
+                <div className={!isUltraModel ? 'blur-[6px] pointer-events-none select-none' : ''}>
+                  <FileDropzone label="Side Profile" file={sideImage} setFile={(url, f) => { setSideImage(url); setSideFile(f ?? null); }} isPulsing={shouldUseSideProfile && frontImage && !sideImage} />
                 </div>
-              )}
-            </div>
+                {!isUltraModel && (
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none translate-y-8 px-6 text-center">
+                    <Lock size={24} className="text-yellow-500 mb-2 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]" />
+                    <span className="text-yellow-400 font-black italic uppercase tracking-widest text-xs">Premium only</span>
+                    <span className="text-zinc-500 font-sans text-[9px] uppercase tracking-[0.28em] mt-2 leading-[1.7] max-w-[220px]">
+                      Side profile requires
+                      <br />
+                      a premium model
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </FadeUp>
@@ -4050,8 +4209,8 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                       : (profiles.find((p) => p.id === actualProfileId)?.name || 'Saved profile'),
                   mainImageSrc: frontImage,
                   mainImageFile: frontFile,
-                  sideImageUrl: sideImage,
-                  sideImageFile: sideFile,
+                  sideImageUrl: shouldUseSideProfile ? sideImage : null,
+                  sideImageFile: shouldUseSideProfile ? sideFile : null,
                   sideMetricData: sideMetricDataGlobal,
                   choice: selectedModel,
                   user,
@@ -4069,7 +4228,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                   setNewProfileName('');
                 }
               }} 
-              disabled={isUltraModel ? (!frontImage || !sideImage || ultraAccessPending || !canUseUltra) : !frontImage} 
+              disabled={missingRequiredImage || scanAccessLocked} 
               className={`relative overflow-hidden px-20 py-6 bg-white text-black font-black uppercase tracking-widest text-lg md:text-xl flex items-center justify-center gap-5 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none ${justUnlocked ? 'animate-[buttonUnlock_1s_ease-out_forwards]' : 'shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}
             >
             {justUnlocked && <div className="absolute top-0 bottom-0 w-[50%] bg-gradient-to-r from-transparent via-white to-transparent opacity-80 mix-blend-overlay" style={{ animation: 'sweepGlow 1.5s ease-out forwards' }} />}
@@ -5120,6 +5279,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   const primaryBestFeature = showBestFlaw ? activeBestFeatures[0] ?? null : null;
   const primaryFlawFeature = showBestFlaw ? activePrimaryFlaws[0] ?? null : null;
   const appealAssessment = String(dashboardData?.appealAssessment || '').trim();
+  const authenticityFlag = getAuthenticityFlag(dashboardData);
   const personalizedFeedback = Array.isArray(dashboardData?.personalizedFeedback)
     ? dashboardData.personalizedFeedback.filter((item) => item && (item.title || item.description))
     : [];
@@ -5328,6 +5488,11 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                           </span>
                         </>
                       </div>
+                      {authenticityFlag && !isFreeModelResult && (
+                        <span className="mt-3 max-w-[85%] rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                          {authenticityFlag}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg group hover:border-zinc-700 transition-colors p-4">
@@ -5402,6 +5567,11 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                           {displayedFinalRating}
                         </span>
                       </div>
+                      {authenticityFlag && !isFreeModelResult && (
+                        <span className="mt-3 max-w-[85%] rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                          {authenticityFlag}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg group hover:border-zinc-700 transition-colors p-4">
@@ -7404,11 +7574,12 @@ const App = () => {
 
   const registerCompletedScan = useCallback((data, meta = {}, options = {}) => {
     const completedAt = new Date().toISOString();
+    const usesSideProfile = Boolean(meta.sideImageUrl || meta.sideImageFile);
     const completedScan = {
       ...data,
       scanRequestId: data?.scanRequestId || meta.scanRequestId || null,
       frontImage: data?.frontImage || meta.mainImageSrc || null,
-      sideImage: data?.sideImage || meta.sideImageUrl || null,
+      sideImage: usesSideProfile ? (data?.sideImage || meta.sideImageUrl || null) : null,
       selectedModel: String(data?.selectedModel || meta.choice || '3'),
       profileId: meta.profileId && meta.profileId !== 'new' ? meta.profileId : 'default',
       scannedAt: data?.scannedAt || completedAt,

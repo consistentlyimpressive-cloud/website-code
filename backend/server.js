@@ -2149,6 +2149,7 @@ app.post(
     sex: parsed.sex,
     finalRating,
     sideRating,
+    authenticityFlag: parsed.authenticityFlag || null,
     technicalSummary: parsed.technicalSummary,
     appealAssessment: parsed.appealAssessment || null,
     bestFeatures: parsed.bestFeatures || [],

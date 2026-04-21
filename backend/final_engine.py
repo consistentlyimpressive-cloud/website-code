@@ -43,13 +43,13 @@ except ImportError:
     print("[DEBUG] WARNING: engineside.py not found. Side profile analysis will be skipped.")
 
 # ==========================================================
-# API KEY VAULT (GOOGLE AI STUDIO ONLY)
+# API KEY VAULT (GOOGLE AI STUDIO / GEMMA API)
 # ==========================================================
-GEMINI_KEYS = [
+GOOGLE_GENAI_KEYS = [
     (os.getenv(f"GEMINI_KEY_{index}") or "").strip()
     for index in range(1, 6)
 ]
-GEMINI_KEYS = [key for key in GEMINI_KEYS if key]
+GOOGLE_GENAI_KEYS = [key for key in GOOGLE_GENAI_KEYS if key]
 
 BENCHMARK_CALIBRATION_PATH = Path(__file__).resolve().parent / "gemini-benchmark-calibration.json"
 
@@ -121,19 +121,19 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
         model_id, friendly_name = mapping[choice]
 
         print(f"[DEBUG] Consulting {friendly_name}... (Press Ctrl+C to Cancel)")
-        if not GEMINI_KEYS:
+        if not GOOGLE_GENAI_KEYS:
             return (
-                "Error: No Gemini API keys are configured in backend/.env. Add GEMINI_KEY_1 or more keys.",
+                "Error: No Google GenAI keys are configured in backend/.env. Add GEMINI_KEY_1 or more keys for Gemma.",
                 friendly_name,
                 0,
             )
 
         provider_errors = []
-        for key_index, key in enumerate(GEMINI_KEYS, start=1):
+        for key_index, key in enumerate(GOOGLE_GENAI_KEYS, start=1):
             if not key:
                 continue
             try:
-                print(f"[DEBUG] Trying Gemini key {key_index}/{len(GEMINI_KEYS)}...")
+                print(f"[DEBUG] Trying Google GenAI/Gemma key {key_index}/{len(GOOGLE_GENAI_KEYS)}...")
                 client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=240000))
                 with open(img_path, "rb") as f:
                     image_bytes = f.read()
@@ -158,7 +158,7 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
                 provider_errors.append(f"key {key_index}: {short_error}")
                 quota_hit = "RESOURCE_EXHAUSTED" in error_text or "quota" in error_text.lower()
                 if quota_hit:
-                    print(f"      [!] {friendly_name} key {key_index} quota exhausted. Trying next key...")
+                    print(f"      [!] {friendly_name} Google GenAI key {key_index} quota exhausted. Trying next key...")
                 else:
                     print(f"      [!] {friendly_name} key {key_index} failed: {short_error}")
                 continue
@@ -170,7 +170,7 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
     duration = round(time.time() - start_time, 2)
     if provider_errors:
         return (
-            "Error: All configured Gemini keys failed or hit quota. "
+            "Error: All configured Google GenAI/Gemma keys failed or hit quota. "
             + " | ".join(provider_errors[-3:]),
             "None",
             duration,
@@ -287,8 +287,13 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         - SIDE HYOID / NECK-JAW TRANSITION: On the side profile, evaluate the hyoid/cervicomental area from visual evidence and side metadata.
         A low hyoid, soft under-chin area, weak neck-jaw transition, obtuse cervicomental angle, or sagging submental fullness should punish the Final Side Rating and side Harmony/Bone categories.
         A clean, high, tight hyoid/neck-jaw transition can help the side profile, but it must not boost the frontal rating unless it is also visible frontally.
-        - TROLL/NON-HUMAN IMAGE DETECTION: If the input image is clearly not a human face (e.g., a cat, a dog, a drawn cartoon, or an inanimate object), rate its symmetry and ratios normally from 1-100, but prominently include a humorous disclaimer in the Technical Summary or insights (e.g., "Ratings may be inaccurate as the face appears to be a cat!").
-        Do not let this affect the actual structural math generation.
+        - NON-HUMAN / CARTOON / AI-GENERATED IMAGE DETECTION:
+        Before scoring, check whether the submitted image appears non-human, cartoon/anime/drawn, AI-generated, faceapp-like, mannequin-like, biologically impossible, or otherwise not a natural human photograph.
+        If the image is clearly non-human, cartoon/drawn, inanimate, AI-generated, or biologically impossible, the Final Frontal Rating and Final Side Rating MUST NOT exceed 40.
+        Do not score these images as normal human faces just because some ratios look symmetrical or strong.
+        If the image is merely edited/stylized but still plausibly a real human photograph, use the normal uncanny/overbuilt rules instead of this hard cap.
+        When this cap is used, include exactly one line after the final ratings:
+        **Authenticity Flag:** Likely synthetic/non-human image - score capped.
         - HIGHLIGHTING & FORMATTING: In your insights and descriptions, highlight *key words* and *core concepts* by wrapping them in single asterisks for bold emphasis.
         - Do NOT use color-code wrappers like &blue&, &green&, $red$, #blue#, or @yellow@ anywhere in the output.
         - DIMORPHISM LANGUAGE RULE: Never describe aggressive dimorphism, brutal masculinity, extreme breadth, or an overbuilt jaw/brow as something "required" for high-tier appeal.
@@ -324,6 +329,14 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            If it becomes extremely wide / brutish / blocky, the deduction should be strong rather than light.
            Never frame extreme width, extreme breadth, or extreme masculinity as premium strengths by themselves.
            Raw breadth / fWHR / bigonial width can only help when they stay balanced, elegant, and natural-looking.
+           - BIGONIAL / BIZYGOMATIC RELATIONSHIP:
+           Bigonial_Width_Index is a jaw/gonion width measurement normalized against bizygomatic cheekbone width.
+           Read it as the bigonial-to-bizygomatic relationship, NOT as raw jaw power.
+           Do NOT treat moderately narrow bigonial width as a major standalone flaw.
+           Around 0.85-1.00 can be acceptable depending on phenotype; a ratio near 0.85 should not be punished simply because it is not exactly 1.00.
+           The best read is a balanced jaw-to-cheekbone relationship where the lower face supports the cheekbones without overpowering them.
+           Penalize only extremes: a very narrow/weak lower face relative to cheekbones, or a very wide/blocky/brutish jaw relative to cheekbones.
+           Never make Bigonial_Width_Index the #1 best feature or #1 worst feature unless the imbalance is extreme and visibly dominant.
            - MIDFACE: Do NOT treat mildly long midfaces as a major flaw.
            A Midface_Ratio around 1.00-1.07 is only a light concern and by itself should usually NOT become the #1 WORST FEATURE.
            Treat elongated midface as a true structural flaw only when it is clearly long (roughly 1.08+) and make it a high-priority flaw when it is more obvious (roughly 1.12+) or when it combines with other long-face signals like elongated thirds, narrow facial width, or vertically stretched harmony.
@@ -347,6 +360,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            Not every jaw requires a "square" aesthetic to be elite. Penalize only irregular/weird shapes.
            Strong jaw width, bigonial width, or brute lower-third breadth should be treated as SUPPORTING traits, not as major carry traits.
            A wide jaw / bigonial width alone should never rescue weak harmony, tired soft tissue, mediocre eyes, aging, or an overall non-elite read.
+           Bigonial width by itself should carry less weight than overall harmony, eye area, skin/soft tissue, facial thirds, and the jaw-to-cheekbone relationship.
            If the jaw or gonial width becomes too expanded, too blocky, or too brutish relative to the rest of the face, treat it as a harmony negative rather than a bonus.
            - SIDE HYOID / CERVICOMENTAL AREA: For the side profile only, punish a bad hyoid/neck-jaw transition when visible.
            A low hyoid, soft submental area, obtuse cervicomental angle, weak under-chin definition, or sagging throat/neck line should noticeably reduce the Final Side Rating.
@@ -430,6 +444,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - If Sex = Female AND the score is > 70, deduct 10 points from the Final Rating and potential tiers.
            - DO NOT mention this deduction in the output or justification. It must appear as the "natural" result.
         3. CONDITIONAL CAPS:
+           - NON-HUMAN / CARTOON / BIOLOGICALLY IMPOSSIBLE CAP 40: If the input is clearly not a natural human photograph, clearly cartoon/drawn/anime, clearly AI-generated, mannequin-like, or biologically impossible, the Final Frontal Rating and Final Side Rating MUST NOT exceed 40. Include the required Authenticity Flag line in the output.
            - HARD BASE CAP 60: If the structural base (Bone, Harmony, Symmetry) is below 60, external enhancements like hair framing, grooming, or styling CANNOT push the final score above 60.
            - HARD CAP 60: If the subject has MORE THAN 3 of the following, the final score CANNOT EXCEED 60:
            (Very prominent ears, negative canthal tilt, bad upper eyelid exposure, undereye puffiness, unideal FWHR, high
@@ -467,6 +482,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - Do NOT force average-looking or below-average faces into the 50s or 60s just because they are recognizable, masculine, or not deformed.
            - Do NOT force uncanny, AI-looking, overbuilt, "gigachad", or fantasy-model faces into the high 70s or 80s just because the jaw, brow, or width is extreme.
            - Do NOT let bigonial width, jaw width, broadness, or brute dimorphism act like elite carry traits by themselves.
+           - Do NOT inflate the final score because Bigonial_Width_Index is high. Judge whether the jaw-to-cheekbone relationship is balanced; only extreme narrowness or extreme blocky width should matter heavily.
            - A face with only decent metrics but clear aging, orbital tiredness, soft-tissue decline, puffiness, or an overall non-elite read should fall much lower than a clean youthful harmonious face.
            - A face that is exaggerated but still coherent can still rate well.
            - A face that is exaggerated AND uncanny should drop notably because the exaggeration itself is hurting harmony.
@@ -494,6 +510,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         ### ANALYSIS [SEX]
         **Final Frontal Rating: [Score]/100**
         **Final Side Rating: [Score]/100**
+        **Authenticity Flag:** [Only include this line if the image is clearly non-human, cartoon/drawn, AI-generated, mannequin-like, or biologically impossible. Otherwise omit this line completely.]
         **Max Natural Potential: [Score]/100**
         **Max Potential with Surgery: [Score]/100**
 
@@ -560,7 +577,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         If the face falls into the UNCANNY / SYNTHETIC / OVERBUILT bucket, at least 2 of the PRIMARY FLAWS must explicitly mention things like Synthetic / Uncanny Look, Over-aggressive Dimorphism, Overbuilt Lower Third, Over-stylized Eye Area, Brutalist Aesthetic, or Artificial Harmony.
         If the face is uncanny / overbuilt, the #1 WORST FEATURE should point to that unnatural / synthetic / over-aggressive trait rather than a random minor flaw.
         ### RATINGS (USE THIS)
-        [Look at the following data from INPUT A (mog_report) and rate them from 1-100 based on how close they are to the ideals of the subject's race:]
+        [Look at the following data from INPUT A (mog_report) and rate them from 1-100 based on how close they are to the ideals of the subject's race. For Bigonial_Width_Index, score the jaw-to-cheekbone relationship with a broad safe zone; do not punish around 0.85 just because it is not exactly 1.00, and do not reward raw jaw width by itself.]
         - Bigonial_Width_Index: [Score]/100
         - IPD_Index (Geometric): [Score]/100
         - Mouth_Width_Index: [Score]/100

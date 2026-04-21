@@ -473,6 +473,9 @@ function getScoreByLabel(scoreMap, labelStartsWith) {
 
 function buildStylizationSignalSummary(rawOutput, appealAssessment) {
   const text = `${rawOutput || ''}\n${appealAssessment || ''}`.toLowerCase();
+  const appealText = String(appealAssessment || '').toLowerCase();
+  const hasConventionalHarmonyCue =
+    /\buniversally conventional\b|\byouthful\b|\brefined,\s*clean look\b|\bclean look\b|\bprioriti[sz]es harmony\b|\bharmony and symmetry over aggressive dimorphism\b|\bbalanced,\s*polished\b|\bapproachable\b|\bsoft,\s*youthful appeal\b/.test(appealText);
   const exaggeratedButCoherentCue =
     /\bexaggerated but coherent\b|\bexaggerated\s+yet\s+coherent\b|\boverbuilt but coherent\b/.test(text);
   const aggressiveLowerThirdCue =
@@ -490,6 +493,7 @@ function buildStylizationSignalSummary(rawOutput, appealAssessment) {
   const hasSyntheticCue = hasExplicitSyntheticCue && !hasNegatedUncannyCue;
   const hasEditorialCue = /\beditorial\b|\bhigh-?fashion\b|\bmodern masculine\b/.test(text);
   const hasCoherentCue =
+    hasConventionalHarmonyCue ||
     /\bpretty facial harmony\b|\bbroad demographic\b|\bbroad appeal\b|\bcoherent\b|\belite structural foundation\b|\bwithout crossing into uncanny\b/.test(text);
   const hasAggressiveCueRaw =
     /\bover-?dimorphic\b|\bbrutalist\b|\boverly aggressive\b|\bhyper-?masculine\b|\bfantasy male\b|\bextreme masculinity\b/.test(text) ||
@@ -499,7 +503,7 @@ function buildStylizationSignalSummary(rawOutput, appealAssessment) {
   const hasAggressiveCue =
     hasAggressiveCueRaw &&
     !(
-      hasCoherentCue &&
+      (hasCoherentCue || hasConventionalHarmonyCue) &&
       !hasSyntheticCue &&
       !exaggeratedButCoherentCue &&
       !aggressiveLowerThirdCue &&
@@ -519,9 +523,36 @@ function buildStylizationSignalSummary(rawOutput, appealAssessment) {
     hasSyntheticCue,
     hasEditorialCue,
     hasCoherentCue,
+    hasConventionalHarmonyCue,
     hasAggressiveCue,
     hasDisharmonyCue,
   };
+}
+
+function hasConventionalAppealCue(appealAssessment) {
+  const text = String(appealAssessment || '').toLowerCase();
+  return /\buniversally conventional\b|\byouthful\b|\brefined,\s*clean look\b|\bclean look\b|\bprioriti[sz]es harmony\b|\bharmony and symmetry over aggressive dimorphism\b|\bbalanced,\s*polished\b|\bapproachable\b|\bsoft,\s*youthful appeal\b/.test(text);
+}
+
+function isContradictoryAggressiveStyleFlaw(entry) {
+  const text = `${entry?.title || ''} ${entry?.description || ''}`.toLowerCase();
+  return /\bbrutalist\b|\boverbuilt\s*\/\s*editorial\b|\boverbuilt\b|\bover-?aggressive\b|\baggressive dimorphism\b|\btoo heavily on sharp\b|\bextreme dimorphism\b|\bhyper-?masculine\b/.test(text);
+}
+
+function isModerateBigonialStandaloneFlaw(entry, scoreMap, rawValues) {
+  const text = `${entry?.title || ''} ${entry?.description || ''}`.toLowerCase();
+  const looksBigonial =
+    /\bbigonial\b|\blower face width\b|\bnarrow jaw\b|\bnarrow jawline\b|\bjaw relative to cheekbones\b|\blower third breadth\b|\btapered jawline\b/.test(text);
+  if (!looksBigonial) return false;
+
+  const score = getScoreByLabel(scoreMap, 'bigonial width index');
+  const rawIndex = Number(rawValues?.['Bigonial Width Index']);
+  const hasExtremeScore = Number.isFinite(score) && (score <= 45 || score >= 88);
+  const hasExtremeRaw =
+    Number.isFinite(rawIndex) &&
+    (rawIndex < 0.72 || rawIndex > 1.12);
+
+  return !hasExtremeScore && !hasExtremeRaw;
 }
 
 function detectUncannyRatingCap(rawOutput, metricScoreMap, categories, sideCategories, appealAssessment, explicitFrontRating, explicitSideRating) {
@@ -691,6 +722,7 @@ function buildUncannyPrimaryFlawEntries(rawOutput, categories, appealAssessment)
     hasSyntheticCue,
     hasEditorialCue,
     hasCoherentCue,
+    hasConventionalHarmonyCue,
     hasAggressiveCue,
     hasDisharmonyCue
   } =
@@ -698,6 +730,10 @@ function buildUncannyPrimaryFlawEntries(rawOutput, categories, appealAssessment)
   const entries = [];
   const harmony = Number(categories?.Harmony);
   const dimorphism = Number(categories?.Dimorphism);
+
+  if (hasConventionalHarmonyCue && !hasSyntheticCue && !hasDisharmonyCue) {
+    return [];
+  }
 
   if (hasSyntheticCue) {
     entries.push({
@@ -1178,6 +1214,8 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   let finalRating = parseFinalRating(rawOutput);
   let sideRating = parseSideRating(rawOutput);
   let sex = parseSex(rawOutput);
+  const authenticityFlagMatch = String(rawOutput || '').match(/(?:\*\*)?Authenticity Flag(?:\*\*)?\s*:\s*([^\n]+)/i);
+  let authenticityFlag = authenticityFlagMatch?.[1]?.replace(/\*/g, '').trim() || null;
 
   finalRating = applyOffset100(finalRating);
   sideRating = applyOffset100(sideRating);
@@ -1374,6 +1412,14 @@ function parseAnalysisOutput(rawOutput, backendDir) {
 
   const frontScoreMap = scoreMapFromBiometrics(biometrics);
   const sideScoreMap = scoreMapFromBiometrics(sideBiometrics);
+  const filteredPrimaryFlaws = primaryFlaws.filter(
+    (entry) => !isModerateBigonialStandaloneFlaw(entry, frontScoreMap, rawValues)
+  );
+  const filteredSidePrimaryFlaws = sidePrimaryFlaws.filter(
+    (entry) => !isModerateBigonialStandaloneFlaw(entry, frontScoreMap, rawValues)
+  );
+  primaryFlaws.splice(0, primaryFlaws.length, ...filteredPrimaryFlaws);
+  sidePrimaryFlaws.splice(0, sidePrimaryFlaws.length, ...filteredSidePrimaryFlaws);
   const objectiveFrontRating = computeObjectiveFaceRating(frontScoreMap, categories);
   const objectiveSideRating = computeObjectiveFaceRating(sideScoreMap, sideCategories);
   const stylizationSignals = buildStylizationSignalSummary(rawOutput, appealAssessment);
@@ -1543,11 +1589,27 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     if (finalRating != null) finalRating = Math.min(finalRating, uncannyCap);
     if (sideRating != null) sideRating = Math.min(sideRating, uncannyCap);
   }
+  const nonHumanCue = /\b(?:non[-\s]?human|not\s+(?:a\s+)?(?:real|natural)\s+human|cartoon|cartoony|anime|drawn|inanimate|mannequin|biologically\s+impossible|clearly\s+ai[-\s]?generated|appears\s+ai[-\s]?generated|likely\s+ai[-\s]?generated)\b/i.test(
+    `${rawOutput || ''}\n${appealAssessment || ''}`
+  );
+  if (!authenticityFlag && nonHumanCue) {
+    authenticityFlag = 'Likely synthetic/non-human image - score capped.';
+  }
+  if (authenticityFlag) {
+    if (finalRating != null) finalRating = Math.min(finalRating, 40);
+    if (sideRating != null) sideRating = Math.min(sideRating, 40);
+  }
   if (uncannyPrimaryFlaws.length) {
     const mergedPrimary = mergeFeatureEntries(uncannyPrimaryFlaws, primaryFlaws, 5);
     primaryFlaws.splice(0, primaryFlaws.length, ...mergedPrimary);
     const mergedSidePrimary = mergeFeatureEntries(uncannyPrimaryFlaws, sidePrimaryFlaws, 5);
     sidePrimaryFlaws.splice(0, sidePrimaryFlaws.length, ...mergedSidePrimary);
+  }
+  if (hasConventionalAppealCue(appealAssessment) && !authenticityFlag && uncannyCap == null) {
+    const filteredPrimary = primaryFlaws.filter((entry) => !isContradictoryAggressiveStyleFlaw(entry));
+    const filteredSidePrimary = sidePrimaryFlaws.filter((entry) => !isContradictoryAggressiveStyleFlaw(entry));
+    primaryFlaws.splice(0, primaryFlaws.length, ...filteredPrimary);
+    sidePrimaryFlaws.splice(0, sidePrimaryFlaws.length, ...filteredSidePrimary);
   }
 
   const protocols = [];
@@ -1590,6 +1652,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     sex,
     finalRating,
     sideRating,
+    authenticityFlag,
     technicalSummary,
     appealAssessment,
     bestFeatures,
