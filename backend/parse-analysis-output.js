@@ -6,8 +6,8 @@ const fs = require('fs');
 const path = require('path');
 
 const DEFAULT_SUMMARY = 'Could not generate technical summary.';
-const SCORE_OFFSET_100 = -5;
-const SCORE_OFFSET_10 = -0.5;
+const SCORE_OFFSET_100 = -2;
+const SCORE_OFFSET_10 = -0.2;
 const BENCHMARK_FEATURE_KEYS = [
   'Bigonial',
   'IPD',

@@ -10,7 +10,6 @@ const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const { parseAnalysisOutput } = require('./parse-analysis-output');
 const adminStore = require('./admin-store');
-const localUserStore = require('./local-user-store');
 const {
   shouldSkipFirebaseStorage,
   sanitizeFirebaseError,
@@ -144,7 +143,7 @@ function noteFirestoreQuotaExceeded(context = 'unknown') {
     console.warn(
       `[firestore] Quota exceeded during ${context}. Cooling down Firestore reads for ${Math.round(
         FIRESTORE_QUOTA_COOLDOWN_MS / 1000
-      )}s and using local fallback where possible.`
+      )}s. Local saved-scan fallback is disabled to prevent stale dashboard ratings.`
     );
   }
 }
@@ -152,12 +151,30 @@ function noteFirestoreQuotaExceeded(context = 'unknown') {
 function firestoreQuotaCooldownWarning() {
   const remainingMs = Math.max(firestoreQuotaCooldownUntil - Date.now(), 0);
   const remainingMin = Math.max(1, Math.ceil(remainingMs / 60000));
-  return `Firestore quota exceeded recently. Using local fallback for about ${remainingMin} more minute(s).`;
+  return `Firestore quota exceeded recently. Scan history is temporarily unavailable for about ${remainingMin} more minute(s).`;
 }
 
 const FAIR_USAGE_DELAY_AFTER_8_MS = 8 * 60 * 1000;
 const FAIR_USAGE_DELAY_AFTER_16_MS = 13 * 60 * 1000;
 const activeAnalysisByUser = new Map();
+
+// Stale local scan fallbacks caused old parsed scores to reappear in dashboards.
+// Keep real Firestore persistence, but never read/write local cached scans.
+function listLocalCachedScans() {
+  return [];
+}
+
+function getLocalCachedScan() {
+  return null;
+}
+
+function upsertLocalCachedScan() {
+  return;
+}
+
+function deleteLocalCachedScan() {
+  return;
+}
 
 function getDayBounds(now = new Date()) {
   const start = new Date(now);
@@ -170,8 +187,7 @@ function getDayBounds(now = new Date()) {
 function countSuccessfulScansToday(uid) {
   if (!uid) return 0;
   const { startMs, endMs } = getDayBounds();
-  return localUserStore
-    .listScans(uid)
+  return listLocalCachedScans(uid)
     .filter((scan) => {
       if (!scan || scan.success === false) return false;
       const ts = new Date(scan.timestamp || scan.scannedAt || scan.payload?.scannedAt || 0).getTime();
@@ -2336,7 +2352,7 @@ app.post(
   if (success && req.uid) {
     const localScanId = payload.scanId || `local-scan-${Date.now()}`;
     payload.scanId = localScanId;
-    localUserStore.upsertScan(req.uid, localScanId, {
+    upsertLocalCachedScan(req.uid, localScanId, {
       ...(savedScanBase || {}),
       ...payload,
       scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
@@ -2409,7 +2425,7 @@ app.post(
         }
 
         if (req.uid && payload.scanId) {
-          localUserStore.upsertScan(req.uid, payload.scanId, {
+          upsertLocalCachedScan(req.uid, payload.scanId, {
             scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
             frontImageUrl: frontUpload ? frontUpload.url : (savedScanBase?.frontImageUrl || frontFallbackUrl || null),
             sideImageUrl: sideUpload ? sideUpload.url : (savedScanBase?.sideImageUrl || sideFallbackUrl || null),
@@ -2691,11 +2707,11 @@ app.get('/api/admin/users/:uid/scans', async (req, res) => {
     snap.forEach(doc => {
       const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
       scans.push(scan);
-      localUserStore.upsertScan(req.params.uid, doc.id, scan);
+      upsertLocalCachedScan(req.params.uid, doc.id, scan);
     });
     res.json({ scans });
   } catch (e) {
-    if (isQuotaExceededError(e)) return res.json({ scans: localUserStore.listScans(req.params.uid), warning: 'Firestore quota exceeded. Using local fallback.' });
+    if (isQuotaExceededError(e)) return res.json({ scans: [], warning: 'Firestore quota exceeded. Scan history is temporarily unavailable.' });
     res.status(500).json({ error: e.message });
   }
 });
@@ -2770,9 +2786,9 @@ profilesRoutes(app, firestore, admin, extractUserOptional);
 
 app.get('/api/user/scans', extractUserOptional, async (req, res) => {
   if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
-  if (!firestore) return res.json({ scans: localUserStore.listScans(req.uid), warning: 'Firestore unavailable. Using local fallback.' });
+  if (!firestore) return res.json({ scans: [], warning: 'Firestore unavailable. Scan history is temporarily unavailable.' });
   if (isFirestoreQuotaCoolingDown()) {
-    return res.json({ scans: localUserStore.listScans(req.uid), warning: firestoreQuotaCooldownWarning() });
+    return res.json({ scans: [], warning: firestoreQuotaCooldownWarning() });
   }
   try {
     const snap = await firestore.collection('users').doc(req.uid).collection('scans').orderBy('timestamp', 'desc').get();
@@ -2780,16 +2796,16 @@ app.get('/api/user/scans', extractUserOptional, async (req, res) => {
     snap.forEach(doc => {
       const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
       scans.push(scan);
-      localUserStore.upsertScan(req.uid, doc.id, scan);
+      upsertLocalCachedScan(req.uid, doc.id, scan);
     });
     res.json({ scans });
   } catch (e) {
     if (isQuotaExceededError(e)) {
       noteFirestoreQuotaExceeded('user/scans');
-      return res.json({ scans: localUserStore.listScans(req.uid), warning: firestoreQuotaCooldownWarning() });
+      return res.json({ scans: [], warning: firestoreQuotaCooldownWarning() });
     }
     console.error('[user/scans] GET failed:', e.message || e);
-    res.json({ scans: localUserStore.listScans(req.uid), warning: 'Firestore failed. Using local fallback.' });
+    res.json({ scans: [], warning: 'Firestore failed. Scan history is temporarily unavailable.' });
   }
 });
 
@@ -2797,7 +2813,7 @@ app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
   if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
   const { scanId } = req.params;
   try {
-    let currentData = localUserStore.getScan(req.uid, scanId) || {};
+    let currentData = getLocalCachedScan(req.uid, scanId) || {};
     let docRef = null;
     if (firestore) {
       docRef = firestore.collection('users').doc(req.uid).collection('scans').doc(scanId);
@@ -2825,7 +2841,7 @@ app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
       }, { merge: true });
     }
     const nextData = { ...currentData, ...updateData };
-    localUserStore.upsertScan(req.uid, scanId, nextData);
+    upsertLocalCachedScan(req.uid, scanId, nextData);
 
     if (Object.prototype.hasOwnProperty.call(updateData, 'visibility')) {
       await syncCommunityScanVisibility(req.uid, scanId, nextData, updateData.visibility);
@@ -2839,13 +2855,13 @@ app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
     });
   } catch (e) {
     console.error('[user/scans] PUT failed:', e);
-    const localScan = localUserStore.getScan(req.uid, scanId);
+    const localScan = getLocalCachedScan(req.uid, scanId);
     if (localScan) {
       const fallbackUpdate = {};
       if (Object.prototype.hasOwnProperty.call(req.body || {}, 'visibility')) {
         fallbackUpdate.visibility = normalizeScanVisibility(req.body.visibility);
       }
-      localUserStore.upsertScan(req.uid, scanId, fallbackUpdate);
+      upsertLocalCachedScan(req.uid, scanId, fallbackUpdate);
       return res.json({ ok: true, scan: normalizeStoredScanUrls({ ...localScan, ...fallbackUpdate }), localFallback: true });
     }
     res.status(500).json({ error: e.message });
@@ -2870,11 +2886,11 @@ app.delete('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
         await docRef.delete();
       }
     }
-    localUserStore.deleteScan(req.uid, scanId);
+    deleteLocalCachedScan(req.uid, scanId);
     res.json({ ok: true });
   } catch (e) {
-    localUserStore.deleteScan(req.uid, scanId);
-    res.json({ ok: true, localFallback: true });
+    console.error('[user/scans] DELETE failed:', e);
+    res.status(500).json({ error: e.message });
   }
 });
 

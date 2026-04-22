@@ -52,6 +52,16 @@ def refine_gonion(lms, side="right"):
     return lms[best_idx].copy()
 
 
+def nudge_gonion(point, lms):
+    zygo_w = np.linalg.norm(lms[234] - lms[454])
+    center_x = (lms[234][0] + lms[454][0]) / 2.0
+    adjusted = point.copy().astype(np.float32)
+    direction = -1.0 if adjusted[0] < center_x else 1.0
+    adjusted[0] += direction * zygo_w * 0.022
+    adjusted[1] += zygo_w * 0.026
+    return adjusted
+
+
 def refine_hairline(lms, img_bgr):
     h, w = img_bgr.shape[:2]
     glabella = ((lms[282] + lms[52]) / 2.0).astype(np.float32)
@@ -76,25 +86,33 @@ def refine_hairline(lms, img_bgr):
     estimated[0] = float(np.clip(estimated[0], min(temple_r[0], temple_l[0]) + 4, max(temple_r[0], temple_l[0]) - 4))
 
     gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-    search_x = int(np.clip(estimated[0], 0, w - 1))
-    search_y0 = int(np.clip(estimated[1] - h * 0.06, 0, h - 1))
-    search_y1 = int(np.clip(forehead_top[1] - 2, 0, h - 1))
+    brow_y = float(glabella[1])
+    face_center_x = int(np.clip((temple_l[0] + temple_r[0]) / 2.0, 0, w - 1))
+    face_width = max(abs(temple_l[0] - temple_r[0]), np.linalg.norm(lms[234] - lms[454]))
+    band_half = max(6, int(face_width * 0.10))
+    x0 = int(np.clip(face_center_x - band_half, 0, w - 1))
+    x1 = int(np.clip(face_center_x + band_half, x0 + 1, w))
+    search_y0 = int(np.clip(estimated[1] - h * 0.05, 0, h - 1))
+    search_y1 = int(np.clip(brow_y - h * 0.04, search_y0 + 1, h - 1))
     best_y = estimated[1]
 
     if search_y1 > search_y0:
         best_strength = -1.0
         for y in range(search_y0, search_y1):
-            top = gray[max(y - 4, 0):max(y - 1, 1), max(search_x - 3, 0):min(search_x + 4, w)]
-            bottom = gray[min(y + 1, h - 1):min(y + 5, h), max(search_x - 3, 0):min(search_x + 4, w)]
+            top = gray[max(y - 5, 0):max(y - 1, 1), x0:x1]
+            bottom = gray[min(y + 1, h - 1):min(y + 6, h), x0:x1]
             if top.size == 0 or bottom.size == 0:
                 continue
-            # Hairline often appears as a darker band above a brighter forehead.
-            strength = float(np.mean(bottom) - np.mean(top))
-            if strength > best_strength:
+            # Hairline is estimated from the strongest dark-hair / brighter-forehead edge.
+            luminance_edge = float(np.mean(bottom) - np.mean(top))
+            gradient = abs(float(np.mean(bottom)) - float(np.mean(top)))
+            strength = luminance_edge + (gradient * 0.25)
+            if luminance_edge > 3.0 and strength > best_strength:
                 best_strength = strength
                 best_y = y
 
-    estimated[1] = float(best_y)
+    estimated[1] = float(np.clip(best_y, min_y, max_y))
+    estimated[0] = float(face_center_x)
     return estimated.astype(np.float32)
 
 def get_clinical_biometrics(img_path):
@@ -135,20 +153,26 @@ def get_clinical_biometrics(img_path):
         # 3. Brow Ridge Midpoint
         synth_brow_ridge = (lms[282] + lms[52]) / 2.0
 
-        lms = np.vstack([lms, synth_hairline, synth_glabella, synth_brow_ridge])
+        # 4. Refined Gonions: pick the strongest jaw-corner candidate, then make a
+        # visual correction outward/downward so the debug anchors sit on the mandibular angle.
+        synth_gonion_r = nudge_gonion(refine_gonion(lms, "right"), lms)
+        synth_gonion_l = nudge_gonion(refine_gonion(lms, "left"), lms)
+
+        synth_start = len(lms)
+        lms = np.vstack([lms, synth_hairline, synth_glabella, synth_brow_ridge, synth_gonion_r, synth_gonion_l])
 
         p = {
             "zygo_r": 234,
             "zygo_l": 454,
-            "gonion_r": 172,
-            "gonion_l": 397,
+            "gonion_r": synth_start + 3,
+            "gonion_l": synth_start + 4,
             "pupil_r": 468,
             "pupil_l": 473,
-            "glabella": len(lms) - 2,
+            "glabella": synth_start + 1,
             "subnasale": 2,
             "chin": 152,
-            "hairline": len(lms) - 3,
-            "brow_ridge": len(lms) - 1,
+            "hairline": synth_start,
+            "brow_ridge": synth_start + 2,
             "top_lip": 0,
             "bot_lip": 17,
             "mouth_r": 61,
