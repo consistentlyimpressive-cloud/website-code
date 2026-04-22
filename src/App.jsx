@@ -2869,7 +2869,7 @@ const ScanningView = ({
   const overlayRevealSeconds = isUltra31 ? 34 : choice === "2" ? 24 : 36;
   const overlayScanLoopSeconds = isUltra31 ? 4 : choice === "2" ? 4.5 : 4;
   const lowPriorityBadge = fairUsageState?.lowPriority
-    ? (fairUsageState.badgeText || 'High usage detected. You have been placed in low priority queue')
+    ? (fairUsageState.badgeText || 'High usage detected, you have been placed on low-priority queue.')
     : '';
   const getQuotaAwareScanMessage = useCallback((rawMessage, fallbackMessage = '') => {
     const source = `${rawMessage || ''} ${fallbackMessage || ''}`.trim();
