@@ -153,10 +153,10 @@ def get_clinical_biometrics(img_path):
         # 3. Brow Ridge Midpoint
         synth_brow_ridge = (lms[282] + lms[52]) / 2.0
 
-        # 4. Refined Gonions: pick the strongest jaw-corner candidate, then make a
-        # visual correction outward/downward so the debug anchors sit on the mandibular angle.
-        synth_gonion_r = nudge_gonion(refine_gonion(lms, "right"), lms)
-        synth_gonion_l = nudge_gonion(refine_gonion(lms, "left"), lms)
+        # 4. Gonions: use MediaPipe's stable jaw-angle landmarks directly.
+        # Custom corner scoring can jump toward the ear/cheek on some faces.
+        synth_gonion_r = lms[172].copy()
+        synth_gonion_l = lms[397].copy()
 
         synth_start = len(lms)
         lms = np.vstack([lms, synth_hairline, synth_glabella, synth_brow_ridge, synth_gonion_r, synth_gonion_l])

@@ -5287,6 +5287,12 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   const activeImageUrl = effectiveProfileView === 'front'
     ? (dashboardData?.frontImage || placeholderProfileImage)
     : (dashboardData?.sideImage || dashboardData?.frontImage || placeholderProfileImage);
+  const maxNaturalPotential = Number(dashboardData?.maxNaturalPotential);
+  const maxPotentialWithSurgery = Number(dashboardData?.maxPotentialWithSurgery);
+  const hasPotentialRatings =
+    Number.isFinite(maxNaturalPotential) || Number.isFinite(maxPotentialWithSurgery);
+  const formatPotentialScore = (value) =>
+    Number.isFinite(value) ? `${Math.round(value * 10) / 10}/100` : 'Pending';
 
   const activeBestFeatures = useMemo(
     () => resolveNormalizedFeatures(dashboardData, 'best', isSideView),
@@ -5848,6 +5854,18 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                 <h3 className="text-3xl font-black italic text-white uppercase tracking-tighter mb-2">Analyze Potential</h3>
                 <p className="text-zinc-400 font-sans text-xs leading-relaxed mb-8 max-w-sm mx-auto md:mx-0">Unlock an AI-generated rendering of your exact facial morphology if you perfectly executed the actionable protocol.</p>
                 <p className="mb-5 text-[10px] font-bold uppercase tracking-[0.2em] text-red-400">Experimental feature, may be inconsistent</p>
+                {hasPotentialRatings && (
+                  <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
+                    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
+                      <p className="text-[9px] font-black uppercase tracking-[0.24em] text-emerald-300/80">Max Natural Potential</p>
+                      <p className="mt-1 text-2xl font-black italic tracking-tight text-white">{formatPotentialScore(maxNaturalPotential)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-3">
+                      <p className="text-[9px] font-black uppercase tracking-[0.24em] text-cyan-300/80">Max With Surgery</p>
+                      <p className="mt-1 text-2xl font-black italic tracking-tight text-white">{formatPotentialScore(maxPotentialWithSurgery)}</p>
+                    </div>
+                  </div>
+                )}
                 
                 {!isUnlocked ? (
                   <div className="flex flex-col gap-3 w-full md:w-auto">

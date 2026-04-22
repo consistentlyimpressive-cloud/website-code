@@ -460,6 +460,14 @@ function computeObjectiveFaceRating(metricScoreMap, categories) {
   return Math.round(clamp(rating, 25, 92) * 10) / 10;
 }
 
+function averageFiniteScore(values) {
+  const nums = values
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+  if (!nums.length) return null;
+  return nums.reduce((sum, value) => sum + value, 0) / nums.length;
+}
+
 function getScoreByLabel(scoreMap, labelStartsWith) {
   const entries = Object.entries(scoreMap || {});
   const target = String(labelStartsWith || '').toLowerCase();
@@ -1063,6 +1071,24 @@ function parseSideRating(raw) {
   return null;
 }
 
+function parsePotentialRating(raw, label) {
+  const escaped = String(label || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const patterns = [
+    new RegExp(`\\*\\*${escaped}:\\s*(\\d+(?:\\.\\d+)?)\\s*\\/\\s*100\\*\\*`, 'i'),
+    new RegExp(`\\*\\*${escaped}:\\*\\*\\s*(\\d+(?:\\.\\d+)?)\\s*\\/\\s*100`, 'i'),
+    new RegExp(`${escaped}:\\s*\\*?\\*?\\s*(\\d+(?:\\.\\d+)?)\\s*\\/\\s*100`, 'i'),
+    new RegExp(`${escaped}[:\\s]+(\\d+(?:\\.\\d+)?)(?:\\s*\\/\\s*100)?`, 'i')
+  ];
+  for (const re of patterns) {
+    const m = raw.match(re);
+    if (m) {
+      const n = parseFloat(m[1], 10);
+      if (!Number.isNaN(n) && n >= 0 && n <= 100) return n;
+    }
+  }
+  return null;
+}
+
 function parseTechnicalSummary(raw) {
   const terminators =
     '(?=\\*\\*Appeal Assessment|\\*\\*Hexagon Chart Ratings|\\*\\*CORE CATEGORY SCORES|\\*\\*CRITICAL MARKERS|###\\s*DASHBOARD_DATA|###\\s*MOG_REPORT|\\*\\*Max Natural Potential)';
@@ -1213,12 +1239,16 @@ function parseRatingsUseThis(raw, rawValues) {
 function parseAnalysisOutput(rawOutput, backendDir) {
   let finalRating = parseFinalRating(rawOutput);
   let sideRating = parseSideRating(rawOutput);
+  let maxNaturalPotential = parsePotentialRating(rawOutput, 'Max Natural Potential');
+  let maxPotentialWithSurgery = parsePotentialRating(rawOutput, 'Max Potential with Surgery');
   let sex = parseSex(rawOutput);
   const authenticityFlagMatch = String(rawOutput || '').match(/(?:\*\*)?Authenticity Flag(?:\*\*)?\s*:\s*([^\n]+)/i);
   let authenticityFlag = authenticityFlagMatch?.[1]?.replace(/\*/g, '').trim() || null;
 
   finalRating = applyOffset100(finalRating);
   sideRating = applyOffset100(sideRating);
+  maxNaturalPotential = applyOffset100(maxNaturalPotential);
+  maxPotentialWithSurgery = applyOffset100(maxPotentialWithSurgery);
   const explicitFrontRating = finalRating;
   const explicitSideRating = sideRating;
 
@@ -1488,6 +1518,31 @@ function parseAnalysisOutput(rawOutput, backendDir) {
       benchmarkFrontCalibration.nearestTarget >= 72 &&
       Number.isFinite(benchmarkFrontRating) &&
       benchmarkFrontRating >= explicitFrontRating + 0.75;
+    const frontMetricAverage = averageFiniteScore(Object.values(frontScoreMap || {}));
+    const frontCategoryAverage = averageFiniteScore(Object.values(categories || {}));
+    const frontHexagonAverage = averageFiniteScore(
+      Object.values(hexagonFront || {}).map((value) => Number(value) * 10)
+    );
+    const hasHighTierLanguage =
+      /\bhigh-tier\b|\belite-tier\b|\bnatural\s*\/\s*coherent\s+high-tier\b|\buniversally\s+conventional\s+high-tier\b/.test(
+        stylizationSignals.text
+      );
+    const coherentHighTierModelRead =
+      !stylizationSignals.hasSyntheticCue &&
+      !stylizationSignals.exaggeratedButCoherentCue &&
+      stylizationSignals.hasCoherentCue &&
+      hasHighTierLanguage &&
+      Number.isFinite(explicitFrontRating) &&
+      explicitFrontRating >= 76 &&
+      (
+        (Number.isFinite(frontMetricAverage) && frontMetricAverage >= 72) ||
+        (Number.isFinite(frontCategoryAverage) && frontCategoryAverage >= 78) ||
+        (Number.isFinite(frontHexagonAverage) && frontHexagonAverage >= 76)
+      );
+    const benchmarkSevereUndercall =
+      coherentHighTierModelRead &&
+      Number.isFinite(benchmarkFrontRating) &&
+      benchmarkFrontRating <= explicitFrontRating - 8;
 
     if (obviousEliteUndercall) {
       finalRating = Math.max(
@@ -1531,6 +1586,11 @@ function parseAnalysisOutput(rawOutput, backendDir) {
           Math.max(3, benchmarkFrontCalibration.nearestTarget - explicitFrontRating)
         );
       finalRating = Math.min(benchmarkFrontRating, guardedLift);
+    } else if (benchmarkSevereUndercall) {
+      // Benchmark calibration is useful for catching hallucinated high scores,
+      // but it should not flatten an internally consistent natural/high-tier
+      // read where the model rating, category scores, and ratio scores all agree.
+      finalRating = explicitFrontRating;
     } else {
       const stuckExplicitBand =
         Number.isFinite(explicitFrontRating) &&
@@ -1652,6 +1712,8 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     sex,
     finalRating,
     sideRating,
+    maxNaturalPotential,
+    maxPotentialWithSurgery,
     authenticityFlag,
     technicalSummary,
     appealAssessment,

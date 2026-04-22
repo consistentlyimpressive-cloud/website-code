@@ -2199,6 +2199,8 @@ app.post(
     sex: parsed.sex,
     finalRating,
     sideRating,
+    maxNaturalPotential: parsed.maxNaturalPotential ?? null,
+    maxPotentialWithSurgery: parsed.maxPotentialWithSurgery ?? null,
     authenticityFlag: parsed.authenticityFlag || null,
     technicalSummary: parsed.technicalSummary,
     appealAssessment: parsed.appealAssessment || null,

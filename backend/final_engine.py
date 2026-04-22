@@ -511,8 +511,8 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         **Final Frontal Rating: [Score]/100**
         **Final Side Rating: [Score]/100**
         **Authenticity Flag:** [Only include this line if the image is clearly non-human, cartoon/drawn, AI-generated, mannequin-like, or biologically impossible. Otherwise omit this line completely.]
-        **Max Natural Potential: [Score]/100**
-        **Max Potential with Surgery: [Score]/100**
+        **Max Natural Potential: [Score]/100** [Required. Estimate the realistic ceiling from non-surgical changes only: lower facial fat, skincare, grooming, orthodontic/dental optimization, health, sleep, and presentation. Do not invent dramatic structural changes.]
+        **Max Potential with Surgery: [Score]/100** [Required. Estimate the realistic ceiling if proportionate, tasteful surgical/orthodontic correction addressed the main structural flaws. Do not assume impossible perfection or uncanny overcorrection.]
 
         **Technical Summary:** [Blend Frontal Metadata with Side Profile Metadata.
         Use *bolding* sparingly when emphasis is helpful].

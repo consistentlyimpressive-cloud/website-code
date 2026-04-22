@@ -33,7 +33,9 @@ PROMPT = (
     "Edit this face image: Add subtle changes without changing anything else, "
     "improve skin quality, if acne spotted then get rid of it, make the face "
     "leaner make the face a bit more defined, increase the general contrast of "
-    "the face, so lips appear more saturated, eye brows are darker. "
+    "the face while keeping the lips natural and close to the original color. "
+    "Do not redden, oversaturate, gloss, tint, or add a lipstick/makeup effect to the lips. "
+    "Make eyebrows slightly darker only if it still looks natural. "
     "Return only the edited image, no text."
 )
 
