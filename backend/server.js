@@ -228,6 +228,42 @@ function calculateFairUsageDelay(scansToday) {
   return Math.min(compoundedDelayMs, 3 * 60 * 1000);
 }
 
+const SCAN_LIMIT_OVERRIDES_COLLECTION = 'scanLimitOverrides';
+
+function getNextDailyResetMs() {
+  return getDayBounds().endMs;
+}
+
+async function getScanLimitOverride(uid) {
+  if (!uid || !firestore) return null;
+  try {
+    const snap = await firestore.collection(SCAN_LIMIT_OVERRIDES_COLLECTION).doc(uid).get();
+    if (!snap.exists) return null;
+    const data = snap.data() || {};
+    const expiresAtMs = timestampMs(data.expiresAt);
+    if (expiresAtMs && expiresAtMs <= Date.now()) {
+      firestore.collection(SCAN_LIMIT_OVERRIDES_COLLECTION).doc(uid).delete().catch(() => {});
+      return null;
+    }
+    return data;
+  } catch (error) {
+    if (isQuotaExceededError(error)) {
+      console.warn('[scan-limits] Failed to read override: quota exhausted');
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function setScanLimitOverride(uid, data) {
+  if (!uid || !firestore) throw new Error('Firestore not available');
+  await firestore.collection(SCAN_LIMIT_OVERRIDES_COLLECTION).doc(uid).set({
+    ...data,
+    uid,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+}
+
 async function buildFairUsagePolicy(plan, uid) {
   const normalizedPlan = String(plan || '').trim().toLowerCase();
   const eligible =
@@ -236,7 +272,15 @@ async function buildFairUsagePolicy(plan, uid) {
     normalizedPlan === 'quota_bypass';
 
   const scansToday = eligible && uid ? await countSuccessfulScansToday(uid) : 0;
-  const minimumDurationMs = eligible ? calculateFairUsageDelay(scansToday) : 0;
+  const override = eligible && uid ? await getScanLimitOverride(uid) : null;
+  const autoMinimumDurationMs = eligible ? calculateFairUsageDelay(scansToday) : 0;
+  const manualLimit = override?.mode === 'limit';
+  const manualExempt = override?.mode === 'exempt';
+  const minimumDurationMs = manualExempt
+    ? 0
+    : manualLimit
+      ? Math.max(autoMinimumDurationMs, calculateFairUsageDelay(8))
+      : autoMinimumDurationMs;
   const lowPriority = minimumDurationMs > 0;
 
   return {
@@ -244,6 +288,9 @@ async function buildFairUsagePolicy(plan, uid) {
     scansToday,
     minimumDurationMs,
     lowPriority,
+    manualLimit,
+    manualExempt,
+    limitSource: manualLimit ? 'manual' : (lowPriority ? 'daily_usage' : ''),
     maxConcurrent: lowPriority ? 1 : null,
     activeCount: uid && activeAnalysisByUser.has(uid) ? 1 : 0,
     badgeText:
@@ -2657,6 +2704,132 @@ app.get('/api/admin/users', async (req, res) => {
   }
 });
 
+app.get('/api/admin/scan-limits', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  try {
+    let authUsers = [];
+    try {
+      const authUsersResult = await Promise.race([
+        admin.auth().listUsers(1000),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('auth_list_timeout')), 2500)),
+      ]);
+      authUsers = authUsersResult.users || [];
+    } catch (authErr) {
+      console.warn('[scan-limits] Auth users unavailable:', authErr.message);
+    }
+
+    const usersSnap = await firestore.collection('users').get();
+    const firestoreUsers = {};
+    usersSnap.forEach((doc) => {
+      firestoreUsers[doc.id] = doc.data() || {};
+    });
+
+    const authUsersByUid = new Map(authUsers.map((u) => [u.uid, u]));
+    const allUserIds = Array.from(new Set([
+      ...authUsers.map((u) => u.uid),
+      ...Object.keys(firestoreUsers),
+    ]));
+
+    const limitedUsers = [];
+    for (const uid of allUserIds) {
+      const authUser = authUsersByUid.get(uid);
+      const fd = firestoreUsers[uid] || {};
+      const plan = fd.plan || 'free';
+      const policy = await buildFairUsagePolicy(plan, uid);
+      if (!policy.lowPriority) continue;
+
+      limitedUsers.push({
+        uid,
+        email: authUser?.email || fd.email || 'Unknown',
+        displayName: authUser?.displayName || fd.displayName || 'No Name',
+        plan,
+        scansToday: policy.scansToday,
+        activeCount: policy.activeCount,
+        minimumDurationMs: policy.minimumDurationMs,
+        maxConcurrent: policy.maxConcurrent,
+        source: policy.limitSource || 'daily_usage',
+        manualLimit: Boolean(policy.manualLimit),
+        lastActive:
+          fd.lastActive && typeof fd.lastActive.toDate === 'function'
+            ? fd.lastActive.toDate().toISOString()
+            : (fd.lastActive || null),
+      });
+    }
+
+    limitedUsers.sort((a, b) => {
+      if (a.manualLimit !== b.manualLimit) return a.manualLimit ? -1 : 1;
+      return (b.scansToday || 0) - (a.scansToday || 0);
+    });
+
+    res.json({ limitedUsers });
+  } catch (e) {
+    console.error('[scan-limits] Failed to fetch limits:', e);
+    if (isQuotaExceededError(e)) {
+      return res.status(429).json({ error: 'Firestore quota exceeded while fetching scan limits.' });
+    }
+    res.status(500).json({ error: e.message || 'Failed to fetch scan limits' });
+  }
+});
+
+app.post('/api/admin/scan-limits/:uid', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  const { uid } = req.params;
+  try {
+    const userDoc = await firestore.collection('users').doc(uid).get();
+    const authUser = await admin.auth().getUser(uid).catch(() => null);
+    await setScanLimitOverride(uid, {
+      mode: 'limit',
+      email: authUser?.email || userDoc.data()?.email || req.body?.email || '',
+      reason: String(req.body?.reason || 'Manually limited by admin').slice(0, 240),
+      expiresAt: admin.firestore.Timestamp.fromMillis(getNextDailyResetMs()),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true, uid, mode: 'limit' });
+  } catch (e) {
+    console.error('[scan-limits] Failed to add manual limit:', e);
+    res.status(500).json({ error: e.message || 'Failed to add manual limit' });
+  }
+});
+
+app.delete('/api/admin/scan-limits/:uid', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
+
+  const { uid } = req.params;
+  try {
+    const userDoc = await firestore.collection('users').doc(uid).get();
+    const fd = userDoc.data() || {};
+    const plan = fd.plan || 'free';
+    const normalizedPlan = String(plan).trim().toLowerCase();
+    const eligible = ['pro', 'pro_yearly', 'quota_bypass'].includes(normalizedPlan);
+    const scansToday = eligible ? await countSuccessfulScansToday(uid) : 0;
+    const stillAutoLimited = eligible && calculateFairUsageDelay(scansToday) > 0;
+
+    if (stillAutoLimited) {
+      await setScanLimitOverride(uid, {
+        mode: 'exempt',
+        reason: 'Manually un-limited by admin until daily reset',
+        expiresAt: admin.firestore.Timestamp.fromMillis(getNextDailyResetMs()),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return res.json({ ok: true, uid, mode: 'exempt' });
+    }
+
+    await firestore.collection(SCAN_LIMIT_OVERRIDES_COLLECTION).doc(uid).delete();
+    res.json({ ok: true, uid, mode: 'cleared' });
+  } catch (e) {
+    console.error('[scan-limits] Failed to remove limit:', e);
+    res.status(500).json({ error: e.message || 'Failed to remove limit' });
+  }
+});
+
 // Update user plan
 app.post('/api/admin/users/:uid/plan', async (req, res) => {
   const pw = req.headers['x-admin-password'] || '';
@@ -2933,7 +3106,7 @@ app.use(
 );
 
 if (fs.existsSync(distDir)) {
-  app.get(/^(?!\/api\/).*/, (req, res) => {
+  app.get(/^(?!\/(?:api|uploads)\/).*/, (req, res) => {
     debugLog('H1', 'SPA fallback served', { path: req.path });
     res.sendFile(path.join(distDir, 'index.html'));
   });

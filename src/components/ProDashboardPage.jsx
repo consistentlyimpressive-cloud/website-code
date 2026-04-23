@@ -7,6 +7,7 @@ import { DashboardHubPreviewsCompact } from './DashboardHubPreviews';
 import { getAllFeaturedBattles } from '../data/mogBattles';
 import { fetchCommunityBattles, fetchCommunityScans } from '../api/mogBattleVotes';
 import { ConfirmDialog, SiteModal } from './ui/SiteModal';
+import { resolveMediaUrl } from '../utils/mediaUrl';
 
 const API_BASE = getApiBase();
 const PROFILE_SCAN_HISTORY_LIMIT = 10;
@@ -233,12 +234,12 @@ const hydrateScanForDashboard = (scan) => {
     scanId: scan.id,
     profileId: scan.profileId || null,
     visibility: scan.visibility || payload.visibility || 'private',
-    frontImage: scan.frontImageUrl || payload.frontImage || null,
-    sideImage: scan.sideImageUrl || payload.sideImage || null,
-    debugAnchorsImage: scan.debugAnchorsImageUrl || payload.debugAnchorsImage || payload.debugAnchorsImageUrl || null,
-    debugAnchorsImageUrl: scan.debugAnchorsImageUrl || payload.debugAnchorsImageUrl || payload.debugAnchorsImage || null,
-    debugRatiosImage: scan.debugRatiosImageUrl || payload.debugRatiosImage || payload.debugRatiosImageUrl || null,
-    debugRatiosImageUrl: scan.debugRatiosImageUrl || payload.debugRatiosImageUrl || payload.debugRatiosImage || null,
+    frontImage: resolveMediaUrl(scan.frontImageUrl || payload.frontImage || null),
+    sideImage: resolveMediaUrl(scan.sideImageUrl || payload.sideImage || null),
+    debugAnchorsImage: resolveMediaUrl(scan.debugAnchorsImageUrl || payload.debugAnchorsImage || payload.debugAnchorsImageUrl || null),
+    debugAnchorsImageUrl: resolveMediaUrl(scan.debugAnchorsImageUrl || payload.debugAnchorsImageUrl || payload.debugAnchorsImage || null),
+    debugRatiosImage: resolveMediaUrl(scan.debugRatiosImageUrl || payload.debugRatiosImage || payload.debugRatiosImageUrl || null),
+    debugRatiosImageUrl: resolveMediaUrl(scan.debugRatiosImageUrl || payload.debugRatiosImageUrl || payload.debugRatiosImage || null),
     finalRating: typeof scan.finalRating === 'number' ? scan.finalRating : payload.finalRating,
     sideRating: typeof scan.sideRating === 'number' ? scan.sideRating : payload.sideRating,
     selectedModel: String(scan.model || payload.selectedModel || '').trim(),
@@ -270,12 +271,12 @@ const communityScanToDashboardCard = (scan, index = 0) => {
     profileName: scan.profileName || payload.profileName || 'Community Scan',
     selectedModel: String(scan.model || payload.selectedModel || (scan.officialScan || scan.official ? 'official' : '1')),
     cohesiveFrontSide: Boolean(scan.cohesiveFrontSide || payload.cohesiveFrontSide),
-    frontImage: scan.frontImageUrl || scan.frontImage || payload.frontImage || payload.imgSrc || null,
-    sideImage: scan.sideImageUrl || scan.sideImage || payload.sideImage || null,
-    debugAnchorsImage: scan.debugAnchorsImageUrl || scan.debugAnchorsImage || payload.debugAnchorsImage || payload.debugAnchorsImageUrl || null,
-    debugAnchorsImageUrl: scan.debugAnchorsImageUrl || scan.debugAnchorsImage || payload.debugAnchorsImageUrl || payload.debugAnchorsImage || null,
-    debugRatiosImage: scan.debugRatiosImageUrl || scan.debugRatiosImage || payload.debugRatiosImage || payload.debugRatiosImageUrl || null,
-    debugRatiosImageUrl: scan.debugRatiosImageUrl || scan.debugRatiosImage || payload.debugRatiosImageUrl || payload.debugRatiosImage || null,
+    frontImage: resolveMediaUrl(scan.frontImageUrl || scan.frontImage || payload.frontImage || payload.imgSrc || null),
+    sideImage: resolveMediaUrl(scan.sideImageUrl || scan.sideImage || payload.sideImage || null),
+    debugAnchorsImage: resolveMediaUrl(scan.debugAnchorsImageUrl || scan.debugAnchorsImage || payload.debugAnchorsImage || payload.debugAnchorsImageUrl || null),
+    debugAnchorsImageUrl: resolveMediaUrl(scan.debugAnchorsImageUrl || scan.debugAnchorsImage || payload.debugAnchorsImageUrl || payload.debugAnchorsImage || null),
+    debugRatiosImage: resolveMediaUrl(scan.debugRatiosImageUrl || scan.debugRatiosImage || payload.debugRatiosImage || payload.debugRatiosImageUrl || null),
+    debugRatiosImageUrl: resolveMediaUrl(scan.debugRatiosImageUrl || scan.debugRatiosImage || payload.debugRatiosImageUrl || payload.debugRatiosImage || null),
     finalRating: Number(scan.finalRating ?? payload.finalRating ?? payload.rating) || 0,
     sideRating: Number(scan.sideRating ?? payload.sideRating) || 0,
     sex: scan.sex || payload.sex || payload.gender || '',

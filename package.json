@@ -14,7 +14,7 @@
   },
   "scripts": {
     "dev": "npm run dev:local",
-    "dev:local": "concurrently -n fs,api,web -c yellow,cyan,magenta \"firebase emulators:start --only firestore --project demo-mogcheck\" \"wait-on tcp:8080 && cross-env USE_FIREBASE_EMULATOR=1 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm --prefix backend run dev\" \"wait-on tcp:8080 && vite --port 5174 --strictPort\"",
+    "dev:local": "concurrently -n fs,api,web -c yellow,cyan,magenta \"firebase emulators:start --only firestore --project mogcheck-net --import=.firebase-emulator-data --export-on-exit=.firebase-emulator-data\" \"wait-on tcp:8080 && cross-env USE_FIREBASE_EMULATOR=1 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm --prefix backend run dev\" \"wait-on tcp:8080 && vite --port 5174 --strictPort\"",
     "dev:no-emulator": "npm run dev:api-web-only",
     "dev:live": "npm run dev:api-web-only",
     "dev:api-web-only": "concurrently -n api,web -c cyan,magenta \"npm --prefix backend run dev\" \"vite --port 5174 --strictPort\"",

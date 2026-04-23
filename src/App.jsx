@@ -5890,7 +5890,9 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                 ) : (
                   <div className="animate-[fade-in_1s_ease-out] flex flex-col gap-2">
                     <div className="bg-cyan-900/20 border border-cyan-500/30 rounded-xl p-4 inline-block self-center md:self-start shadow-[0_0_20px_rgba(34,211,238,0.1)] backdrop-blur-md">
-                      <span className="text-cyan-400 font-black italic uppercase text-2xl drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]">9.4 TIER UNLOCKED</span>
+                      <span className="text-cyan-400 font-black italic uppercase text-2xl drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]">
+                        MAX WITH SURGERY {formatPotentialScore(maxPotentialWithSurgery)}
+                      </span>
                     </div>
                     {potentialImageUrl && (
                       <button
@@ -6328,6 +6330,10 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
   const [planDrafts, setPlanDrafts] = useState({});
   const [planSaveLoading, setPlanSaveLoading] = useState({});
   const [planSaveError, setPlanSaveError] = useState({});
+  const [scanLimits, setScanLimits] = useState([]);
+  const [scanLimitsLoading, setScanLimitsLoading] = useState(false);
+  const [scanLimitsError, setScanLimitsError] = useState('');
+  const [scanLimitActionLoading, setScanLimitActionLoading] = useState({});
   const [pendingAdminDeleteUser, setPendingAdminDeleteUser] = useState(null);
   const [adminNotice, setAdminNotice] = useState('');
   const [announcementDraft, setAnnouncementDraft] = useState({ title: 'MogCheck Announcement', body: '', url: '' });
@@ -6357,6 +6363,20 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
         throw new Error(usersData?.error || `Users endpoint failed (${usersRes.status})`);
       }
       setUsers(Array.isArray(usersData.users) ? usersData.users : []);
+
+      setScanLimitsLoading(true);
+      setScanLimitsError('');
+      try {
+        const limitsRes = await fetch(`${API_BASE}/api/admin/scan-limits`, { headers: { 'x-admin-password': pw } });
+        const limitsData = await limitsRes.json().catch(() => ({}));
+        if (!limitsRes.ok) throw new Error(limitsData?.error || `Scan limits endpoint failed (${limitsRes.status})`);
+        setScanLimits(Array.isArray(limitsData.limitedUsers) ? limitsData.limitedUsers : []);
+      } catch (limitsErr) {
+        setScanLimits([]);
+        setScanLimitsError(limitsErr.message || 'Failed to fetch scan limits');
+      } finally {
+        setScanLimitsLoading(false);
+      }
       
       setLastRefresh(new Date());
       setAuthenticated(true);
@@ -6505,6 +6525,62 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     }
   };
 
+  const refreshScanLimits = async () => {
+    setScanLimitsLoading(true);
+    setScanLimitsError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/scan-limits`, {
+        headers: { 'x-admin-password': storedPw.current },
+        cache: 'no-store',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed to fetch scan limits');
+      setScanLimits(Array.isArray(data.limitedUsers) ? data.limitedUsers : []);
+    } catch (err) {
+      setScanLimitsError(err.message || 'Failed to fetch scan limits');
+    } finally {
+      setScanLimitsLoading(false);
+    }
+  };
+
+  const handleLimitUser = async (uid, email) => {
+    setScanLimitActionLoading((prev) => ({ ...prev, [uid]: true }));
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/scan-limits/${encodeURIComponent(uid)}`, {
+        method: 'POST',
+        headers: {
+          'x-admin-password': storedPw.current,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, reason: 'Manual admin limit' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed to limit user');
+      await refreshScanLimits();
+    } catch (err) {
+      setAdminNotice(err.message || 'Failed to limit user');
+    } finally {
+      setScanLimitActionLoading((prev) => ({ ...prev, [uid]: false }));
+    }
+  };
+
+  const handleUnlimitUser = async (uid) => {
+    setScanLimitActionLoading((prev) => ({ ...prev, [uid]: true }));
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/scan-limits/${encodeURIComponent(uid)}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-password': storedPw.current },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed to unlimit user');
+      await refreshScanLimits();
+    } catch (err) {
+      setAdminNotice(err.message || 'Failed to unlimit user');
+    } finally {
+      setScanLimitActionLoading((prev) => ({ ...prev, [uid]: false }));
+    }
+  };
+
   const handleToggleUserScans = async (uid) => {
     if (expandedUserId === uid) {
       setExpandedUserId(null);
@@ -6617,6 +6693,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
 
   const ov = stats?.overview || {};
   const maxHour = stats?.hourlyUsage ? Math.max(...stats.hourlyUsage, 1) : 1;
+  const limitedUserIds = new Set(scanLimits.map((limit) => limit.uid));
 
   return (
     <div className="min-h-screen pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -6873,6 +6950,74 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
           )}
 
           {activeTab === 'users' && (
+            <>
+            <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Clock size={14} className="text-amber-300" />
+                  <h3 className="font-sans text-xs uppercase tracking-widest text-zinc-300">Daily Scan Limits</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={refreshScanLimits}
+                  disabled={scanLimitsLoading}
+                  className="rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-[10px] font-sans uppercase tracking-widest text-zinc-300 transition-colors hover:border-amber-400/40 hover:text-amber-200 disabled:opacity-50"
+                >
+                  {scanLimitsLoading ? 'Refreshing...' : 'Refresh'}
+                </button>
+              </div>
+              <p className="mb-4 text-xs font-sans leading-relaxed text-zinc-500">
+                Users shown here are currently in low-priority scan handling because they passed the daily fair-usage threshold or were manually limited by an admin.
+              </p>
+              {scanLimitsError ? (
+                <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs font-sans text-red-400">{scanLimitsError}</div>
+              ) : scanLimits.length === 0 ? (
+                <div className="rounded-xl border border-zinc-800 bg-black/20 px-4 py-5 text-center text-xs font-sans uppercase tracking-widest text-zinc-500">
+                  No users are currently limited.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left whitespace-nowrap">
+                    <thead>
+                      <tr className="border-b border-zinc-800/60">
+                        {['User', 'Source', 'Scans Today', 'Delay', 'Active', 'Actions'].map((h) => (
+                          <th key={h} className="pb-2 pr-4 text-[9px] font-sans uppercase tracking-widest text-zinc-500">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scanLimits.map((limit) => (
+                        <tr key={limit.uid} className="border-b border-zinc-800/30">
+                          <td className="py-3 pr-4">
+                            <div className="text-xs font-sans text-zinc-200">{limit.email}</div>
+                            <div className="max-w-[180px] truncate text-[10px] font-sans text-zinc-600">{limit.uid}</div>
+                          </td>
+                          <td className="py-3 pr-4">
+                            <span className={`rounded-full border px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] ${limit.manualLimit ? 'border-amber-500/25 bg-amber-500/10 text-amber-300' : 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300'}`}>
+                              {limit.manualLimit ? 'Manual' : 'Daily usage'}
+                            </span>
+                          </td>
+                          <td className="py-3 pr-4 text-xs font-sans text-zinc-300">{limit.scansToday}</td>
+                          <td className="py-3 pr-4 text-xs font-sans text-zinc-400">{fmtDuration(limit.minimumDurationMs)}</td>
+                          <td className="py-3 pr-4 text-xs font-sans text-zinc-400">{limit.activeCount || 0}/{limit.maxConcurrent || '-'}</td>
+                          <td className="py-3 pr-4">
+                            <button
+                              type="button"
+                              onClick={() => handleUnlimitUser(limit.uid)}
+                              disabled={!!scanLimitActionLoading[limit.uid]}
+                              className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-[10px] font-sans uppercase tracking-widest text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+                            >
+                              {scanLimitActionLoading[limit.uid] ? 'Saving...' : 'Unlimit'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -6906,6 +7051,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                       const planDraft = planDrafts[u.uid] || { plan: u.plan || 'free', scanCredits: u.scanCredits ?? 0 };
                       const isSavingPlan = !!planSaveLoading[u.uid];
                       const planError = planSaveError[u.uid];
+                      const isRateLimited = limitedUserIds.has(u.uid);
                       return (
                         <React.Fragment key={u.uid}>
                           <tr className="border-b border-zinc-800/30 hover:bg-zinc-800/20 transition-colors">
@@ -6927,6 +7073,13 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                             <td className="py-3 text-right">
                               <div className="flex items-center justify-end gap-2">
                                 <button onClick={() => handleToggleUserScans(u.uid)} className={`px-2 py-1 rounded text-[10px] font-sans uppercase tracking-widest transition-colors ${isExpanded ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'}`}>{isExpanded ? 'Hide' : 'Scans'}</button>
+                                <button
+                                  onClick={() => (isRateLimited ? handleUnlimitUser(u.uid) : handleLimitUser(u.uid, u.email))}
+                                  disabled={!!scanLimitActionLoading[u.uid]}
+                                  className={`px-2 py-1 rounded text-[10px] font-sans uppercase tracking-widest transition-colors border ${isRateLimited ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/25' : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/25'} disabled:opacity-50`}
+                                >
+                                  {scanLimitActionLoading[u.uid] ? '...' : (isRateLimited ? 'Unlimit' : 'Limit')}
+                                </button>
                                 <button onClick={() => handleToggleUserPlan(u.uid, u.plan, u.scanCredits)} className={`px-2 py-1 rounded text-[10px] font-sans uppercase tracking-widest transition-colors ${isPlanExpanded ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-300' : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'}`}>{isPlanExpanded ? 'Hide' : 'Plan'}</button>
                                 <button onClick={() => setPendingAdminDeleteUser({ uid: u.uid, email: u.email })} className="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded text-[10px] font-sans uppercase tracking-widest transition-colors">Del</button>
                               </div>
@@ -7132,6 +7285,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                 )}
               </div>
             </div>
+            </>
           )}
         </>
       )}
