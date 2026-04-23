@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Target, Activity, CheckCircle2, Hexagon, Shield, Globe, Lock, ArrowLeft, ArrowUpRight, TrendingUp, Trash2, Share2, Check } from 'lucide-react';
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { getApiBase } from '../utils/apiBase';
+import { resolveMediaUrl } from '../utils/mediaUrl';
 import { ConfirmDialog, ImageLightbox } from './ui/SiteModal';
 
 const API_BASE = getApiBase();
@@ -170,7 +171,9 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false }) => {
   }, [routeParams, user]);
 
   const activeScan = useMemo(() => scans.find(s => s.id === selectedScanId) || scans[0], [scans, selectedScanId]);
-  const hasSideScan = Boolean(activeScan?.sideImageUrl);
+  const activeFrontImage = resolveMediaUrl(activeScan?.frontImageUrl);
+  const activeSideImage = resolveMediaUrl(activeScan?.sideImageUrl);
+  const hasSideScan = Boolean(activeSideImage);
 
   useEffect(() => {
     if (activeSide === 'side' && !hasSideScan) {
@@ -327,7 +330,7 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false }) => {
               onClick={() => setSelectedScanId(s.id)}
               className={`shrink-0 w-32 h-40 rounded-xl overflow-hidden cursor-pointer border-2 transition-all relative group ${selectedScanId === s.id ? 'border-cyan-500' : 'border-zinc-800 hover:border-zinc-600'}`}
             >
-              <img src={s.frontImageUrl} className="w-full h-full object-cover" />
+              <img src={resolveMediaUrl(s.frontImageUrl)} className="w-full h-full object-cover" />
               {isOwner && (
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
@@ -365,12 +368,12 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false }) => {
               <button
                 type="button"
                 onClick={() => setLightboxImage({
-                  src: activeSide === 'side' && hasSideScan ? activeScan.sideImageUrl : activeScan.frontImageUrl,
+                  src: activeSide === 'side' && hasSideScan ? activeSideImage : activeFrontImage,
                   subtitle: `${profile.name} · ${activeSide === 'side' && hasSideScan ? 'Side' : 'Front'} profile`,
                 })}
                 className="block w-full text-left"
               >
-                <img src={activeSide === 'side' && hasSideScan ? activeScan.sideImageUrl : activeScan.frontImageUrl} className="w-full aspect-[3/4] object-cover" />
+                <img src={activeSide === 'side' && hasSideScan ? activeSideImage : activeFrontImage} className="w-full aspect-[3/4] object-cover" />
               </button>
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 pt-24 flex justify-between items-end">
                 <div>

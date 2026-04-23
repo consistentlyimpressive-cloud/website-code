@@ -12,6 +12,7 @@ import {
   setMogBattleFollow,
 } from '../api/mogBattleVotes';
 import { getApiBase } from '../utils/apiBase';
+import { resolveMediaUrl } from '../utils/mediaUrl';
 
 const API_BASE = getApiBase();
 
@@ -54,7 +55,7 @@ const fighterLabel = (fighter, fallback = 'Scan') => {
 };
 
 const fighterImage = (fighter) =>
-  fighter?.frontImage || fighter?.imgSrc || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png';
+  resolveMediaUrl(fighter?.frontImage || fighter?.imgSrc) || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png';
 
 const fighterScore = (fighter) => {
   const value = Number(fighter?.finalRating ?? fighter?.rating);
@@ -88,8 +89,8 @@ const scanToBattleFighter = (scan, fallback = 'Scan') => {
     ...payload,
     ...scan,
     name: scan?.name || payload.profileName || payload.displayName || payload.name || fallback,
-    frontImage: scan?.frontImage || scan?.frontImageUrl || payload.frontImage || payload.imgSrc || null,
-    sideImage: scan?.sideImage || scan?.sideImageUrl || payload.sideImage || null,
+    frontImage: resolveMediaUrl(scan?.frontImage || scan?.frontImageUrl || payload.frontImage || payload.imgSrc || null),
+    sideImage: resolveMediaUrl(scan?.sideImage || scan?.sideImageUrl || payload.sideImage || null),
     finalRating: Number.isFinite(finalRating) ? finalRating : 0,
     stats: scanMetricRows(scan).length ? scanMetricRows(scan) : scanMetricRows(payload),
     technicalSummary: scan?.technicalSummary || payload.technicalSummary || payload.summary || scan?.summary || '',

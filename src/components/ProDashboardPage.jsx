@@ -1502,7 +1502,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                   <div className="flex items-center gap-4">
                     <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-black/30">
                       <img
-                        src={latestScanAcrossProfiles.frontImageUrl || latestScanAcrossProfiles.payload?.frontImage || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'}
+                        src={resolveMediaUrl(latestScanAcrossProfiles.frontImageUrl || latestScanAcrossProfiles.payload?.frontImage) || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'}
                         alt=""
                         className="h-24 w-24 object-cover"
                       />
@@ -1789,8 +1789,8 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                     return (
                       <div key={scanId || scan.frontImageUrl} className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-3">
                         <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-zinc-900">
-                          {scan.frontImageUrl || scan.payload?.frontImage ? (
-                            <img src={scan.frontImageUrl || scan.payload?.frontImage} alt="" className="h-full w-full object-cover object-top" />
+                          {resolveMediaUrl(scan.frontImageUrl || scan.payload?.frontImage) ? (
+                            <img src={resolveMediaUrl(scan.frontImageUrl || scan.payload?.frontImage)} alt="" className="h-full w-full object-cover object-top" />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center text-zinc-700"><Users size={18} /></div>
                           )}

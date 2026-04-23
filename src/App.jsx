@@ -30,6 +30,7 @@ import {
 } from 'firebase/auth';
 import { getFirestore, doc, onSnapshot } from 'firebase/firestore';
 import { getApiBase } from './utils/apiBase';
+import { resolveMediaUrl } from './utils/mediaUrl';
 
 const GENERIC_ERROR = 'Something went wrong. Please try again later.';
 
@@ -7165,8 +7166,8 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                                   ) : (
                                     <div className="space-y-3">
                                       {scans.map((scan) => {
-                                        const frontImage = scan.frontImageUrl || scan.payload?.frontImage || null;
-                                        const sideImage = scan.sideImageUrl || scan.payload?.sideImage || frontImage || null;
+                                        const frontImage = resolveMediaUrl(scan.frontImageUrl || scan.payload?.frontImage || null);
+                                        const sideImage = resolveMediaUrl(scan.sideImageUrl || scan.payload?.sideImage || frontImage || null);
                                         return (
                                           <div key={scan.id} className="grid grid-cols-[auto_1fr_auto] gap-4 rounded-xl border border-zinc-800 bg-zinc-900/35 p-3">
                                             <div className="flex gap-2">
