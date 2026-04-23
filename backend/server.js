@@ -1,5 +1,3 @@
-require('dotenv').config();
-
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
@@ -7,6 +5,8 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config();
 const rateLimit = require('express-rate-limit');
 const { parseAnalysisOutput } = require('./parse-analysis-output');
 const adminStore = require('./admin-store');
