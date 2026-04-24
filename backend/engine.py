@@ -19,6 +19,7 @@ NOSE_BASE_SHRINK_FACTOR = 0.94
 
 RIGHT_JAW_CANDIDATES = [234, 93, 132, 58, 172, 136, 150]
 LEFT_JAW_CANDIDATES = [454, 323, 361, 288, 397, 365, 379]
+LOWER_FACE_WIDTH_PAIRS = [(93, 323), (132, 361), (58, 288), (172, 397), (136, 365), (150, 379)]
 
 
 def _safe_normalize(vec):
@@ -60,6 +61,38 @@ def nudge_gonion(point, lms):
     adjusted[0] += direction * zygo_w * 0.022
     adjusted[1] += zygo_w * 0.026
     return adjusted
+
+
+def estimate_lower_face_width_points(lms):
+    zygo_w = np.linalg.norm(lms[234] - lms[454])
+    subnasale_y = float(lms[2][1])
+    chin_y = float(lms[152][1])
+    lower_span = chin_y - subnasale_y
+    if zygo_w <= 1e-6 or lower_span <= 1e-6:
+        return lms[172].copy(), lms[397].copy()
+
+    min_y = subnasale_y + lower_span * 0.10
+    max_y = subnasale_y + lower_span * 0.78
+    best_pair = None
+    best_width = -1.0
+
+    for right_idx, left_idx in LOWER_FACE_WIDTH_PAIRS:
+        right = lms[right_idx]
+        left = lms[left_idx]
+        pair_y = float((right[1] + left[1]) / 2.0)
+        y_mismatch = abs(float(right[1] - left[1]))
+        width = abs(float(left[0] - right[0]))
+        if pair_y < min_y or pair_y > max_y:
+            continue
+        if y_mismatch > zygo_w * 0.12:
+            continue
+        if width > best_width:
+            best_width = width
+            best_pair = (right.copy(), left.copy())
+
+    if best_pair is None:
+        return lms[172].copy(), lms[397].copy()
+    return best_pair
 
 
 def refine_hairline(lms, img_bgr):
@@ -153,10 +186,8 @@ def get_clinical_biometrics(img_path):
         # 3. Brow Ridge Midpoint
         synth_brow_ridge = (lms[282] + lms[52]) / 2.0
 
-        # 4. Gonions: use MediaPipe's stable jaw-angle landmarks directly.
-        # Custom corner scoring can jump toward the ear/cheek on some faces.
-        synth_gonion_r = lms[172].copy()
-        synth_gonion_l = lms[397].copy()
+        # 4. Gonions: use the widest plausible lower-face contour pair.
+        synth_gonion_r, synth_gonion_l = estimate_lower_face_width_points(lms)
 
         synth_start = len(lms)
         lms = np.vstack([lms, synth_hairline, synth_glabella, synth_brow_ridge, synth_gonion_r, synth_gonion_l])

@@ -330,14 +330,48 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - BIGONIAL / BIZYGOMATIC RELATIONSHIP:
            Bigonial_Width_Index is a jaw/gonion width measurement normalized against bizygomatic cheekbone width.
            Read it as the bigonial-to-bizygomatic relationship, NOT as raw jaw power.
-           Do NOT treat moderately narrow bigonial width as a major standalone flaw.
-           Around 0.85-1.00 can be acceptable depending on phenotype; a ratio near 0.85 should not be punished simply because it is not exactly 1.00.
-           The best read is a balanced jaw-to-cheekbone relationship where the lower face supports the cheekbones without overpowering them.
-           Penalize only extremes: a very narrow/weak lower face relative to cheekbones, or a very wide/blocky/brutish jaw relative to cheekbones.
-           Never make Bigonial_Width_Index the #1 best feature or #1 worst feature unless the imbalance is extreme and visibly dominant.
+           A 0.85-1.00 ratio is the acceptable-to-ideal range, with the strongest score near 0.98 rather than every value in the range receiving 10/10.
+           Never call a 0.85-1.00 ratio narrow, weak, subpar, or a flaw.
+           Ratios around 0.87 should score in the 80s, then rise toward 100 as they approach roughly 0.98.
+           Ratios from 0.75-0.85 are below the preferred range but should not become a major standalone flaw unless the face visually supports that read.
+           Anything below 0.75 can be considered a narrow/weak lower-face flaw.
+           Anything above 1.05 should be deducted for over-width/blockiness and can be considered a flaw.
+           Never make Bigonial_Width_Index the #1 best feature or #1 worst feature unless the ratio is below 0.75, above 1.05, and visibly dominant.
+           - IPD / EYE SPACING:
+           IPD_Index (Geometric) is interpupillary distance normalized against bizygomatic cheekbone width.
+           Around 0.46 is ideal balanced eye spacing and should score closest to 100.
+           A 0.44-0.48 range is acceptable-to-good; do not call it close-set, wide-set, hypertelorism, or a flaw.
+           Below 0.44 can be considered close-set / esotropia-leaning, with stronger deductions the farther below 0.44 it gets.
+           Above 0.48 can be considered wide-set / hypertelorism-leaning, with stronger deductions the farther above 0.48 it gets.
+           Close-set or wide-set eyes may be listed as one of the primary flaws when IPD_Index (Geometric) is outside the 0.44-0.48 balanced range and the visual appearance supports it.
+           - MOUTH WIDTH:
+           Mouth_Width_Index is mouth width normalized against bizygomatic cheekbone width.
+           Around 0.37 is ideal harmonious mouth width and should score closest to 100.
+           A 0.36-0.38 range is acceptable-to-ideal; do not call it narrow, overly wide, or a flaw.
+           Below 0.36 can be considered a narrow mouth flaw, with stronger deductions the farther below 0.36 it gets.
+           Above 0.38 can be considered an overly wide mouth flaw, with stronger deductions the farther above 0.38 it gets.
+           - GLOBAL BASELINE CURVES FOR OTHER FRONTAL RATIOS:
+           Nose_Width_Index: 0.23-0.30 is the broad balanced range, strongest around 0.265; below 0.20 is pinched/narrow, above 0.32-0.34 becomes wide only if visually disruptive.
+           fWHR: 1.85-2.00 is the balanced strong range; below 1.70 is narrow/weak, below 1.60 is severe, above 2.10 is too wide/blocky, and above 2.25 is severe.
+           Midface_Ratio: 0.88-0.98 is strongest, 0.98-1.07 is acceptable, above 1.08 is long, above 1.15 is severe, and below 0.82 is overly compressed.
+           Upper_Third_Length: 0.34-0.43 is balanced, above 0.46 is long, above 0.52 is severe, below 0.30 is compressed. If hair, bangs, hats, hood, shadow, or cropping covers the hairline, disregard the MediaPipe Upper_Third_Length number, visually estimate where the hairline would naturally sit from visible forehead shape/temples/hair direction, and rate Upper_Third_Length from that visual estimate instead.
+           Middle_Third_Length: 0.40-0.50 is balanced, above 0.54 is elongated, above 0.60 is severe, below 0.36 is compressed.
+           Lower_Third_Length: 0.42-0.52 is balanced, below 0.38 is short, above 0.56 is long, above 0.62 is severe.
+           Eye_Height_Index: 0.055-0.075 is balanced, below 0.045 is narrow/squinty, above 0.085 is overly round/exposed.
+           Brow_Compactness_Index: 0.08-0.12 is balanced, above 0.14 means high brow/poor compactness, below 0.06 means overly compressed/heavy.
+           Philtrum_Height_Index: 0.055-0.075 is balanced, above 0.085 is long, above 0.10 is severe, below 0.045 is very short.
+           Total_Lip_Height_Index: 0.12-0.18 is balanced, below 0.10 is thin, below 0.08 is very thin, above 0.22 is overly large only if visually disharmonious.
+           Canthal_Tilt_Degrees: 3-8 degrees is ideal positive tilt, 0-10 is acceptable, below -2 is negative, below -6 is severe, and above 12 can look unnatural.
+           - ETHNICITY / SEX ADJUSTMENTS:
+           Use the global curves as the baseline, then adjust tolerance rather than changing the meaning of the raw measurement.
+           East Asian faces: be more tolerant of epicanthal folds, monolid/double-eyelid variation, flatter side projection, wider midface/fWHR, and different nose bridge/alar balance when harmonious.
+           African/Sub-Saharan faces: be more tolerant of wider nasal base and fuller lips; do not mark those as flaws unless extreme relative to total harmony.
+           South Asian / Middle Eastern / North African faces: be more tolerant of stronger noses, deeper-set eyes, thicker brows, facial hair effects, and sharper/broader nasal structures.
+           Female faces: tolerate softer jaw/bigonial structure, lower fWHR, fuller lips, and less aggressive dimorphism.
+           Male faces: tolerate stronger fWHR, lower-third structure, brow, and jaw width, but still penalize blockiness or overbuilt proportions when harmony suffers.
            - MIDFACE: Do NOT treat mildly long midfaces as a major flaw.
-           A Midface_Ratio around 1.00-1.07 is only a light concern and by itself should usually NOT become the #1 WORST FEATURE.
-           Treat elongated midface as a true structural flaw only when it is clearly long (roughly 1.08+) and make it a high-priority flaw when it is more obvious (roughly 1.12+) or when it combines with other long-face signals like elongated thirds, narrow facial width, or vertically stretched harmony.
+           A Midface_Ratio around 0.98-1.07 is only a light concern and by itself should usually NOT become the #1 WORST FEATURE.
+           Treat elongated midface as a true structural flaw only when it is clearly long (roughly 1.08+) and make it a high-priority flaw when it is more obvious (roughly 1.15+) or when it combines with other long-face signals like elongated thirds, narrow facial width, or vertically stretched harmony.
            If the overall face reads horse-faced, long, narrow, stretched, or vertically dragged out, punish that harshly even if one or two local ratios are not catastrophic.
            - UPPER THIRD: Penalize strictly for an elongated upper third/forehead relative to the rest of the face.
            - PHILTRUM: Penalize HARSHLY for long philtrums that disrupt lower-third harmony.
@@ -441,36 +475,26 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         2. GENDER COUNTERBALANCE (INTERNAL RULE):
            - If Sex = Female AND the score is > 70, deduct 10 points from the Final Rating and potential tiers.
            - DO NOT mention this deduction in the output or justification. It must appear as the "natural" result.
-        3. CONDITIONAL CAPS:
+        3. CONDITIONAL NON-HUMAN / AI CAP:
            - NON-HUMAN / CARTOON / BIOLOGICALLY IMPOSSIBLE CAP 40: If the input is clearly not a natural human photograph, clearly cartoon/drawn/anime, clearly AI-generated, mannequin-like, or biologically impossible, the Final Frontal Rating and Final Side Rating MUST NOT exceed 40. Include the required Authenticity Flag line in the output.
-           - HARD BASE CAP 60: If the structural base (Bone, Harmony, Symmetry) is below 60, external enhancements like hair framing, grooming, or styling CANNOT push the final score above 60.
-           - HARD CAP 60: If the subject has MORE THAN 3 of the following, the final score CANNOT EXCEED 60:
-           (Very prominent ears, negative canthal tilt, bad upper eyelid exposure, undereye puffiness, unideal FWHR, high
-            set eyebrows, bulbous nose shape, very obvious scleral show).
-           - SIDE PROFILE CAP: If the side profile has a clearly poor hyoid/cervicomental area combined with weak chin/mandibular plane or soft under-chin definition, the Final Side Rating should usually not exceed the low-to-mid 60s unless there are exceptional compensating side-profile traits.
-           - CAP 60: If the face lacks "pretty" appeal or a genuinely high-tier harmonious read.
            - LOW-TIER FLOOR LOGIC: If the face is clearly very narrow, elongated, asymmetric, and weak overall, do NOT keep it artificially in the 40s or 50s just because a few isolated measurements are not disastrous.
-           - MODERATE UNCANNY CAP 60: If the face is clearly exaggerated, overbuilt, AI-looking, synthetic, or "fantasy male model" but still somewhat coherent, it should usually NOT exceed 60.
-           - SEVERE UNCANNY CAP 54: If the face looks strongly artificial, biologically implausible, or obviously like an AI-generated hypermasculine edit, it should usually NOT exceed 54.
            - VERY IMPORTANT: a face that looks "striking" because it is over-optimized, hyper-carved, or synthetic is NOT the same as a naturally elite face.
            - UNCANNY/OVERLY DIMORPHIC PENALTY: If a face appears overly dimorphic, unnatural, synthetic, or uncanny (for example an AI-generated "gigachad" or overbuilt fantasy face), penalize it HARD.
            The more artificial, over-carved, biologically implausible, or brutalist the look becomes, the harsher the deduction should be.
            A clearly uncanny face should usually NOT score like a true elite natural face, even if some isolated measurements look strong.
-           In severe uncanny cases, the score should often fall into the mid-40s to mid-50s depending on how distorted, synthetic, or harmony-breaking the exaggeration is.
-           In moderate uncanny cases, the score should usually land around the mid-50s to about 60, not the upper-70s or 80s.
-           Faces that resemble AI-generated male beauty edits with giant jaws, hollow cheeks, compressed soft tissue, glassy eyes, extreme brow compression, or hyper-clean mannequin-like harmony should usually be capped around the low-to-upper 50s even if they are visually striking.
+           In severe uncanny cases, reduce the rating according to how distorted, synthetic, or harmony-breaking the exaggeration is, but do not apply an automatic numeric ceiling unless the image is clearly non-human / AI-generated under the authenticity cap.
+           In moderate uncanny cases, reduce the rating proportionally rather than forcing it into a fixed band.
+           Faces that resemble AI-generated male beauty edits with giant jaws, hollow cheeks, compressed soft tissue, glassy eyes, extreme brow compression, or hyper-clean mannequin-like harmony should be penalized if they harm natural harmony, but do not apply an automatic numeric ceiling unless the authenticity cap applies.
            If the face is only exaggerated but still coherent and natural-looking, apply only a minor-to-moderate deduction instead.
            Extreme masculinity is NOT automatically a positive. The ideal is balanced beauty: a clean mix of masculinity and femininity.
            Faces that become too brutish, too wide, too heavy, too hollowed, too aged, too tired, or too aggressively dimorphic should lose harmony points once the extremes are visually obvious.
            Lack of aggressive dimorphism is NOT a flaw by itself. A softer or more youthful face can still score high when harmony, eyes, skin, ratios, and overall appeal are strong.
            Do not write that a face lacks "required aggressive dimorphism"; this is incorrect.
-           - NATURAL PENALTY PHRASING: NEVER explicitly state "the face is hard capped at 60 due to X" or mention the internal caps directly.
+           - NATURAL PENALTY PHRASING: NEVER explicitly state "the face is hard capped at 60 due to X" or mention internal rule names directly.
            Instead, make the limitation sound natural and logically explain it.
            For example: "the rating is limited by several overly dimorphic features" or "structural harmony is disrupted by unnatural proportions".
-           - BREAKING 60: Requires at least one high-tier feature (refined nose, elite eyes, good lips).
            - If the eye area is genuinely exceptional, it should carry more weight in helping the face break into a higher band, especially when the rest of the face is at least decent and not heavily flawed.
            - However, exceptional eyes alone should not push a structurally flawed face into an inflated score band.
-           - CLEAN HARMONY (No Flaws/Standard Dimorphism): Cap at 85.
            - ELITE STATUS (85-100): Requires exceptional symmetry AND elite markers (Chico/Cha Eunwoo phenotype balance).
         4. CALIBRATION ANCHORS (VERY IMPORTANT):
            - Do NOT overrate based on celebrity familiarity, charisma, expression, fame, hairstyle, or lighting.
@@ -575,7 +599,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         If the face falls into the UNCANNY / SYNTHETIC / OVERBUILT bucket, at least 2 of the PRIMARY FLAWS must explicitly mention things like Synthetic / Uncanny Look, Over-aggressive Dimorphism, Overbuilt Lower Third, Over-stylized Eye Area, Brutalist Aesthetic, or Artificial Harmony.
         If the face is uncanny / overbuilt, the #1 WORST FEATURE should point to that unnatural / synthetic / over-aggressive trait rather than a random minor flaw.
         ### RATINGS (USE THIS)
-        [Look at the following data from INPUT A (mog_report) and rate them from 1-100 based on how close they are to the ideals of the subject's race. For Bigonial_Width_Index, score the jaw-to-cheekbone relationship with a broad safe zone; do not punish around 0.85 just because it is not exactly 1.00, and do not reward raw jaw width by itself.]
+        [Look at the following data from INPUT A (mog_report) and rate them from 1-100 using the global baseline curves above, with ethnicity/sex tolerance adjustments. If hair, bangs, hats, hood, cropping, or shadow covers the hairline, ignore the MediaPipe Upper_Third_Length number and visually estimate the natural hairline position before scoring Upper_Third_Length. For Bigonial_Width_Index, score on a curve: around 0.87 should be in the 80s, the score should approach 100 near 0.98, below 0.75 is a flaw, and above 1.05 deducts for over-width/blockiness. For IPD_Index (Geometric), score around 0.46 closest to 100, keep 0.44-0.48 acceptable-to-good, below 0.44 close-set, and above 0.48 wide-set. For Mouth_Width_Index, score around 0.37 closest to 100, keep 0.36-0.38 acceptable-to-ideal, below 0.36 narrow, and above 0.38 overly wide.]
         - Bigonial_Width_Index: [Score]/100
         - IPD_Index (Geometric): [Score]/100
         - Mouth_Width_Index: [Score]/100
@@ -618,8 +642,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         [Re-list every feature from INPUT A and Side features from INPUT B. Ensure Shared Ratings match.
         Format: "Feature Name: Score". NO EXPLANATIONS.]
 
-        **JUSTIFICATION:** [Briefly explain why it didn't score higher or lower for debugging purposes.
-        Never use the terms "hard cap" or "penalty" here either].
+        **Debug Rating Justification:** [Admin-only. Explain exactly why the subject received the Final Frontal Rating and Final Side Rating in clear debugging terms. Mention the biggest score drivers, the strongest upward factors, the strongest downward factors, and whether the non-human / AI authenticity cap was applied. Do not mention the hidden female counterbalance rule by name.]
         """
     else:
         # FREE AI SPECIALIZED PROMPTS (No scores, ignores side profile)

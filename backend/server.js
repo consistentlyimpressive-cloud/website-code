@@ -264,12 +264,27 @@ async function setScanLimitOverride(uid, data) {
   }, { merge: true });
 }
 
-async function buildFairUsagePolicy(plan, uid) {
+async function buildFairUsagePolicy(plan, uid, options = {}) {
   const normalizedPlan = String(plan || '').trim().toLowerCase();
   const eligible =
     normalizedPlan === 'pro' ||
     normalizedPlan === 'pro_yearly' ||
     normalizedPlan === 'quota_bypass';
+
+  if (options.adminExempt) {
+    return {
+      enabled: eligible,
+      scansToday: 0,
+      minimumDurationMs: 0,
+      lowPriority: false,
+      manualLimit: false,
+      manualExempt: true,
+      limitSource: 'admin',
+      maxConcurrent: null,
+      activeCount: uid && activeAnalysisByUser.has(uid) ? 1 : 0,
+      badgeText: '',
+    };
+  }
 
   const scansToday = eligible && uid ? await countSuccessfulScansToday(uid) : 0;
   const override = eligible && uid ? await getScanLimitOverride(uid) : null;
@@ -1518,7 +1533,7 @@ app.get('/api/user/plan', extractUserOptional, async (req, res) => {
       scanCredits: isAdminEmail ? 999 : 0,
       subscriptionId: null,
       subscriptionStatus: null,
-      fairUsage: await buildFairUsagePolicy(fallbackPlan, req.uid),
+      fairUsage: await buildFairUsagePolicy(fallbackPlan, req.uid, { adminExempt: isAdminEmail }),
       warning: 'Firestore not available. Using fallback plan state.',
     });
   }
@@ -1531,7 +1546,7 @@ app.get('/api/user/plan', extractUserOptional, async (req, res) => {
       scanCredits: isAdminEmail ? 999 : 0,
       subscriptionId: null,
       subscriptionStatus: null,
-      fairUsage: await buildFairUsagePolicy(fallbackPlan, req.uid),
+      fairUsage: await buildFairUsagePolicy(fallbackPlan, req.uid, { adminExempt: isAdminEmail }),
       warning: firestoreQuotaCooldownWarning(),
     });
   }
@@ -1545,7 +1560,7 @@ app.get('/api/user/plan', extractUserOptional, async (req, res) => {
       scanCredits: Number(data.scanCredits) || 0,
       subscriptionId: data.subscriptionId || null,
       subscriptionStatus: data.subscriptionStatus || null,
-      fairUsage: await buildFairUsagePolicy(data.plan || 'free', req.uid),
+      fairUsage: await buildFairUsagePolicy(data.plan || 'free', req.uid, { adminExempt: isAdminEmail }),
       updatedAt:
         data.updatedAt?.toDate?.()?.toISOString?.() ||
         (typeof data.updatedAt?.seconds === 'number' ? new Date(data.updatedAt.seconds * 1000).toISOString() : data.updatedAt || null),
@@ -1560,7 +1575,7 @@ app.get('/api/user/plan', extractUserOptional, async (req, res) => {
         scanCredits: isAdminEmail ? 999 : 0,
         subscriptionId: null,
         subscriptionStatus: null,
-        fairUsage: await buildFairUsagePolicy(fallbackPlan, req.uid),
+        fairUsage: await buildFairUsagePolicy(fallbackPlan, req.uid, { adminExempt: isAdminEmail }),
         warning: firestoreQuotaCooldownWarning(),
       });
     }
@@ -2109,7 +2124,9 @@ app.post(
       return res.status(400).json({ error: 'No image provided' });
     }
 
-    const fairUsage = await buildFairUsagePolicy(req.ultraContext?.plan || 'free', req.uid);
+    const fairUsage = await buildFairUsagePolicy(req.ultraContext?.plan || 'free', req.uid, {
+      adminExempt: req.ultraContext?.source === 'admin-email-bypass',
+    });
     if (
       fairUsage.lowPriority &&
       req.uid &&
@@ -2282,6 +2299,7 @@ app.post(
     authenticityFlag: parsed.authenticityFlag || null,
     technicalSummary: parsed.technicalSummary,
     appealAssessment: parsed.appealAssessment || null,
+    debugJustification: parsed.debugJustification || null,
     bestFeatures: parsed.bestFeatures || [],
     primaryFlaws: parsed.primaryFlaws || [],
     sideBestFeatures: parsed.sideBestFeatures || [],

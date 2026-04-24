@@ -450,14 +450,10 @@ function computeObjectiveFaceRating(metricScoreMap, categories) {
   rating -= Math.max(0, softCount - weakCount) * 0.2;
   rating += eliteCount * 0.35;
 
-  if (combinedAvg < 60) rating = Math.min(rating, 58);
-  if (combinedAvg < 55) rating = Math.min(rating, 52);
-  if (severeCount >= 3) rating = Math.min(rating, 56);
-  if (severeCount >= 4) rating = Math.min(rating, 52);
   if (combinedAvg >= 78 && severeCount === 0) rating += 2;
   if (combinedAvg >= 84 && weakCount <= 1) rating += 3;
 
-  return Math.round(clamp(rating, 25, 92) * 10) / 10;
+  return Math.round(clamp(rating, 0, 100) * 10) / 10;
 }
 
 function averageFiniteScore(values) {
@@ -477,6 +473,132 @@ function getScoreByLabel(scoreMap, labelStartsWith) {
     }
   }
   return null;
+}
+
+function scoreBigonialRatio(rawValue) {
+  const ratio = Number(rawValue);
+  if (!Number.isFinite(ratio)) return null;
+  if (ratio < 0.75) return Math.round(clamp(35 + ((ratio - 0.6) / 0.15) * 25, 20, 60));
+  if (ratio < 0.85) return Math.round(60 + ((ratio - 0.75) / 0.1) * 20);
+  if (ratio <= 0.98) return Math.round(80 + ((ratio - 0.85) / 0.13) * 20);
+  if (ratio <= 1) return Math.round(100 - ((ratio - 0.98) / 0.02) * 3);
+  if (ratio <= 1.05) return Math.round(97 - ((ratio - 1) / 0.05) * 22);
+  return Math.round(clamp(75 - ((ratio - 1.05) / 0.15) * 35, 25, 75));
+}
+
+function scoreIpdRatio(rawValue) {
+  const ratio = Number(rawValue);
+  if (!Number.isFinite(ratio)) return null;
+  if (ratio >= 0.44 && ratio <= 0.48) {
+    return Math.round(80 + (1 - Math.abs(ratio - 0.46) / 0.02) * 20);
+  }
+  if (ratio < 0.44) return Math.round(clamp(80 - ((0.44 - ratio) / 0.04) * 50, 20, 80));
+  return Math.round(clamp(80 - ((ratio - 0.48) / 0.04) * 50, 20, 80));
+}
+
+function scoreMouthWidthRatio(rawValue) {
+  const ratio = Number(rawValue);
+  if (!Number.isFinite(ratio)) return null;
+  if (ratio >= 0.36 && ratio <= 0.38) {
+    return Math.round(92 + (1 - Math.abs(ratio - 0.37) / 0.01) * 8);
+  }
+  if (ratio < 0.36) return Math.round(clamp(92 - ((0.36 - ratio) / 0.04) * 62, 20, 92));
+  return Math.round(clamp(92 - ((ratio - 0.38) / 0.04) * 62, 20, 92));
+}
+
+function scoreNoseWidthRatio(rawValue) {
+  const ratio = Number(rawValue);
+  if (!Number.isFinite(ratio)) return null;
+  if (ratio >= 0.23 && ratio <= 0.3) return Math.round(90 + (1 - Math.abs(ratio - 0.265) / 0.035) * 10);
+  if (ratio < 0.2) return Math.round(clamp(65 - ((0.2 - ratio) / 0.04) * 45, 20, 65));
+  if (ratio < 0.23) return Math.round(65 + ((ratio - 0.2) / 0.03) * 25);
+  if (ratio <= 0.32) return Math.round(90 - ((ratio - 0.3) / 0.02) * 15);
+  if (ratio <= 0.34) return Math.round(75 - ((ratio - 0.32) / 0.02) * 25);
+  return Math.round(clamp(50 - ((ratio - 0.34) / 0.06) * 30, 20, 50));
+}
+
+function scoreFwhrRatio(rawValue) {
+  const ratio = Number(rawValue);
+  if (!Number.isFinite(ratio)) return null;
+  if (ratio >= 1.85 && ratio <= 2) return Math.round(95 + (1 - Math.abs(ratio - 1.925) / 0.075) * 5);
+  if (ratio < 1.6) return Math.round(clamp(45 - ((1.6 - ratio) / 0.2) * 25, 20, 45));
+  if (ratio < 1.7) return Math.round(45 + ((ratio - 1.6) / 0.1) * 25);
+  if (ratio < 1.85) return Math.round(70 + ((ratio - 1.7) / 0.15) * 25);
+  if (ratio <= 2.1) return Math.round(95 - ((ratio - 2) / 0.1) * 15);
+  if (ratio <= 2.25) return Math.round(80 - ((ratio - 2.1) / 0.15) * 30);
+  return Math.round(clamp(50 - ((ratio - 2.25) / 0.2) * 30, 20, 50));
+}
+
+function scoreMidfaceRatio(rawValue) {
+  const ratio = Number(rawValue);
+  if (!Number.isFinite(ratio)) return null;
+  if (ratio >= 0.88 && ratio <= 0.98) return Math.round(94 + (1 - Math.abs(ratio - 0.93) / 0.05) * 6);
+  if (ratio < 0.82) return Math.round(clamp(60 - ((0.82 - ratio) / 0.08) * 35, 25, 60));
+  if (ratio < 0.88) return Math.round(60 + ((ratio - 0.82) / 0.06) * 34);
+  if (ratio <= 1.07) return Math.round(94 - ((ratio - 0.98) / 0.09) * 14);
+  if (ratio <= 1.15) return Math.round(80 - ((ratio - 1.07) / 0.08) * 35);
+  return Math.round(clamp(45 - ((ratio - 1.15) / 0.12) * 25, 20, 45));
+}
+
+function scoreRangeRatio(rawValue, goodLow, peak, goodHigh, lowFlaw, lowSevere, highFlaw, highSevere) {
+  const ratio = Number(rawValue);
+  if (!Number.isFinite(ratio)) return null;
+  if (ratio >= goodLow && ratio <= goodHigh) {
+    const edgeDistance = ratio <= peak ? peak - goodLow : goodHigh - peak;
+    return Math.round(92 + (1 - Math.abs(ratio - peak) / edgeDistance) * 8);
+  }
+  if (ratio < lowSevere) return Math.round(clamp(45 - ((lowSevere - ratio) / Math.max(lowSevere * 0.5, 0.01)) * 25, 20, 45));
+  if (ratio < lowFlaw) return Math.round(45 + ((ratio - lowSevere) / (lowFlaw - lowSevere)) * 30);
+  if (ratio < goodLow) return Math.round(75 + ((ratio - lowFlaw) / (goodLow - lowFlaw)) * 17);
+  if (ratio <= highFlaw) return Math.round(92 - ((ratio - goodHigh) / (highFlaw - goodHigh)) * 17);
+  if (ratio <= highSevere) return Math.round(75 - ((ratio - highFlaw) / (highSevere - highFlaw)) * 30);
+  return Math.round(clamp(45 - ((ratio - highSevere) / Math.max(highSevere * 0.5, 0.01)) * 25, 20, 45));
+}
+
+function scoreCanthalTilt(rawValue) {
+  const degrees = Number(rawValue);
+  if (!Number.isFinite(degrees)) return null;
+  if (degrees >= 3 && degrees <= 8) return Math.round(94 + (1 - Math.abs(degrees - 5.5) / 2.5) * 6);
+  if (degrees < -6) return Math.round(clamp(45 - ((-6 - degrees) / 6) * 25, 20, 45));
+  if (degrees < -2) return Math.round(45 + ((degrees + 6) / 4) * 30);
+  if (degrees < 3) return Math.round(75 + ((degrees + 2) / 5) * 19);
+  if (degrees <= 10) return Math.round(94 - ((degrees - 8) / 2) * 9);
+  if (degrees <= 12) return Math.round(85 - ((degrees - 10) / 2) * 15);
+  return Math.round(clamp(70 - ((degrees - 12) / 8) * 30, 20, 70));
+}
+
+function hairlineCovered(raw) {
+  return /\b(?:hairline|forehead|upper third)\b[^.\n]{0,80}\b(?:covered|obscured|hidden|blocked|occluded|covered by hair|bangs|fringe|hat|hood)\b/i.test(String(raw || '')) ||
+    /\b(?:bangs|fringe|hat|hood)\b[^.\n]{0,80}\b(?:hairline|forehead|upper third)\b/i.test(String(raw || ''));
+}
+
+function deterministicBiometricScore(baseLabel, rawValue, rawOutput) {
+  const normalized = normalizeMetricName(baseLabel);
+  if (normalized.includes('bigonialwidthindex')) return scoreBigonialRatio(rawValue);
+  if (normalized.includes('ipdindex')) return scoreIpdRatio(rawValue);
+  if (normalized.includes('mouthwidthindex')) return scoreMouthWidthRatio(rawValue);
+  if (normalized.includes('nosewidthindex')) return scoreNoseWidthRatio(rawValue);
+  if (normalized.startsWith('fwhr')) return scoreFwhrRatio(rawValue);
+  if (normalized.includes('midfaceratio')) return scoreMidfaceRatio(rawValue);
+  if (normalized.includes('upperthirdlength')) return hairlineCovered(rawOutput) ? null : scoreRangeRatio(rawValue, 0.34, 0.385, 0.43, 0.3, 0.26, 0.46, 0.52);
+  if (normalized.includes('middlethirdlength')) return scoreRangeRatio(rawValue, 0.4, 0.45, 0.5, 0.36, 0.32, 0.54, 0.6);
+  if (normalized.includes('lowerthirdlength')) return scoreRangeRatio(rawValue, 0.42, 0.47, 0.52, 0.38, 0.34, 0.56, 0.62);
+  if (normalized.includes('eyeheightindex')) return scoreRangeRatio(rawValue, 0.055, 0.065, 0.075, 0.045, 0.035, 0.085, 0.1);
+  if (normalized.includes('browcompactnessindex')) return scoreRangeRatio(rawValue, 0.08, 0.1, 0.12, 0.06, 0.045, 0.14, 0.18);
+  if (normalized.includes('philtrumheightindex')) return scoreRangeRatio(rawValue, 0.055, 0.065, 0.075, 0.045, 0.035, 0.085, 0.1);
+  if (normalized.includes('totallipheightindex')) return scoreRangeRatio(rawValue, 0.12, 0.15, 0.18, 0.1, 0.08, 0.22, 0.26);
+  if (normalized.includes('canthaltiltdegrees')) return scoreCanthalTilt(rawValue);
+  return null;
+}
+
+function isIpdMetricLabel(label) {
+  const normalized = normalizeMetricName(label);
+  return normalized.includes('ipdindex');
+}
+
+function isMouthWidthMetricLabel(label) {
+  const normalized = normalizeMetricName(label);
+  return normalized.includes('mouthwidthindex');
 }
 
 function buildStylizationSignalSummary(rawOutput, appealAssessment) {
@@ -553,172 +675,36 @@ function isModerateBigonialStandaloneFlaw(entry, scoreMap, rawValues) {
     /\bbigonial\b|\blower face width\b|\bnarrow jaw\b|\bnarrow jawline\b|\bjaw relative to cheekbones\b|\blower third breadth\b|\btapered jawline\b/.test(text);
   if (!looksBigonial) return false;
 
-  const score = getScoreByLabel(scoreMap, 'bigonial width index');
   const rawIndex = Number(rawValues?.['Bigonial Width Index']);
-  const hasExtremeScore = Number.isFinite(score) && (score <= 45 || score >= 88);
   const hasExtremeRaw =
     Number.isFinite(rawIndex) &&
-    (rawIndex < 0.72 || rawIndex > 1.12);
+    (rawIndex < 0.75 || rawIndex > 1.05);
 
-  return !hasExtremeScore && !hasExtremeRaw;
+  return !hasExtremeRaw;
 }
 
-function detectUncannyRatingCap(rawOutput, metricScoreMap, categories, sideCategories, appealAssessment, explicitFrontRating, explicitSideRating) {
-  const {
-    text,
-    exaggeratedButCoherentCue,
-    aggressiveLowerThirdCue,
-    extremeMasculinityCue,
-    dimorphismPraiseCue,
-    hasSyntheticCue,
-    hasEditorialCue,
-    hasCoherentCue,
-    hasAggressiveCue,
-    hasDisharmonyCue,
-  } = buildStylizationSignalSummary(rawOutput, appealAssessment);
-  let signalScore = 0;
-  let stylizedCueScore = 0;
+function isBalancedIpdStandaloneFlaw(entry, scoreMap, rawValues) {
+  const text = `${entry?.title || ''} ${entry?.description || ''}`.toLowerCase();
+  const looksIpd =
+    /\bipd\b|\binterpupillary\b|\beye spacing\b|\bclose-set\b|\bclose set\b|\bwide-set\b|\bwide set\b|\bhypertelorism\b|\besotropia\b/.test(text);
+  if (!looksIpd) return false;
 
-  if (hasSyntheticCue) {
-    signalScore += 2;
-    stylizedCueScore += 2;
-  }
-  if (/\bover-?dimorphic\b|\bbrutalist\b|\boverly aggressive\b|\bbottom-heavy\b|\btoo wide\b|\bover-?optimized\b/.test(text)) {
-    signalScore += 1;
-    stylizedCueScore += 1;
-  }
-  if (/\bexaggerated but coherent\b|\balpha aesthetics\b|\bstrong-?jawed\b|\bmale-model render\b/.test(text)) {
-    stylizedCueScore += 1;
-  }
-  if (dimorphismPraiseCue) {
-    signalScore += 1;
-    stylizedCueScore += 1;
-  }
-  if (exaggeratedButCoherentCue) {
-    signalScore += 1;
-    stylizedCueScore += 1;
-  }
-  if (aggressiveLowerThirdCue) {
-    signalScore += 1;
-    stylizedCueScore += 1;
-  }
-  if (extremeMasculinityCue && !hasSyntheticCue) {
-    signalScore += 1;
-  }
-  if (hasEditorialCue && !hasSyntheticCue && !hasDisharmonyCue && !exaggeratedButCoherentCue && !aggressiveLowerThirdCue && !extremeMasculinityCue) {
-    stylizedCueScore = Math.max(0, stylizedCueScore - 1);
-  }
-  if (hasCoherentCue && !hasSyntheticCue && !hasDisharmonyCue && !exaggeratedButCoherentCue && !aggressiveLowerThirdCue) {
-    stylizedCueScore = Math.max(0, stylizedCueScore - 1);
-  }
+  const rawIndex = Number(rawValues?.['Ipd Index (Geometric)'] ?? rawValues?.['Ipd Index']);
+  const isBalanced = Number.isFinite(rawIndex) && rawIndex >= 0.44 && rawIndex <= 0.48;
 
-  const harmony = Number(categories?.Harmony);
-  const bone = Number(categories?.Bone);
-  const dimorphism = Number(categories?.Dimorphism);
-  const sideHarmony = Number(sideCategories?.Harmony);
-  const bigonial = getScoreByLabel(metricScoreMap, 'bigonial width index');
-  const fwhr = getScoreByLabel(metricScoreMap, 'fwhr');
-  const maxillaryProjection = Number(
-    categories?.['Maxillary/Cheekbone Projection'] ?? sideCategories?.['Maxillary/Cheekbone Projection']
-  );
-  const facialFat = Number(categories?.['Facial Fat']);
-  let overbuiltMetricScore = 0;
+  return isBalanced;
+}
 
-  if (Number.isFinite(harmony) && harmony <= 60) signalScore += 1;
-  if (Number.isFinite(dimorphism) && dimorphism >= 92) signalScore += 1;
-  if (Number.isFinite(bigonial) && bigonial <= 55) signalScore += 1;
-  if (Number.isFinite(fwhr) && fwhr <= 60) signalScore += 1;
-  if (Number.isFinite(facialFat) && facialFat <= 20) signalScore += 1;
-  if (Number.isFinite(harmony) && harmony <= 72) overbuiltMetricScore += 1;
-  if (Number.isFinite(bone) && bone >= 85) overbuiltMetricScore += 1;
-  if (Number.isFinite(dimorphism) && dimorphism >= 86) overbuiltMetricScore += 1;
-  if (Number.isFinite(bigonial) && bigonial >= 88) overbuiltMetricScore += 1;
-  if (Number.isFinite(fwhr) && fwhr >= 86) overbuiltMetricScore += 1;
-  if (stylizedCueScore >= 2 && (hasSyntheticCue || hasDisharmonyCue)) signalScore += 1;
-  if (hasDisharmonyCue) signalScore += 2;
-  if (hasAggressiveCue) stylizedCueScore += 1;
+function isBalancedMouthStandaloneFlaw(entry, scoreMap, rawValues) {
+  const text = `${entry?.title || ''} ${entry?.description || ''}`.toLowerCase();
+  const looksMouth =
+    /\bmouth\b|\blip width\b|\bnarrow lips\b|\bnarrow mouth\b|\bwide mouth\b|\boverly wide\b/.test(text);
+  if (!looksMouth) return false;
 
-  const coherentEditorialCase =
-    hasEditorialCue &&
-    !hasSyntheticCue &&
-    !hasDisharmonyCue &&
-    !exaggeratedButCoherentCue &&
-    !aggressiveLowerThirdCue &&
-    !extremeMasculinityCue &&
-    Number.isFinite(explicitFrontRating) &&
-    explicitFrontRating >= 74 &&
-    (
-      !Number.isFinite(explicitSideRating) ||
-      explicitSideRating >= 68
-    );
+  const rawIndex = Number(rawValues?.['Mouth Width Index']);
+  const isBalanced = Number.isFinite(rawIndex) && rawIndex >= 0.36 && rawIndex <= 0.38;
 
-  if (coherentEditorialCase) {
-    return null;
-  }
-
-  const extremeOverbuilt =
-    (stylizedCueScore >= 4 && overbuiltMetricScore >= 4) ||
-    (stylizedCueScore >= 3 && overbuiltMetricScore >= 5);
-  const aggressiveDisharmonyCase =
-    (hasAggressiveCue || hasSyntheticCue) &&
-    hasDisharmonyCue &&
-    (
-      (Number.isFinite(sideHarmony) && sideHarmony <= 45) ||
-      (Number.isFinite(explicitSideRating) && explicitSideRating <= 45) ||
-      (Number.isFinite(maxillaryProjection) && maxillaryProjection <= 45)
-    );
-  const exaggeratedAggressiveCase =
-    exaggeratedButCoherentCue &&
-    (aggressiveLowerThirdCue || extremeMasculinityCue || dimorphismPraiseCue || hasAggressiveCue) &&
-    (
-      overbuiltMetricScore >= 2 ||
-      (Number.isFinite(harmony) && harmony <= 74) ||
-      (Number.isFinite(dimorphism) && dimorphism >= 82) ||
-      (Number.isFinite(bigonial) && bigonial >= 84) ||
-      (Number.isFinite(fwhr) && fwhr >= 80)
-    );
-  const textOnlyOverbuiltEditorialCase =
-    exaggeratedButCoherentCue &&
-    (aggressiveLowerThirdCue || extremeMasculinityCue || dimorphismPraiseCue) &&
-    /\bstriking,\s*aggressive jawline\b|\bsheer breadth of the lower third\b|\bwide lower-?third\b|\bintensity of the jaw and brow ridge\b|\bbrutalist aesthetic\b|\bhighly masculine and striking phenotype\b|\bextreme dimorphism\b|\bhighly dimorphic\b|\belite in terms of breadth and definition\b/.test(text);
-  const brutalistOverbuiltFallback =
-    exaggeratedButCoherentCue &&
-    hasEditorialCue &&
-    (aggressiveLowerThirdCue || extremeMasculinityCue || dimorphismPraiseCue || /\bbrutalist aesthetic\b/.test(text)) &&
-    (
-      /\bwide lower-?third\b|\bintensity of the jaw and brow ridge\b|\bbrutalist aesthetic\b|\bniche,\s*editorial\b/.test(text) ||
-      (Number.isFinite(bigonial) && bigonial >= 90) ||
-      (Number.isFinite(fwhr) && fwhr >= 88)
-    );
-
-  if (
-    aggressiveDisharmonyCase ||
-    extremeOverbuilt ||
-    signalScore >= 8 ||
-    (signalScore >= 7 && Number.isFinite(harmony) && harmony <= 68) ||
-    (exaggeratedAggressiveCase && overbuiltMetricScore >= 4)
-  ) {
-    return 52;
-  }
-  if (
-    signalScore >= 6 ||
-    (signalScore >= 5 && Number.isFinite(harmony) && harmony <= 60) ||
-    (stylizedCueScore >= 2 && overbuiltMetricScore >= 4) ||
-    (stylizedCueScore >= 3 && overbuiltMetricScore >= 3) ||
-    (exaggeratedAggressiveCase && overbuiltMetricScore >= 3) ||
-    brutalistOverbuiltFallback ||
-    textOnlyOverbuiltEditorialCase
-  ) {
-    return 56;
-  }
-  if (
-    signalScore >= 4 ||
-    (stylizedCueScore >= 1 && overbuiltMetricScore >= 3) ||
-    exaggeratedAggressiveCase
-  ) {
-    return 60;
-  }
-  return null;
+  return isBalanced;
 }
 
 function buildUncannyPrimaryFlawEntries(rawOutput, categories, appealAssessment) {
@@ -1128,6 +1114,21 @@ function parseAppealAssessment(raw) {
   return null;
 }
 
+function parseDebugJustification(raw) {
+  const patterns = [
+    /\*\*Debug Rating Justification:\*\*\s*([\s\S]*?)(?=\n\s*(?:###|\*\*[A-Z][^*\n]*:\*\*)|$)/i,
+    /Debug Rating Justification:\s*\*?\*?\s*\n?([\s\S]*?)(?=\n\s*(?:###|\*\*[A-Z][^*\n]*:\*\*)|$)/i,
+    /\*\*JUSTIFICATION:\*\*\s*([\s\S]*?)(?=\n\s*(?:###|\*\*[A-Z][^*\n]*:\*\*)|$)/i,
+    /JUSTIFICATION:\s*\*?\*?\s*\n?([\s\S]*?)(?=\n\s*(?:###|\*\*[A-Z][^*\n]*:\*\*)|$)/i
+  ];
+  for (const re of patterns) {
+    const match = raw.match(re);
+    const value = match?.[1]?.trim();
+    if (value) return value;
+  }
+  return null;
+}
+
 function parseHexagonChart(raw, type) {
   const regex = new RegExp(`\\*\\*Hexagon Chart Ratings \\(${type}\\)\\*\\*\\s*\\n([\\s\\S]*?)(?=\\n\\*\\*|\\n###|$)`, 'i');
   const match = raw.match(regex);
@@ -1212,11 +1213,11 @@ function parseRatingsUseThis(raw, rawValues) {
     const match = line.match(/[-*]*\s*([^:]+):\s*(\d+(?:\.\d+)?)\s*\/\s*100/i);
     if (!match) continue;
     const baseLabel = titleCaseKey(match[1]);
-    const aiScore = applyOffset100(parseFloat(match[2], 10));
-    const score = aiScore;
+    let score = applyOffset100(parseFloat(match[2], 10));
     let finalLabel = baseLabel;
     if (rawValues[baseLabel] !== undefined) {
       const rawValue = rawValues[baseLabel];
+      score = deterministicBiometricScore(baseLabel, rawValue, raw) ?? score;
       if (/Degree|Angle|Tilt/i.test(baseLabel)) finalLabel = `${baseLabel} (${rawValue}°)`;
       else finalLabel = `${baseLabel} (${rawValue})`;
     }
@@ -1243,21 +1244,19 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   sideRating = applyOffset100(sideRating);
   maxNaturalPotential = applyOffset100(maxNaturalPotential);
   maxPotentialWithSurgery = applyOffset100(maxPotentialWithSurgery);
-  const explicitFrontRating = finalRating;
-  const explicitSideRating = sideRating;
-
   let technicalSummary = parseTechnicalSummary(rawOutput);
   if (!technicalSummary || technicalSummary.length < 8) {
     technicalSummary = DEFAULT_SUMMARY;
   }
   const appealAssessment = parseAppealAssessment(rawOutput);
+  const debugJustification = parseDebugJustification(rawOutput);
 
   const bestFeatures = [];
   const primaryFlaws = [];
   const sideBestFeatures = [];
   const sidePrimaryFlaws = [];
 
-  const bestMatch = rawOutput.match(/BEST FEATURES[\s\d()]*[\*:]*([\s\S]*?)(?=PRIMARY FLAWS[\s\d()]*[\*:]*|###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|$)/i);
+  const bestMatch = rawOutput.match(/BEST FEATURES[\s\d()]*[\*:]*([\s\S]*?)(?=PRIMARY FLAWS[\s\d()]*[\*:]*|###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b|$)/i);
   if (bestMatch) {
     const allBest = parseFeatureBlock(bestMatch[1]);
     for (const f of allBest) {
@@ -1283,7 +1282,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     sideBestFeatures.splice(0, sideBestFeatures.length, ...mergedSideBest);
   }
 
-  const flawMatch = rawOutput.match(/PRIMARY FLAWS[\s\d()]*[\*:]*([\s\S]*?)(?=###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|$)/i);
+  const flawMatch = rawOutput.match(/PRIMARY FLAWS[\s\d()]*[\*:]*([\s\S]*?)(?=###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b|$)/i);
   if (flawMatch) {
     const allFlaws = parseFeatureBlock(flawMatch[1]);
     for (const f of allFlaws) {
@@ -1312,7 +1311,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   if (bestFeatures.length === 0) {
     const bestHighlight = parseSingleHighlight(
       rawOutput,
-      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*BEST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=(?:\n\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*WORST FEATURE)|\n\s*(?:###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b)|$)/i,
+      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*BEST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=(?:\n\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*WORST FEATURE)|\n\s*(?:###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b)|$)/i,
       'Best Feature'
     );
     if (bestHighlight) bestFeatures.push(bestHighlight);
@@ -1321,7 +1320,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   if (primaryFlaws.length === 0) {
     const flawHighlight = parseSingleHighlight(
       rawOutput,
-      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*WORST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=\n\s*(?:###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b)|$)/i,
+      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*WORST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=\n\s*(?:###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b)|$)/i,
       'Primary Flaw'
     );
     if (flawHighlight) primaryFlaws.push(flawHighlight);
@@ -1409,7 +1408,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     biometrics.push(...ratingsBiometrics);
   }
   const reportMatch = rawOutput.match(
-    /###\s*MOG_REPORT_REVISION([\s\S]*?)(?:\*\*JUSTIFICATION|$)/i
+    /###\s*MOG_REPORT_REVISION([\s\S]*?)(?:\*\*(?:Debug Rating Justification|JUSTIFICATION)|$)/i
   );
   if (reportMatch && biometrics.length === 0) {
     for (const line of reportMatch[1].trim().split('\n')) {
@@ -1423,6 +1422,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
       let finalLabel = baseLabel;
       if (rawValues[baseLabel] !== undefined) {
         const val = rawValues[baseLabel];
+        score = deterministicBiometricScore(baseLabel, val, rawOutput) ?? score;
         if (/Degree|Angle|Tilt/i.test(baseLabel)) finalLabel = `${baseLabel} (${val}°)`;
         else finalLabel = `${baseLabel} (${val})`;
       }
@@ -1437,39 +1437,25 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   const frontScoreMap = scoreMapFromBiometrics(biometrics);
   const sideScoreMap = scoreMapFromBiometrics(sideBiometrics);
   const filteredPrimaryFlaws = primaryFlaws.filter(
-    (entry) => !isModerateBigonialStandaloneFlaw(entry, frontScoreMap, rawValues)
+    (entry) =>
+      !isModerateBigonialStandaloneFlaw(entry, frontScoreMap, rawValues) &&
+      !isBalancedIpdStandaloneFlaw(entry, frontScoreMap, rawValues) &&
+      !isBalancedMouthStandaloneFlaw(entry, frontScoreMap, rawValues)
   );
   const filteredSidePrimaryFlaws = sidePrimaryFlaws.filter(
-    (entry) => !isModerateBigonialStandaloneFlaw(entry, frontScoreMap, rawValues)
+    (entry) =>
+      !isModerateBigonialStandaloneFlaw(entry, frontScoreMap, rawValues) &&
+      !isBalancedIpdStandaloneFlaw(entry, frontScoreMap, rawValues) &&
+      !isBalancedMouthStandaloneFlaw(entry, frontScoreMap, rawValues)
   );
   primaryFlaws.splice(0, primaryFlaws.length, ...filteredPrimaryFlaws);
   sidePrimaryFlaws.splice(0, sidePrimaryFlaws.length, ...filteredSidePrimaryFlaws);
-  const objectiveFrontRating = computeObjectiveFaceRating(frontScoreMap, categories);
   const objectiveSideRating = computeObjectiveFaceRating(sideScoreMap, sideCategories);
-  const stylizationSignals = buildStylizationSignalSummary(rawOutput, appealAssessment);
-  if (objectiveFrontRating != null) {
-    finalRating =
-      explicitFrontRating != null
-        ? Math.min(objectiveFrontRating, explicitFrontRating)
-        : objectiveFrontRating;
-  }
   if (objectiveSideRating != null) {
     sideRating = objectiveSideRating;
   }
 
-  const uncannyCap = detectUncannyRatingCap(
-    rawOutput,
-    frontScoreMap,
-    categories,
-    sideCategories,
-    appealAssessment,
-    explicitFrontRating,
-    explicitSideRating
-  );
   const uncannyPrimaryFlaws = buildUncannyPrimaryFlawEntries(rawOutput, categories, appealAssessment);
-  if (uncannyCap != null) {
-    if (finalRating != null) finalRating = Math.min(finalRating, uncannyCap);
-  }
   const nonHumanCue = /\b(?:non[-\s]?human|not\s+(?:a\s+)?(?:real|natural)\s+human|cartoon|cartoony|anime|drawn|inanimate|mannequin|biologically\s+impossible|clearly\s+ai[-\s]?generated|appears\s+ai[-\s]?generated|likely\s+ai[-\s]?generated)\b/i.test(
     `${rawOutput || ''}\n${appealAssessment || ''}`
   );
@@ -1486,7 +1472,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     const mergedSidePrimary = mergeFeatureEntries(uncannyPrimaryFlaws, sidePrimaryFlaws, 5);
     sidePrimaryFlaws.splice(0, sidePrimaryFlaws.length, ...mergedSidePrimary);
   }
-  if (hasConventionalAppealCue(appealAssessment) && !authenticityFlag && uncannyCap == null) {
+  if (hasConventionalAppealCue(appealAssessment) && !authenticityFlag) {
     const filteredPrimary = primaryFlaws.filter((entry) => !isContradictoryAggressiveStyleFlaw(entry));
     const filteredSidePrimary = sidePrimaryFlaws.filter((entry) => !isContradictoryAggressiveStyleFlaw(entry));
     primaryFlaws.splice(0, primaryFlaws.length, ...filteredPrimary);
@@ -1538,6 +1524,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     authenticityFlag,
     technicalSummary,
     appealAssessment,
+    debugJustification,
     bestFeatures,
     primaryFlaws,
     sideBestFeatures,

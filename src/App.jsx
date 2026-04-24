@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Gauge, Sparkles, Bell, Trash2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Gauge, Sparkles, Bell, Trash2, Bug } from 'lucide-react';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import NewsPage from './components/NewsPage';
 import MogBattlePage from './components/MogBattlePage';
@@ -100,7 +100,7 @@ function normalizeFeatureList(items, fallbackLabel) {
   const cleanText = (value) => {
     if (typeof value !== 'string') return '';
     return value
-      .split(/\n(?=\s*(?:#{2,}\s*|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|TECHNICAL SUMMARY\b|APPEAL ASSESSMENT\b|HEXAGON CHART RATINGS\b|CORE CATEGORY SCORES\b|CRITICAL MARKERS\b))/i)[0]
+      .split(/\n(?=\s*(?:#{2,}\s*|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b|TECHNICAL SUMMARY\b|APPEAL ASSESSMENT\b|HEXAGON CHART RATINGS\b|CORE CATEGORY SCORES\b|CRITICAL MARKERS\b))/i)[0]
       .replace(/\s+/g, ' ')
       .trim();
   };
@@ -161,7 +161,7 @@ function normalizeFeatureList(items, fallbackLabel) {
 function looksLikeFeatureSectionLeak(value) {
   if (typeof value !== 'string') return false;
   const cleaned = stripInlineMarkers(value);
-  return /###\s*(?:DASHBOARD_DATA|RATINGS|PERSONALISED\s+FEEDBACK|ACTIONABLE\s+PROTOCOLS|MOG_REPORT_REVISION)|\b(?:BEST FEATURES|PRIMARY FLAWS)\s*\(10\)|\bJUSTIFICATION\b/i.test(cleaned);
+  return /###\s*(?:DASHBOARD_DATA|RATINGS|PERSONALISED\s+FEEDBACK|ACTIONABLE\s+PROTOCOLS|MOG_REPORT_REVISION)|\b(?:BEST FEATURES|PRIMARY FLAWS)\s*\(10\)|\b(?:DEBUG RATING JUSTIFICATION|JUSTIFICATION)\b/i.test(cleaned);
 }
 
 function getAuthenticityFlag(dashboardData) {
@@ -236,11 +236,29 @@ function isModerateBigonialStandaloneFeature(feature, dashboardData) {
     /\bbigonial\b|\blower face width\b|\bnarrow jaw\b|\bnarrow jawline\b|\bjaw relative to cheekbones\b|\blower third breadth\b|\btapered jawline\b/.test(text);
   if (!looksBigonial) return false;
 
-  const score = getDashboardMetricScore(dashboardData, 'bigonial width index');
   const rawIndex = getDashboardMetricRawValue(dashboardData, 'bigonial width index');
-  const hasExtremeScore = Number.isFinite(score) && (score <= 45 || score >= 88);
-  const hasExtremeRaw = Number.isFinite(rawIndex) && (rawIndex < 0.72 || rawIndex > 1.12);
-  return !hasExtremeScore && !hasExtremeRaw;
+  const hasExtremeRaw = Number.isFinite(rawIndex) && (rawIndex < 0.75 || rawIndex > 1.05);
+  return !hasExtremeRaw;
+}
+
+function isBalancedIpdStandaloneFeature(feature, dashboardData) {
+  const text = `${feature?.title || ''} ${feature?.description || ''}`.toLowerCase();
+  const looksIpd =
+    /\bipd\b|\binterpupillary\b|\beye spacing\b|\bclose-set\b|\bclose set\b|\bwide-set\b|\bwide set\b|\bhypertelorism\b|\besotropia\b/.test(text);
+  if (!looksIpd) return false;
+
+  const rawIndex = getDashboardMetricRawValue(dashboardData, 'ipd index');
+  return Number.isFinite(rawIndex) && rawIndex >= 0.44 && rawIndex <= 0.48;
+}
+
+function isBalancedMouthStandaloneFeature(feature, dashboardData) {
+  const text = `${feature?.title || ''} ${feature?.description || ''}`.toLowerCase();
+  const looksMouth =
+    /\bmouth\b|\blip width\b|\bnarrow lips\b|\bnarrow mouth\b|\bwide mouth\b|\boverly wide\b/.test(text);
+  if (!looksMouth) return false;
+
+  const rawIndex = getDashboardMetricRawValue(dashboardData, 'mouth width index');
+  return Number.isFinite(rawIndex) && rawIndex >= 0.36 && rawIndex <= 0.38;
 }
 
 function sanitizeResolvedFeatures(features, dashboardData, type) {
@@ -250,6 +268,8 @@ function sanitizeResolvedFeatures(features, dashboardData, type) {
 
   return (features || []).filter((feature) => {
     if (isModerateBigonialStandaloneFeature(feature, dashboardData)) return false;
+    if (isBalancedIpdStandaloneFeature(feature, dashboardData)) return false;
+    if (isBalancedMouthStandaloneFeature(feature, dashboardData)) return false;
     if (conventionalCue && !authenticityFlag && isContradictoryAggressiveStyleFeature(feature)) return false;
     return true;
   });
@@ -321,8 +341,8 @@ function extractDashboardFeatureListsFromRawOutput(rawOutput, type) {
 
   const sectionRegex =
     type === 'best'
-      ? /BEST FEATURES[\s\d()]*:\s*([\s\S]*?)(?=PRIMARY FLAWS[\s\d()]*:|###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|$)/i
-      : /PRIMARY FLAWS[\s\d()]*:\s*([\s\S]*?)(?=###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|$)/i;
+      ? /BEST FEATURES[\s\d()]*:\s*([\s\S]*?)(?=PRIMARY FLAWS[\s\d()]*:|###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b|$)/i
+      : /PRIMARY FLAWS[\s\d()]*:\s*([\s\S]*?)(?=###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b|$)/i;
 
   const match = rawOutput.match(sectionRegex);
   if (!match) return { front: [], side: [] };
@@ -502,7 +522,7 @@ function extractFeatureHighlightsFromRawOutput(rawOutput) {
 
   const trimFeatureDescription = (value) =>
     String(value || '')
-      .split(/\r?\n(?=\s*(?:#{2,}\s*|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|TECHNICAL SUMMARY\b|APPEAL ASSESSMENT\b|HEXAGON CHART RATINGS\b|CORE CATEGORY SCORES\b|CRITICAL MARKERS\b))/i)[0]
+      .split(/\r?\n(?=\s*(?:#{2,}\s*|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b|TECHNICAL SUMMARY\b|APPEAL ASSESSMENT\b|HEXAGON CHART RATINGS\b|CORE CATEGORY SCORES\b|CRITICAL MARKERS\b))/i)[0]
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -526,11 +546,11 @@ function extractFeatureHighlightsFromRawOutput(rawOutput) {
 
   return {
     bestFeatures: parseSingleHighlight(
-      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*BEST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=(?:\n\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*WORST FEATURE)|\n\s*(?:###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b)|$)/i,
+      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*BEST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=(?:\n\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*WORST FEATURE)|\n\s*(?:###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b)|$)/i,
       'Best Feature'
     ),
     primaryFlaws: parseSingleHighlight(
-      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*WORST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=\n\s*(?:###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b)|$)/i,
+      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*WORST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=\n\s*(?:###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b)|$)/i,
       'Primary Flaw'
     ),
   };
@@ -2861,6 +2881,47 @@ const getEstimatedScanTotalMs = (choice, fairUsageState) => {
   return 90 * 1000;
 };
 
+const SCAN_DURATION_HISTORY_KEY = 'mogcheck.scanDurationHistory.v1';
+
+const getScanDurationHistory = () => {
+  if (typeof window === 'undefined') return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(SCAN_DURATION_HISTORY_KEY) || '{}') || {};
+  } catch {
+    return {};
+  }
+};
+
+const scanDurationHistoryKey = (choice, fairUsageState) =>
+  `${choice || '3'}:${fairUsageState?.lowPriority ? 'low' : 'normal'}`;
+
+const getAdaptiveScanTotalMs = (choice, fairUsageState) => {
+  const fallback = getEstimatedScanTotalMs(choice, fairUsageState);
+  const entry = getScanDurationHistory()[scanDurationHistoryKey(choice, fairUsageState)];
+  const averageMs = Number(entry?.averageMs);
+  if (!Number.isFinite(averageMs) || averageMs <= 0) return fallback;
+  return Math.min(fallback * 1.6, Math.max(fallback * 0.55, averageMs * 1.08));
+};
+
+const rememberScanDuration = (choice, fairUsageState, durationMs) => {
+  if (typeof window === 'undefined' || !Number.isFinite(durationMs) || durationMs <= 0) return;
+  try {
+    const history = getScanDurationHistory();
+    const key = scanDurationHistoryKey(choice, fairUsageState);
+    const previous = Number(history[key]?.averageMs);
+    history[key] = {
+      averageMs: Number.isFinite(previous) && previous > 0
+        ? previous * 0.65 + durationMs * 0.35
+        : durationMs,
+      samples: Math.min(20, Number(history[key]?.samples || 0) + 1),
+      updatedAt: Date.now(),
+    };
+    window.localStorage.setItem(SCAN_DURATION_HISTORY_KEY, JSON.stringify(history));
+  } catch {
+    // Local storage is best-effort only.
+  }
+};
+
 const formatTimeLeft = (ms) => {
   const sec = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(sec / 60);
@@ -3114,9 +3175,10 @@ const ScanningView = ({
 
         const buildProgressMessage = () => {
           const elapsedMs = Date.now() - scanStartedAt;
-          const totalMs = getEstimatedScanTotalMs(choice, currentFairUsage);
-          const remaining = formatTimeLeft(totalMs - elapsedMs);
-          const phaseIndex = Math.floor(elapsedMs / 4000) % SCAN_PROGRESS_MESSAGES.length;
+          const totalMs = getAdaptiveScanTotalMs(choice, currentFairUsage);
+          const remainingMs = totalMs - elapsedMs;
+          const remaining = remainingMs <= 0 ? 'finalizing' : formatTimeLeft(remainingMs);
+          const phaseIndex = Math.floor(elapsedMs / 5000) % SCAN_PROGRESS_MESSAGES.length;
           const queueNote = currentFairUsage?.lowPriority ? ' Low-priority queue active.' : '';
           return `${SCAN_PROGRESS_MESSAGES[phaseIndex]}... Estimated time left: ${remaining}.${queueNote}`;
         };
@@ -3126,7 +3188,7 @@ const ScanningView = ({
         const progressTick = setInterval(() => {
           if (!active) return;
           setStatusText(buildProgressMessage());
-        }, 4000);
+        }, 1000);
 
         const runAnalyzeRequest = async () => {
           return fetch(`${API_BASE}/api/analyze`, {
@@ -3187,6 +3249,7 @@ const ScanningView = ({
              currentFairUsage = data.fairUsage;
              setFairUsageState(data.fairUsage);
            }
+           rememberScanDuration(choice, currentFairUsage, Date.now() - scanStartedAt);
            scanSucceeded = true;
            setStatusText("Analysis Complete! Transitioning...");
            setVideoUrl(data.videoUrl);
@@ -3337,13 +3400,7 @@ const ScanningView = ({
       `}</style>
       <div className="text-center mb-10 mt-10">
         <h2 className={`text-2xl sm:text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-cyan-400 mb-2 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] ${isCompactViewport ? '' : 'animate-pulse'}`}>Consulting AI</h2>
-        <p
-          className={`font-sans text-xs sm:text-sm text-zinc-400 ${
-            statusText.length > 50 || /API offline|Can't reach|Error:|Invalid response|Sign in required/i.test(statusText)
-              ? 'normal-case tracking-normal max-w-lg mx-auto px-4 leading-relaxed'
-              : 'uppercase tracking-[0.3em]'
-          }`}
-        >
+        <p className="font-sans text-xs sm:text-sm text-zinc-400 normal-case tracking-normal max-w-lg mx-auto px-4 leading-relaxed">
           {statusText}
         </p>
         {lowPriorityBadge && (
@@ -3591,7 +3648,6 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
     ? (job.fairUsageState.badgeText || 'High usage detected, you have been placed on low-priority queue.')
     : '';
   const statusText = job.statusText || 'Preparing analysis... Estimated time left: calculating.';
-  const isLongStatus = statusText.length > 50 || /API offline|Can't reach|Error:|Invalid response|Sign in required/i.test(statusText);
 
   return (
     <div className="flex-grow flex flex-col bg-[#0c0d0e] scroll-mt-20">
@@ -3617,13 +3673,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
         <div className="w-full h-full flex flex-col items-center justify-center animate-[fadeIn_0.5s_ease-out]">
           <div className="text-center mb-10 mt-10">
             <h2 className="text-2xl sm:text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-cyan-400 mb-2 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] animate-pulse">Consulting AI</h2>
-            <p
-              className={`font-sans text-xs sm:text-sm text-zinc-400 ${
-                isLongStatus
-                  ? 'normal-case tracking-normal max-w-lg mx-auto px-4 leading-relaxed'
-                  : 'uppercase tracking-[0.3em]'
-              }`}
-            >
+            <p className="font-sans text-xs sm:text-sm text-zinc-400 normal-case tracking-normal max-w-lg mx-auto px-4 leading-relaxed">
               {statusText}
             </p>
             {lowPriorityBadge && (
@@ -5267,6 +5317,12 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   const hasFullProUnlock = userPlan?.plan === 'pro';
   const isRestrictedPreview = isFreeModelResult;
   const showBestFlaw = !hideBestFlawSection;
+  const isAdmin = Boolean(user?.email && (
+    user.email === 'laithbu07@gmail.com' ||
+    user.email === 'admin@looksmaxxing.com' ||
+    user.email === 'serenity.eyb@gmail.com' ||
+    user.email.endsWith('@looksmaxxing.com')
+  ));
 
   const renderBlurredOverlay = (title) => (
     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a0a0b]/60 backdrop-blur-[6px] rounded-3xl border border-zinc-800/50 group transition-all select-none">
@@ -5490,6 +5546,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   const primaryBestFeature = showBestFlaw ? activeBestFeatures[0] ?? null : null;
   const primaryFlawFeature = showBestFlaw ? activePrimaryFlaws[0] ?? null : null;
   const appealAssessment = String(dashboardData?.appealAssessment || '').trim();
+  const debugJustification = String(dashboardData?.debugJustification || dashboardData?.payload?.debugJustification || '').trim();
   const debugAnchorsImage =
     dashboardData?.debugAnchorsImage ||
     dashboardData?.debugAnchorsImageUrl ||
@@ -5882,6 +5939,20 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                 </h3>
                 <div className="text-sm font-sans leading-relaxed text-zinc-200">
                   {renderMarkedText(appealAssessment)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isAdmin && !!debugJustification && (
+            <div className="relative overflow-hidden rounded-2xl border border-amber-500/25 bg-amber-500/5 p-6 shadow-lg transition-colors hover:border-amber-500/40">
+              <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-amber-300 to-amber-600" />
+              <div className="relative pl-3">
+                <h3 className="mb-3 flex items-center gap-2 text-xs font-sans uppercase tracking-widest text-amber-300">
+                  <Bug size={14} className="text-amber-400" /> Admin Debug Justification
+                </h3>
+                <div className="text-sm font-sans leading-relaxed text-zinc-200">
+                  {renderMarkedText(debugJustification)}
                 </div>
               </div>
             </div>
@@ -8124,6 +8195,7 @@ const App = () => {
   
   return (
     <div className="min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black">
+      <div className="fixed left-2 top-2 z-[9999] pointer-events-none text-[10px] font-black uppercase tracking-widest text-red-500">updated</div>
       {!lowPerfMode && <NoiseOverlay />}
       {!isScanOnlyPage && (
         <Navbar
