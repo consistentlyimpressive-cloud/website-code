@@ -692,7 +692,7 @@ function renderMarkedText(value, options = {}) {
 
 const firebaseConfig = {
   apiKey: "AIzaSyDg9bES9zvmfvsjS6FLjCOKzBb9b6Mm0Ts",
-  authDomain: "mogcheck-net.firebaseapp.com",
+  authDomain: "mogcheck.net",
   projectId: "mogcheck-net",
   storageBucket: "mogcheck-net.firebasestorage.app",
   messagingSenderId: "489045009823",
@@ -8221,7 +8221,7 @@ const App = () => {
   
   return (
     <div className="min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black">
-      <div className="fixed left-2 top-2 z-[9999] pointer-events-none text-[10px] font-black uppercase tracking-widest text-red-500">updated</div>
+      <div className="fixed left-2 top-2 z-[9999] pointer-events-none text-[10px] font-black uppercase tracking-widest text-red-500">updated 32</div>
       {!lowPerfMode && <NoiseOverlay />}
       {!isScanOnlyPage && (
         <Navbar
