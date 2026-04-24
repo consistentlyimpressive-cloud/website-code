@@ -3583,7 +3583,7 @@ const AnalysisDock = ({
   const visibleJobs = jobs.slice(0, 4);
   const hiddenJobsCount = Math.max(0, jobs.length - visibleJobs.length);
 
-  if (collapsed && runningCount === 0) {
+  if (collapsed) {
     return (
       <div
         className="fixed bottom-5 z-[240] flex flex-col items-end gap-2"
@@ -3645,15 +3645,13 @@ const AnalysisDock = ({
               +{hiddenJobsCount} more
             </span>
           )}
-          {runningCount === 0 && (
-            <button
-              type="button"
-              onClick={() => setCollapsed(true)}
-              className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 transition-colors hover:text-cyan-300"
-            >
-              Minimize
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setCollapsed(true)}
+            className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 transition-colors hover:text-cyan-300"
+          >
+            Minimize
+          </button>
         </div>
       </div>
       <div className="flex flex-col items-end gap-2">
@@ -8235,7 +8233,7 @@ const App = () => {
   
   return (
     <div className="min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black">
-      <div className="fixed left-2 top-2 z-[9999] pointer-events-none text-[10px] font-black uppercase tracking-widest text-red-500">updated 35</div>
+      <div className="fixed left-2 top-2 z-[9999] pointer-events-none text-[10px] font-black uppercase tracking-widest text-red-500">updated 36</div>
       <NoiseOverlay />
       {!isScanOnlyPage && (
         <Navbar
