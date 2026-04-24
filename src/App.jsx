@@ -19,6 +19,7 @@ import HolographicCard from './components/ui/HolographicCard';
 import {
   getAuth,
   signInWithPopup,
+  signInWithRedirect,
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -703,6 +704,31 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
+
+const shouldUseGoogleRedirect = () => (
+  typeof window !== 'undefined' &&
+  (
+    window.matchMedia?.('(max-width: 768px)').matches ||
+    /Android|iPhone|iPad|iPod|Mobi/i.test(window.navigator?.userAgent || '')
+  )
+);
+
+const signInWithGoogleProvider = async () => {
+  if (shouldUseGoogleRedirect()) {
+    await signInWithRedirect(auth, googleProvider);
+    return null;
+  }
+
+  try {
+    return await signInWithPopup(auth, googleProvider);
+  } catch (error) {
+    if (['auth/popup-blocked', 'auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(error?.code)) {
+      await signInWithRedirect(auth, googleProvider);
+      return null;
+    }
+    throw error;
+  }
+};
 
 const PADDLE_CLIENT_TOKEN =
   String(import.meta.env.VITE_PADDLE_CLIENT_TOKEN || 'live_41a7033635d9efa677b7d3a8521').trim();
@@ -2469,7 +2495,7 @@ const LoginPage = ({ setCurrentPage, user }) => {
   const handleGoogleLogin = async () => {
     setError('');
     setLoading(true);
-    try { await signInWithPopup(auth, googleProvider); setCurrentPage('photo-guide'); } catch (e) { setError(friendlyError(e.code)); } finally { setLoading(false); }
+    try { const result = await signInWithGoogleProvider(); if (result) setCurrentPage('photo-guide'); } catch (e) { setError(friendlyError(e.code)); } finally { setLoading(false); }
   };
 
   return (
@@ -2549,7 +2575,7 @@ const RegisterPage = ({ setCurrentPage, user }) => {
   const handleGoogleRegister = async () => {
     setError('');
     setLoading(true);
-    try { await signInWithPopup(auth, googleProvider); setCurrentPage('photo-guide'); } catch (e) { setError(friendlyError(e.code)); } finally { setLoading(false); }
+    try { const result = await signInWithGoogleProvider(); if (result) setCurrentPage('photo-guide'); } catch (e) { setError(friendlyError(e.code)); } finally { setLoading(false); }
   };
 
   return (
