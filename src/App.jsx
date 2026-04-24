@@ -692,7 +692,7 @@ function renderMarkedText(value, options = {}) {
 
 const firebaseConfig = {
   apiKey: "AIzaSyDg9bES9zvmfvsjS6FLjCOKzBb9b6Mm0Ts",
-  authDomain: "mogcheck.net",
+  authDomain: "mogcheck-net.firebaseapp.com",
   projectId: "mogcheck-net",
   storageBucket: "mogcheck-net.firebasestorage.app",
   messagingSenderId: "489045009823",
@@ -707,10 +707,7 @@ const googleProvider = new GoogleAuthProvider();
 
 const shouldUseGoogleRedirect = () => (
   typeof window !== 'undefined' &&
-  (
-    window.matchMedia?.('(max-width: 768px)').matches ||
-    /Android|iPhone|iPad|iPod|Mobi/i.test(window.navigator?.userAgent || '')
-  )
+  /Android|iPhone|iPad|iPod|Mobi/i.test(window.navigator?.userAgent || '')
 );
 
 const signInWithGoogleProvider = async () => {
@@ -8221,7 +8218,7 @@ const App = () => {
   
   return (
     <div className="min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black">
-      <div className="fixed left-2 top-2 z-[9999] pointer-events-none text-[10px] font-black uppercase tracking-widest text-red-500">updated 32</div>
+      <div className="fixed left-2 top-2 z-[9999] pointer-events-none text-[10px] font-black uppercase tracking-widest text-red-500">updated 33</div>
       {!lowPerfMode && <NoiseOverlay />}
       {!isScanOnlyPage && (
         <Navbar
