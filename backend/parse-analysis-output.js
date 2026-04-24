@@ -1213,13 +1213,7 @@ function parseRatingsUseThis(raw, rawValues) {
     if (!match) continue;
     const baseLabel = titleCaseKey(match[1]);
     const aiScore = applyOffset100(parseFloat(match[2], 10));
-    const metricKey = metricLabelToBenchmarkKey(baseLabel);
-    const rawMetricValue =
-      rawValues[baseLabel] !== undefined ? Number(rawValues[baseLabel]) : null;
-    const score =
-      Number.isFinite(rawMetricValue) && metricKey
-        ? computeMetricBenchmarkScore(metricKey, rawMetricValue, aiScore)
-        : aiScore;
+    const score = aiScore;
     let finalLabel = baseLabel;
     if (rawValues[baseLabel] !== undefined) {
       const rawValue = rawValues[baseLabel];
@@ -1453,186 +1447,14 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   const objectiveFrontRating = computeObjectiveFaceRating(frontScoreMap, categories);
   const objectiveSideRating = computeObjectiveFaceRating(sideScoreMap, sideCategories);
   const stylizationSignals = buildStylizationSignalSummary(rawOutput, appealAssessment);
-  const rawCalibrationMetrics = extractCalibrationMetrics(rawValues);
-  const benchmarkFrontBaseline =
-    objectiveFrontRating != null ? objectiveFrontRating : explicitFrontRating ?? finalRating;
-  const benchmarkFrontCalibration = computeBenchmarkCalibrationAnalysis(
-    rawCalibrationMetrics,
-    benchmarkFrontBaseline
-  );
-  const benchmarkFrontRating = benchmarkFrontCalibration?.rating ?? null;
-
-  if (benchmarkFrontRating != null) {
-    const obviousHighTierUndercall =
-      Number.isFinite(explicitFrontRating) &&
-      Number.isFinite(objectiveFrontRating) &&
-      explicitFrontRating <= objectiveFrontRating - 14 &&
-      objectiveFrontRating >= 66 &&
-      Number.isFinite(benchmarkFrontCalibration?.nearestTarget) &&
-      benchmarkFrontCalibration.nearestTarget >= 70 &&
-      benchmarkFrontCalibration.highTierNeighborCount >= 2 &&
-      Number.isFinite(benchmarkFrontCalibration?.nearestDistance) &&
-      benchmarkFrontCalibration.nearestDistance <= 0.28;
-    const obviousEliteUndercall =
-      obviousHighTierUndercall &&
-      benchmarkFrontCalibration.nearestTarget >= 80 &&
-      objectiveFrontRating >= 72 &&
-      explicitFrontRating <= objectiveFrontRating - 18 &&
-      benchmarkFrontCalibration.highTierNeighborCount >= 3 &&
-      benchmarkFrontCalibration.nearestDistance <= 0.22;
-    const exactOrNearExactHighTierMatch =
-      explicitFrontRating != null &&
-      Number.isFinite(benchmarkFrontCalibration?.nearestDistance) &&
-      Number.isFinite(benchmarkFrontCalibration?.nearestTarget) &&
-      benchmarkFrontCalibration.nearestTarget >= 70 &&
-      (
-        benchmarkFrontCalibration.nearestDistance <= 0.03 ||
-        (
-          benchmarkFrontCalibration.nearestDistance <= 0.08 &&
-          benchmarkFrontCalibration.highTierNeighborCount >= 2 &&
-          benchmarkFrontCalibration.lowTierNeighborCount <= 1
-        )
-      );
-    const strongEliteBenchmarkMatch =
-      exactOrNearExactHighTierMatch &&
-      benchmarkFrontCalibration.nearestTarget >= 80 &&
-      (
-        benchmarkFrontCalibration.nearestDistance <= 0.03 ||
-        (
-          benchmarkFrontCalibration.nearestDistance <= 0.08 &&
-          benchmarkFrontCalibration.highTierNeighborCount >= 2
-        )
-      );
-    const exactEliteBenchmarkMatch =
-      strongEliteBenchmarkMatch &&
-      benchmarkFrontCalibration.nearestTarget >= 80 &&
-      benchmarkFrontCalibration.nearestDistance <= 0.01;
-    const moderateNaturalHighTierMatch =
-      !stylizationSignals.hasSyntheticCue &&
-      !stylizationSignals.exaggeratedButCoherentCue &&
-      !stylizationSignals.hasAggressiveCue &&
-      Number.isFinite(explicitFrontRating) &&
-      Number.isFinite(benchmarkFrontCalibration?.nearestDistance) &&
-      benchmarkFrontCalibration.nearestDistance <= 0.45 &&
-      Number.isFinite(benchmarkFrontCalibration?.nearestTarget) &&
-      benchmarkFrontCalibration.nearestTarget >= 72 &&
-      Number.isFinite(benchmarkFrontRating) &&
-      benchmarkFrontRating >= explicitFrontRating + 0.75;
-    const frontMetricAverage = averageFiniteScore(Object.values(frontScoreMap || {}));
-    const frontCategoryAverage = averageFiniteScore(Object.values(categories || {}));
-    const frontHexagonAverage = averageFiniteScore(
-      Object.values(hexagonFront || {}).map((value) => Number(value) * 10)
-    );
-    const hasHighTierLanguage =
-      /\bhigh-tier\b|\belite-tier\b|\bnatural\s*\/\s*coherent\s+high-tier\b|\buniversally\s+conventional\s+high-tier\b/.test(
-        stylizationSignals.text
-      );
-    const coherentHighTierModelRead =
-      !stylizationSignals.hasSyntheticCue &&
-      !stylizationSignals.exaggeratedButCoherentCue &&
-      stylizationSignals.hasCoherentCue &&
-      hasHighTierLanguage &&
-      Number.isFinite(explicitFrontRating) &&
-      explicitFrontRating >= 76 &&
-      (
-        (Number.isFinite(frontMetricAverage) && frontMetricAverage >= 72) ||
-        (Number.isFinite(frontCategoryAverage) && frontCategoryAverage >= 78) ||
-        (Number.isFinite(frontHexagonAverage) && frontHexagonAverage >= 76)
-      );
-    const benchmarkSevereUndercall =
-      coherentHighTierModelRead &&
-      Number.isFinite(benchmarkFrontRating) &&
-      benchmarkFrontRating <= explicitFrontRating - 8;
-
-    if (obviousEliteUndercall) {
-      finalRating = Math.max(
-        objectiveFrontRating,
-        Math.min(benchmarkFrontRating, benchmarkFrontCalibration.nearestTarget)
-      );
-    } else if (obviousHighTierUndercall) {
-      finalRating = Math.max(
-        objectiveFrontRating,
-        Math.min(benchmarkFrontRating, objectiveFrontRating + 8)
-      );
-    } else if (exactEliteBenchmarkMatch) {
-      // If the biometrics are an exact or near-exact match to a known elite
-      // benchmark sample, trust the benchmark-calibrated rating directly.
-      finalRating = benchmarkFrontRating;
-    } else if (strongEliteBenchmarkMatch) {
-      // Strong 8s-tier matches were still getting flattened because the
-      // conservative cap leaned too hard on Gemma's explicit front score.
-      // Allow a much larger uplift here while still preventing runaway jumps.
-      const eliteLiftCap =
-        explicitFrontRating +
-        Math.min(
-          30,
-          Math.max(16, benchmarkFrontCalibration.nearestTarget - explicitFrontRating + 2)
-        );
-      finalRating = Math.min(benchmarkFrontRating, eliteLiftCap);
-    } else if (exactOrNearExactHighTierMatch) {
-      // If the scan is an extremely tight benchmark match to a known high-tier
-      // sample, allow calibration to pull a model undercall upward instead of
-      // hard-capping it at Gemma's explicit front rating.
-      const guardedLift = explicitFrontRating + Math.min(18, Math.max(8, benchmarkFrontCalibration.nearestTarget - explicitFrontRating));
-      finalRating = Math.min(benchmarkFrontRating, guardedLift);
-    } else if (moderateNaturalHighTierMatch) {
-      // Prevent coherent high-tier faces from getting pinned to the common
-      // explicit-front fallback band (for example repeated 71s after the -5
-      // offset) when calibration clearly places them in the low/mid 70s+.
-      const guardedLift =
-        explicitFrontRating +
-        Math.min(
-          8,
-          Math.max(3, benchmarkFrontCalibration.nearestTarget - explicitFrontRating)
-        );
-      finalRating = Math.min(benchmarkFrontRating, guardedLift);
-    } else if (benchmarkSevereUndercall) {
-      // Benchmark calibration is useful for catching hallucinated high scores,
-      // but it should not flatten an internally consistent natural/high-tier
-      // read where the model rating, category scores, and ratio scores all agree.
-      finalRating = explicitFrontRating;
-    } else {
-      const stuckExplicitBand =
-        Number.isFinite(explicitFrontRating) &&
-        explicitFrontRating >= 69 &&
-        explicitFrontRating <= 72 &&
-        Number.isFinite(objectiveFrontRating) &&
-        objectiveFrontRating >= explicitFrontRating + 2 &&
-        Number.isFinite(benchmarkFrontCalibration?.nearestDistance) &&
-        benchmarkFrontCalibration.nearestDistance <= 0.6;
-
-      if (stuckExplicitBand) {
-        // Break the repeated 71/72 lock: when Gemma's explicit front score
-        // lands in the common post-offset band but the objective/benchmark
-        // signals are both higher, let the stored dashboard score lift above
-        // the explicit read instead of freezing there.
-        const unlockedBlend =
-          objectiveFrontRating * 0.55 +
-          benchmarkFrontRating * 0.45;
-        finalRating = Math.min(
-          benchmarkFrontRating,
-          Math.max(explicitFrontRating + 2, unlockedBlend)
-        );
-      } else {
-        // Default behavior stays conservative so benchmark calibration can pull
-        // overcalled faces downward without reopening the generous-score issue.
-        finalRating =
-          explicitFrontRating != null
-            ? Math.min(benchmarkFrontRating, explicitFrontRating)
-            : benchmarkFrontRating;
-      }
-    }
-  } else if (objectiveFrontRating != null) {
+  if (objectiveFrontRating != null) {
     finalRating =
       explicitFrontRating != null
         ? Math.min(objectiveFrontRating, explicitFrontRating)
         : objectiveFrontRating;
   }
   if (objectiveSideRating != null) {
-    sideRating =
-      explicitSideRating != null
-        ? Math.min(objectiveSideRating, explicitSideRating)
-        : objectiveSideRating;
+    sideRating = objectiveSideRating;
   }
 
   const uncannyCap = detectUncannyRatingCap(
@@ -1647,7 +1469,6 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   const uncannyPrimaryFlaws = buildUncannyPrimaryFlawEntries(rawOutput, categories, appealAssessment);
   if (uncannyCap != null) {
     if (finalRating != null) finalRating = Math.min(finalRating, uncannyCap);
-    if (sideRating != null) sideRating = Math.min(sideRating, uncannyCap);
   }
   const nonHumanCue = /\b(?:non[-\s]?human|not\s+(?:a\s+)?(?:real|natural)\s+human|cartoon|cartoony|anime|drawn|inanimate|mannequin|biologically\s+impossible|clearly\s+ai[-\s]?generated|appears\s+ai[-\s]?generated|likely\s+ai[-\s]?generated)\b/i.test(
     `${rawOutput || ''}\n${appealAssessment || ''}`

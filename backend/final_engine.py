@@ -246,7 +246,6 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("[3/3] Consulting AI...")
 
     prompt_visual_inputs = "INPUT C (Frontal Visual): High-resolution frontal image provided."
-    benchmark_calibration = load_benchmark_calibration_summary()
     feature_selection_rules = """
         BEST/WORST FEATURE SELECTION RULES:
         - Choose BEST FEATURES and PRIMARY FLAWS using BOTH the measurement data in mog_report / side metadata AND the actual visual appearance in the photo(s).
@@ -266,7 +265,6 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         INPUT A (Frontal Metadata): {clinical_data}
         INPUT B (Side Profile Metadata): {side_data}
         {prompt_visual_inputs}
-        INPUT D (Local Benchmark Calibration): {benchmark_calibration}
         TECHNICAL VISIBILITY & OVERRIDE RULES:
         - CANTHAL TILT MUST NOT BE IGNORED: Use BOTH the Canthal_Tilt_Degrees value from INPUT A and the actual visible eye tilt in the frontal image.
         If the metadata and the photo disagree, explain the uncertainty internally and use the clearer evidence, but never discard the canthal tilt measurement by default.
@@ -517,7 +515,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         **Technical Summary:** [Blend Frontal Metadata with Side Profile Metadata.
         Use *bolding* sparingly when emphasis is helpful].
 
-        **Appeal Assessment:** [Identify phenotype and target audience appeal. If the face falls into the EXAGGERATED BUT COHERENT bucket, explicitly say that the appeal is more niche / editorial / high-fashion rather than universally conventional. Do NOT frame extreme masculinity or aggressive breadth as elite natural appeal. Do NOT say aggressive dimorphism is required for high-tier appeal; balanced harmony is the goal.]
+        **Appeal Assessment:** [Start by clearly stating likely race/ethnicity and sex in plain language, then explain phenotype and target audience appeal. Example opening: "Likely race/ethnicity: [group or mixed/uncertain]. Sex: [male/female/uncertain]." If uncertain, say so instead of guessing too confidently. If the face falls into the EXAGGERATED BUT COHERENT bucket, explicitly say that the appeal is more niche / editorial / high-fashion rather than universally conventional. Do NOT frame extreme masculinity or aggressive breadth as elite natural appeal. Do NOT say aggressive dimorphism is required for high-tier appeal; balanced harmony is the goal.]
         **Hexagon Chart Ratings (front)**
         - Skin: [Score 1-10]
         - Bone: [Score 1-10]

@@ -2845,6 +2845,29 @@ const FaceScanOverlay = ({
 };
 
 /** mainImageSrc: front preview URL; mainImageFile: native File for reliable FormData uploads */
+const SCAN_PROGRESS_MESSAGES = [
+  'Mapping facial landmarks',
+  'Checking structural balance',
+  'Finding weak points',
+  'Reading soft tissue',
+  'Comparing front and side cues',
+  'Writing the analysis',
+];
+
+const getEstimatedScanTotalMs = (choice, fairUsageState) => {
+  if (fairUsageState?.lowPriority) return 5 * 60 * 1000;
+  if (choice === '1') return 3.5 * 60 * 1000;
+  if (choice === '2') return 2.5 * 60 * 1000;
+  return 90 * 1000;
+};
+
+const formatTimeLeft = (ms) => {
+  const sec = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+};
+
 const ScanningView = ({
   mainImageSrc,
   mainImageFile,
@@ -2859,6 +2882,8 @@ const ScanningView = ({
   compact = false,
   analysisLabel = 'Analysis',
   onDismiss,
+  onOpen,
+  onStatusChange,
 }) => {
   const [statusText, setStatusText] = useState('Connecting to Backend Bridge...');
   const [videoUrl, setVideoUrl] = useState(null);
@@ -2885,8 +2910,22 @@ const ScanningView = ({
   onCompleteRef.current = onComplete;
   const onScanFailedRef = useRef(onScanFailed);
   onScanFailedRef.current = onScanFailed;
+  const onStatusChangeRef = useRef(onStatusChange);
+  onStatusChangeRef.current = onStatusChange;
   const userRef = useRef(user);
   userRef.current = user;
+
+  useEffect(() => {
+    onStatusChangeRef.current?.({
+      statusText,
+      hasError,
+      videoUrl,
+      landmarks,
+      fairUsageState,
+      overlayRevealSeconds,
+      overlayScanLoopSeconds,
+    });
+  }, [fairUsageState, hasError, landmarks, overlayRevealSeconds, overlayScanLoopSeconds, statusText, videoUrl]);
 
   useEffect(() => {
     let active = true;
@@ -3062,8 +3101,6 @@ const ScanningView = ({
           }
         }
 
-        setStatusText('Running AI analysis... 0:00 elapsed. Leave this tab open.');
-
         const headers = {};
         if (authToken) {
           headers.Authorization = `Bearer ${authToken}`;
@@ -3075,20 +3112,20 @@ const ScanningView = ({
         const ANALYZE_CLIENT_MAX_MS = 10 * 60 * 1000;
         const analyzeHardStop = setTimeout(() => analyzeAbort.abort(), ANALYZE_CLIENT_MAX_MS);
 
-        const formatElapsed = () => {
-          const sec = Math.floor((Date.now() - scanStartedAt) / 1000);
-          const m = Math.floor(sec / 60);
-          const s = sec % 60;
-          return `${m}:${String(s).padStart(2, '0')}`;
+        const buildProgressMessage = () => {
+          const elapsedMs = Date.now() - scanStartedAt;
+          const totalMs = getEstimatedScanTotalMs(choice, currentFairUsage);
+          const remaining = formatTimeLeft(totalMs - elapsedMs);
+          const phaseIndex = Math.floor(elapsedMs / 4000) % SCAN_PROGRESS_MESSAGES.length;
+          const queueNote = currentFairUsage?.lowPriority ? ' Low-priority queue active.' : '';
+          return `${SCAN_PROGRESS_MESSAGES[phaseIndex]}... Estimated time left: ${remaining}.${queueNote}`;
         };
+
+        setStatusText(buildProgressMessage());
 
         const progressTick = setInterval(() => {
           if (!active) return;
-            setStatusText(
-              currentFairUsage?.lowPriority
-                ? `Running AI analysis... ${formatElapsed()} elapsed. You are in the low priority queue.`
-                : `Running AI analysis... ${formatElapsed()} elapsed. Ultra scans can take a few minutes.`
-            );
+          setStatusText(buildProgressMessage());
         }, 4000);
 
         const runAnalyzeRequest = async () => {
@@ -3192,7 +3229,19 @@ const ScanningView = ({
 
   if (compact) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#0c0d0e]/95 shadow-[0_0_28px_rgba(34,211,238,0.12)] backdrop-blur-xl">
+      <div
+        className={`overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#0c0d0e]/95 shadow-[0_0_28px_rgba(34,211,238,0.12)] backdrop-blur-xl ${onOpen ? 'cursor-pointer transition-transform hover:scale-[1.01]' : ''}`}
+        onClick={onOpen}
+        role={onOpen ? 'button' : undefined}
+        tabIndex={onOpen ? 0 : undefined}
+        onKeyDown={(event) => {
+          if (!onOpen) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onOpen();
+          }
+        }}
+      >
         <div className="flex items-center gap-3 px-3 py-2.5">
           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-cyan-500/25 bg-zinc-950">
             {videoUrl ? (
@@ -3241,7 +3290,7 @@ const ScanningView = ({
               </div>
             )}
             <p className="mt-1 truncate text-[10px] leading-relaxed text-zinc-400">
-              {hasError ? statusText : 'Working in background'}
+              {statusText}
             </p>
             {!hasError && (
               <div className="mt-2 overflow-hidden rounded-full border border-cyan-500/15 bg-zinc-900/80 p-1">
@@ -3252,7 +3301,10 @@ const ScanningView = ({
 
           <button
             type="button"
-            onClick={() => (onDismiss ? onDismiss() : onScanFailedRef.current?.())}
+            onClick={(event) => {
+              event.stopPropagation();
+              return onDismiss ? onDismiss() : onScanFailedRef.current?.();
+            }}
             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-500 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
             aria-label="Dismiss analysis"
           >
@@ -3394,18 +3446,19 @@ const AnalysisDock = ({
   collapsed,
   setCollapsed,
   onOpenResult,
+  onOpenRunning,
+  onJobStatusChange,
   onDismiss,
   currentPage,
 }) => {
   if (!Array.isArray(jobs) || jobs.length === 0) return null;
-  if (currentPage === 'upload-photo' || currentPage === 'upload-ultra') return null;
 
   const runningCount = jobs.filter((job) => job.state === 'running').length;
   const completedCount = jobs.filter((job) => job.state === 'complete').length;
   const visibleJobs = jobs.slice(0, 4);
   const hiddenJobsCount = Math.max(0, jobs.length - visibleJobs.length);
 
-  if (collapsed) {
+  if (collapsed && runningCount === 0) {
     return (
       <div
         className="fixed bottom-5 z-[240] flex flex-col items-end gap-2"
@@ -3415,7 +3468,7 @@ const AnalysisDock = ({
           <button
             key={job.id}
             type="button"
-            onClick={() => setCollapsed(false)}
+            onClick={() => (job.state === 'complete' ? onOpenResult(job.id) : onOpenRunning(job.id))}
             className="inline-flex min-w-[184px] items-center gap-3 rounded-full border border-cyan-500/25 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_35px_rgba(34,211,238,0.18)] backdrop-blur-xl transition-transform hover:scale-[1.01]"
           >
             <span className={`inline-flex h-2.5 w-2.5 rounded-full ${job.state === 'complete' ? 'bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.85)]' : 'bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse'}`} />
@@ -3467,13 +3520,15 @@ const AnalysisDock = ({
               +{hiddenJobsCount} more
             </span>
           )}
-          <button
-            type="button"
-            onClick={() => setCollapsed(true)}
-            className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 transition-colors hover:text-cyan-300"
-          >
-            Minimize
-          </button>
+          {runningCount === 0 && (
+            <button
+              type="button"
+              onClick={() => setCollapsed(true)}
+              className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 transition-colors hover:text-cyan-300"
+            >
+              Minimize
+            </button>
+          )}
         </div>
       </div>
       <div className="flex flex-col items-end gap-2">
@@ -3489,6 +3544,8 @@ const AnalysisDock = ({
               <ScanningView
                 compact
                 analysisLabel={job.analysisLabel}
+                onOpen={() => onOpenRunning(job.id)}
+                onStatusChange={(status) => onJobStatusChange(job.id, status)}
                 onDismiss={() => onDismiss(job.id)}
                 mainImageSrc={job.mainImageSrc}
                 mainImageFile={job.mainImageFile}
@@ -3505,6 +3562,126 @@ const AnalysisDock = ({
           </div>
         )}
       </div>
+    </div>
+  );
+};
+
+const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
+  const [scanningCeleb, setScanningCeleb] = useState(null);
+
+  if (!job) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#0c0d0e] px-6 text-center">
+        <p className="text-xs font-bold uppercase tracking-[0.3em] text-zinc-500">No active scan</p>
+        <button
+          type="button"
+          onClick={() => setCurrentPage('upload-photo')}
+          className="mt-6 rounded-full border border-zinc-700 bg-zinc-900 px-5 py-2 text-xs font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
+        >
+          Start Scan
+        </button>
+      </div>
+    );
+  }
+
+  const isUltra31 = job.choice === "1";
+  const overlayRevealSeconds = job.overlayRevealSeconds || (isUltra31 ? 34 : job.choice === "2" ? 24 : 36);
+  const overlayScanLoopSeconds = job.overlayScanLoopSeconds || (isUltra31 ? 4 : job.choice === "2" ? 4.5 : 4);
+  const lowPriorityBadge = job.fairUsageState?.lowPriority
+    ? (job.fairUsageState.badgeText || 'High usage detected, you have been placed on low-priority queue.')
+    : '';
+  const statusText = job.statusText || 'Preparing analysis... Estimated time left: calculating.';
+  const isLongStatus = statusText.length > 50 || /API offline|Can't reach|Error:|Invalid response|Sign in required/i.test(statusText);
+
+  return (
+    <div className="flex-grow flex flex-col bg-[#0c0d0e] scroll-mt-20">
+      <style>{`
+        @keyframes scan {
+          0% { transform: translateY(-120px); opacity: 0.24; }
+          8% { opacity: 1; }
+          92% { opacity: 1; }
+          100% { transform: translateY(620px); opacity: 0.24; }
+        }
+        @keyframes dash { to { stroke-dashoffset: 0; } }
+        @keyframes fadeIn { to { opacity: 1; } }
+        @keyframes meshPulse {
+          0%, 100% { stroke-opacity: 0.42; }
+          50% { stroke-opacity: 0.7; }
+        }
+        @keyframes pointPulse {
+          0%, 100% { opacity: 0.55; filter: drop-shadow(0 0 0 rgba(34,211,238,0)); }
+          50% { opacity: 1; filter: drop-shadow(0 0 4px rgba(34,211,238,0.75)); }
+        }
+      `}</style>
+      <div className="flex flex-col items-center pt-24 pb-16 px-6 lg:px-12 relative min-h-screen">
+        <div className="w-full h-full flex flex-col items-center justify-center animate-[fadeIn_0.5s_ease-out]">
+          <div className="text-center mb-10 mt-10">
+            <h2 className="text-2xl sm:text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-cyan-400 mb-2 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] animate-pulse">Consulting AI</h2>
+            <p
+              className={`font-sans text-xs sm:text-sm text-zinc-400 ${
+                isLongStatus
+                  ? 'normal-case tracking-normal max-w-lg mx-auto px-4 leading-relaxed'
+                  : 'uppercase tracking-[0.3em]'
+              }`}
+            >
+              {statusText}
+            </p>
+            {lowPriorityBadge && (
+              <div className="mt-4 inline-flex max-w-[min(92vw,720px)] rounded-full border border-red-500/35 bg-red-500/12 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-red-300">
+                <span className="truncate">{lowPriorityBadge}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
+            {job.videoUrl ? (
+              <video src={job.videoUrl} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover z-10" />
+            ) : (
+              <>
+                <img src={job.mainImageSrc} alt="Scan target" className="absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%] z-0" />
+                <div className="absolute inset-0 bg-blue-900/30 mix-blend-overlay z-0" />
+              </>
+            )}
+
+            {!job.videoUrl && (
+              <FaceScanOverlay
+                landmarksData={job.landmarks}
+                revealDurationSeconds={overlayRevealSeconds}
+                scanLoopSeconds={overlayScanLoopSeconds}
+              />
+            )}
+
+            <div className="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-cyan-500/80 z-30" />
+            <div className="absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 border-cyan-500/80 z-30" />
+            <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-cyan-500/80 z-30" />
+            <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-cyan-500/80 z-30" />
+          </div>
+
+          <div className="mt-16 flex flex-col items-center gap-3 animate-bounce cursor-pointer hover:scale-105 transition-transform" onClick={() => window.scrollBy({ top: 600, behavior: 'smooth' })}>
+            <div className="bg-cyan-500/10 border border-cyan-500/30 px-6 py-2 rounded-full shadow-[0_0_15px_rgba(34,211,238,0.2)]">
+              <span className="text-cyan-400 font-bold font-sans text-xs uppercase tracking-[0.3em]">Scroll down while you wait</span>
+            </div>
+            <ChevronRight size={24} className="text-cyan-400 rotate-90 drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+          </div>
+        </div>
+      </div>
+      <div className="border-t border-zinc-800/50">
+        <CelebrityRatingPage setCurrentPage={() => {}} setSelectedCelebrity={setScanningCeleb} user={user} />
+      </div>
+      {scanningCeleb && (
+        <div className="fixed inset-0 z-[220] overflow-y-auto bg-black/85 backdrop-blur-xl">
+          <div className="sticky top-0 z-10 flex justify-end border-b border-zinc-900 bg-[#0c0d0e]/95 px-4 py-4">
+            <button
+              type="button"
+              onClick={() => setScanningCeleb(null)}
+              className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/80 px-4 py-2 text-xs font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
+            >
+              <X size={14} /> Back to scan
+            </button>
+          </div>
+          <CelebrityStatsPage celeb={scanningCeleb} setCurrentPage={() => setScanningCeleb(null)} />
+        </div>
+      )}
     </div>
   );
 };
@@ -3728,17 +3905,21 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     setScanningCeleb(null);
 
     setDashboardData(prev => {
-      const newScanHistory = prev?.scanHistory ? [...prev.scanHistory] : [];
-      const newRatingHistory = prev?.ratingHistory ? [...prev.ratingHistory] : [];
+      const sameProfile =
+        String(prev?.profileId || 'default').trim() === completedScan.profileId;
+      const newScanHistory =
+        sameProfile && Array.isArray(prev?.scanHistory) ? [...prev.scanHistory] : [];
+      const newRatingHistory =
+        sameProfile && Array.isArray(prev?.ratingHistory) ? [...prev.ratingHistory] : [];
 
-      if (prev && prev.frontImage && prev.finalRating && newScanHistory.length === 0) {
-         newScanHistory.push({
-           ...prev,
-           scannedAt: prev.scannedAt || completedAt,
-         });
+      if (sameProfile && prev && prev.frontImage && prev.finalRating && newScanHistory.length === 0) {
+        newScanHistory.push({
+          ...prev,
+          scannedAt: prev.scannedAt || completedAt,
+        });
       }
-      if (prev && prev.finalRating && newRatingHistory.length === 0) {
-         newRatingHistory.push(prev.finalRating);
+      if (sameProfile && prev && prev.finalRating && newRatingHistory.length === 0) {
+        newRatingHistory.push(prev.finalRating);
       }
 
       newScanHistory.push(completedScan);
@@ -4221,8 +4402,11 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                   user,
                   profileId: actualProfileId,
                 });
-                setActiveAnalysisJob(queuedJob || null);
-                setIsScanning(true);
+                if (queuedJob) {
+                  setActiveAnalysisJob(null);
+                  setIsScanning(false);
+                  setCurrentPage('consulting-ai');
+                }
 
                 setFrontImage(null);
                 setFrontFile(null);
@@ -7616,6 +7800,7 @@ const App = () => {
   const [userPlan, setUserPlan] = useState({ plan: 'free', scanCredits: 0, loaded: false });
   const [analysisJobs, setAnalysisJobs] = useState([]);
   const [analysisDockCollapsed, setAnalysisDockCollapsed] = useState(false);
+  const [focusedAnalysisJobId, setFocusedAnalysisJobId] = useState(null);
   const analysisJobsRef = useRef([]);
 
   useEffect(() => {
@@ -7817,16 +8002,20 @@ const App = () => {
 
     if (!options?.skipDashboardUpdate) {
       setDashboardData((prev) => {
-        const newScanHistory = prev?.scanHistory ? [...prev.scanHistory] : [];
-        const newRatingHistory = prev?.ratingHistory ? [...prev.ratingHistory] : [];
+        const sameProfile =
+          String(prev?.profileId || 'default').trim() === completedScan.profileId;
+        const newScanHistory =
+          sameProfile && Array.isArray(prev?.scanHistory) ? [...prev.scanHistory] : [];
+        const newRatingHistory =
+          sameProfile && Array.isArray(prev?.ratingHistory) ? [...prev.ratingHistory] : [];
 
-        if (prev && prev.frontImage && prev.finalRating && newScanHistory.length === 0) {
+        if (sameProfile && prev && prev.frontImage && prev.finalRating && newScanHistory.length === 0) {
           newScanHistory.push({
             ...prev,
             scannedAt: prev.scannedAt || completedAt,
           });
         }
-        if (prev && prev.finalRating && newRatingHistory.length === 0) {
+        if (sameProfile && prev && prev.finalRating && newRatingHistory.length === 0) {
           newRatingHistory.push(prev.finalRating);
         }
 
@@ -7869,13 +8058,28 @@ const App = () => {
             : job
         )
       );
+      if (!options?.skipDashboardUpdate) {
+        setDashboardData(completedScan);
+        setCurrentPage('dashboard');
+      }
     };
 
     const queuedJob = { ...baseJob, onComplete };
+    setFocusedAnalysisJobId(jobId);
     setAnalysisDockCollapsed(false);
     setAnalysisJobs((prev) => [queuedJob, ...prev]);
     return queuedJob;
-  }, [registerCompletedScan]);
+  }, [registerCompletedScan, setCurrentPage]);
+
+  const updateAnalysisJobStatus = useCallback((jobId, status = {}) => {
+    setAnalysisJobs((prev) =>
+      prev.map((job) =>
+        job.id === jobId && job.state === 'running'
+          ? { ...job, ...status }
+          : job
+      )
+    );
+  }, []);
 
   const dismissAnalysisJob = useCallback((jobId) => {
     setAnalysisJobs((prev) => prev.filter((job) => job.id !== jobId));
@@ -7888,6 +8092,20 @@ const App = () => {
     setCurrentPage('dashboard');
     setAnalysisJobs((prev) => prev.filter((entry) => entry.id !== jobId));
   }, [setCurrentPage]);
+
+  const openRunningAnalysisJob = useCallback((jobId) => {
+    const job = analysisJobsRef.current.find((entry) => entry.id === jobId);
+    if (!job) return;
+    if (job.state === 'complete') {
+      openAnalysisResult(jobId);
+      return;
+    }
+    setFocusedAnalysisJobId(jobId);
+    setAnalysisDockCollapsed(false);
+    setCurrentPage('consulting-ai');
+  }, [openAnalysisResult, setCurrentPage]);
+
+  const focusedAnalysisJob = analysisJobs.find((job) => job.id === focusedAnalysisJobId) || null;
 
   useEffect(() => {
     if (currentPage !== 'dashboard') return;
@@ -7922,6 +8140,7 @@ const App = () => {
       <main className="flex flex-col min-h-screen">
         {currentPage === 'home' && <HomePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'photo-guide' && <PhotoGuidePage setCurrentPage={setCurrentPage} />}
+        {currentPage === 'consulting-ai' && <ConsultingStatusPage job={focusedAnalysisJob} setCurrentPage={setCurrentPage} user={user} />}
         {(currentPage === 'upload-photo' || currentPage === 'upload-ultra') && (
           <UploadPhotoPage
             key={`upload-${currentPage}-${pendingUploadModel ?? 'default'}`}
@@ -8007,6 +8226,8 @@ const App = () => {
         collapsed={analysisDockCollapsed}
         setCollapsed={setAnalysisDockCollapsed}
         onOpenResult={openAnalysisResult}
+        onOpenRunning={openRunningAnalysisJob}
+        onJobStatusChange={updateAnalysisJobStatus}
         onDismiss={dismissAnalysisJob}
         currentPage={currentPage}
       />
