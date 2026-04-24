@@ -2916,6 +2916,38 @@ const formatTimeLeft = (ms) => {
   return `${m}:${String(s).padStart(2, '0')}`;
 };
 
+const isTransientMobileScanError = (error) => {
+  const message = String(error?.message || error || '').toLowerCase();
+  return (
+    error?.name === 'TypeError' &&
+    (
+      message.includes('load failed') ||
+      message.includes('failed to fetch') ||
+      message.includes('networkerror') ||
+      message.includes('network request failed')
+    )
+  );
+};
+
+const buildRecoveredScanPayload = (scan = {}) => {
+  const payload = scan && typeof scan.payload === 'object' && scan.payload ? scan.payload : {};
+  return {
+    ...payload,
+    scanId: payload.scanId || scan.scanId || scan.id || null,
+    scanRequestId: payload.scanRequestId || scan.scanRequestId || null,
+    profileId: payload.profileId || scan.profileId || 'default',
+    selectedModel: String(payload.selectedModel || scan.selectedModel || scan.model || '').trim() || '3',
+    frontImage: scan.frontImageUrl || scan.frontImage || payload.frontImage || null,
+    sideImage: scan.sideImageUrl || scan.sideImage || payload.sideImage || null,
+    debugAnchorsImage: scan.debugAnchorsImageUrl || scan.debugAnchorsImage || payload.debugAnchorsImage || payload.debugAnchorsImageUrl || null,
+    debugAnchorsImageUrl: scan.debugAnchorsImageUrl || payload.debugAnchorsImageUrl || payload.debugAnchorsImage || null,
+    debugRatiosImage: scan.debugRatiosImageUrl || scan.debugRatiosImage || payload.debugRatiosImage || payload.debugRatiosImageUrl || null,
+    debugRatiosImageUrl: scan.debugRatiosImageUrl || payload.debugRatiosImageUrl || payload.debugRatiosImage || null,
+    scannedAt: scan.scannedAt || scan.createdAt || payload.scannedAt || null,
+    success: true,
+  };
+};
+
 const ScanningView = ({
   mainImageSrc,
   mainImageFile,
@@ -3023,6 +3055,7 @@ const ScanningView = ({
       let scanSucceeded = false;
       let currentFairUsage = null;
       let authToken = null;
+      let activeUser = null;
 
       const fetchWithTimeoutRetry = async (url, options = {}, attempt = 1) => {
         const { timeoutMs = 8000, ...fetchOptions } = options;
@@ -3043,9 +3076,46 @@ const ScanningView = ({
         }
       };
 
+      const pollForSavedScan = async () => {
+        if (!activeUser || !scanRequestId) return null;
+        let token = authToken;
+        if (!token) {
+          try {
+            token = await activeUser.getIdToken();
+          } catch {
+            return null;
+          }
+        }
+
+        const startedAt = Date.now();
+        const maxWaitMs = 3 * 60 * 1000;
+        while (active && Date.now() - startedAt < maxWaitMs) {
+          setStatusText('Mobile connection briefly dropped. Scan is still running... reconnecting to saved result.');
+          try {
+            const scansRes = await fetchWithTimeoutRetry(`${API_BASE}/api/user/scans`, {
+              timeoutMs: 12000,
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (scansRes.ok) {
+              const scansData = await scansRes.json().catch(() => ({}));
+              const scans = Array.isArray(scansData.scans) ? scansData.scans : [];
+              const recovered = scans.find((scan) => {
+                const payload = scan && typeof scan.payload === 'object' && scan.payload ? scan.payload : {};
+                return String(scan.scanRequestId || payload.scanRequestId || '') === scanRequestId;
+              });
+              if (recovered) return buildRecoveredScanPayload(recovered);
+            }
+          } catch (pollErr) {
+            console.warn('Saved scan recovery poll failed', pollErr);
+          }
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+        }
+        return null;
+      };
+
       try {
         const isUltra = choice === "1" || choice === "2";
-        const activeUser = userRef.current;
+        activeUser = userRef.current;
 
         setStatusText("Checking analysis server...");
         try {
@@ -3252,6 +3322,17 @@ const ScanningView = ({
         }
       } catch (err) {
         console.error("API failed", err);
+        if (isTransientMobileScanError(err) && activeUser) {
+          const recoveredScan = await pollForSavedScan();
+          if (!active) return;
+          if (recoveredScan) {
+            scanSucceeded = true;
+            rememberScanDuration(choice, currentFairUsage, Date.now() - scanStartedAt);
+            setStatusText("Analysis Complete! Transitioning...");
+            onCompleteRef.current(recoveredScan);
+            return;
+          }
+        }
         setStatusText(
           err?.name === 'AbortError'
             ? 'Analysis timed out after about 10 minutes. Please try again with a smaller image or try again in a moment.'
@@ -8154,7 +8235,7 @@ const App = () => {
   
   return (
     <div className="min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black">
-      <div className="fixed left-2 top-2 z-[9999] pointer-events-none text-[10px] font-black uppercase tracking-widest text-red-500">updated 34</div>
+      <div className="fixed left-2 top-2 z-[9999] pointer-events-none text-[10px] font-black uppercase tracking-widest text-red-500">updated 35</div>
       <NoiseOverlay />
       {!isScanOnlyPage && (
         <Navbar
