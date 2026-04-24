@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const STORE_FILE = path.join(__dirname, 'local-user-store.json');
+const PROFILE_SCAN_HISTORY_LIMIT = 10;
 
 function defaults() {
   return { users: {} };
@@ -166,8 +167,59 @@ function upsertScan(uid, scanId, scan) {
     user.profiles[profileId].updatedAt = new Date().toISOString();
   }
 
+  const profileScanEntries = Object.entries(user.scans || {})
+    .filter(([, item]) => (item?.profileId || 'default') === profileId)
+    .sort(([, a], [, b]) => timestampValue(b.timestamp || b.scannedAt) - timestampValue(a.timestamp || a.scannedAt));
+  profileScanEntries.slice(PROFILE_SCAN_HISTORY_LIMIT).forEach(([oldScanId]) => {
+    delete user.scans[oldScanId];
+  });
+
   save();
   return clone(next);
+}
+
+function replaceScans(uid, scans = []) {
+  const user = ensureUser(uid);
+  if (!user) return [];
+
+  const grouped = {};
+  for (const rawScan of Array.isArray(scans) ? scans : []) {
+    const scanId = String(rawScan?.id || rawScan?.scanId || '').trim();
+    if (!scanId) continue;
+    const normalized = normalizeScan(uid, scanId, clone(rawScan));
+    const profileId = normalized.profileId || 'default';
+    if (!grouped[profileId]) grouped[profileId] = [];
+    grouped[profileId].push(normalized);
+  }
+
+  const nextScans = {};
+  Object.values(grouped).forEach((entries) => {
+    entries
+      .sort((a, b) => timestampValue(b.timestamp || b.scannedAt) - timestampValue(a.timestamp || a.scannedAt))
+      .slice(0, PROFILE_SCAN_HISTORY_LIMIT)
+      .forEach((scan) => {
+        nextScans[scan.scanId] = scan;
+      });
+  });
+
+  user.scans = nextScans;
+
+  Object.values(nextScans).forEach((scan) => {
+    const profileId = scan.profileId || 'default';
+    if (!user.profiles[profileId]) {
+      user.profiles[profileId] = normalizeProfile(uid, profileId, {
+        name: scan.payload?.profileName || scan.profileName || 'New Profile',
+        visibility: 'private',
+        createdAt: scan.scannedAt,
+        updatedAt: scan.scannedAt,
+      });
+    } else {
+      user.profiles[profileId].updatedAt = new Date().toISOString();
+    }
+  });
+
+  save();
+  return listScans(uid);
 }
 
 function getScan(uid, scanId) {
@@ -191,6 +243,13 @@ function deleteScan(uid, scanId) {
   save();
 }
 
+function deleteUser(uid) {
+  const safeUid = String(uid || '').trim();
+  if (!safeUid || !cache.users[safeUid]) return;
+  delete cache.users[safeUid];
+  save();
+}
+
 load();
 
 module.exports = {
@@ -198,7 +257,9 @@ module.exports = {
   deleteProfile,
   listProfiles,
   upsertScan,
+  replaceScans,
   getScan,
   listScans,
   deleteScan,
+  deleteUser,
 };

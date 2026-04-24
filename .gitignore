@@ -39,3 +39,4 @@ build_error_utf8.txt
 *.njsproj
 *.sln
 *.sw?
+.vercel

@@ -70,13 +70,14 @@ def load_benchmark_calibration_summary():
         return f"Local benchmark calibration could not be loaded: {error}"
 
     bucket_order = [
-        ("Uncanny training", "uncanny / synthetic / overbuilt examples", "about 52"),
+        ("Uncanny training", "uncanny / synthetic / overbuilt examples", "about 48"),
         ("Exatraggted But not uncanny", "exaggerated but coherent / striking examples", "about 76"),
         ("The 3s", "3-range / very low tier", "about 35"),
         ("The 4s", "4-range / low tier", "about 45"),
         ("The 5s", "5-range / lower-average tier", "about 55"),
         ("The 6s", "6-range / decent-above-average tier", "about 65"),
         ("7s", "7-range / attractive high-tier baseline", "about 75"),
+        ("The 8s", "8-range / elite natural high-tier examples", "about 85"),
     ]
     metric_keys = ("fWHR", "Midface", "Bigonial", "IPD", "Eye", "Brow", "Philtrum", "Canthal")
     lines = [
@@ -84,7 +85,7 @@ def load_benchmark_calibration_summary():
         "Use these as soft anchors together with the photo. Do not blindly copy a bucket; classify by overall visual harmony plus measurements.",
         "Especially important: the 7s folder contains faces that should generally remain in the 70s when they look natural/coherent.",
         "The 'Exatraggted But not uncanny' folder contains striking / high-fashion / over-the-top faces that are still coherent and should usually stay in the 70s rather than being collapsed into uncanny penalties.",
-        "The 'Uncanny training' folder contains synthetic / overbuilt / artificial-looking faces that should be punished much more heavily even when some local ratios look strong.",
+        "The 'Uncanny training' folder contains synthetic / overbuilt / artificial-looking faces that should be punished very heavily even when some local ratios look strong.",
     ]
 
     for folder, label, target in bucket_order:
@@ -308,6 +309,8 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            If fWHR becomes obviously too high / too wide, start subtracting harmony rather than rewarding it.
            If fWHR reaches roughly 2.10 or above, treat that as clearly over-dimorphic and less aesthetic.
            If it becomes extremely wide / brutish / blocky, the deduction should be strong rather than light.
+           Never frame extreme width, extreme breadth, or extreme masculinity as premium strengths by themselves.
+           Raw breadth / fWHR / bigonial width can only help when they stay balanced, elegant, and natural-looking.
            - MIDFACE: Do NOT treat mildly long midfaces as a major flaw.
            A Midface_Ratio around 1.00-1.07 is only a light concern and by itself should usually NOT become the #1 WORST FEATURE.
            Treat elongated midface as a true structural flaw only when it is clearly long (roughly 1.08+) and make it a high-priority flaw when it is more obvious (roughly 1.12+) or when it combines with other long-face signals like elongated thirds, narrow facial width, or vertically stretched harmony.
@@ -372,6 +375,8 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            If the features are extreme but proportionally integrated, the deduction should be extremely light rather than harsh.
            If the face instead reads like an AI beauty render, FaceApp-style hyper-edit, fantasy-male model, mannequin, or over-optimized "internet mog" face, do NOT place it here.
            In those cases, treat the face as uncanny / synthetic even if some individual ratios look strong.
+           IMPORTANT: Do NOT praise this bucket with wording like "extreme dimorphism", "elite breadth and definition", or "highly masculine and striking phenotype" as if those are elite natural positives.
+           If the face is strong mainly because it is aggressive, overbuilt, very broad, or overly masculine, explicitly frame that as niche / editorial / limiting rather than universally high-tier.
 
            DOUBT RULE:
            If you are uncertain whether a face is merely "striking" or actually "uncanny / synthetic", do NOT default to generosity.
@@ -446,6 +451,8 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - A face with an AI-generated hypermasculine look should not be described as elite natural harmony unless it truly looks believable and human first.
            - If the visual read says "edited / synthetic / fantasy-male aesthetic", do not let strong numbers rescue it into a score band meant for real high-tier faces.
            - Calibration example: a face with a giant carved jaw, hollow cheeks, compressed brow/eye area, glassy symmetry, and "male-model render" energy should usually land somewhere around the upper-40s to high-50s depending on how distorted or synthetic it looks, not around 78-85.
+           - Do NOT call raw breadth / bigonial width / fWHR / zygomatic breadth the BEST FEATURE if those very traits are what make the face read overbuilt, aggressive, editorial, or niche.
+           - If the face is overbuilt or over-dimorphic, prefer strengths like eye area, symmetry, skin, or one genuinely elegant feature over praising the exaggerated width itself.
            - Faces with obvious flaws and only decent structure usually land around 42-58.
            - Above-average attractive faces usually land around 58-72.
            - Strong/high-tier attractive faces usually land around 72-80.
@@ -470,7 +477,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         **Technical Summary:** [Blend Frontal Metadata with Side Profile Metadata.
         Use *bolding* sparingly when emphasis is helpful].
 
-        **Appeal Assessment:** [Identify phenotype and target audience appeal. If the face falls into the EXAGGERATED BUT COHERENT bucket, explicitly say that the appeal is more niche / editorial / high-fashion rather than universally conventional, but do NOT frame that alone as a major flaw.]
+        **Appeal Assessment:** [Identify phenotype and target audience appeal. If the face falls into the EXAGGERATED BUT COHERENT bucket, explicitly say that the appeal is more niche / editorial / high-fashion rather than universally conventional. Do NOT frame extreme masculinity or aggressive breadth as elite natural appeal.]
         **Hexagon Chart Ratings (front)**
         - Skin: [Score 1-10]
         - Bone: [Score 1-10]

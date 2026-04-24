@@ -306,6 +306,90 @@ function findCommunityScanTemplate(scan) {
     .map(getCommunityImageToken)
     .filter(Boolean);
 
+  if (compact) {
+    return (
+      <div className="overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#0c0d0e]/95 shadow-[0_0_40px_rgba(34,211,238,0.12)] backdrop-blur-xl">
+        <div className="flex items-start justify-between gap-3 border-b border-zinc-800/80 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-sans uppercase tracking-[0.3em] text-cyan-400/80">
+              {analysisLabel}
+            </p>
+            <p className="mt-1 text-[11px] font-bold uppercase tracking-widest text-white">
+              {getAnalysisModelLabel(choice)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => (onDismiss ? onDismiss() : onScanFailedRef.current?.())}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-500 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
+            aria-label="Dismiss analysis"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="flex gap-3 px-4 py-4">
+          <div className="relative aspect-[3/4] w-24 shrink-0 overflow-hidden rounded-2xl border border-cyan-500/30 bg-zinc-950">
+            {videoUrl ? (
+              <video src={videoUrl} autoPlay loop muted playsInline className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <>
+                <img
+                  src={mainImageSrc}
+                  alt="Scan target"
+                  className="absolute inset-0 h-full w-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%]"
+                />
+                <div className="absolute inset-0 bg-blue-900/20 mix-blend-overlay" />
+              </>
+            )}
+
+            {!videoUrl && (
+              <FaceScanOverlay
+                landmarksData={landmarks}
+                revealDurationSeconds={overlayRevealSeconds}
+                scanLoopSeconds={overlayScanLoopSeconds}
+              />
+            )}
+
+            <div className="absolute left-3 top-3 h-4 w-4 border-l-2 border-t-2 border-cyan-500/80" />
+            <div className="absolute right-3 top-3 h-4 w-4 border-r-2 border-t-2 border-cyan-500/80" />
+            <div className="absolute bottom-3 left-3 h-4 w-4 border-b-2 border-l-2 border-cyan-500/80" />
+            <div className="absolute bottom-3 right-3 h-4 w-4 border-b-2 border-r-2 border-cyan-500/80" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex items-center gap-2">
+              <span className={`inline-flex h-2.5 w-2.5 rounded-full ${hasError ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.85)]' : 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.85)] animate-pulse'}`} />
+              <span className="text-[10px] font-sans uppercase tracking-[0.3em] text-zinc-500">
+                {hasError ? 'Needs attention' : 'Running'}
+              </span>
+            </div>
+            <p className="text-sm font-black uppercase tracking-widest text-white">
+              {hasError ? 'Analysis paused' : 'Consulting AI'}
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+              {statusText}
+            </p>
+            {!hasError && (
+              <div className="mt-4 overflow-hidden rounded-full border border-cyan-500/20 bg-zinc-900/80 p-1">
+                <div className="h-1.5 rounded-full bg-gradient-to-r from-cyan-700/40 via-cyan-300 to-cyan-700/40 animate-pulse" />
+              </div>
+            )}
+            {hasError && (
+              <button
+                type="button"
+                onClick={() => (onDismiss ? onDismiss() : onScanFailedRef.current?.())}
+                className="mt-4 inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:border-zinc-500 hover:text-white"
+              >
+                <X size={12} /> Dismiss
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     COMMUNITY_SCANS.find((entry) => {
       const entryIds = [
@@ -509,6 +593,8 @@ function buildSavedScanDashboardPayload(scan, fallback = {}) {
   return {
     ...payload,
     scanId: scan.id || scan.scanId || payload.scanId || fallback.scanId || null,
+    scanRequestId:
+      scan.scanRequestId || payload.scanRequestId || fallback.scanRequestId || null,
     profileId: scan.profileId || payload.profileId || fallback.profileId || 'default',
     profileName: scan.profileName || payload.profileName || fallback.profileName,
     visibility: scan.visibility || payload.visibility || fallback.visibility || 'private',
@@ -610,19 +696,35 @@ const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
 const PADDLE_CLIENT_TOKEN =
-  import.meta.env.VITE_PADDLE_CLIENT_TOKEN || 'live_41a7033635d9efa677b7d3a8521';
+  String(import.meta.env.VITE_PADDLE_CLIENT_TOKEN || 'live_41a7033635d9efa677b7d3a8521').trim();
+const PADDLE_ENVIRONMENT =
+  String(import.meta.env.VITE_PADDLE_ENV || 'production').trim().toLowerCase();
 
 const PADDLE_PRICE_IDS = {
   single_scan:
-    import.meta.env.VITE_PADDLE_PRICE_SINGLE_SCAN || 'pri_01kph4qjjrtbdbnswrvdt16jkn',
-  pro: import.meta.env.VITE_PADDLE_PRICE_PRO || 'pri_01kph4pr6xpxhq7c4jfztdmr44',
+    String(import.meta.env.VITE_PADDLE_PRICE_SINGLE_SCAN || 'pri_01kph4qjjrtbdbnswrvdt16jkn').trim(),
+  pro: String(import.meta.env.VITE_PADDLE_PRICE_PRO || 'pri_01kph4pr6xpxhq7c4jfztdmr44').trim(),
+  pro_yearly: String(import.meta.env.VITE_PADDLE_PRICE_PRO_YEARLY || '').trim(),
 };
+
+function isLocalPaddleHost() {
+  if (typeof window === 'undefined') return false;
+  return ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+}
+
+function isLivePaddleBlockedOnLocalhost() {
+  return isLocalPaddleHost() && PADDLE_ENVIRONMENT !== 'sandbox';
+}
 
 function initializePaddle() {
   if (typeof window === 'undefined' || !window.Paddle || !PADDLE_CLIENT_TOKEN) return false;
   if (window.__mogcheckPaddleInitialized) return true;
 
   try {
+    if (PADDLE_ENVIRONMENT === 'sandbox' && window.Paddle.Environment?.set) {
+      window.Paddle.Environment.set('sandbox');
+    }
+
     window.Paddle.Initialize({
       token: PADDLE_CLIENT_TOKEN,
       checkout: {
@@ -647,6 +749,7 @@ function initializePaddle() {
 
 function openPaddleCheckout(plan, user) {
   const priceId = PADDLE_PRICE_IDS[plan];
+  if (isLivePaddleBlockedOnLocalhost()) return false;
   if (!priceId || typeof window === 'undefined' || !window.Paddle) return false;
   if (!initializePaddle()) return false;
 
@@ -670,6 +773,7 @@ function openPaddleCheckout(plan, user) {
 }
 
 const API_BASE = getApiBase();
+const PROFILE_SCAN_HISTORY_LIMIT = 10;
 
 const ANALYSIS_MODEL_LABELS = {
   '1': 'Premium Ultra',
@@ -2736,6 +2840,9 @@ const ScanningView = ({
   onRecoverToDashboard,
   user,
   profileId,
+  compact = false,
+  analysisLabel = 'Analysis',
+  onDismiss,
 }) => {
   const [statusText, setStatusText] = useState('Connecting to Backend Bridge...');
   const [videoUrl, setVideoUrl] = useState(null);
@@ -2810,6 +2917,14 @@ const ScanningView = ({
           : `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       let scanSucceeded = false;
       let analyzeRequestStarted = false;
+
+      try {
+        sessionStorage.removeItem('mogcheck:lastCompletedScan');
+        sessionStorage.removeItem('mogcheck:scanRecoveryRequested');
+      } catch (e) {
+        // Storage cleanup is best-effort only.
+      }
+
       const fetchWithTimeoutRetry = async (url, options = {}, attempt = 1) => {
         const { timeoutMs = 8000, ...fetchOptions } = options;
         const ctrl = new AbortController();
@@ -2844,11 +2959,11 @@ const ScanningView = ({
         if (!activeUser) return null;
 
         const expectedScanRequestId = String(scanRequestId || '').trim();
-        const expectedModel = String(choice || '').trim();
-        const expectedProfile = String(profileId || '').trim();
-        const shouldMatchProfile =
-          expectedProfile && expectedProfile !== 'new' && expectedProfile !== 'guest';
-        const earliestReasonableScan = scanStartedAt - 2 * 60 * 1000;
+
+        if (!expectedScanRequestId) {
+          console.warn('[analyze] skipped saved-scan recovery because scanRequestId is missing');
+          return null;
+        }
 
         for (let attempt = 1; attempt <= 8; attempt += 1) {
           if (!active) return null;
@@ -2886,24 +3001,7 @@ const ScanningView = ({
               })
               .sort((a, b) => b.millis - a.millis);
 
-            const legacyCandidates = !expectedScanRequestId
-              ? indexedScans
-                  .filter(({ scan, millis }) => {
-                    if (!millis || millis < earliestReasonableScan) return false;
-                    if (expectedModel) {
-                      const scanModel = String(scan.model || scan.payload?.selectedModel || '').trim();
-                      if (scanModel && scanModel !== expectedModel) return false;
-                    }
-                    if (shouldMatchProfile) {
-                      const scanProfile = String(scan.profileId || scan.payload?.profileId || 'default').trim();
-                      if (scanProfile !== expectedProfile) return false;
-                    }
-                    return true;
-                  })
-                  .sort((a, b) => b.millis - a.millis)
-              : [];
-
-            const recovered = exactRequestCandidates[0]?.scan || legacyCandidates[0]?.scan || null;
+            const recovered = exactRequestCandidates[0]?.scan || null;
             const recoveredPayload = buildRecoveredScanPayload(recovered);
             if (recoveredPayload) return recoveredPayload;
           } catch (recoveryErr) {
@@ -2924,16 +3022,9 @@ const ScanningView = ({
         }
 
         if (active && analyzeRequestStarted) {
-          scanSucceeded = true;
-          setStatusText('The scan response dropped. Opening your dashboard history...');
-          onRecoverToDashboardRef.current?.({
-            reason: 'dropped-analyze-response',
-            profileId: profileId || 'default',
-            selectedModel: String(choice || '').trim(),
-            scanRequestId,
-            startedAt: new Date(scanStartedAt).toISOString(),
-          });
-          return true;
+          setStatusText(
+            'The response dropped, but no completed saved scan matched this request yet. Please keep this page open or try again; the dashboard will only open after a real completed analysis.'
+          );
         }
         return false;
       };
@@ -3226,9 +3317,151 @@ const ScanningView = ({
   );
 };
 
+const AnalysisDockSummaryCard = ({ job, onOpenResult, onDismiss }) => (
+  <div className="overflow-hidden rounded-2xl border border-emerald-500/20 bg-[#0c0d0e]/95 shadow-[0_0_40px_rgba(16,185,129,0.12)] backdrop-blur-xl">
+    <div className="flex items-start justify-between gap-3 border-b border-zinc-800/80 px-4 py-3">
+      <div className="min-w-0">
+        <p className="text-[10px] font-sans uppercase tracking-[0.3em] text-emerald-400/80">
+          {job.analysisLabel || 'Analysis'}
+        </p>
+        <p className="mt-1 text-[11px] font-bold uppercase tracking-widest text-white">
+          Completed
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => onDismiss(job.id)}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-500 transition-colors hover:border-emerald-500/40 hover:text-emerald-300"
+        aria-label="Dismiss completed analysis"
+      >
+        <X size={14} />
+      </button>
+    </div>
+    <div className="flex gap-3 px-4 py-4">
+      <img
+        src={job.result?.frontImage || job.mainImageSrc}
+        alt="Completed scan"
+        className="aspect-[3/4] w-24 shrink-0 rounded-2xl border border-emerald-500/25 object-cover"
+      />
+      <div className="min-w-0 flex-1">
+        <div className="mb-2 flex items-center gap-2">
+          <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.9)]" />
+          <span className="text-[10px] font-sans uppercase tracking-[0.3em] text-zinc-500">
+            Ready
+          </span>
+        </div>
+        <p className="text-sm font-black uppercase tracking-widest text-white">
+          {job.result?.finalRating != null
+            ? `Final rating ${Number(job.result.finalRating).toFixed(1)}`
+            : 'Description ready'}
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+          Your scan finished and is ready to open in the dashboard.
+        </p>
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={() => onOpenResult(job.id)}
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-black shadow-[0_0_20px_rgba(16,185,129,0.25)] transition-transform hover:scale-[1.02]"
+          >
+            <ArrowUpRight size={12} /> Open result
+          </button>
+          <button
+            type="button"
+            onClick={() => onDismiss(job.id)}
+            className="inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:border-zinc-500 hover:text-white"
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const AnalysisDock = ({
+  jobs,
+  collapsed,
+  setCollapsed,
+  onOpenResult,
+  onDismiss,
+}) => {
+  if (!Array.isArray(jobs) || jobs.length === 0) return null;
+
+  const runningCount = jobs.filter((job) => job.state === 'running').length;
+  const completedCount = jobs.filter((job) => job.state === 'complete').length;
+
+  if (collapsed) {
+    return (
+      <div className="fixed bottom-5 right-5 z-[240]">
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          className="inline-flex items-center gap-3 rounded-full border border-cyan-500/25 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_35px_rgba(34,211,238,0.18)] backdrop-blur-xl transition-transform hover:scale-[1.01]"
+        >
+          <span className="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse" />
+          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-300">
+            {runningCount > 0 ? `${runningCount} running` : `${completedCount} ready`}
+          </span>
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed bottom-5 right-5 z-[240] w-[min(92vw,360px)]">
+      <div className="mb-3 flex items-center justify-between rounded-full border border-zinc-800 bg-[#0c0d0e]/95 px-4 py-2 shadow-[0_0_35px_rgba(34,211,238,0.08)] backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse" />
+          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white">
+            Analysis queue
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setCollapsed(true)}
+          className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 transition-colors hover:text-cyan-300"
+        >
+          Minimize
+        </button>
+      </div>
+      <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+        {jobs.map((job) =>
+          job.state === 'complete' ? (
+            <AnalysisDockSummaryCard
+              key={job.id}
+              job={job}
+              onOpenResult={onOpenResult}
+              onDismiss={onDismiss}
+            />
+          ) : (
+            <ScanningView
+              key={job.id}
+              compact
+              analysisLabel={job.analysisLabel}
+              onDismiss={() => onDismiss(job.id)}
+              mainImageSrc={job.mainImageSrc}
+              mainImageFile={job.mainImageFile}
+              sideImageUrl={job.sideImageUrl}
+              sideImageFile={job.sideImageFile}
+              sideMetricData={job.sideMetricData || sideMetricDataGlobal}
+              choice={job.choice}
+              onComplete={job.onComplete}
+              onScanFailed={() => onDismiss(job.id)}
+              onRecoverToDashboard={job.onRecoverToDashboard}
+              user={job.user}
+              profileId={job.profileId}
+            />
+          )
+        )}
+      </div>
+    </div>
+  );
+};
+
 
 // --- Upload Photo Page ---
-const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrity, user, userPlan, initialModel = "3", isLockedToUltra = false, initialProfileId = null }) => {
+const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrity, user, userPlan, initialModel = "3", isLockedToUltra = false, initialProfileId = null, queueAnalysisJob }) => {
   const [frontImage, setFrontImage] = useState(null);
   const [frontFile, setFrontFile] = useState(null);
   const [sideImage, setSideImage] = useState(null);
@@ -3423,11 +3656,13 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     const targetProfileId = activeScanProfileId || selectedProfileId || 'default';
     const completedScan = {
       ...data,
+      scanRequestId: data?.scanRequestId || null,
       frontImage: data?.frontImage || frontImage,
       sideImage: data?.sideImage || sideImage,
       selectedModel,
       profileId: targetProfileId && targetProfileId !== 'new' ? targetProfileId : 'default',
       scannedAt: data?.scannedAt || completedAt,
+      _handoffSavedAt: completedAt,
     };
 
     setScanningCeleb(null);
@@ -3459,10 +3694,13 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
         newRatingHistory.push(Number(completedScan.finalRating));
       }
 
+      const cappedScanHistory = newScanHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT);
+      const cappedRatingHistory = newRatingHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT);
+
       return {
         ...completedScan,
-        scanHistory: newScanHistory,
-        ratingHistory: newRatingHistory
+        scanHistory: cappedScanHistory,
+        ratingHistory: cappedRatingHistory
       };
     });
 
@@ -3881,7 +4119,29 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                 }
                 setSelectedProfileId(actualProfileId);
                 setActiveScanProfileId(actualProfileId);
-                setIsScanning(true);
+                queueAnalysisJob?.({
+                  analysisLabel:
+                    selectedProfileId === 'new'
+                      ? (newProfileName.trim() || 'New profile')
+                      : (profiles.find((p) => p.id === actualProfileId)?.name || 'Saved profile'),
+                  mainImageSrc: frontImage,
+                  mainImageFile: frontFile,
+                  sideImageUrl: sideImage,
+                  sideImageFile: sideFile,
+                  sideMetricData: sideMetricDataGlobal,
+                  choice: selectedModel,
+                  user,
+                  profileId: actualProfileId,
+                });
+
+                setFrontImage(null);
+                setFrontFile(null);
+                setSideImage(null);
+                setSideFile(null);
+                setJustUnlocked(false);
+                if (selectedProfileId === 'new') {
+                  setNewProfileName('');
+                }
               }} 
               disabled={isUltraModel ? (!frontImage || !sideImage || ultraAccessPending || !canUseUltra) : !frontImage} 
               className={`relative overflow-hidden px-20 py-6 bg-white text-black font-black uppercase tracking-widest text-lg md:text-xl flex items-center justify-center gap-5 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none ${justUnlocked ? 'animate-[buttonUnlock_1s_ease-out_forwards]' : 'shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}
@@ -4705,7 +4965,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   const selectedModel = String(dashboardData?.selectedModel || '').trim();
   const isFreeModelResult = ['3', '4', '5'].includes(selectedModel);
   const hasFullProUnlock = userPlan?.plan === 'pro';
-  const isRestrictedPreview = false;
+  const isRestrictedPreview = isFreeModelResult;
   const showBestFlaw = !hideBestFlawSection;
 
   const renderBlurredOverlay = (title) => (
@@ -5215,6 +5475,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           )}
 
           {/* Detailed Ratios Section */}
+          {!isFreeModelResult && (
           <div className="relative bg-[#0c0d0e] p-6 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
             {isRestrictedPreview && renderBlurredOverlay("Detailed Ratios")}
             <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
@@ -5244,11 +5505,12 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </div>
             </div>
           </div>
+          )}
 
           {!isRestrictedPreview && <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={activeProfileView} showFeatureLists />}
 
           {/* Actionable Protocol */}
-          {!hideActionableProtocols && (
+          {!isFreeModelResult && !hideActionableProtocols && (
             <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 shadow-lg group hover:border-zinc-700 transition-colors">
               {isRestrictedPreview && renderBlurredOverlay("Actionable Protocol")}
               <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
@@ -5262,7 +5524,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                         { id: 3, name: 'Volufiline under eyes', description: 'Will help mask negative canthal tilt and reduce orbital shadowing', impact: 'Medium Impact' },
                       ]
                   ).slice(0, showAllProtocols ? undefined : 3).map((p, i) => {
-                    const impactColor = /highest/i.test(p.impact) ? 'text-red-400' : /high/i.test(p.impact) ? 'text-orange-400' : /medium/i.test(p.impact) ? 'text-yellow-400' : 'text-emerald-400';
+                    const impactColor = /extreme|critical|highest/i.test(p.impact) ? 'text-red-400' : /high/i.test(p.impact) ? 'text-orange-400' : /medium/i.test(p.impact) ? 'text-yellow-400' : 'text-emerald-400';
                     const protocolKey = String(p.id || i + 1);
                     const isCompleted = Boolean(completedProtocolIds[protocolKey]);
                     return (
@@ -5301,7 +5563,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </div>
           )}
 
-          {!hidePersonalizedFeedback && (
+          {!isFreeModelResult && !hidePersonalizedFeedback && (
             <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 shadow-lg group hover:border-zinc-700 transition-colors">
               {isRestrictedPreview && renderBlurredOverlay("Personalized Feedback")}
               <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
@@ -5327,7 +5589,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </div>
           )}
 
-          {!hideUnlockPotential && (
+          {!isFreeModelResult && !hideUnlockPotential && (
           <div className="bg-gradient-to-br from-zinc-900/80 to-black p-1 rounded-2xl overflow-hidden mt-4 relative shadow-[0_10px_50px_rgba(0,0,0,0.5)] border border-zinc-800/50 group hover:border-zinc-700 transition-colors">
             {isRestrictedPreview && renderBlurredOverlay("Analyze Potential")}
             <div className={`bg-[#0a0a0b] p-8 md:p-12 rounded-[14px] flex flex-col md:flex-row items-center gap-12 relative overflow-hidden ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
@@ -5540,6 +5802,18 @@ const PlansPage = ({ setCurrentPage, user }) => {
       setCurrentPage('login');
       return;
     }
+    if (isLivePaddleBlockedOnLocalhost()) {
+      setPlanNotice('Paddle live checkout cannot run on localhost. Use mogcheck.net for live checkout, or add Paddle sandbox token/price IDs to .env.local for local testing.');
+      return;
+    }
+    if (!PADDLE_PRICE_IDS[plan]) {
+      setPlanNotice(
+        plan === 'pro_yearly'
+          ? 'Yearly MogCheck Pro checkout is not configured yet. Add VITE_PADDLE_PRICE_PRO_YEARLY and redeploy, then try again.'
+          : 'This checkout option is not configured yet. Please refresh and try again in a moment.'
+      );
+      return;
+    }
     if (!openPaddleCheckout(plan, user)) {
       setPlanNotice('Paddle checkout is not configured yet. Please refresh and try again in a moment.');
     }
@@ -5562,7 +5836,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
       </div>
     </FadeUp>
 
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full max-w-6xl relative z-10">
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 w-full max-w-7xl relative z-10">
 
       {/* --- Free --- */}
       <FadeUp delay={150}>
@@ -5602,7 +5876,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
         </div>
       </FadeUp>
 
-      {/* --- Single Scan --- */}
+      {/* --- Two Scans --- */}
       <FadeUp delay={300}>
         <div className="h-full bg-gradient-to-b from-[#0f1520] via-zinc-900/60 to-[#0c0d0e] border border-cyan-500/30 rounded-3xl p-8 md:p-10 flex flex-col relative hover:border-cyan-500/50 transition-colors shadow-[0_0_60px_rgba(34,211,238,0.04)] hover:shadow-[0_0_60px_rgba(34,211,238,0.1)]">
           <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-cyan-500 text-black px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Best Value</div>
@@ -5612,7 +5886,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
               <MogCheckLogoIcon size={28} className="opacity-95 [filter:drop-shadow(0_0_8px_rgba(34,211,238,0.35))]" />
             </div>
             <div>
-              <h3 className="text-xl font-black uppercase italic tracking-tighter text-cyan-400">Single Scan</h3>
+              <h3 className="text-xl font-black uppercase italic tracking-tighter text-cyan-400">2 Scans</h3>
               <p className="text-cyan-400/40 font-sans text-[9px] uppercase tracking-widest">One-time</p>
             </div>
           </div>
@@ -5625,9 +5899,9 @@ const PlansPage = ({ setCurrentPage, user }) => {
 
           <div className="w-full h-px bg-cyan-500/15 mb-8" />
 
-          <p className="text-cyan-400/60 font-sans text-[10px] uppercase tracking-widest mb-5">One full analysis includes</p>
+          <p className="text-cyan-400/60 font-sans text-[10px] uppercase tracking-widest mb-5">Two premium analyses include</p>
           <ul className="flex flex-col gap-4 text-sm font-sans text-zinc-300 w-full mb-10">
-            <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>1 full-detail AI facial analysis with 40+ measurements</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>2 full-detail AI facial analyses with 40+ measurements each</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>Exact final rating with detailed ratio breakdown</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>Customized personal improvement protocols</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>Celebrity lookalike matching & comparison</span></li>
@@ -5648,16 +5922,16 @@ const PlansPage = ({ setCurrentPage, user }) => {
               </span>
             </label>
             <button onClick={() => handleCheckout('single_scan')} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[1.02] transition-transform shadow-[0_0_25px_rgba(34,211,238,0.25)] flex items-center justify-center gap-2">
-              <Zap size={14} /> Buy Single Scan
+              <Zap size={14} /> Buy 2 Scans
             </button>
           </div>
         </div>
       </FadeUp>
 
-      {/* --- MogCheck Pro --- */}
+      {/* --- MogCheck Pro Monthly --- */}
       <FadeUp delay={450}>
         <div className="h-full bg-gradient-to-b from-[#1a1600] via-zinc-900/80 to-[#0c0d0e] border border-yellow-500/40 rounded-3xl p-8 md:p-10 flex flex-col relative shadow-[0_0_80px_rgba(234,179,8,0.08)] hover:shadow-[0_0_80px_rgba(234,179,8,0.15)] transition-shadow">
-          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-600 to-yellow-400 text-black px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Unlimited</div>
+          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-600 to-yellow-400 text-black px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Monthly</div>
 
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center p-1.5">
@@ -5670,7 +5944,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
           </div>
 
           <div className="flex items-baseline gap-1 mb-1">
-            <span className="text-5xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">$23</span>
+            <span className="text-5xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">$14.99</span>
             <span className="text-sm text-zinc-500 font-sans tracking-widest">/mo</span>
           </div>
           <p className="text-zinc-400 font-sans text-xs uppercase tracking-wide mb-8">Cancel anytime, no commitment</p>
@@ -5706,9 +5980,59 @@ const PlansPage = ({ setCurrentPage, user }) => {
           </div>
         </div>
       </FadeUp>
+
+      {/* --- MogCheck Pro Annual --- */}
+      <FadeUp delay={600}>
+        <div className="h-full bg-gradient-to-b from-[#09151b] via-zinc-900/80 to-[#0c0d0e] border border-emerald-500/35 rounded-3xl p-8 md:p-10 flex flex-col relative shadow-[0_0_80px_rgba(16,185,129,0.08)] hover:shadow-[0_0_80px_rgba(16,185,129,0.15)] transition-shadow">
+          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-emerald-600 to-emerald-400 text-black px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Annual</div>
+
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center p-1.5">
+              <MogCheckLogoIcon size={28} className="opacity-95 [filter:drop-shadow(0_0_8px_rgba(16,185,129,0.4))]" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black uppercase italic tracking-tighter text-emerald-400">MogCheck Pro</h3>
+              <p className="text-emerald-400/40 font-sans text-[9px] uppercase tracking-widest">Yearly billing</p>
+            </div>
+          </div>
+
+          <div className="flex items-baseline gap-1 mb-1">
+            <span className="text-5xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">$10</span>
+            <span className="text-sm text-zinc-500 font-sans tracking-widest">/mo</span>
+          </div>
+          <p className="text-zinc-400 font-sans text-xs uppercase tracking-wide mb-8">Billed annually at $119.88</p>
+
+          <div className="w-full h-px bg-emerald-500/15 mb-8" />
+
+          <p className="text-emerald-400/60 font-sans text-[10px] uppercase tracking-widest mb-5">Everything in monthly Pro, plus</p>
+          <ul className="flex flex-col gap-4 text-sm font-sans text-zinc-300 w-full mb-10">
+            <li className="flex items-start gap-3"><Check size={15} className="text-emerald-400 mt-0.5 shrink-0" /> <span>Best monthly rate for long-term access</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-emerald-400 mt-0.5 shrink-0" /> <span>Up to 2 full scans per day</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-emerald-400 mt-0.5 shrink-0" /> <span>AI potential analysis, protocols, and progress tracking</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-emerald-400 mt-0.5 shrink-0" /> <span>Full-detail biometric breakdowns and premium dashboard access</span></li>
+          </ul>
+
+          <div className="mt-auto flex flex-col gap-4">
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <input 
+                type="checkbox" 
+                className="mt-1 shrink-0 cursor-pointer accent-emerald-500" 
+                checked={tosAgreed}
+                onChange={(e) => setTosAgreed(e.target.checked)}
+              />
+              <span className="text-zinc-500 font-sans text-[10px] leading-tight group-hover:text-zinc-400 transition-colors">
+                I agree to the <a href="/tos" onClick={(e) => { e.preventDefault(); setCurrentPage('tos'); }} className="text-emerald-400 hover:text-emerald-300 underline">Terms of Service</a> and acknowledge that I lose my right to a refund once the AI analysis is generated.
+              </span>
+            </label>
+            <button onClick={() => handleCheckout('pro_yearly')} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[1.02] transition-transform shadow-[0_0_25px_rgba(16,185,129,0.3)] flex items-center justify-center gap-2">
+              <Crown size={14} /> Go Yearly
+            </button>
+          </div>
+        </div>
+      </FadeUp>
     </div>
 
-    <FadeUp delay={600}>
+    <FadeUp delay={750}>
       <div className="mt-20 w-full max-w-4xl relative z-10">
         <p className="text-center text-zinc-600 font-sans text-[10px] uppercase tracking-widest mb-10">Why upgrade?</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -5727,7 +6051,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
       </div>
     </FadeUp>
 
-    <FadeUp delay={700}>
+    <FadeUp delay={850}>
       <p className="mt-16 text-zinc-600 font-sans text-[10px] uppercase tracking-widest text-center relative z-10">
         Secure payment via Paddle - Cancel anytime - Instant access
       </p>
@@ -6669,7 +6993,7 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
             <h1 className="text-2xl md:text-3xl font-black italic uppercase tracking-tight text-white">{protocol?.name || 'Protocol'}</h1>
             <p className="text-zinc-400 font-sans text-sm mt-2 leading-relaxed">{protocol?.description || ''}</p>
             <div className="flex items-center gap-3 mt-3">
-              <span className={`text-[9px] font-sans uppercase tracking-widest px-2.5 py-1 rounded-full border ${/highest/i.test(protocol?.impact) ? 'text-red-400 border-red-500/20 bg-red-500/10' : /high/i.test(protocol?.impact) ? 'text-orange-400 border-orange-500/20 bg-orange-500/10' : /medium/i.test(protocol?.impact) ? 'text-yellow-400 border-yellow-500/20 bg-yellow-500/10' : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10'}`}>{protocol?.impact || 'Medium Impact'}</span>
+              <span className={`text-[9px] font-sans uppercase tracking-widest px-2.5 py-1 rounded-full border ${/extreme|critical|highest/i.test(protocol?.impact) ? 'text-red-400 border-red-500/20 bg-red-500/10' : /high/i.test(protocol?.impact) ? 'text-orange-400 border-orange-500/20 bg-orange-500/10' : /medium/i.test(protocol?.impact) ? 'text-yellow-400 border-yellow-500/20 bg-yellow-500/10' : 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10'}`}>{protocol?.impact || 'Medium Impact'}</span>
               <span className="text-[9px] font-sans uppercase tracking-widest text-zinc-600 px-2.5 py-1 rounded-full border border-zinc-800 bg-zinc-900">{isSurgical ? 'Surgical' : 'Non-Surgical'}</span>
             </div>
           </div>
@@ -6829,8 +7153,8 @@ const ProtocolDetailPage = ({ protocol, allProtocols, setCurrentPage }) => {
 
 // --- All Protocols Page ---
 const AllProtocolsPage = ({ protocols, setCurrentPage }) => {
-  const impactColor = (impact) => {
-    if (/highest/i.test(impact)) return 'text-red-400';
+          const impactColor = (impact) => {
+    if (/extreme|critical|highest/i.test(impact)) return 'text-red-400';
     if (/high/i.test(impact)) return 'text-orange-400';
     if (/medium/i.test(impact)) return 'text-yellow-400';
     return 'text-emerald-400';
@@ -6895,6 +7219,13 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [authResolved, setAuthResolved] = useState(false);
   const [userPlan, setUserPlan] = useState({ plan: 'free', scanCredits: 0, loaded: false });
+  const [analysisJobs, setAnalysisJobs] = useState([]);
+  const [analysisDockCollapsed, setAnalysisDockCollapsed] = useState(false);
+  const analysisJobsRef = useRef([]);
+
+  useEffect(() => {
+    analysisJobsRef.current = analysisJobs;
+  }, [analysisJobs]);
 
   const setCurrentPage = useCallback((page, pathOverride = null) => {
     const newPath = pathOverride || (page === 'home' ? '/' : `/${page}`);
@@ -7068,18 +7399,131 @@ const App = () => {
     return model === '1' || model === '2';
   }, [dashboardData?.selectedModel]);
 
-  const useProDashboard = Boolean(user || hasScanData);
+  const useProDashboard = Boolean(user || hasScanData) && !isFreeModelDashboard;
   const isScanOnlyPage = currentPage === 'public-scan';
+
+  const registerCompletedScan = useCallback((data, meta = {}) => {
+    const completedAt = new Date().toISOString();
+    const completedScan = {
+      ...data,
+      scanRequestId: data?.scanRequestId || meta.scanRequestId || null,
+      frontImage: data?.frontImage || meta.mainImageSrc || null,
+      sideImage: data?.sideImage || meta.sideImageUrl || null,
+      selectedModel: String(data?.selectedModel || meta.choice || '3'),
+      profileId: meta.profileId && meta.profileId !== 'new' ? meta.profileId : 'default',
+      scannedAt: data?.scannedAt || completedAt,
+      _handoffSavedAt: completedAt,
+    };
+
+    try {
+      sessionStorage.setItem('mogcheck:lastCompletedScan', JSON.stringify(completedScan));
+    } catch (e) {
+      // Session storage is only a convenience layer.
+    }
+
+    setDashboardData((prev) => {
+      const newScanHistory = prev?.scanHistory ? [...prev.scanHistory] : [];
+      const newRatingHistory = prev?.ratingHistory ? [...prev.ratingHistory] : [];
+
+      if (prev && prev.frontImage && prev.finalRating && newScanHistory.length === 0) {
+        newScanHistory.push({
+          ...prev,
+          scannedAt: prev.scannedAt || completedAt,
+        });
+      }
+      if (prev && prev.finalRating && newRatingHistory.length === 0) {
+        newRatingHistory.push(prev.finalRating);
+      }
+
+      newScanHistory.push(completedScan);
+      if (completedScan.finalRating != null && !Number.isNaN(Number(completedScan.finalRating))) {
+        newRatingHistory.push(Number(completedScan.finalRating));
+      }
+
+      return {
+        ...completedScan,
+        scanHistory: newScanHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT),
+        ratingHistory: newRatingHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT),
+      };
+    });
+
+    return completedScan;
+  }, []);
+
+  const queueAnalysisJob = useCallback((jobInput = {}) => {
+    const jobId =
+      (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+        ? crypto.randomUUID()
+        : `analysis-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    const baseJob = {
+      id: jobId,
+      state: 'running',
+      createdAt: Date.now(),
+      ...jobInput,
+    };
+
+    const onComplete = (data) => {
+      const latestJob = analysisJobsRef.current.find((job) => job.id === jobId) || baseJob;
+      const completedScan = registerCompletedScan(data, latestJob);
+      setAnalysisJobs((prev) =>
+        prev.map((job) =>
+          job.id === jobId
+            ? { ...job, state: 'complete', result: completedScan, completedAt: Date.now() }
+            : job
+        )
+      );
+    };
+
+    const onRecoverToDashboard = (meta = {}) => {
+      setAnalysisJobs((prev) =>
+        prev.map((job) =>
+          job.id === jobId
+            ? {
+                ...job,
+                state: 'running',
+                recoveryPending: true,
+                scanRequestId: meta.scanRequestId || job.scanRequestId || null,
+              }
+            : job
+        )
+      );
+    };
+
+    setAnalysisDockCollapsed(false);
+    setAnalysisJobs((prev) => [{ ...baseJob, onComplete, onRecoverToDashboard }, ...prev]);
+    return jobId;
+  }, [registerCompletedScan]);
+
+  const dismissAnalysisJob = useCallback((jobId) => {
+    setAnalysisJobs((prev) => prev.filter((job) => job.id !== jobId));
+  }, []);
+
+  const openAnalysisResult = useCallback((jobId) => {
+    const job = analysisJobsRef.current.find((entry) => entry.id === jobId);
+    if (!job?.result) return;
+    setDashboardData(job.result);
+    setCurrentPage('dashboard');
+    setAnalysisJobs((prev) => prev.filter((entry) => entry.id !== jobId));
+  }, [setCurrentPage]);
 
   useEffect(() => {
     if (currentPage !== 'dashboard' || hasScanData) return;
+    if (user) return;
     try {
       const cached = sessionStorage.getItem('mogcheck:lastCompletedScan');
       if (!cached) return;
       const parsed = JSON.parse(cached);
       if (!parsed || typeof parsed !== 'object') return;
+      const handoffAge =
+        Date.now() - timestampToMillis(parsed._handoffSavedAt || parsed.scannedAt || Date.now());
+      if (!parsed.scanRequestId || handoffAge > 20 * 60 * 1000) {
+        sessionStorage.removeItem('mogcheck:lastCompletedScan');
+        return;
+      }
       if (!parsed.frontImage && parsed.finalRating == null && !Array.isArray(parsed.biometrics)) return;
       setDashboardData(parsed);
+      sessionStorage.removeItem('mogcheck:lastCompletedScan');
     } catch (e) {
       // Ignore malformed handoff cache and let the normal dashboard/profile loader continue.
     }
@@ -7108,12 +7552,15 @@ const App = () => {
       ).trim();
       const expectedScanRequestId = String(recoveryMeta.scanRequestId || '').trim();
       const expectedProfile = String(recoveryMeta.profileId || 'default').trim();
-      const shouldMatchProfile =
-        expectedProfile && expectedProfile !== 'new' && expectedProfile !== 'guest';
-      const startedAtMillis = timestampToMillis(
-        recoveryMeta.startedAt || recoveryMeta.requestedAt || Date.now()
-      );
-      const earliestReasonableScan = startedAtMillis - 2 * 60 * 1000;
+
+      if (!expectedScanRequestId) {
+        try {
+          sessionStorage.removeItem('mogcheck:scanRecoveryRequested');
+        } catch (e) {
+          // Ignore storage cleanup errors.
+        }
+        return;
+      }
 
       for (let attempt = 1; attempt <= 10; attempt += 1) {
         if (cancelled) return;
@@ -7138,7 +7585,7 @@ const App = () => {
               millis: timestampToMillis(scan.timestamp || scan.scannedAt || scan.payload?.scannedAt),
             }))
             .filter(({ scan, millis }) => {
-              if (!scan || !millis || millis < earliestReasonableScan) return false;
+              if (!scan || !millis) return false;
 
               if (expectedScanRequestId) {
                 const storedScanRequestId = String(
@@ -7146,24 +7593,14 @@ const App = () => {
                 ).trim();
                 return storedScanRequestId === expectedScanRequestId;
               }
-
-              if (expectedModel) {
-                const scanModel = String(scan.model || scan.payload?.selectedModel || '').trim();
-                if (scanModel && scanModel !== expectedModel) return false;
-              }
-
-              if (shouldMatchProfile) {
-                const scanProfile = String(scan.profileId || scan.payload?.profileId || 'default').trim();
-                if (scanProfile !== expectedProfile) return false;
-              }
-
-              return true;
+              return false;
             })
             .sort((a, b) => b.millis - a.millis);
 
           const recovered = buildSavedScanDashboardPayload(candidates[0]?.scan, {
             profileId: expectedProfile || 'default',
             selectedModel: expectedModel,
+            scanRequestId: expectedScanRequestId,
             frontImage: recoveryMeta.fallbackFrontImage || null,
             sideImage: recoveryMeta.fallbackSideImage || null,
             scannedAt: recoveryMeta.requestedAt || recoveryMeta.startedAt || new Date().toISOString(),
@@ -7242,6 +7679,7 @@ const App = () => {
             initialModel={pendingUploadModel ?? (currentPage === 'upload-ultra' ? '1' : '3')}
             isLockedToUltra={currentPage === 'upload-ultra'}
             initialProfileId={pendingUploadProfileId}
+            queueAnalysisJob={queueAnalysisJob}
           />
         )}
         {currentPage === 'results' && <ResultsPage />}
@@ -7310,6 +7748,13 @@ const App = () => {
           return <ProtocolDetailPage protocol={proto} allProtocols={allProtos} setCurrentPage={setCurrentPage} />;
         })()}
       </main>
+      <AnalysisDock
+        jobs={analysisJobs}
+        collapsed={analysisDockCollapsed}
+        setCollapsed={setAnalysisDockCollapsed}
+        onOpenResult={openAnalysisResult}
+        onDismiss={dismissAnalysisJob}
+      />
       {!isScanOnlyPage && (
         <footer className="py-12 border-t border-zinc-900 flex flex-col items-center gap-6 bg-[#090a0b]">
           <AdminFooterTrigger setCurrentPage={setCurrentPage} />

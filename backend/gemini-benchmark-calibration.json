@@ -1,7 +1,7 @@
 [
   {
     "id": "uncanny_training_scan_8_front_png",
-    "target": 52,
+    "target": 48,
     "metrics": {
       "Bigonial": 0.945,
       "IPD": 0.453,
@@ -23,7 +23,7 @@
   },
   {
     "id": "uncanny_training_scan10_front_png",
-    "target": 52,
+    "target": 48,
     "metrics": {
       "Bigonial": 0.836,
       "IPD": 0.488,
@@ -45,7 +45,7 @@
   },
   {
     "id": "uncanny_training_scan11_front_png",
-    "target": 52,
+    "target": 48,
     "metrics": {
       "Bigonial": 0.995,
       "IPD": 0.486,
@@ -67,7 +67,7 @@
   },
   {
     "id": "uncanny_training_scan1_front_png",
-    "target": 52,
+    "target": 48,
     "metrics": {
       "Bigonial": 0.96,
       "IPD": 0.458,
@@ -89,7 +89,7 @@
   },
   {
     "id": "uncanny_training_scan1_side_png",
-    "target": 52,
+    "target": 48,
     "metrics": {
       "Bigonial": 0.736,
       "IPD": 0.375,
@@ -111,7 +111,7 @@
   },
   {
     "id": "uncanny_training_scan2_front_png",
-    "target": 52,
+    "target": 48,
     "metrics": {
       "Bigonial": 0.989,
       "IPD": 0.443,
@@ -133,7 +133,7 @@
   },
   {
     "id": "uncanny_training_scan3_front_png",
-    "target": 52,
+    "target": 48,
     "metrics": {
       "Bigonial": 0.987,
       "IPD": 0.459,
@@ -155,7 +155,7 @@
   },
   {
     "id": "uncanny_training_scan4_front_png",
-    "target": 52,
+    "target": 48,
     "metrics": {
       "Bigonial": 0.951,
       "IPD": 0.471,
@@ -177,7 +177,7 @@
   },
   {
     "id": "uncanny_training_scan5_front_png",
-    "target": 52,
+    "target": 48,
     "metrics": {
       "Bigonial": 0.945,
       "IPD": 0.443,
@@ -199,7 +199,7 @@
   },
   {
     "id": "uncanny_training_scan6_front_jpg",
-    "target": 52,
+    "target": 48,
     "metrics": {
       "Bigonial": 0.994,
       "IPD": 0.432,
@@ -221,7 +221,7 @@
   },
   {
     "id": "uncanny_training_scan7_front_png",
-    "target": 52,
+    "target": 48,
     "metrics": {
       "Bigonial": 0.991,
       "IPD": 0.487,
@@ -243,7 +243,7 @@
   },
   {
     "id": "uncanny_training_scan9_gemini_generated_image_5lwbe15lwbe15lwb_png",
-    "target": 52,
+    "target": 48,
     "metrics": {
       "Bigonial": 0.984,
       "IPD": 0.449,
@@ -702,6 +702,28 @@
     },
     "sourceFolder": "The 5s",
     "sourceImage": "IMG_5388.jpg"
+  },
+  {
+    "id": "tier_5s_img_5728_jpg",
+    "target": 55,
+    "metrics": {
+      "Bigonial": 0.979,
+      "IPD": 0.447,
+      "Mouth": 0.336,
+      "Nose": 0.223,
+      "Upper": 0.448,
+      "Middle": 0.462,
+      "Lower": 0.531,
+      "Eye": 0.055,
+      "Brow": 0.11,
+      "Philtrum": 0.135,
+      "Lip": 0.135,
+      "fWHR": 1.677,
+      "Midface": 1.08,
+      "Canthal": 2.68
+    },
+    "sourceFolder": "The 5s",
+    "sourceImage": "IMG_5728.jpg"
   },
   {
     "id": "tier_5s_kai_cenat_jan_2024_a_billboard_1548_webp",

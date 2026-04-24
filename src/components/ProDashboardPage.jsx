@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Target, Newspaper, Swords, Users, Crown, ChevronRight, Plus, Trash2, Edit2, Activity, Flame, Sparkles, Lock, ArrowLeft, TrendingUp, Share2, Check } from 'lucide-react';
+import { Target, Newspaper, Swords, Users, Crown, ChevronRight, ChevronLeft, Plus, Trash2, Edit2, Activity, Flame, Sparkles, Lock, ArrowLeft, TrendingUp, Share2, Check } from 'lucide-react';
 import { getApiBase } from '../utils/apiBase';
 import { COMMUNITY_SCANS } from '../data/communityScans';
 import { celebrityData } from '../data/celebrityData';
@@ -9,6 +9,7 @@ import { fetchCommunityBattles, fetchCommunityScans } from '../api/mogBattleVote
 import { ConfirmDialog, SiteModal } from './ui/SiteModal';
 
 const API_BASE = getApiBase();
+const PROFILE_SCAN_HISTORY_LIMIT = 10;
 
 const clampTextStyle = {
   display: '-webkit-box',
@@ -332,6 +333,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   const newsRef = useRef(null);
   const mogBattlesRef = useRef(null);
   const communityRef = useRef(null);
+  const historyStripRef = useRef(null);
 
   useEffect(() => {
     setActiveSection(hasActiveAnalysis ? 'overview' : 'profiles');
@@ -720,7 +722,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
     return items
       .filter((item) => item && (item.frontImage || item.finalRating != null))
-      .slice(-4)
+      .slice(-PROFILE_SCAN_HISTORY_LIMIT)
       .reverse();
   }, [dashboardData, scanHistory]);
 
@@ -809,6 +811,13 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     }
   };
 
+  const scrollHistoryStrip = (direction) => {
+    const el = historyStripRef.current;
+    if (!el) return;
+    const amount = Math.max(240, el.clientWidth * 0.75);
+    el.scrollBy({ left: direction * amount, behavior: 'smooth' });
+  };
+
   const handleSelectScan = (scan) => {
     if (!scan || !setDashboardData) return;
     setDashboardData((prev) => ({
@@ -867,6 +876,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
           : null;
       history = mergeProfileHistory(history, currentSnapshot);
       history.sort((a, b) => timestampToMillis(a?.scannedAt) - timestampToMillis(b?.scannedAt));
+      history = history.slice(-PROFILE_SCAN_HISTORY_LIMIT);
       const latestScan = history[history.length - 1];
       const ratingHistory = history
         .map((scan) => scan.finalRating)
@@ -1136,11 +1146,33 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
             </div>
 
             <section ref={analysisRef} className="scroll-mt-28">
-              <div className="mb-4">
-                <h2 className="text-2xl font-black uppercase tracking-[0.25em] text-white">Face Analysis</h2>
-                <p className="mt-1 text-sm font-sans text-zinc-500">Snapshot of your latest scan, trajectory, and quick signals.</p>
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-black uppercase tracking-[0.25em] text-white">Face Analysis</h2>
+                  <p className="mt-1 text-sm font-sans text-zinc-500">Snapshot of your latest scan, trajectory, and quick signals.</p>
+                </div>
+                {historyCards.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => scrollHistoryStrip(-1)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
+                      aria-label="Previous scans"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => scrollHistoryStrip(1)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
+                      aria-label="Next scans"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="flex gap-3 overflow-x-auto pb-2">
+              <div ref={historyStripRef} className="flex gap-3 overflow-x-auto pb-2">
                 {historyCards.map((scan, index) => {
                   const isActive =
                     scan?.frontImage === dashboardData?.frontImage &&
@@ -1501,17 +1533,22 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                   >
                     <div className="flex justify-between items-start mb-4">
                       <h3 className="text-xl font-black italic text-white group-hover:text-cyan-400 transition-colors">{p.name}</h3>
-                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button type="button" onClick={(e) => { e.stopPropagation(); setRenameDraft({ id: p.id, name: p.name }); }} className="p-1 text-zinc-400 hover:text-white">
-                          <Edit2 size={16} />
-                        </button>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteProfileId(p.id); }} className="p-1 text-red-400 hover:text-red-300">
-                          <Trash2 size={16} />
-                        </button>
+                      <div className="flex items-center gap-3">
+                        <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-300 shadow-[0_0_16px_rgba(34,211,238,0.12)]">
+                          {Math.min(p.scanCount, PROFILE_SCAN_HISTORY_LIMIT)}/{PROFILE_SCAN_HISTORY_LIMIT}
+                        </span>
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setRenameDraft({ id: p.id, name: p.name }); }} className="p-1 text-zinc-400 hover:text-white">
+                            <Edit2 size={16} />
+                          </button>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteProfileId(p.id); }} className="p-1 text-red-400 hover:text-red-300">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div className="mt-auto">
-                      <p className="text-xs text-zinc-400 uppercase tracking-widest">Scans: {p.scanCount}</p>
+                      <p className="text-xs text-zinc-400 uppercase tracking-widest">Scans used: {Math.min(p.scanCount, PROFILE_SCAN_HISTORY_LIMIT)}/{PROFILE_SCAN_HISTORY_LIMIT}</p>
                       <p className="text-xs text-zinc-500 uppercase tracking-widest mt-1">
                         Dashboard: {p.latestScan ? (modelUsesProDashboard(p.latestScan.model) ? 'Pro' : 'Free') : 'No scans yet'}
                       </p>

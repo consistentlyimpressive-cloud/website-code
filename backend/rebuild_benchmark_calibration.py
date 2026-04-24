@@ -12,7 +12,7 @@ BACKEND_DIR = Path(__file__).resolve().parent
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
 
 TIER_SPECS = {
-    "Uncanny training": {"target": 52, "slug": "uncanny_training"},
+    "Uncanny training": {"target": 48, "slug": "uncanny_training"},
     "Exatraggted But not uncanny": {"target": 76, "slug": "exaggerated_but_coherent"},
     "The 3s": {"target": 35, "slug": "tier_3s"},
     "The 4s": {"target": 45, "slug": "tier_4s"},

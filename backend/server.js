@@ -207,8 +207,9 @@ const unlockLimiter = rateLimit({
 });
 
 const PADDLE_PRICE_SINGLE_SCAN =
-  process.env.PADDLE_PRICE_SINGLE_SCAN || 'pri_01kph4qjjrtbdbnswrvdt16jkn';
+process.env.PADDLE_PRICE_SINGLE_SCAN || 'pri_01kph4qjjrtbdbnswrvdt16jkn';
 const PADDLE_PRICE_PRO = process.env.PADDLE_PRICE_PRO || 'pri_01kph4pr6xpxhq7c4jfztdmr44';
+const PADDLE_PRICE_PRO_YEARLY = process.env.PADDLE_PRICE_PRO_YEARLY || '';
 
 function parsePaddleSignature(signatureHeader = '') {
   return String(signatureHeader)
@@ -249,7 +250,9 @@ function extractPaddlePriceIds(data = {}) {
     : [];
 }
 
-app.post(
+/* Legacy Lemon Squeezy webhook kept disabled on purpose.
+   MogCheck billing now runs through Paddle only. */
+/* app.post(
   '/api/webhooks/lemonsqueezy',
   express.raw({ type: 'application/json' }),
   async (req, res) => {
@@ -345,7 +348,7 @@ app.post(
 
     res.sendStatus(200);
   }
-);
+); */
 
 app.post(
   '/api/webhooks/paddle',
@@ -392,15 +395,19 @@ app.post(
           await userRef.set(
             {
               plan: 'single_scan',
-              scanCredits: admin.firestore.FieldValue.increment(1),
+              scanCredits: admin.firestore.FieldValue.increment(2),
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             },
             { merge: true }
           );
-          console.log(`[webhook:paddle] User ${userId} -> single_scan (+1 credit)`);
+          console.log(`[webhook:paddle] User ${userId} -> single_scan (+2 credits)`);
         }
 
-        if (priceIds.includes(PADDLE_PRICE_PRO) || data.subscription_id) {
+        if (
+          priceIds.includes(PADDLE_PRICE_PRO) ||
+          (PADDLE_PRICE_PRO_YEARLY && priceIds.includes(PADDLE_PRICE_PRO_YEARLY)) ||
+          data.subscription_id
+        ) {
           await userRef.set(
             {
               plan: 'pro',
@@ -465,6 +472,37 @@ const localCommunityBattles = []; // Array of community battles
 const localCommunityScans = [];
 const localNotifications = {}; // { uid: [{ id, title, body, url, read, createdAt }] }
 const localMogBattleFollows = {}; // { battleId: { uid: true } }
+const PROFILE_SCAN_HISTORY_LIMIT = 10;
+
+function storedTimestampMillis(value) {
+  if (!value) return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value?.toMillis === 'function') return value.toMillis();
+  if (typeof value?.seconds === 'number') return value.seconds * 1000;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+async function pruneFirestoreProfileScans(uid, profileId = 'default', limit = PROFILE_SCAN_HISTORY_LIMIT) {
+  if (!firestore || !uid) return;
+  const normalizedProfileId = profileId || 'default';
+  const snap = await firestore.collection('users').doc(uid).collection('scans').get();
+  const profileDocs = [];
+  snap.forEach((doc) => {
+    const data = doc.data() || {};
+    if ((data.profileId || data.payload?.profileId || 'default') !== normalizedProfileId) return;
+    profileDocs.push({ id: doc.id, ref: doc.ref, data });
+  });
+  profileDocs.sort((a, b) => storedTimestampMillis(b.data.timestamp || b.data.scannedAt) - storedTimestampMillis(a.data.timestamp || a.data.scannedAt));
+  const staleDocs = profileDocs.slice(limit);
+  if (!staleDocs.length) return;
+  await Promise.all(staleDocs.map(async (doc) => {
+    await deleteStoredScanArtifacts(doc.data);
+    await firestore.collection('communityScans').doc(getCommunityScanDocId(uid, doc.id)).delete().catch(() => {});
+    await doc.ref.delete();
+  }));
+  console.log(`[analyze] Pruned ${staleDocs.length} old scan(s) for profile ${normalizedProfileId}`);
+}
 
 function normalizeScanVisibility(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -476,6 +514,60 @@ function normalizeScanVisibility(value) {
 
 function getCommunityScanDocId(uid, scanId) {
   return `${String(uid || '').trim()}__${String(scanId || '').trim()}`;
+}
+
+function extractLocalUploadPaths(scanData = {}) {
+  const uploadDir = path.join(__dirname, 'uploads');
+  const values = [
+    scanData?.frontImageUrl,
+    scanData?.sideImageUrl,
+    scanData?.payload?.frontImage,
+    scanData?.payload?.sideImage,
+  ];
+
+  return [...new Set(values
+    .filter((value) => typeof value === 'string' && value.includes('/uploads/'))
+    .map((value) => {
+      const match = value.match(/\/uploads\/([^?#]+)/i);
+      if (!match?.[1]) return null;
+      const resolved = path.resolve(uploadDir, decodeURIComponent(match[1]));
+      if (!resolved.startsWith(uploadDir)) return null;
+      return resolved;
+    })
+    .filter(Boolean))];
+}
+
+function deleteLocalUploadFiles(scanData = {}) {
+  extractLocalUploadPaths(scanData).forEach((filePath) => {
+    try {
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch (e) {
+      console.warn('[storage] Failed to remove local upload:', filePath, e.message);
+    }
+  });
+}
+
+async function deleteStoredScanArtifacts(scanData = {}) {
+  deleteLocalUploadFiles(scanData);
+
+  if (shouldSkipFirebaseStorage()) return;
+
+  const dests = [scanData?.frontImageDest, scanData?.sideImageDest].filter(Boolean);
+  if (!dests.length) return;
+
+  try {
+    const bucket = admin.storage().bucket();
+    await Promise.all(dests.map((dest) => bucket.file(dest).delete().catch(() => {})));
+  } catch (e) {
+    console.warn('[storage] Failed to delete stored scan artifacts:', e.message);
+  }
+}
+
+async function deleteUserSubcollectionDocs(uid, collectionName) {
+  if (!firestore || !uid) return;
+  const snap = await firestore.collection('users').doc(uid).collection(collectionName).get();
+  if (snap.empty) return;
+  await Promise.all(snap.docs.map((doc) => doc.ref.delete().catch(() => {})));
 }
 
 async function buildCommunityScanDoc(uid, scanId, scanData) {
@@ -2144,6 +2236,9 @@ app.post(
       // Save the scan before responding so the frontend can recover if the response is dropped.
       await savedScanRef.set(savedScanBase);
       console.log(`[analyze] Scan history pre-saved: ${savedScanRef.id}`);
+      pruneFirestoreProfileScans(req.uid, payload.profileId).catch((e) => {
+        console.warn('[analyze] Failed to prune old profile scans:', e.message);
+      });
     } catch (e) {
       savedScanRef = null;
       savedScanBase = null;
@@ -2448,6 +2543,22 @@ app.delete('/api/admin/users/:uid', async (req, res) => {
   const { uid } = req.params;
 
   try {
+    const scansSnap = await firestore.collection('users').doc(uid).collection('scans').get();
+    await Promise.all(scansSnap.docs.map(async (doc) => {
+      const data = doc.data() || {};
+      await deleteStoredScanArtifacts(data);
+      await firestore.collection('communityScans').doc(getCommunityScanDocId(uid, doc.id)).delete().catch(() => {});
+      await doc.ref.delete().catch(() => {});
+    }));
+
+    await deleteUserSubcollectionDocs(uid, 'profiles');
+    await deleteUserSubcollectionDocs(uid, 'notifications');
+
+    const orphanCommunitySnap = await firestore.collection('communityScans').where('ownerUid', '==', uid).get().catch(() => null);
+    if (orphanCommunitySnap && !orphanCommunitySnap.empty) {
+      await Promise.all(orphanCommunitySnap.docs.map((doc) => doc.ref.delete().catch(() => {})));
+    }
+
     // Delete from Firebase Auth
     await admin.auth().deleteUser(uid);
     
@@ -2463,6 +2574,8 @@ app.delete('/api/admin/users/:uid', async (req, res) => {
         console.log(`[admin] Warning: Failed to delete storage for ${uid}`, e.message);
       }
     }
+
+    localUserStore.deleteUser(uid);
 
     res.json({ ok: true });
   } catch (e) {
@@ -2572,8 +2685,8 @@ app.get('/api/user/scans', extractUserOptional, async (req, res) => {
     snap.forEach(doc => {
       const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
       scans.push(scan);
-      localUserStore.upsertScan(req.uid, doc.id, scan);
     });
+    localUserStore.replaceScans(req.uid, scans);
     res.json({ scans });
   } catch (e) {
     if (isQuotaExceededError(e)) {
@@ -2653,11 +2766,7 @@ app.delete('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
       const doc = await docRef.get();
       if (doc.exists) {
         const d = doc.data();
-        if (!shouldSkipFirebaseStorage()) {
-          const bucket = admin.storage().bucket();
-          if (d.frontImageDest) await bucket.file(d.frontImageDest).delete().catch(() => {});
-          if (d.sideImageDest) await bucket.file(d.sideImageDest).delete().catch(() => {});
-        }
+        await deleteStoredScanArtifacts(d);
         await syncCommunityScanVisibility(req.uid, scanId, d, 'private');
         await docRef.delete();
       }
