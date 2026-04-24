@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Clock, Monitor, User, Battery, Calendar, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Clock, User, Battery, Calendar, ChevronRight } from 'lucide-react';
 import { getApiBase } from '../utils/apiBase';
 
 const API_BASE = getApiBase();
@@ -22,7 +22,7 @@ const timestampToMillis = (value) => {
   return Number.isFinite(fallback) ? fallback : 0;
 };
 
-const SettingsPage = ({ setCurrentPage, user, userPlan, lowPerfMode, setLowPerfMode, dashboardData }) => {
+const SettingsPage = ({ setCurrentPage, user, userPlan, dashboardData }) => {
   const planName = userPlan?.plan === 'pro' ? 'Pro' : userPlan?.plan === 'single_scan' ? 'Single Scan' : 'Free';
   const credits = userPlan?.scanCredits || 0;
   const [userScans, setUserScans] = useState([]);
@@ -87,7 +87,7 @@ const SettingsPage = ({ setCurrentPage, user, userPlan, lowPerfMode, setLowPerfM
         <h1 className="text-3xl md:text-4xl font-black italic uppercase tracking-tighter text-white mb-4">
           Account Settings
         </h1>
-        <p className="text-zinc-500 text-sm font-sans mb-8">Profile, scans, subscription, and performance in one place.</p>
+        <p className="text-zinc-500 text-sm font-sans mb-8">Profile, scans, and subscription in one place.</p>
 
         <button
           type="button"
@@ -137,24 +137,6 @@ const SettingsPage = ({ setCurrentPage, user, userPlan, lowPerfMode, setLowPerfM
                 Scans Today: <span className="text-white font-bold">{scansToday}</span>
               </p>
             </div>
-          </section>
-
-          {/* Performance */}
-          <section className="bg-zinc-900/30 border border-zinc-800/80 rounded-2xl p-6">
-            <h2 className="flex items-center gap-2 text-xl font-bold uppercase tracking-widest text-cyan-400 mb-4">
-              <Monitor size={20} /> Performance
-            </h2>
-            <label className="flex items-center justify-between cursor-pointer group">
-              <div>
-                <p className="text-white font-bold text-sm uppercase tracking-wide group-hover:text-cyan-400 transition-colors">Low Performance Mode</p>
-                <p className="text-zinc-500 text-xs mt-1 max-w-sm">Disables animations and optimizes performance for older devices or slow connections.</p>
-              </div>
-              <div className="relative">
-                <input type="checkbox" checked={lowPerfMode} onChange={e => setLowPerfMode(e.target.checked)} className="sr-only" />
-                <div className={`block w-10 h-6 rounded-full transition-colors ${lowPerfMode ? 'bg-cyan-500' : 'bg-zinc-700'}`}></div>
-                <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${lowPerfMode ? 'translate-x-4' : ''}`}></div>
-              </div>
-            </label>
           </section>
         </div>
       </div>

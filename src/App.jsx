@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Gauge, Sparkles, Bell, Trash2, Bug } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Sparkles, Bell, Trash2, Bug } from 'lucide-react';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import NewsPage from './components/NewsPage';
 import MogBattlePage from './components/MogBattlePage';
@@ -19,7 +19,6 @@ import HolographicCard from './components/ui/HolographicCard';
 import {
   getAuth,
   signInWithPopup,
-  signInWithRedirect,
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -705,26 +704,8 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
-const shouldUseGoogleRedirect = () => (
-  typeof window !== 'undefined' &&
-  /Android|iPhone|iPad|iPod|Mobi/i.test(window.navigator?.userAgent || '')
-);
-
 const signInWithGoogleProvider = async () => {
-  if (shouldUseGoogleRedirect()) {
-    await signInWithRedirect(auth, googleProvider);
-    return null;
-  }
-
-  try {
-    return await signInWithPopup(auth, googleProvider);
-  } catch (error) {
-    if (['auth/popup-blocked', 'auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(error?.code)) {
-      await signInWithRedirect(auth, googleProvider);
-      return null;
-    }
-    throw error;
-  }
+  return signInWithPopup(auth, googleProvider);
 };
 
 const PADDLE_CLIENT_TOKEN =
@@ -1003,7 +984,7 @@ const FlipIn = ({ children, delay = 0 }) => {
 };
 
 // --- Navbar ---
-const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDashboard, lowPerfMode, setLowPerfMode }) => {
+const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDashboard }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -1149,18 +1130,6 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDa
                 </button>
                 <button
                   type="button"
-                  onClick={() => setLowPerfMode((v) => !v)}
-                  className="w-full flex items-center justify-between gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800"
-                >
-                  <span className="flex items-center gap-3">
-                    <Gauge size={14} /> Low performance
-                  </span>
-                  <span className={`text-[9px] px-2 py-0.5 rounded-md border ${lowPerfMode ? 'border-cyan-500/40 text-cyan-400 bg-cyan-500/10' : 'border-zinc-700 text-zinc-500'}`}>
-                    {lowPerfMode ? 'On' : 'Off'}
-                  </span>
-                </button>
-                <button
-                  type="button"
                   onClick={() => { onSignOut(); setShowUserMenu(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold"
                 >
@@ -1248,9 +1217,6 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDa
               </button>
               <button type="button" onClick={() => { setShowNotifications(true); setIsOpen(false); loadNotifications(); }} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
                 <Bell size={14} /> Notifications {unreadNotificationCount > 0 ? `(${unreadNotificationCount})` : ''}
-              </button>
-              <button type="button" onClick={() => setLowPerfMode((v) => !v)} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
-                <Gauge size={14} /> Low perf: {lowPerfMode ? 'On' : 'Off'}
               </button>
               <button type="button" onClick={() => { onSignOut(); setIsOpen(false); }} className="flex items-center gap-2 px-8 py-2 rounded-full border border-zinc-800 text-red-400 hover:text-red-300 font-bold text-xs uppercase tracking-widest">
                 <LogOut size={14} /> Sign Out
@@ -2729,9 +2695,7 @@ const FaceScanOverlay = ({
   revealDurationSeconds = 36,
   scanLoopSeconds = 4,
 }) => {
-  const compactMotion =
-    (typeof window !== 'undefined' && window.innerWidth < 768) ||
-    (typeof document !== 'undefined' && document.body.classList.contains('low-perf-mode'));
+  const compactMotion = false;
   let mappedPoints = [];
   let mappedEdges = [];
 
@@ -7931,34 +7895,6 @@ const App = () => {
     window.addEventListener('popstate', syncLocationState);
     return () => window.removeEventListener('popstate', syncLocationState);
   }, [user?.uid]);
-  const [lowPerfMode, setLowPerfMode] = useState(window.innerWidth < 768);
-  const [isMobileViewport, setIsMobileViewport] = useState(window.innerWidth < 768);
-
-  useEffect(() => {
-    const syncViewportMode = () => {
-      setIsMobileViewport(window.innerWidth < 768);
-    };
-    syncViewportMode();
-    window.addEventListener('resize', syncViewportMode);
-    return () => window.removeEventListener('resize', syncViewportMode);
-  }, []);
-
-  useEffect(() => {
-    if (lowPerfMode) {
-      document.body.classList.add('low-perf-mode');
-    } else {
-      document.body.classList.remove('low-perf-mode');
-    }
-    if (isMobileViewport) {
-      document.body.classList.add('mobile-compact');
-    } else {
-      document.body.classList.remove('mobile-compact');
-    }
-    return () => {
-      document.body.classList.remove('low-perf-mode');
-      document.body.classList.remove('mobile-compact');
-    };
-  }, [isMobileViewport, lowPerfMode]);
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -8218,8 +8154,8 @@ const App = () => {
   
   return (
     <div className="min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black">
-      <div className="fixed left-2 top-2 z-[9999] pointer-events-none text-[10px] font-black uppercase tracking-widest text-red-500">updated 33</div>
-      {!lowPerfMode && <NoiseOverlay />}
+      <div className="fixed left-2 top-2 z-[9999] pointer-events-none text-[10px] font-black uppercase tracking-widest text-red-500">updated 34</div>
+      <NoiseOverlay />
       {!isScanOnlyPage && (
         <Navbar
           currentPage={currentPage}
@@ -8228,8 +8164,6 @@ const App = () => {
           onSignOut={handleSignOut}
           userPlan={userPlan}
           showDashboard={Boolean(user || hasScanData)}
-          lowPerfMode={lowPerfMode}
-          setLowPerfMode={setLowPerfMode}
         />
       )}
       <main className="flex flex-col min-h-screen">
@@ -8308,7 +8242,7 @@ const App = () => {
         {currentPage === 'protocol-all' && <AllProtocolsPage protocols={dashboardData?.protocols || []} setCurrentPage={setCurrentPage} />}
         {currentPage === 'tos' && <TermsOfServicePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'privacy' && <PrivacyPolicyPage setCurrentPage={setCurrentPage} />}
-        {currentPage === 'settings' && <SettingsPage setCurrentPage={setCurrentPage} user={user} userPlan={userPlan} lowPerfMode={lowPerfMode} setLowPerfMode={setLowPerfMode} dashboardData={dashboardData} />}
+        {currentPage === 'settings' && <SettingsPage setCurrentPage={setCurrentPage} user={user} userPlan={userPlan} dashboardData={dashboardData} />}
         {currentPage.startsWith('protocol-') && currentPage !== 'protocol-all' && (() => {
           const pid = parseInt(currentPage.split('-')[1]);
           const allProtos = dashboardData?.protocols || [];
