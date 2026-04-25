@@ -423,14 +423,19 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - A face that is very long, narrow, low-fWHR, visibly asymmetric, and lacking standout positives belongs in VERY LOW-TIER / 3-RANGE rather than 4-range or average-tier.
 
            UNCANNY / OVERBUILT CUES:
-           If multiple of these appear together, treat the face as uncanny and punish it HARD:
-           - impossibly sharp or over-expanded jaw / gonial width relative to the rest of the skull
-           - extremely carved lower third with hollowed cheeks and compressed soft tissue
-           - over-aggressive brow ridge / orbital depth / eye area that looks stylized rather than natural
-           - excessive facial width, excessive angularity, or "gigachad" proportions that stop looking believable
-           - severe mismatch where one or two elite-looking features overpower the rest of the face and create a synthetic result
-           - AI-looking texture, over-clean symmetry, fake-looking eye rendering, or other signs the face is not a natural human photo
-           - a brutalist / fantasy / mannequin-like look that attracts attention but reduces genuine harmony
+           Explicitly check these 6 uncanny facial cues from the actual image, not just the measurements:
+           1. Very big chin compared to the lips / mouth scale.
+           2. Hollow cheeks or gaunt cheek hollows.
+           3. Very low-set eyebrows that are also positively tilted.
+           4. Very defined / over-carved facial features, especially around the cheekbone area.
+           5. Bigonial width that is significantly wider than bizygomatic width.
+           6. Very veiny face / visible facial or temple vascularity.
+           Count how many are clearly present.
+           If 3 or more of these 6 cues are clearly present, treat the face as a synthetic uncanny face even if some individual ratios look strong.
+           In that case, the #1 WORST FEATURE / primary flaw MUST be the synthetic uncanny read, and the output MUST include:
+           **Uncanny Cue Count:** [0-6] ([brief comma-separated cues detected])
+           **Uncanny Flag:** Synthetic uncanny face detected.
+           If fewer than 3 cues are clearly present, still output the cue count but do NOT include the Uncanny Flag line.
 
            EXAGGERATED BUT COHERENT CUES:
            If the face is strong, sharp, or highly dimorphic but still reads naturally human and harmonious, only apply a VERY SMALL harmony deduction.
@@ -533,6 +538,8 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         **Final Frontal Rating: [Score]/100**
         **Final Side Rating: [Score]/100**
         **Authenticity Flag:** [Only include this line if the image is clearly non-human, cartoon/drawn, AI-generated, mannequin-like, or biologically impossible. Otherwise omit this line completely.]
+        **Uncanny Cue Count:** [0-6] ([brief comma-separated cues detected from: oversized chin vs lips, hollow cheeks, low-set positively tilted eyebrows, over-defined cheekbones/features, bigonial wider than bizygomatic, very veiny face])
+        **Uncanny Flag:** [Only include this line if 3 or more uncanny cues are clearly detected. Exact text: Synthetic uncanny face detected. Otherwise omit this line completely.]
         **Max Natural Potential: [Score]/100** [Required. Estimate the realistic ceiling from non-surgical changes only: lower facial fat, skincare, grooming, orthodontic/dental optimization, health, sleep, and presentation. Do not invent dramatic structural changes.]
         **Max Potential with Surgery: [Score]/100** [Required. Estimate the realistic ceiling if proportionate, tasteful surgical/orthodontic correction addressed the main structural flaws. Do not assume impossible perfection or uncanny overcorrection.]
 

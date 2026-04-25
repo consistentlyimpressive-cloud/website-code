@@ -2297,6 +2297,7 @@ app.post(
     maxNaturalPotential: parsed.maxNaturalPotential ?? null,
     maxPotentialWithSurgery: parsed.maxPotentialWithSurgery ?? null,
     authenticityFlag: parsed.authenticityFlag || null,
+    uncannyFlag: parsed.uncannyFlag || null,
     technicalSummary: parsed.technicalSummary,
     appealAssessment: parsed.appealAssessment || null,
     debugJustification: parsed.debugJustification || null,

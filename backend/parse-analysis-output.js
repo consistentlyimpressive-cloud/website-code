@@ -778,6 +778,13 @@ function buildUncannyPrimaryFlawEntries(rawOutput, categories, appealAssessment)
   return entries.slice(0, 3);
 }
 
+function parseUncannyCueCount(rawOutput) {
+  const match = String(rawOutput || '').match(/(?:\*\*)?Uncanny Cue Count(?:\*\*)?\s*:\s*(\d+)/i);
+  if (!match) return null;
+  const count = Number(match[1]);
+  return Number.isFinite(count) ? Math.max(0, Math.min(6, count)) : null;
+}
+
 function titleCaseKey(s) {
   return s
     .replace(/_/g, ' ')
@@ -1240,6 +1247,12 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   let sex = parseSex(rawOutput);
   const authenticityFlagMatch = String(rawOutput || '').match(/(?:\*\*)?Authenticity Flag(?:\*\*)?\s*:\s*([^\n]+)/i);
   let authenticityFlag = authenticityFlagMatch?.[1]?.replace(/\*/g, '').trim() || null;
+  const uncannyFlagMatch = String(rawOutput || '').match(/(?:\*\*)?Uncanny Flag(?:\*\*)?\s*:\s*([^\n]+)/i);
+  const uncannyCueCount = parseUncannyCueCount(rawOutput);
+  let uncannyFlag = uncannyFlagMatch?.[1]?.replace(/\*/g, '').trim() || null;
+  if (!uncannyFlag && uncannyCueCount != null && uncannyCueCount >= 3) {
+    uncannyFlag = 'Synthetic uncanny face detected.';
+  }
 
   finalRating = applyOffset100(finalRating);
   sideRating = applyOffset100(sideRating);
@@ -1457,6 +1470,12 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   }
 
   const uncannyPrimaryFlaws = buildUncannyPrimaryFlawEntries(rawOutput, categories, appealAssessment);
+  if (uncannyFlag) {
+    uncannyPrimaryFlaws.unshift({
+      title: 'Synthetic Uncanny Face Detected',
+      description: 'Three or more uncanny cues were detected, making the facial read appear synthetic or overbuilt rather than naturally harmonious.'
+    });
+  }
   const nonHumanCue = /\b(?:non[-\s]?human|not\s+(?:a\s+)?(?:real|natural)\s+human|cartoon|cartoony|anime|drawn|inanimate|mannequin|biologically\s+impossible|clearly\s+ai[-\s]?generated|appears\s+ai[-\s]?generated|likely\s+ai[-\s]?generated)\b/i.test(
     `${rawOutput || ''}\n${appealAssessment || ''}`
   );
@@ -1523,6 +1542,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     maxNaturalPotential,
     maxPotentialWithSurgery,
     authenticityFlag,
+    uncannyFlag,
     technicalSummary,
     appealAssessment,
     debugJustification,

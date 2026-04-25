@@ -186,6 +186,29 @@ function getAuthenticityFlag(dashboardData) {
   return flagText.length > 96 ? `${flagText.slice(0, 93).trim()}...` : flagText;
 }
 
+function getUncannyFlag(dashboardData) {
+  const directFlag = String(dashboardData?.uncannyFlag || dashboardData?.payload?.uncannyFlag || '').replace(/\*/g, '').trim();
+  if (directFlag) {
+    return directFlag.replace(/\.$/, '').toLowerCase();
+  }
+
+  const raw = [
+    dashboardData?.rawOutput,
+    dashboardData?.payload?.rawOutput,
+    dashboardData?.technicalSummary,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  if (!raw) return '';
+
+  const match = raw.match(/(?:\*\*)?Uncanny Flag(?:\*\*)?\s*:\s*([^\n]+)/i);
+  const flagText = match?.[1]?.replace(/\*/g, '').trim();
+  if (!flagText) return '';
+
+  return flagText.replace(/\.$/, '').toLowerCase();
+}
+
 function hasConventionalAppealCue(dashboardData) {
   const text = String(dashboardData?.appealAssessment || '').toLowerCase();
   return /\buniversally conventional\b|\byouthful\b|\brefined,\s*clean look\b|\bclean look\b|\bprioriti[sz]es harmony\b|\bharmony and symmetry over aggressive dimorphism\b|\bbalance,\s*skin clarity,\s*and orbital harmony\b|\bbalanced,\s*polished\b|\bapproachable\b|\bsoft,\s*youthful appeal\b/.test(text);
@@ -2943,6 +2966,7 @@ const buildRecoveredScanPayload = (scan = {}) => {
     debugAnchorsImageUrl: scan.debugAnchorsImageUrl || payload.debugAnchorsImageUrl || payload.debugAnchorsImage || null,
     debugRatiosImage: scan.debugRatiosImageUrl || scan.debugRatiosImage || payload.debugRatiosImage || payload.debugRatiosImageUrl || null,
     debugRatiosImageUrl: scan.debugRatiosImageUrl || payload.debugRatiosImageUrl || payload.debugRatiosImage || null,
+    uncannyFlag: payload.uncannyFlag || scan.uncannyFlag || null,
     scannedAt: scan.scannedAt || scan.createdAt || payload.scannedAt || null,
     success: true,
   };
@@ -5620,6 +5644,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
     dashboardData?.payload?.debugAnchorsImageUrl ||
     null;
   const authenticityFlag = getAuthenticityFlag(dashboardData);
+  const uncannyFlag = getUncannyFlag(dashboardData);
   const personalizedFeedback = Array.isArray(dashboardData?.personalizedFeedback)
     ? dashboardData.personalizedFeedback.filter((item) => item && (item.title || item.description))
     : [];
@@ -5833,6 +5858,11 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                           {authenticityFlag}
                         </span>
                       )}
+                      {uncannyFlag && (
+                        <span className="mt-2 max-w-[85%] text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                          ({uncannyFlag})
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg group hover:border-zinc-700 transition-colors p-4">
@@ -5923,6 +5953,11 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                       {authenticityFlag && !isFreeModelResult && (
                         <span className="mt-3 max-w-[85%] rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
                           {authenticityFlag}
+                        </span>
+                      )}
+                      {uncannyFlag && (
+                        <span className="mt-2 max-w-[85%] text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                          ({uncannyFlag})
                         </span>
                       )}
                     </div>
