@@ -14,6 +14,14 @@ if os.path.exists(".env"):
             if '=' in line and not line.startswith('#'):
                 k, v = line.strip().split('=', 1)
                 os.environ[k] = v.strip('"\'')
+
+RUN_OUTPUT_DIR = Path(os.getenv("MOGCHECK_RUN_OUTPUT_DIR") or ".").resolve()
+RUN_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def run_output_path(filename):
+    return str(RUN_OUTPUT_DIR / filename)
+
 print("[DEBUG] Phase 1: Importing SDKs...")
 try:
     from google import genai
@@ -214,13 +222,24 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
                 side_data = "Lateral metadata unavailable. Focus on frontal visuals and input."
         else:
             side_data = "IGNORE_SIDE_ANALYSIS"
+    has_side_profile = bool(choice in ["1", "2"] and side_img_path and os.path.exists(side_img_path) and side_data != "IGNORE_SIDE_ANALYSIS")
+    side_prompt_policy = """
+        FRONT-ONLY MODE:
+        No side profile image was provided. Use ONLY the frontal image and frontal metadata.
+        Do NOT mention, infer, estimate, average with, or output any side-profile result.
+        Ignore all side-profile instructions/templates below when they conflict with this rule.
+        Output ONLY **Final Frontal Rating** and omit **Final Side Rating**, side hexagon ratings, side category scores, [SIDE] best features/flaws, side protocols, and side debug justification.
+    """ if not has_side_profile else """
+        SIDE PROFILE MODE:
+        A side profile image was provided. Use INPUT B only for the side-profile result and keep the frontal result separate.
+    """
 
     print(f"\n--- ANALYZING: {img_path} ---")
     if not os.path.exists(img_path):
         return
 
     try:
-        generate_scan_animation(img_path, output_path="loading_scan.mp4")
+        generate_scan_animation(img_path, output_path=run_output_path("loading_scan.mp4"))
     except NameError:
         pass
 
@@ -234,14 +253,15 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
             print("\n[!] Analysis cancelled.")
             return
 
-        if not os.path.exists("mog_report.txt"):
+        if not os.path.exists(run_output_path("mog_report.txt")):
             return
-        with open("mog_report.txt", "r") as f:
+        with open(run_output_path("mog_report.txt"), "r") as f:
             clinical_data = f.read()
 
     print("[2/3] Preparing Image...")
     img = cv2.imread(img_path)
-    cv2.imwrite("temp_analysis.jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+    temp_analysis_path = run_output_path("temp_analysis.jpg")
+    cv2.imwrite(temp_analysis_path, img, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
 
     print("[3/3] Consulting AI...")
 
@@ -265,6 +285,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         INPUT A (Frontal Metadata): {clinical_data}
         INPUT B (Side Profile Metadata): {side_data}
         {prompt_visual_inputs}
+        {side_prompt_policy}
         TECHNICAL VISIBILITY & OVERRIDE RULES:
         - CANTHAL TILT MUST NOT BE IGNORED: Use BOTH the Canthal_Tilt_Degrees value from INPUT A and the actual visible eye tilt in the frontal image.
         If the metadata and the photo disagree, explain the uncertainty internally and use the clearer evidence, but never discard the canthal tilt measurement by default.
@@ -398,11 +419,15 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            A low hyoid, soft submental area, obtuse cervicomental angle, weak under-chin definition, or sagging throat/neck line should noticeably reduce the Final Side Rating.
            Do not let a strong jaw or chin fully rescue a bad hyoid area if the side profile still reads soft, saggy, or poorly defined under the mandible.
            A clean hyoid and sharp neck-jaw transition should help the side profile, but should not affect the frontal rating unless visible from the front.
-           - DEFINITION / FACIAL FAT: Penalize high facial fat and poor definition more than you currently do.
+           - DEFINITION / FACIAL FAT: Penalize visibly high facial fat and poor definition more harshly than you currently do.
+           Before applying any facial-fat penalty, visually classify the face as one of: lean, normal, soft, puffy/high-fat, or unclear.
            A soft, puffy, bloated, or poorly defined face should noticeably hurt harmony, bone visibility, and perceived attractiveness.
-           If the cheek/jaw/under-chin definition is weak due to visible body fat or facial fullness, this should produce a meaningful deduction rather than just a tiny one.
+           If the cheek/jaw/under-chin definition is weak due to visible body fat or facial fullness, this should produce a major meaningful deduction rather than just a tiny one.
+           IMPORTANT: Do NOT penalize normal, lean, or merely average facial fat. If the face does not visually look high body fat / puffy / bloated, do not change the rating because of facial fat.
+           If the face is lean, sharp, hollow, gaunt, or visibly low body fat, you MUST NOT list high facial fat, puffiness, bloating, or poor definition from fat as a flaw.
+           If weak definition is caused by lighting, blur, beard, image quality, angle, soft bone structure, or lack of cheekbone/jaw projection rather than visible fat, do NOT call it high facial fat.
            - AGING / SOFT TISSUE / ORBITAL TIREDNESS / OVERALL READ:
-           Penalize soft-tissue decline, orbital tiredness, under-eye fatigue, nasolabial folds, laxity, puffiness, and a generally worn / non-elite facial read more than you currently do.
+           Penalize visible soft-tissue decline, orbital tiredness, under-eye fatigue, nasolabial folds, laxity, puffiness, and a generally worn / non-elite facial read more harshly than you currently do.
            Even if some bone metrics are decent, a face that looks tired, aged, puffy, saggy, or generally non-elite should not float into an inflated band.
            "Overall non-elite read" is a real penalty factor and should materially lower the final score when it is obvious.
         1B. INTERNAL VISUAL BUCKETING (VERY IMPORTANT):
@@ -527,10 +552,11 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - Example anchor: a face like Will Smith should NOT be treated as ultra-high-tier by default; if the metrics are only decent and several flaws exist, a result around the high-50s / low-60s is more realistic.
            - A face with truly exceptional eyes and otherwise decent harmony should not get stuck too low purely because the bone structure is less aggressive or less brute-dimorphic.
         5. SIGNS OF AGING:
-           - Penalize visible aging signs MORE than you currently do.
+           - Penalize visible aging signs MORE harshly than you currently do.
            - Nasolabial folds, under-eye aging, wrinkles, sagging skin, skin laxity, orbital tiredness, and a worn / non-fresh look should reduce the rating in a clearly noticeable way when visible.
            - Visible aging, weak definition, soft-tissue decline, and a generally non-elite read should matter materially, not just cosmetically.
            - If the face looks noticeably older, puffier, more tired, or less structurally fresh than the metrics alone would suggest, let that lower the final score in a meaningful way.
+           - If aging signs are not visible, do not invent an aging penalty.
 
 
         OUTPUT FORMAT:
@@ -540,6 +566,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         **Authenticity Flag:** [Only include this line if the image is clearly non-human, cartoon/drawn, AI-generated, mannequin-like, or biologically impossible. Otherwise omit this line completely.]
         **Uncanny Cue Count:** [0-6] ([brief comma-separated cues detected from: oversized chin vs lips, hollow cheeks, low-set positively tilted eyebrows, over-defined cheekbones/features, bigonial wider than bizygomatic, very veiny face])
         **Uncanny Flag:** [Only include this line if 3 or more uncanny cues are clearly detected. Exact text: Synthetic uncanny face detected. Otherwise omit this line completely.]
+        **Facial Fat / Definition Read:** [lean/normal/soft/puffy-high-fat/unclear] - [brief visual reason from the actual image. If lean/normal/unclear, do not apply a high-fat penalty.]
         **Max Natural Potential: [Score]/100** [Required. Estimate the realistic ceiling from non-surgical changes only: lower facial fat, skincare, grooming, orthodontic/dental optimization, health, sleep, and presentation. Do not invent dramatic structural changes.]
         **Max Potential with Surgery: [Score]/100** [Required. Estimate the realistic ceiling if proportionate, tasteful surgical/orthodontic correction addressed the main structural flaws. Do not assume impossible perfection or uncanny overcorrection.]
 
@@ -709,7 +736,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
 
     result, model_used, duration = consult_ai_with_selection(
         active_prompt,
-        "temp_analysis.jpg",
+        temp_analysis_path,
         choice
     )
 

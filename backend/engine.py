@@ -17,6 +17,13 @@ base_options = python.BaseOptions(model_asset_path='face_landmarker.task')
 options = vision.FaceLandmarkerOptions(base_options=base_options, running_mode=vision.RunningMode.IMAGE)
 NOSE_BASE_SHRINK_FACTOR = 0.94
 
+RUN_OUTPUT_DIR = os.path.abspath(os.getenv("MOGCHECK_RUN_OUTPUT_DIR") or ".")
+os.makedirs(RUN_OUTPUT_DIR, exist_ok=True)
+
+
+def run_output_path(filename):
+    return os.path.join(RUN_OUTPUT_DIR, filename)
+
 RIGHT_JAW_CANDIDATES = [234, 93, 132, 58, 172, 136, 150]
 LEFT_JAW_CANDIDATES = [454, 323, 361, 288, 397, 365, 379]
 LOWER_FACE_WIDTH_PAIRS = [(93, 323), (132, 361), (58, 288), (172, 397), (136, 365), (150, 379)]
@@ -201,7 +208,6 @@ def get_clinical_biometrics(img_path):
             "pupil_l": 473,
             "glabella": synth_start + 1,
             "subnasale": 2,
-            "philtrum_base": 164,
             "chin": 152,
             "hairline": synth_start,
             "brow_ridge": synth_start + 2,
@@ -257,7 +263,7 @@ def get_clinical_biometrics(img_path):
         mid_h_norm = round(abs(lms[p["brow_ridge"]][1] - lms[p["subnasale"]][1]) / zygo_w, 3)
         lower_h_norm = round(abs(lms[p["subnasale"]][1] - lms[p["chin"]][1]) / zygo_w, 3)
         
-        philtrum_h_px = abs(lms[p["philtrum_base"]][1] - lms[p["top_lip"]][1])
+        philtrum_h_px = abs(lms[p["subnasale"]][1] - lms[p["top_lip"]][1])
         lip_h_px = abs(lms[p["top_lip"]][1] - lms[p["bot_lip"]][1])
         eye_h_px = get_dist("eye_r_top", "eye_r_bot")
         brow_comp_px = abs(lms[p["pupil_r"]][1] - lms[p["brow_r_low"]][1])
@@ -316,8 +322,8 @@ def get_clinical_biometrics(img_path):
             cv2.circle(img_map, pos, 2, (0, 255, 255), -1)
             cv2.putText(img_map, label, (pos[0]+3, pos[1]-3), cv2.FONT_HERSHEY_SIMPLEX, 0.25, (255, 255, 255), 1)
         
-        cv2.imwrite("debug_final_anchors.jpg", img_map)
-        cv2.imwrite("debug_ratios.jpg", img_r)
+        cv2.imwrite(run_output_path("debug_final_anchors.jpg"), img_map)
+        cv2.imwrite(run_output_path("debug_ratios.jpg"), img_r)
 
         # --- MACHINE-READABLE REPORT GENERATION ---
         report = f"""
@@ -357,7 +363,7 @@ METADATA:
 ============================================================
 """
         print(report)
-        with open("mog_report.txt", "w") as f: f.write(report)
+        with open(run_output_path("mog_report.txt"), "w") as f: f.write(report)
 
 if __name__ == "__main__":
     get_clinical_biometrics("test.jpg")

@@ -326,7 +326,7 @@ const asianMale = {
 const blackMale = {
   frontImage: '/community-scans/black-front.png',
   sideImage: '/community-scans/black-side.png',
-  finalRating: 68,
+  finalRating: 71,
   sideRating: 87,
   sex: 'Male',
   categories: {
@@ -416,7 +416,7 @@ const blackMale = {
 const whiteMale = {
   frontImage: '/community-scans/white-front.png',
   sideImage: '/community-scans/white-side.png',
-  finalRating: 63,
+  finalRating: 68,
   sideRating: 81,
   sex: 'Male',
   categories: {
@@ -559,7 +559,7 @@ export const COMMUNITY_SCANS = [
   {
     id: 'community-black-male',
     displayName: 'xVoidReaper',
-    tier: 'C-Tier',
+    tier: 'B-Tier',
     dashboardData: blackMale,
   },
   {

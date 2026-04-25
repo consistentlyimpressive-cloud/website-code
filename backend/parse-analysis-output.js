@@ -708,6 +708,19 @@ function isBalancedMouthStandaloneFlaw(entry, scoreMap, rawValues) {
   return isBalanced;
 }
 
+function parseFacialFatRead(rawOutput) {
+  const match = String(rawOutput || '').match(/(?:\*\*)?Facial Fat\s*\/\s*Definition Read(?:\*\*)?\s*:\s*([^\n]+)/i);
+  return match?.[1]?.replace(/\*/g, '').trim() || null;
+}
+
+function isFalseHighFatFlaw(entry, facialFatRead) {
+  const read = String(facialFatRead || '').toLowerCase();
+  if (!/\b(?:lean|normal|unclear|low body fat|low-body-fat|sharp|hollow|gaunt)\b/.test(read)) return false;
+
+  const text = `${entry?.title || ''} ${entry?.description || ''}`.toLowerCase();
+  return /\b(?:high facial fat|facial fat|body fat|high-fat|puffy|puffiness|bloated|bloating|fullness|facial fullness|soft tissue fullness|definition from fat|poor definition from fat)\b/.test(text);
+}
+
 function buildUncannyPrimaryFlawEntries(rawOutput, categories, appealAssessment) {
   const {
     text,
@@ -1264,6 +1277,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   }
   const appealAssessment = parseAppealAssessment(rawOutput);
   const debugJustification = parseDebugJustification(rawOutput);
+  const facialFatRead = parseFacialFatRead(rawOutput);
 
   const bestFeatures = [];
   const primaryFlaws = [];
@@ -1454,13 +1468,15 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     (entry) =>
       !isModerateBigonialStandaloneFlaw(entry, frontScoreMap, rawValues) &&
       !isBalancedIpdStandaloneFlaw(entry, frontScoreMap, rawValues) &&
-      !isBalancedMouthStandaloneFlaw(entry, frontScoreMap, rawValues)
+      !isBalancedMouthStandaloneFlaw(entry, frontScoreMap, rawValues) &&
+      !isFalseHighFatFlaw(entry, facialFatRead)
   );
   const filteredSidePrimaryFlaws = sidePrimaryFlaws.filter(
     (entry) =>
       !isModerateBigonialStandaloneFlaw(entry, frontScoreMap, rawValues) &&
       !isBalancedIpdStandaloneFlaw(entry, frontScoreMap, rawValues) &&
-      !isBalancedMouthStandaloneFlaw(entry, frontScoreMap, rawValues)
+      !isBalancedMouthStandaloneFlaw(entry, frontScoreMap, rawValues) &&
+      !isFalseHighFatFlaw(entry, facialFatRead)
   );
   primaryFlaws.splice(0, primaryFlaws.length, ...filteredPrimaryFlaws);
   sidePrimaryFlaws.splice(0, sidePrimaryFlaws.length, ...filteredSidePrimaryFlaws);
@@ -1546,6 +1562,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     technicalSummary,
     appealAssessment,
     debugJustification,
+    facialFatRead,
     bestFeatures,
     primaryFlaws,
     sideBestFeatures,

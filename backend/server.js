@@ -1866,14 +1866,14 @@ function getLocalUploadUrl(req, localPath) {
 }
 
 function copyDebugArtifactToUploads(req, sourceName, label = 'debug') {
-  const sourcePath = path.join(__dirname, sourceName);
+  const sourcePath = path.isAbsolute(sourceName) ? sourceName : path.join(__dirname, sourceName);
   if (!fs.existsSync(sourcePath)) return null;
 
   try {
     const uploadDir = path.join(__dirname, 'uploads');
     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-    const sourceExt = path.extname(sourceName) || '.jpg';
+    const sourceExt = path.extname(sourcePath) || '.jpg';
     const safeLabel = String(label || 'debug').replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
     const destPath = path.join(
       uploadDir,
@@ -1882,7 +1882,7 @@ function copyDebugArtifactToUploads(req, sourceName, label = 'debug') {
     fs.copyFileSync(sourcePath, destPath);
     return getLocalUploadUrl(req, destPath);
   } catch (error) {
-    console.warn(`[debug-artifact] Failed to preserve ${sourceName}:`, error.message);
+    console.warn(`[debug-artifact] Failed to preserve ${sourcePath}:`, error.message);
     return null;
   }
 }
@@ -2145,6 +2145,12 @@ app.post(
     const sideImagePath = sideFile ? sideFile.path : '';
     const statsJson = req.body.stats;
     const modelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
+    const scanRequestId =
+      String(req.body.scanRequestId || '').trim() ||
+      `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const safeRunId = `${scanRequestId.replace(/[^a-z0-9_-]/gi, '-').slice(0, 60)}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+    const runOutputDir = path.join(__dirname, 'tmp-analysis', safeRunId);
+    fs.mkdirSync(runOutputDir, { recursive: true });
 
     console.log('\n========== PY ENGINE (this same terminal: npm start in /backend) ==========');
     console.log(`[api/analyze] image=${imagePath} sideImage=${sideImagePath || 'none'} model=${modelChoice}`);
@@ -2172,6 +2178,7 @@ app.post(
       cwd: __dirname,
       env: {
         ...process.env,
+        MOGCHECK_RUN_OUTPUT_DIR: runOutputDir,
         PYTHONIOENCODING: 'utf-8',
         PYTHONUTF8: '1',
       },
@@ -2235,7 +2242,7 @@ app.post(
 
       let parsed;
       try {
-        parsed = parseAnalysisOutput(pythonOutput, __dirname);
+        parsed = parseAnalysisOutput(pythonOutput, runOutputDir);
       } catch (e) {
         console.error('Error parsing AI output', e);
         parsed = {
@@ -2259,6 +2266,14 @@ app.post(
         parsed.sideCategories = null;
         parsed.hexagonFront = null;
         parsed.hexagonSide = null;
+      }
+      if (!sideImagePath) {
+        parsed.sideRating = null;
+        parsed.sideCategories = null;
+        parsed.hexagonSide = null;
+        parsed.sideBestFeatures = [];
+        parsed.sidePrimaryFlaws = [];
+        parsed.sideBiometrics = [];
       }
 
       const hasPremiumStructuredParse =
@@ -2314,6 +2329,7 @@ app.post(
     sideBiometrics: parsed.sideBiometrics || [],
     protocols: parsed.protocols || [],
     videoUrl: getLoadingVideoUrl(req),
+    scanRequestId,
     rawOutput:
       pythonStderr.trim().length > 0
         ? `${pythonOutput}\n\n--- Python stderr ---\n${pythonStderr}`
@@ -2323,8 +2339,8 @@ app.post(
 
   const frontFallbackUrl = getLocalUploadUrl(req, imagePath);
   const sideFallbackUrl = getLocalUploadUrl(req, sideImagePath);
-  const debugAnchorsUrl = copyDebugArtifactToUploads(req, 'debug_final_anchors.jpg', 'debug-anchors');
-  const debugRatiosUrl = copyDebugArtifactToUploads(req, 'debug_ratios.jpg', 'debug-ratios');
+  const debugAnchorsUrl = copyDebugArtifactToUploads(req, path.join(runOutputDir, 'debug_final_anchors.jpg'), 'debug-anchors');
+  const debugRatiosUrl = copyDebugArtifactToUploads(req, path.join(runOutputDir, 'debug_ratios.jpg'), 'debug-ratios');
   if (frontFallbackUrl) payload.frontImage = frontFallbackUrl;
   if (sideFallbackUrl) payload.sideImage = sideFallbackUrl;
   if (debugAnchorsUrl) {
@@ -2396,9 +2412,6 @@ app.post(
   if (success && req.uid && firestore) {
     try {
       savedScanRef = firestore.collection('users').doc(req.uid).collection('scans').doc();
-      const scanRequestId =
-        String(req.body.scanRequestId || payload.scanRequestId || '').trim() ||
-        `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       payload.scanId = savedScanRef.id;
       payload.scanRequestId = scanRequestId;
       payload.profileId = req.body.profileId || 'default';

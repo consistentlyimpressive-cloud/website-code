@@ -1648,7 +1648,9 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
       try {
         const { fetchCommunityScans, fetchCommunityBattles } = await import('./api/mogBattleVotes');
         const res = await fetchCommunityScans(80);
-        let loadedScans = (res.scans || []).map((scan, idx) => hydrateCommunityScanEntry(scan, idx));
+        let loadedScans = (res.scans || [])
+          .map((scan, idx) => hydrateCommunityScanEntry(scan, idx))
+          .filter((scan) => scan?.dashboardData && scan?.frontImage);
 
         if (loadedScans.length === 0) {
           const battleRes = await fetchCommunityBattles();
@@ -1657,7 +1659,9 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
             if (b.fighterA) scansMap.set(b.fighterA.scanId || b.fighterA.profileId || b.fighterA.name, { ...b.fighterA, isCommunity: true });
             if (b.fighterB) scansMap.set(b.fighterB.scanId || b.fighterB.profileId || b.fighterB.name, { ...b.fighterB, isCommunity: true });
           });
-          loadedScans = Array.from(scansMap.values()).map((scan, idx) => hydrateCommunityScanEntry(scan, idx));
+          loadedScans = Array.from(scansMap.values())
+            .map((scan, idx) => hydrateCommunityScanEntry(scan, idx))
+            .filter((scan) => scan?.dashboardData && scan?.frontImage);
         }
 
         if (loadedScans.length === 0) {
@@ -1678,7 +1682,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
         [...OFFICIAL_CELEBRITY_COMMUNITY_SCANS, ...loadedScans].forEach((scan, idx) => {
           const hydrated = hydrateCommunityScanEntry(scan, idx);
           const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
-          if (!merged.has(key)) merged.set(key, hydrated);
+          if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
         });
 
         setCommunityScans(Array.from(merged.values()).sort((a, b) => {
@@ -1706,7 +1710,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
         ].forEach((scan, idx) => {
           const hydrated = hydrateCommunityScanEntry(scan, idx);
           const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
-          if (!merged.has(key)) merged.set(key, hydrated);
+          if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
         });
 
         setCommunityScans(
@@ -1818,7 +1822,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
         <h2 className="text-3xl font-black italic uppercase tracking-widest text-white mb-2">Community Scans</h2>
         <p className="text-zinc-500 uppercase tracking-widest text-xs mb-10">Community scans stay synced across dashboard, scans, and mog battles.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-          {(showAllCommunity ? communityScans : communityScans.slice(0, 9)).map((rawScan, idx) => {
+          {(showAllCommunity ? communityScans : communityScans.slice(0, 9)).filter((rawScan) => rawScan?.dashboardData && rawScan?.frontImage).map((rawScan, idx) => {
             const scan = hydrateCommunityScanEntry(rawScan, idx);
             const isOwnedCommunityScan = Boolean(user?.uid && scan.ownerUid && scan.ownerUid === user.uid && scan.scanId && !scan.officialScan);
             const rating = Number(scan.finalRating || 0);
@@ -8268,7 +8272,7 @@ const App = () => {
   
   return (
     <div className="min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black">
-      <div className="fixed left-2 top-2 z-[9999] pointer-events-none text-[10px] font-black uppercase tracking-widest text-red-500">updated 36</div>
+      <div className="fixed left-2 top-2 z-[9999] pointer-events-none text-[10px] font-black uppercase tracking-widest text-red-500">penis goat</div>
       <NoiseOverlay />
       {!isScanOnlyPage && (
         <Navbar

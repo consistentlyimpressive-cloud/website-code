@@ -143,14 +143,14 @@ export const celebrityData = [
   },
   {
     name: 'Will Smith',
-    rating: '58',
-    tier: tierFromRating100(58),
+    rating: '55',
+    tier: tierFromRating100(55),
     flags: ['us'],
     sex: 'Male',
     imgSrc: IMG.willSmith,
     technicalSummary:
       'Charisma-forward presence; objective structure shows asymmetry and age-related soft-tissue changes compared to peak examples.',
-    stats: makeStats(58, 9),
+    stats: makeStats(55, 9),
   },
   {
     name: 'Nora Lum',
