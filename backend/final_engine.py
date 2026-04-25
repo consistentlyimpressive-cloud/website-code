@@ -359,7 +359,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            Lower_Third_Length: 0.42-0.52 is balanced, below 0.38 is short, above 0.56 is long, above 0.62 is severe.
            Eye_Height_Index: 0.055-0.075 is balanced, below 0.045 is narrow/squinty, above 0.085 is overly round/exposed.
            Brow_Compactness_Index: 0.08-0.12 is balanced, above 0.14 means high brow/poor compactness, below 0.06 means overly compressed/heavy.
-           Philtrum_Height_Index: 0.055-0.075 is balanced, above 0.085 is long, above 0.10 is severe, below 0.045 is very short.
+           Philtrum_Height_Index: 0.08-0.11 is balanced, around 0.095 is ideal, above 0.12 is long, above 0.14 is severe, below 0.07 is short, and below 0.055 is very short.
            Total_Lip_Height_Index: 0.12-0.18 is balanced, below 0.10 is thin, below 0.08 is very thin, above 0.22 is overly large only if visually disharmonious.
            Canthal_Tilt_Degrees: 3-8 degrees is ideal positive tilt, 0-10 is acceptable, below -2 is negative, below -6 is severe, and above 12 can look unnatural.
            - ETHNICITY / SEX ADJUSTMENTS:
@@ -374,7 +374,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            Treat elongated midface as a true structural flaw only when it is clearly long (roughly 1.08+) and make it a high-priority flaw when it is more obvious (roughly 1.15+) or when it combines with other long-face signals like elongated thirds, narrow facial width, or vertically stretched harmony.
            If the overall face reads horse-faced, long, narrow, stretched, or vertically dragged out, punish that harshly even if one or two local ratios are not catastrophic.
            - UPPER THIRD: Penalize strictly for an elongated upper third/forehead relative to the rest of the face.
-           - PHILTRUM: Penalize HARSHLY for long philtrums that disrupt lower-third harmony.
+           - PHILTRUM: Do NOT mark a philtrum as long when Philtrum_Height_Index is in the balanced 0.08-0.11 range. Penalize long philtrums only when the ratio is clearly high (roughly 0.12+) and the visual read also disrupts lower-third harmony.
            - EYE AREA: Penalize for puffy undereyes (eye bags/fat prolapse).
            Penalize clearly negative canthal tilt when visible or when the Canthal_Tilt_Degrees measurement supports it.
            Penalize very obvious scleral show, especially lower scleral show, because it weakens compactness, alertness, and orbital harmony.

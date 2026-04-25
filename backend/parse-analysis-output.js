@@ -585,7 +585,7 @@ function deterministicBiometricScore(baseLabel, rawValue, rawOutput) {
   if (normalized.includes('lowerthirdlength')) return scoreRangeRatio(rawValue, 0.42, 0.47, 0.52, 0.38, 0.34, 0.56, 0.62);
   if (normalized.includes('eyeheightindex')) return scoreRangeRatio(rawValue, 0.055, 0.065, 0.075, 0.045, 0.035, 0.085, 0.1);
   if (normalized.includes('browcompactnessindex')) return scoreRangeRatio(rawValue, 0.08, 0.1, 0.12, 0.06, 0.045, 0.14, 0.18);
-  if (normalized.includes('philtrumheightindex')) return scoreRangeRatio(rawValue, 0.055, 0.065, 0.075, 0.045, 0.035, 0.085, 0.1);
+  if (normalized.includes('philtrumheightindex')) return scoreRangeRatio(rawValue, 0.08, 0.095, 0.11, 0.07, 0.055, 0.12, 0.14);
   if (normalized.includes('totallipheightindex')) return scoreRangeRatio(rawValue, 0.12, 0.15, 0.18, 0.1, 0.08, 0.22, 0.26);
   if (normalized.includes('canthaltiltdegrees')) return scoreCanthalTilt(rawValue);
   return null;

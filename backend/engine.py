@@ -201,6 +201,7 @@ def get_clinical_biometrics(img_path):
             "pupil_l": 473,
             "glabella": synth_start + 1,
             "subnasale": 2,
+            "philtrum_base": 164,
             "chin": 152,
             "hairline": synth_start,
             "brow_ridge": synth_start + 2,
@@ -256,7 +257,7 @@ def get_clinical_biometrics(img_path):
         mid_h_norm = round(abs(lms[p["brow_ridge"]][1] - lms[p["subnasale"]][1]) / zygo_w, 3)
         lower_h_norm = round(abs(lms[p["subnasale"]][1] - lms[p["chin"]][1]) / zygo_w, 3)
         
-        philtrum_h_px = abs(lms[p["subnasale"]][1] - lms[p["top_lip"]][1])
+        philtrum_h_px = abs(lms[p["philtrum_base"]][1] - lms[p["top_lip"]][1])
         lip_h_px = abs(lms[p["top_lip"]][1] - lms[p["bot_lip"]][1])
         eye_h_px = get_dist("eye_r_top", "eye_r_bot")
         brow_comp_px = abs(lms[p["pupil_r"]][1] - lms[p["brow_r_low"]][1])
