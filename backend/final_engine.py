@@ -352,7 +352,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            Above 0.38 can be considered an overly wide mouth flaw, with stronger deductions the farther above 0.38 it gets.
            - GLOBAL BASELINE CURVES FOR OTHER FRONTAL RATIOS:
            Nose_Width_Index: 0.23-0.30 is the broad balanced range, strongest around 0.265; below 0.20 is pinched/narrow, above 0.32-0.34 becomes wide only if visually disruptive.
-           fWHR: 1.85-2.00 is the balanced strong range; below 1.70 is narrow/weak, below 1.60 is severe, above 2.10 is too wide/blocky, and above 2.25 is severe.
+           fWHR: 1.85-2.00 is the balanced strong range. Around 1.60 is only a minor narrowness flaw and should not be treated as a major standalone issue. Around 1.50 or lower is clearly narrow/weak and should be punished harshly. Above 2.10 is too wide/blocky, and above 2.25 is severe.
            Midface_Ratio: 0.88-0.98 is strongest, 0.98-1.07 is acceptable, above 1.08 is long, above 1.15 is severe, and below 0.82 is overly compressed.
            Upper_Third_Length: 0.34-0.43 is balanced, above 0.46 is long, above 0.52 is severe, below 0.30 is compressed. If hair, bangs, hats, hood, shadow, or cropping covers the hairline, disregard the MediaPipe Upper_Third_Length number, visually estimate where the hairline would naturally sit from visible forehead shape/temples/hair direction, and rate Upper_Third_Length from that visual estimate instead.
            Middle_Third_Length: 0.40-0.50 is balanced, above 0.54 is elongated, above 0.60 is severe, below 0.36 is compressed.

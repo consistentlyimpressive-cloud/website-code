@@ -521,8 +521,9 @@ function scoreFwhrRatio(rawValue) {
   const ratio = Number(rawValue);
   if (!Number.isFinite(ratio)) return null;
   if (ratio >= 1.85 && ratio <= 2) return Math.round(95 + (1 - Math.abs(ratio - 1.925) / 0.075) * 5);
-  if (ratio < 1.6) return Math.round(clamp(45 - ((1.6 - ratio) / 0.2) * 25, 20, 45));
-  if (ratio < 1.7) return Math.round(45 + ((ratio - 1.6) / 0.1) * 25);
+  if (ratio <= 1.5) return Math.round(clamp(42 - ((1.5 - ratio) / 0.2) * 22, 20, 42));
+  if (ratio < 1.6) return Math.round(42 + ((ratio - 1.5) / 0.1) * 28);
+  if (ratio < 1.7) return Math.round(70 + ((ratio - 1.6) / 0.1) * 10);
   if (ratio < 1.85) return Math.round(70 + ((ratio - 1.7) / 0.15) * 25);
   if (ratio <= 2.1) return Math.round(95 - ((ratio - 2) / 0.1) * 15);
   if (ratio <= 2.25) return Math.round(80 - ((ratio - 2.1) / 0.15) * 30);
