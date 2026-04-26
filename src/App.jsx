@@ -3128,12 +3128,15 @@ const ScanningView = ({
             if (scansRes.ok) {
               const scansData = await scansRes.json().catch(() => ({}));
               const scans = Array.isArray(scansData.scans) ? scansData.scans : [];
-              const recovered = scans.find((scan) => {
+              const requestMatches = scans.filter((scan) => {
                 const payload = scan && typeof scan.payload === 'object' && scan.payload ? scan.payload : {};
                 const recoveredRequestId = String(scan.scanRequestId || payload.scanRequestId || '').trim();
-                const recoveredProfileId = String(scan.profileId || payload.profileId || 'default').trim();
-                return recoveredRequestId === scanRequestId && recoveredProfileId === expectedProfileId;
+                return recoveredRequestId === scanRequestId;
               });
+              const recovered = requestMatches.find((scan) => {
+                const payload = scan && typeof scan.payload === 'object' && scan.payload ? scan.payload : {};
+                return String(scan.profileId || payload.profileId || 'default').trim() === expectedProfileId;
+              }) || (requestMatches.length === 1 ? requestMatches[0] : null);
               if (recovered) return buildRecoveredScanPayload(recovered);
             }
           } catch (pollErr) {
@@ -3147,6 +3150,13 @@ const ScanningView = ({
       try {
         const isUltra = choice === "1" || choice === "2";
         activeUser = userRef.current;
+        if (activeUser) {
+          try {
+            authToken = await activeUser.getIdToken();
+          } catch (e) {
+            console.warn("Unable to attach auth token to scan", e);
+          }
+        }
 
         setStatusText("Checking analysis server...");
         try {
