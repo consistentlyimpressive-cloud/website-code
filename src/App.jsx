@@ -3106,6 +3106,7 @@ const ScanningView = ({
 
       const pollForSavedScan = async () => {
         if (!activeUser || !scanRequestId) return null;
+        const expectedProfileId = profileId || 'default';
         let token = authToken;
         if (!token) {
           try {
@@ -3118,7 +3119,7 @@ const ScanningView = ({
         const startedAt = Date.now();
         const maxWaitMs = 3 * 60 * 1000;
         while (active && Date.now() - startedAt < maxWaitMs) {
-          setStatusText('Mobile connection briefly dropped. Scan is still running... reconnecting to saved result.');
+          setStatusText('Connection briefly dropped. This scan is still running... reconnecting to its result.');
           try {
             const scansRes = await fetchWithTimeoutRetry(`${API_BASE}/api/user/scans`, {
               timeoutMs: 12000,
@@ -3129,7 +3130,9 @@ const ScanningView = ({
               const scans = Array.isArray(scansData.scans) ? scansData.scans : [];
               const recovered = scans.find((scan) => {
                 const payload = scan && typeof scan.payload === 'object' && scan.payload ? scan.payload : {};
-                return String(scan.scanRequestId || payload.scanRequestId || '') === scanRequestId;
+                const recoveredRequestId = String(scan.scanRequestId || payload.scanRequestId || '').trim();
+                const recoveredProfileId = String(scan.profileId || payload.profileId || 'default').trim();
+                return recoveredRequestId === scanRequestId && recoveredProfileId === expectedProfileId;
               });
               if (recovered) return buildRecoveredScanPayload(recovered);
             }
@@ -3350,6 +3353,17 @@ const ScanningView = ({
         }
       } catch (err) {
         console.error("API failed", err);
+        if (isTransientMobileScanError(err) && activeUser) {
+          const recoveredScan = await pollForSavedScan();
+          if (!active) return;
+          if (recoveredScan) {
+            scanSucceeded = true;
+            rememberScanDuration(choice, currentFairUsage, Date.now() - scanStartedAt);
+            setStatusText("Analysis Complete! Transitioning...");
+            onCompleteRef.current(recoveredScan);
+            return;
+          }
+        }
         setStatusText(
           err?.name === 'AbortError'
             ? 'Analysis timed out after about 10 minutes. Please try again with a smaller image or try again in a moment.'
