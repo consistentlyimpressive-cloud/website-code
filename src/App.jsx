@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Sparkles, Bell, Trash2, Bug } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Sparkles, Bell, Trash2, Bug, Share2 } from 'lucide-react';
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import NewsPage from './components/NewsPage';
 import MogBattlePage from './components/MogBattlePage';
@@ -1501,6 +1501,8 @@ const CommunityScanCard = ({
   onRemove,
   onToggleMenu,
   onMarkOfficial,
+  onShare,
+  compact = false,
 }) => {
   const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
   const [isHovered, setIsHovered] = useState(false);
@@ -1535,17 +1537,17 @@ const CommunityScanCard = ({
       className="group relative cursor-pointer text-left [perspective:950px] outline-none"
     >
       <div
-        className={`relative overflow-hidden rounded-[30px] border bg-zinc-900/40 transition-[transform,box-shadow,border-color] duration-500 ease-out [transform-style:preserve-3d] ${ratingTone.border} ${ratingTone.glow}`}
+        className={`relative overflow-hidden ${compact ? 'rounded-[20px]' : 'rounded-[30px]'} border bg-zinc-900/40 transition-[transform,box-shadow,border-color] duration-500 ease-out [transform-style:preserve-3d] ${ratingTone.border} ${ratingTone.glow}`}
         style={{
           transform: isHovered
             ? `rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-12px) scale(1.025)`
             : 'rotateX(0deg) rotateY(0deg) translateY(0) scale(1)',
         }}
       >
-        <div className="relative overflow-hidden rounded-[30px] bg-zinc-950">
+        <div className={`relative overflow-hidden ${compact ? 'rounded-[20px]' : 'rounded-[30px]'} bg-zinc-950`}>
           <img
             src={scan.frontImage}
-            className="w-full aspect-[3/4] object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.065]"
+            className={`w-full ${compact ? 'aspect-[4/5]' : 'aspect-[3/4]'} object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.065]`}
             alt="Community Scan"
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent opacity-95" />
@@ -1564,6 +1566,20 @@ const CommunityScanCard = ({
           </span>
         </div>
 
+        {onShare && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onShare();
+            }}
+            className="absolute right-3 top-3 z-30 inline-flex h-8 w-8 items-center justify-center rounded-full border border-cyan-500/30 bg-black/70 text-cyan-200 backdrop-blur transition-colors hover:bg-cyan-500/15 hover:text-white"
+            title="Share scan"
+          >
+            <Share2 size={13} />
+          </button>
+        )}
+
         {isOwnedCommunityScan && (
           <button
             type="button"
@@ -1571,7 +1587,7 @@ const CommunityScanCard = ({
               e.stopPropagation();
               onRemove();
             }}
-            className="absolute right-3 top-3 z-30 inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-500/30 bg-black/70 text-red-300 backdrop-blur transition-colors hover:bg-red-500/15 hover:text-red-200"
+            className={`absolute ${onShare ? 'right-12' : 'right-3'} top-3 z-30 inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-500/30 bg-black/70 text-red-300 backdrop-blur transition-colors hover:bg-red-500/15 hover:text-red-200`}
             title="Remove from Community Scans"
           >
             <Trash2 size={14} />
@@ -1579,7 +1595,7 @@ const CommunityScanCard = ({
         )}
 
         {isAdmin && (
-          <div className="absolute right-3 top-3 z-40">
+          <div className={`absolute ${onShare ? 'right-12' : 'right-3'} top-3 z-40`}>
             <button
               type="button"
               onClick={(e) => {
@@ -1606,9 +1622,9 @@ const CommunityScanCard = ({
           </div>
         )}
 
-        <div className="absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black via-black/80 to-transparent p-4 flex flex-col items-start [transform:translateZ(32px)]">
-          <div className="flex items-baseline gap-1 mb-2">
-            <span className={`text-3xl font-black italic tabular-nums ${ratingTone.text}`}>{rating.toFixed(1)}</span>
+        <div className={`absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black via-black/80 to-transparent ${compact ? 'p-3' : 'p-4'} flex flex-col items-start [transform:translateZ(32px)]`}>
+          <div className="flex items-baseline gap-1 mb-1.5">
+            <span className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${ratingTone.text}`}>{rating.toFixed(1)}</span>
             <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
           </div>
           <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-[0.2em]">
@@ -1622,7 +1638,7 @@ const CommunityScanCard = ({
 
 const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => {
   const [communityScans, setCommunityScans] = useState([]);
-  const [showAllCommunity, setShowAllCommunity] = useState(false);
+  const [communitySort, setCommunitySort] = useState('latest');
   const [communityPeek, setCommunityPeek] = useState(null);
   const [communityRemovalIntent, setCommunityRemovalIntent] = useState(null);
   const [communityNotice, setCommunityNotice] = useState('');
@@ -1685,12 +1701,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
           if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
         });
 
-        setCommunityScans(Array.from(merged.values()).sort((a, b) => {
-          const ratingDiff = (Number(b.finalRating) || 0) - (Number(a.finalRating) || 0);
-          if (ratingDiff) return ratingDiff;
-          if (Boolean(a.officialScan) !== Boolean(b.officialScan)) return a.officialScan ? -1 : 1;
-          return timestampToMillis(b.timestamp) - timestampToMillis(a.timestamp);
-        }));
+        setCommunityScans(Array.from(merged.values()));
       } catch(e) {
         console.error(e);
         const merged = new Map();
@@ -1713,18 +1724,34 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
           if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
         });
 
-        setCommunityScans(
-          Array.from(merged.values()).sort((a, b) => {
-            const ratingDiff = (Number(b.finalRating) || 0) - (Number(a.finalRating) || 0);
-            if (ratingDiff) return ratingDiff;
-            if (Boolean(a.officialScan) !== Boolean(b.officialScan)) return a.officialScan ? -1 : 1;
-            return timestampToMillis(b.timestamp) - timestampToMillis(a.timestamp);
-          })
-        );
+        setCommunityScans(Array.from(merged.values()));
       }
     };
     fetchCommunity();
   }, []);
+
+  const verifiedScans = useMemo(
+    () => communityScans.filter((scan) => scan?.officialScan),
+    [communityScans]
+  );
+  const sortedCommunityScans = useMemo(() => {
+    const scans = communityScans.filter((scan) => !scan?.officialScan);
+    return scans.sort((a, b) => {
+      if (communitySort === 'highest') {
+        const ratingDiff = (Number(b.finalRating) || 0) - (Number(a.finalRating) || 0);
+        if (ratingDiff) return ratingDiff;
+      }
+      return timestampToMillis(b.timestamp || b.scannedAt || b.createdAt) - timestampToMillis(a.timestamp || a.scannedAt || a.createdAt);
+    });
+  }, [communityScans, communitySort]);
+
+  useEffect(() => {
+    if (!communityScans.length || communityPeek) return;
+    const requestedScanId = new URLSearchParams(window.location.search).get('scan');
+    if (!requestedScanId) return;
+    const match = communityScans.find((scan) => String(scan.scanId || scan.id) === String(requestedScanId));
+    if (match?.dashboardData) setCommunityPeek(match);
+  }, [communityScans, communityPeek]);
 
   const removeOwnedCommunityScan = async (scan) => {
     if (!user || !scan?.scanId) return;
@@ -1774,6 +1801,62 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
     }
   };
 
+  const renderScanColumn = (title, subtitle, scans, controls = null) => (
+    <section className="min-w-0 rounded-[28px] border border-zinc-800/90 bg-black/25 p-4 shadow-[0_20px_70px_rgba(0,0,0,0.28)]">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="min-w-0 text-left">
+          <h3 className="text-sm font-black uppercase tracking-[0.22em] text-white">{title}</h3>
+          <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">{subtitle}</p>
+        </div>
+        {controls}
+      </div>
+      <div className="mog-scroll max-h-[74vh] overflow-y-auto pr-2">
+        <div className="grid grid-cols-2 gap-3 md:gap-4">
+          {scans.filter((rawScan) => rawScan?.dashboardData && rawScan?.frontImage).map((rawScan, idx) => {
+            const scan = hydrateCommunityScanEntry(rawScan, idx);
+            const isOwnedCommunityScan = Boolean(user?.uid && scan.ownerUid && scan.ownerUid === user.uid && scan.scanId && !scan.officialScan);
+            const rating = Number(scan.finalRating || 0);
+            const ratingTone = getRatingToneClasses(rating);
+            const scanTier = scan.tier || '-';
+            const tierUpper = String(scanTier).toUpperCase();
+            const tierBadgeClass =
+              tierUpper.includes('S') && tierUpper.includes('TIER')
+                ? 'bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+                : tierUpper.includes('A') && tierUpper.includes('TIER')
+                  ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.6)]'
+                  : 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
+
+            return (
+              <CommunityScanCard
+                key={scan.id || idx}
+                scan={scan}
+                rating={rating}
+                ratingTone={ratingTone}
+                tierBadgeClass={tierBadgeClass}
+                scanTier={scanTier}
+                isOwnedCommunityScan={isOwnedCommunityScan}
+                isAdmin={isAdmin}
+                communityMenuId={communityMenuId}
+                compact
+                onOpen={() => {
+                  if (!scan.dashboardData) return;
+                  setCommunityPeek(scan);
+                }}
+                onShare={() => shareCommunityScan(scan)}
+                onRemove={() => setCommunityRemovalIntent(scan)}
+                onToggleMenu={() => setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id))}
+                onMarkOfficial={(official) => markCommunityScanOfficial(scan, official)}
+              />
+            );
+          })}
+        </div>
+        {scans.length === 0 && (
+          <p className="py-12 text-center text-sm text-zinc-500">No scans available yet.</p>
+        )}
+      </div>
+    </section>
+  );
+
   return (
     <div className="w-full flex-grow pt-28 pb-16 px-4 sm:px-6 relative flex flex-col items-center overflow-hidden">
       {communityPeek && communityPeek.dashboardData && (
@@ -1818,59 +1901,28 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
         </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-b from-[#0c0d0e] via-zinc-900/20 to-[#0c0d0e] -z-10" />
-      <div className="w-full max-w-5xl mx-auto flex flex-col items-center text-center">
-        <h2 className="text-3xl font-black italic uppercase tracking-widest text-white mb-2">Community Scans</h2>
-        <p className="text-zinc-500 uppercase tracking-widest text-xs mb-10">Community scans stay synced across dashboard, scans, and mog battles.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-          {(showAllCommunity ? communityScans : communityScans.slice(0, 9)).filter((rawScan) => rawScan?.dashboardData && rawScan?.frontImage).map((rawScan, idx) => {
-            const scan = hydrateCommunityScanEntry(rawScan, idx);
-            const isOwnedCommunityScan = Boolean(user?.uid && scan.ownerUid && scan.ownerUid === user.uid && scan.scanId && !scan.officialScan);
-            const rating = Number(scan.finalRating || 0);
-            const ratingTone = getRatingToneClasses(rating);
-            const scanTier = scan.tier || '-';
-            const tierUpper = String(scanTier).toUpperCase();
-            const tierBadgeClass =
-              tierUpper.includes('S') && tierUpper.includes('TIER')
-                ? 'bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
-                : tierUpper.includes('A') && tierUpper.includes('TIER')
-                  ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.6)]'
-                  : 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
-
-            return (
-              <CommunityScanCard
-                key={scan.id || idx}
-                scan={scan}
-                rating={rating}
-                ratingTone={ratingTone}
-                tierBadgeClass={tierBadgeClass}
-                scanTier={scanTier}
-                isOwnedCommunityScan={isOwnedCommunityScan}
-                isAdmin={isAdmin}
-                communityMenuId={communityMenuId}
-                onOpen={() => {
-                  if (!scan.dashboardData) return;
-                  setCommunityPeek(scan);
-                }}
-                onRemove={() => setCommunityRemovalIntent(scan)}
-                onToggleMenu={() => setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id))}
-                onMarkOfficial={(official) => markCommunityScanOfficial(scan, official)}
-              />
-            );
-          })}
+      <div className="w-full max-w-7xl mx-auto flex flex-col items-center text-center">
+        <h2 className="text-3xl font-black italic uppercase tracking-widest text-white mb-2">Scans</h2>
+        <p className="text-zinc-500 uppercase tracking-widest text-xs mb-8">Verified scans and live community scans with shareable links.</p>
+        <div className="grid w-full grid-cols-1 gap-5 lg:grid-cols-2">
+          {renderScanColumn('Verified Scans', `${verifiedScans.length} MogCheck verified`, verifiedScans)}
+          {renderScanColumn(
+            'Community Scans',
+            `${sortedCommunityScans.length} public community scans`,
+            sortedCommunityScans,
+            <div className="relative shrink-0">
+              <select
+                value={communitySort}
+                onChange={(e) => setCommunitySort(e.target.value)}
+                className="appearance-none rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-2 pr-8 font-mono text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100 outline-none transition-colors focus:border-cyan-300/50"
+              >
+                <option value="latest">Latest</option>
+                <option value="highest">Highest score</option>
+              </select>
+              <ChevronDown size={12} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-cyan-200/70" />
+            </div>
+          )}
         </div>
-        {communityScans.length === 0 && (
-          <p className="text-zinc-500 text-center py-12 w-full">No community scans available yet.</p>
-        )}
-        {communityScans.length > 9 && !showAllCommunity && (
-          <div className="mt-12 flex justify-center w-full">
-            <button 
-              onClick={() => setShowAllCommunity(true)}
-              className="px-8 py-3 rounded-xl bg-zinc-900 border border-zinc-700 text-white font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors"
-            >
-              Show More
-            </button>
-          </div>
-        )}
       </div>
       {communityRemovalIntent && (
         <ConfirmDialog
@@ -5431,6 +5483,29 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
     user.email.endsWith('@looksmaxxing.com')
   ));
 
+  const getCommunityScanShareUrl = useCallback((scan) => {
+    const ownerUid = String(scan?.ownerUid || scan?.uid || '').trim();
+    const scanId = String(scan?.scanId || scan?.id || '').trim();
+    if (ownerUid && scanId && !scan?.officialScan) {
+      return `${window.location.origin}/scan/${encodeURIComponent(ownerUid)}/${encodeURIComponent(scanId)}`;
+    }
+    return `${window.location.origin}/celebrity?scan=${encodeURIComponent(scanId || scan?.id || '')}`;
+  }, []);
+
+  const shareCommunityScan = useCallback(async (scan) => {
+    const url = getCommunityScanShareUrl(scan);
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setCommunityNotice('Scan link copied.');
+      } else {
+        setCommunityNotice(url);
+      }
+    } catch {
+      setCommunityNotice(url);
+    }
+  }, [getCommunityScanShareUrl]);
+
   const renderBlurredOverlay = (title, compact = false) => (
     <div className={`absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a0a0b]/60 backdrop-blur-[6px] rounded-3xl border border-zinc-800/50 group transition-all select-none ${compact ? 'py-3' : ''}`}>
       <Lock size={compact ? 14 : 32} className={`text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)] ${compact ? 'mb-2' : 'mb-3'}`} />
@@ -7989,11 +8064,19 @@ const App = () => {
   const [analysisJobs, setAnalysisJobs] = useState([]);
   const [analysisDockCollapsed, setAnalysisDockCollapsed] = useState(false);
   const [focusedAnalysisJobId, setFocusedAnalysisJobId] = useState(null);
+  const [mobileModeEnabled, setMobileModeEnabled] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia?.('(max-width: 768px)').matches
+  );
   const analysisJobsRef = useRef([]);
 
   useEffect(() => {
     analysisJobsRef.current = analysisJobs;
   }, [analysisJobs]);
+
+  useEffect(() => {
+    document.body.classList.toggle('mog-mobile-compact', mobileModeEnabled);
+    return () => document.body.classList.remove('mog-mobile-compact');
+  }, [mobileModeEnabled]);
 
   const setCurrentPage = useCallback((page, pathOverride = null) => {
     const newPath = pathOverride || (page === 'home' ? '/' : `/${page}`);
@@ -8283,8 +8366,19 @@ const App = () => {
   };
   
   return (
-    <div className="min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black">
+    <div className={`min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black ${mobileModeEnabled ? 'mog-mobile-compact' : ''}`}>
       <NoiseOverlay />
+      <button
+        type="button"
+        onClick={() => setMobileModeEnabled((prev) => !prev)}
+        className={`fixed bottom-4 left-4 z-[230] inline-flex items-center gap-2 rounded-full border px-3 py-2 font-mono text-[9px] font-black uppercase tracking-[0.18em] shadow-[0_14px_44px_rgba(0,0,0,0.45)] backdrop-blur md:hidden ${
+          mobileModeEnabled
+            ? 'border-cyan-400/35 bg-cyan-400/15 text-cyan-100'
+            : 'border-zinc-700 bg-black/80 text-zinc-400'
+        }`}
+      >
+        Mobile mode {mobileModeEnabled ? 'on' : 'off'}
+      </button>
       {!isScanOnlyPage && (
         <Navbar
           currentPage={currentPage}

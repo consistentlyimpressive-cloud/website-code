@@ -47,6 +47,57 @@
   background: #3f3f46;
 }
 
+.mog-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(34, 211, 238, 0.45) rgba(9, 10, 11, 0.75);
+}
+
+.mog-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.mog-scroll::-webkit-scrollbar-track {
+  background: rgba(9, 10, 11, 0.75);
+  border-radius: 999px;
+}
+
+.mog-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.75), rgba(14, 116, 144, 0.8));
+  border: 2px solid rgba(9, 10, 11, 0.75);
+  border-radius: 999px;
+}
+
+.mog-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(103, 232, 249, 0.95), rgba(8, 145, 178, 0.95));
+}
+
+@media (max-width: 768px) {
+  .mog-mobile-compact [class*=" p-8"],
+  .mog-mobile-compact [class^="p-8"],
+  .mog-mobile-compact [class*=" p-6"],
+  .mog-mobile-compact [class^="p-6"] {
+    padding: 1rem !important;
+  }
+
+  .mog-mobile-compact [class*=" gap-8"],
+  .mog-mobile-compact [class^="gap-8"],
+  .mog-mobile-compact [class*=" gap-6"],
+  .mog-mobile-compact [class^="gap-6"] {
+    gap: 1rem !important;
+  }
+
+  .mog-mobile-compact img[class*="aspect-[3/4]"],
+  .mog-mobile-compact img[class*="aspect-[4/5]"] {
+    max-height: 52vh;
+  }
+
+  .mog-mobile-compact p,
+  .mog-mobile-compact li {
+    line-height: 1.45;
+  }
+}
+
 /* Model dropdown: smooth open (syncs with React rAF open class) */
 .mogcheck-model-dropdown {
   opacity: 0;

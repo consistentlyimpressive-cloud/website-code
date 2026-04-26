@@ -29,6 +29,34 @@ const sectionHeaderIconClass =
 const celebrityNameClass =
   'text-[13px] font-black uppercase tracking-[0.12em] text-white';
 const FOLLOWED_BATTLES_STORAGE_KEY = 'mogcheck-followed-battles';
+const MOG_BATTLE_BANNED_NAME_TERMS = [
+  'porn', 'porno', 'xxx', 'nsfw', 'nude', 'nudes', 'naked', 'sex', 'sexual',
+  'onlyfans', 'pornhub', 'xvideos', 'xnxx',
+  'dick', 'cock', 'penis', 'pussy', 'vagina', 'boob', 'boobs', 'tits',
+  'fuck', 'fucker', 'fucking', 'shit', 'bitch', 'cunt', 'whore', 'slut',
+  'nigger', 'nigga', 'faggot', 'retard'
+];
+const MOG_BATTLE_COMPACT_BANNED_NAME_TERMS = new Set([
+  'porn', 'porno', 'xxx', 'nsfw', 'onlyfans', 'pornhub', 'xvideos', 'xnxx',
+  'penis', 'pussy', 'vagina', 'boobs', 'fucker', 'fucking', 'cunt', 'whore', 'slut',
+  'nigger', 'nigga', 'faggot', 'retard'
+]);
+
+const getMogBattleNameError = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (/(https?:\/\/|www\.|[a-z0-9-]+\.(?:com|net|org|gg|io|co|app|xyz|link|site|me)\b)/i.test(raw)) {
+    return 'Mog Battle names cannot contain links.';
+  }
+  const normalized = raw.toLowerCase().replace(/[^a-z0-9]+/g, ' ');
+  const compact = raw.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const hasBannedTerm = MOG_BATTLE_BANNED_NAME_TERMS.some((term) => {
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|\\s)${escaped}(\\s|$)`, 'i').test(normalized) ||
+      (MOG_BATTLE_COMPACT_BANNED_NAME_TERMS.has(term) && compact.includes(term));
+  });
+  return hasBannedTerm ? 'Mog Battle names cannot contain inappropriate words.' : null;
+};
 
 const timestampToMillis = (value) => {
   if (!value) return 0;
@@ -802,6 +830,13 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
       setError('Choose two different scans.');
       return;
     }
+    const displayNameA = nameA.trim() || fighterA.name || 'Scan';
+    const displayNameB = nameB.trim() || fighterB.name || 'Scan';
+    const nameError = getMogBattleNameError(displayNameA) || getMogBattleNameError(displayNameB);
+    if (nameError) {
+      setError(nameError);
+      return;
+    }
 
     setSubmitting(true);
     setError('');
@@ -810,11 +845,11 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
       const token = await user.getIdToken();
       const payloadA = {
         ...fighterA,
-        name: nameA.trim() || fighterA.name || 'Scan',
+        name: displayNameA,
       };
       const payloadB = {
         ...fighterB,
-        name: nameB.trim() || fighterB.name || 'Scan',
+        name: displayNameB,
       };
 
       const result = await postCommunityBattle(token, payloadA, payloadB);
@@ -969,7 +1004,35 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
   );
 };
 
-const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, isFollowed = false, onOpen, onToggleFollow, onShare }) => {
+const BattleAnalysisLinks = ({ battle, currentUserUid = '' }) => {
+  const links = [
+    { label: 'A Analysis', path: fighterAnalysisPath(battle?.fighterA, currentUserUid) },
+    { label: 'B Analysis', path: fighterAnalysisPath(battle?.fighterB, currentUserUid) },
+  ].filter((item) => item.path);
+
+  if (!links.length) return null;
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      {links.map((item) => (
+        <button
+          key={item.label}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            openInternalPath(item.path);
+          }}
+          className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-1.5 font-mono text-[9px] font-black uppercase tracking-[0.16em] text-cyan-100 transition-all hover:border-cyan-300/45 hover:text-white"
+        >
+          {item.label}
+          <ExternalLink size={10} />
+        </button>
+      ))}
+    </div>
+  );
+};
+
+const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, isFollowed = false, onOpen, onToggleFollow, onShare, currentUserUid = '' }) => {
   const labelA = fighterLabel(battle.fighterA);
   const labelB = fighterLabel(battle.fighterB);
   const totalVotes = Number(battle.votesA || 0) + Number(battle.votesB || 0);
@@ -1034,6 +1097,7 @@ const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, isFollowed
               {hasVoted ? 'View' : 'Vote'}
             </button>
           </div>
+          <BattleAnalysisLinks battle={battle} currentUserUid={currentUserUid} />
         </div>
 
         <div className="flex flex-col items-center justify-center gap-4 lg:px-2">
@@ -1128,13 +1192,14 @@ const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, isFollowed
               </h3>
             </div>
           </div>
+          <BattleAnalysisLinks battle={battle} currentUserUid={currentUserUid} />
         </div>
       </div>
     </article>
   );
 };
 
-const LatestBattleCard = ({ battle, isFollowed = false, onOpen, onShare, onToggleFollow }) => {
+const LatestBattleCard = ({ battle, isFollowed = false, onOpen, onShare, onToggleFollow, currentUserUid = '' }) => {
   const labelA = fighterLabel(battle.fighterA);
   const labelB = fighterLabel(battle.fighterB);
 
@@ -1181,6 +1246,7 @@ const LatestBattleCard = ({ battle, isFollowed = false, onOpen, onShare, onToggl
           <Share2 size={11} />
           Share battle
         </button>
+        <BattleAnalysisLinks battle={battle} currentUserUid={currentUserUid} />
       </div>
     </div>
   );
@@ -1580,6 +1646,7 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                         onOpen={setVoteModalBattle}
                         onShare={shareBattle}
                         onToggleFollow={toggleFollowBattle}
+                        currentUserUid={user?.uid || ''}
                       />
                     ))
                   ) : (
@@ -1665,6 +1732,7 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                         onToggleFollow={toggleFollowBattle}
                         onShare={shareBattle}
                         onOpen={setVoteModalBattle}
+                        currentUserUid={user?.uid || ''}
                       />
                     </div>
                   ))

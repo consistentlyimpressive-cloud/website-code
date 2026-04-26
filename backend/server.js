@@ -646,6 +646,34 @@ const localCommunityScans = [];
 const localNotifications = {}; // { uid: [{ id, title, body, url, read, createdAt }] }
 const localMogBattleFollows = {}; // { battleId: { uid: true } }
 const PROFILE_SCAN_HISTORY_LIMIT = 10;
+const MOG_BATTLE_BANNED_NAME_TERMS = [
+  'porn', 'porno', 'xxx', 'nsfw', 'nude', 'nudes', 'naked', 'sex', 'sexual',
+  'onlyfans', 'pornhub', 'xvideos', 'xnxx',
+  'dick', 'cock', 'penis', 'pussy', 'vagina', 'boob', 'boobs', 'tits',
+  'fuck', 'fucker', 'fucking', 'shit', 'bitch', 'cunt', 'whore', 'slut',
+  'nigger', 'nigga', 'faggot', 'retard'
+];
+const MOG_BATTLE_COMPACT_BANNED_NAME_TERMS = new Set([
+  'porn', 'porno', 'xxx', 'nsfw', 'onlyfans', 'pornhub', 'xvideos', 'xnxx',
+  'penis', 'pussy', 'vagina', 'boobs', 'fucker', 'fucking', 'cunt', 'whore', 'slut',
+  'nigger', 'nigga', 'faggot', 'retard'
+]);
+
+function getMogBattleNameError(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (/(https?:\/\/|www\.|[a-z0-9-]+\.(?:com|net|org|gg|io|co|app|xyz|link|site|me)\b)/i.test(raw)) {
+    return 'Mog Battle names cannot contain links.';
+  }
+  const normalized = raw.toLowerCase().replace(/[^a-z0-9]+/g, ' ');
+  const compact = raw.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const hasBannedTerm = MOG_BATTLE_BANNED_NAME_TERMS.some((term) => {
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|\\s)${escaped}(\\s|$)`, 'i').test(normalized) ||
+      (MOG_BATTLE_COMPACT_BANNED_NAME_TERMS.has(term) && compact.includes(term));
+  });
+  return hasBannedTerm ? 'Mog Battle names cannot contain inappropriate words.' : null;
+}
 
 function storedTimestampMillis(value) {
   if (!value) return 0;
@@ -1090,6 +1118,8 @@ app.post('/api/mog-battle/community', requireFirestore, async (req, res) => {
     const { fighterA, fighterB } = req.body;
     
     if (!fighterA || !fighterB) return res.status(400).json({ error: 'Missing fighters' });
+    const nameError = getMogBattleNameError(fighterA.name) || getMogBattleNameError(fighterB.name);
+    if (nameError) return res.status(400).json({ error: nameError });
 
     const battleData = {
       creatorId: decoded.uid,
@@ -2239,6 +2269,21 @@ app.post(
       }
 
       console.log(`\n[api/analyze] Python process closed with exit code ${code}`);
+      if (/###\s*CONTENT_REJECTED/i.test(pythonOutput)) {
+        adminStore.logAnalysis({
+          model: modelChoice,
+          durationMs: Date.now() - analysisStartTime,
+          success: false,
+          rating: null,
+          sideRating: null,
+          error: 'Explicit or inappropriate image rejected.',
+        });
+        return res.status(400).json({
+          success: false,
+          code: 'CONTENT_REJECTED',
+          error: 'This image cannot be analyzed. Please upload a non-explicit face photo.',
+        });
+      }
 
       let parsed;
       try {

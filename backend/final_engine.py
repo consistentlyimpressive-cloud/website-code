@@ -110,7 +110,7 @@ def load_benchmark_calibration_summary():
     return "\n".join(lines)
 
 
-def consult_ai_with_selection(unified_prompt, img_path, choice):
+def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=None):
     start_time = time.time()
 
     try:
@@ -149,6 +149,10 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
                     types.Part.from_text(text=unified_prompt),
                     types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
                 ]
+                if side_img_path and os.path.exists(side_img_path):
+                    with open(side_img_path, "rb") as f:
+                        side_image_bytes = f.read()
+                    contents.append(types.Part.from_bytes(data=side_image_bytes, mime_type="image/jpeg"))
                 res = client.models.generate_content(
                     model=model_id,
                     config=types.GenerateContentConfig(temperature=0),
@@ -266,6 +270,16 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("[3/3] Consulting AI...")
 
     prompt_visual_inputs = "INPUT C (Frontal Visual): High-resolution frontal image provided."
+    if side_img_path and os.path.exists(side_img_path):
+        prompt_visual_inputs += "\n        INPUT D (Side Visual): High-resolution side profile image provided."
+    content_safety_rules = """
+        CONTENT SAFETY GATE:
+        - Before any facial rating or descriptive analysis, check every submitted image, including the side profile image, for explicit sexual content, pornographic framing, visible nudity, exposed genitals, exposed nipples, sexual acts, fetish content, or sexually suggestive minors.
+        - If any of those are present, do NOT analyze attractiveness, do NOT rate the face, and do NOT continue the normal output format.
+        - Instead output exactly:
+        ### CONTENT_REJECTED
+        This image cannot be analyzed. Please upload a non-explicit face photo.
+    """
     feature_selection_rules = """
         BEST/WORST FEATURE SELECTION RULES:
         - Choose BEST FEATURES and PRIMARY FLAWS using BOTH the measurement data in mog_report / side metadata AND the actual visual appearance in the photo(s).
@@ -285,6 +299,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         INPUT A (Frontal Metadata): {clinical_data}
         INPUT B (Side Profile Metadata): {side_data}
         {prompt_visual_inputs}
+        {content_safety_rules}
         {side_prompt_policy}
         TECHNICAL VISIBILITY & OVERRIDE RULES:
         - CANTHAL TILT MUST NOT BE IGNORED: Use BOTH the Canthal_Tilt_Degrees value from INPUT A and the actual visible eye tilt in the frontal image.
@@ -294,6 +309,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         - SIDE PROFILE JUDGMENT CRITERIA: Reward a nice, clean, and harmonious look.
         Bone structure does not necessarily have to be amazingly projected to score well.
         A slightly weak chin is acceptable as long as it is not completely terrible/recessed.
+        A heavily, severely, very, markedly, or significantly recessed chin must strongly suppress the Final Side Rating and should not be treated as a minor profile issue.
         - SIDE PROFILE REWARDS: Explicitly reward good maxillary development and prominent cheekbones when viewed from the side.
         - RACIAL/ETHNIC CALIBRATION: Identify the subject's likely ethnicity/race from the profile.
         Apply scoring standards that correlate with that specific race (e.g., if Asian, account for naturally different averages in facial convexity).
@@ -683,7 +699,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         [Re-list every feature from INPUT A and Side features from INPUT B. Ensure Shared Ratings match.
         Format: "Feature Name: Score". NO EXPLANATIONS.]
 
-        **Debug Rating Justification:** [Admin-only. Explain exactly why the subject received the Final Frontal Rating and Final Side Rating in clear debugging terms. Mention the biggest score drivers, the strongest upward factors, the strongest downward factors, and whether the non-human / AI authenticity cap was applied. Do not mention the hidden female counterbalance rule by name.]
+        **Debug Rating Justification:** [Admin-only. Explain exactly why the subject received the Final Frontal Rating and Final Side Rating in clear debugging terms. Mention the biggest score drivers and whether the non-human / AI authenticity cap was applied. Then include exactly two labeled lists: "Positive reasons:" with 15 numbered positive reasons, and "Negative reasons:" with 15 numbered negative reasons. Keep each reason short and specific to this scan. Do not mention the hidden female counterbalance rule by name.]
         """
     else:
         # FREE AI SPECIALIZED PROMPTS (No scores, ignores side profile)
@@ -698,6 +714,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
             MANDATE: Conduct a specialized evaluation focused on BALANCE and ALIGNMENT.
             INPUT A: {clinical_data}
             INPUT B: Frontal visual provided.
+            {content_safety_rules}
             Focus on how features align on the vertical and horizontal planes.
             Analyze the symmetry of the orbit and jawline, the centering of the nose, and the overall structural equilibrium.
             Choose the best and worst feature using BOTH the raw measurements and the actual visual appearance.
@@ -714,6 +731,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
             MANDATE: Conduct a specialized evaluation focused on OBJECTIVE ATTRACTIVENESS.
             INPUT A: {clinical_data}
             INPUT B: Frontal visual provided.
+            {content_safety_rules}
             Focus on balanced attractiveness, mass-market appeal, and 'pretty' harmony. Assess how well the features project an image of health, vitality, and aesthetic refinement. Do NOT treat aggressive dimorphism as required or automatically better; extreme masculinity should be framed as niche/limiting when it disrupts harmony.
             Choose the best and worst feature using BOTH the raw measurements and the actual visual appearance.
             If a visual issue is more obvious than any ratio issue, name that instead.
@@ -729,6 +747,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
             MANDATE: Conduct a specialized evaluation focused on MATHEMATICAL BEAUTY.
             INPUT A: {clinical_data}
             INPUT B: Frontal visual provided.
+            {content_safety_rules}
             Focus on Golden Ratio proportions, specific craniofacial angles (Gonial, Nasolabial), and the geometric 'perfection' of feature placement.
             Analyze the face as a series of mathematical vectors and ratios.
             Choose the best and worst feature using BOTH the raw measurements and the actual visual appearance.
@@ -744,7 +763,8 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     result, model_used, duration = consult_ai_with_selection(
         active_prompt,
         temp_analysis_path,
-        choice
+        choice,
+        side_img_path if has_side_profile else None
     )
 
     if result == "CANCELLED":

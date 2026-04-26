@@ -456,6 +456,18 @@ function computeObjectiveFaceRating(metricScoreMap, categories) {
   return Math.round(clamp(rating, 0, 100) * 10) / 10;
 }
 
+function computeMorphometricMatchedRating(metricScoreMap) {
+  const avg = weightedAverageFromScoreMap(metricScoreMap);
+  return avg == null ? null : Math.round(clamp(avg, 0, 100) * 10) / 10;
+}
+
+function hasHeavilyRecessedChin(rawOutput, sideScoreMap) {
+  const chinScore = getScoreByLabel(sideScoreMap, 'Chin Projection');
+  if (Number.isFinite(chinScore) && chinScore <= 45) return true;
+  return /\b(?:heavily|severely|very|extremely|markedly|significantly)\s+recessed\s+chin\b/i.test(String(rawOutput || '')) ||
+    /\bchin\b[^.\n]{0,80}\b(?:heavily|severely|very|extremely|markedly|significantly)\s+recessed\b/i.test(String(rawOutput || ''));
+}
+
 function averageFiniteScore(values) {
   const nums = values
     .map((value) => Number(value))
@@ -1550,9 +1562,17 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   );
   primaryFlaws.splice(0, primaryFlaws.length, ...filteredPrimaryFlaws);
   sidePrimaryFlaws.splice(0, sidePrimaryFlaws.length, ...filteredSidePrimaryFlaws);
-  const objectiveSideRating = computeObjectiveFaceRating(sideScoreMap, sideCategories);
-  if (objectiveSideRating != null) {
-    sideRating = objectiveSideRating;
+  const morphometricMatchedSideRating = computeMorphometricMatchedRating(sideScoreMap);
+  if (morphometricMatchedSideRating != null) {
+    sideRating = morphometricMatchedSideRating;
+  } else {
+    const objectiveSideRating = computeObjectiveFaceRating(sideScoreMap, sideCategories);
+    if (objectiveSideRating != null) {
+      sideRating = objectiveSideRating;
+    }
+  }
+  if (sideRating != null && hasHeavilyRecessedChin(rawOutput, sideScoreMap)) {
+    sideRating = Math.min(sideRating, 48);
   }
 
   const uncannyPrimaryFlaws = buildUncannyPrimaryFlawEntries(rawOutput, categories, appealAssessment);
