@@ -106,7 +106,7 @@ const FeatureHighlightCard = ({ type, feature }) => {
   );
 };
 
-const PublicProfilePage = ({ routeParams, user, scanOnly = false }) => {
+const PublicProfilePage = ({ routeParams, user, scanOnly = false, renderScanDashboard = null }) => {
   const [profile, setProfile] = useState(null);
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -185,6 +185,31 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false }) => {
     if (!activeScan?.payload) return null;
     return activeScan.payload; // This contains hexagonFront, personalizedFeedback, etc.
   }, [activeScan]);
+  const sharedDashboardData = useMemo(() => {
+    if (!activeScan?.payload) return null;
+    const payload = activeScan.payload && typeof activeScan.payload === 'object' ? activeScan.payload : {};
+    return {
+      ...payload,
+      scanId: activeScan.id || payload.scanId || null,
+      id: activeScan.id || payload.scanId || null,
+      profileId: activeScan.profileId || payload.profileId || profile?.id || null,
+      profileName: profile?.name || activeScan.profileName || payload.profileName || 'Shared Scan',
+      ownerUid: profile?.userId || activeScan.ownerUid || payload.ownerUid || null,
+      visibility: activeScan.visibility || payload.visibility || 'unlisted',
+      selectedModel: String(activeScan.model || payload.selectedModel || payload.model || '').trim(),
+      model: activeScan.model || payload.model || payload.selectedModel || '',
+      cohesiveFrontSide: Boolean(activeScan.cohesiveFrontSide || payload.cohesiveFrontSide),
+      frontImage: resolveMediaUrl(activeScan.frontImageUrl || payload.frontImage || payload.frontImageUrl || null),
+      sideImage: resolveMediaUrl(activeScan.sideImageUrl || payload.sideImage || payload.sideImageUrl || null),
+      debugAnchorsImage: resolveMediaUrl(activeScan.debugAnchorsImageUrl || payload.debugAnchorsImage || payload.debugAnchorsImageUrl || null),
+      debugAnchorsImageUrl: resolveMediaUrl(activeScan.debugAnchorsImageUrl || payload.debugAnchorsImageUrl || payload.debugAnchorsImage || null),
+      debugRatiosImage: resolveMediaUrl(activeScan.debugRatiosImageUrl || payload.debugRatiosImage || payload.debugRatiosImageUrl || null),
+      debugRatiosImageUrl: resolveMediaUrl(activeScan.debugRatiosImageUrl || payload.debugRatiosImageUrl || payload.debugRatiosImage || null),
+      finalRating: typeof activeScan.finalRating === 'number' ? activeScan.finalRating : payload.finalRating,
+      sideRating: typeof activeScan.sideRating === 'number' ? activeScan.sideRating : payload.sideRating,
+      scannedAt: activeScan.scannedAt || activeScan.timestamp || payload.scannedAt || payload.timestamp || null,
+    };
+  }, [activeScan, profile]);
   const activeScanVisibility = String(activeScan?.visibility || 'private').trim().toLowerCase() || 'private';
 
   const hexData = useMemo(() => {
@@ -360,7 +385,9 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false }) => {
         </div>
       )}
 
-      {activeScan && parsedData ? (
+      {scanOnly && sharedDashboardData && renderScanDashboard ? (
+        renderScanDashboard(sharedDashboardData)
+      ) : activeScan && parsedData ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12">
           {/* LEFT: Photos & Rating */}
           <div className="lg:col-span-4 flex flex-col gap-6">

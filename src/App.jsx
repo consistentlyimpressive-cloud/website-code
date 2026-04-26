@@ -5470,11 +5470,11 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
   );
 };
 
-const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback }) => {
+const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback, forceFullAnalysis = false }) => {
   const selectedModel = String(dashboardData?.selectedModel || '').trim();
-  const isFreeModelResult = ['3', '4', '5'].includes(selectedModel);
+  const isFreeModelResult = !forceFullAnalysis && ['3', '4', '5'].includes(selectedModel);
   const hasFullProUnlock = userPlan?.plan === 'pro';
-  const isRestrictedPreview = isFreeModelResult;
+  const isRestrictedPreview = !forceFullAnalysis && isFreeModelResult;
   const showBestFlaw = !hideBestFlawSection;
   const isAdmin = Boolean(user?.email && (
     user.email === 'laithbu07@gmail.com' ||
@@ -8460,7 +8460,24 @@ const App = () => {
         )}
         {currentPage === 'celebrity' && <CelebrityRatingPage setCurrentPage={setCurrentPage} setSelectedCelebrity={setSelectedCelebrity} user={user} />}
         {currentPage === 'celebrity-stats' && selectedCelebrity && <CelebrityStatsPage celeb={selectedCelebrity} setCurrentPage={setCurrentPage} />}
-        {currentPage === 'public-scan' && <PublicProfilePage routeParams={routeParams} user={user} scanOnly />}
+        {currentPage === 'public-scan' && (
+          <PublicProfilePage
+            routeParams={routeParams}
+            user={user}
+            scanOnly
+            renderScanDashboard={(scanDashboardData) => (
+              <DashboardPage
+                dashboardData={scanDashboardData}
+                setCurrentPage={setCurrentPage}
+                userPlan={userPlan}
+                user={user}
+                hideTopSection
+                isEmbedded
+                forceFullAnalysis
+              />
+            )}
+          />
+        )}
         {currentPage === 'admin' && <AdminDashboardPage setCurrentPage={setCurrentPage} />}
         {currentPage === 'protocol-all' && <AllProtocolsPage protocols={dashboardData?.protocols || []} setCurrentPage={setCurrentPage} />}
         {currentPage === 'tos' && <TermsOfServicePage setCurrentPage={setCurrentPage} />}
