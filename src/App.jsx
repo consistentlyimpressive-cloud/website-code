@@ -3350,17 +3350,6 @@ const ScanningView = ({
         }
       } catch (err) {
         console.error("API failed", err);
-        if (isTransientMobileScanError(err) && activeUser) {
-          const recoveredScan = await pollForSavedScan();
-          if (!active) return;
-          if (recoveredScan) {
-            scanSucceeded = true;
-            rememberScanDuration(choice, currentFairUsage, Date.now() - scanStartedAt);
-            setStatusText("Analysis Complete! Transitioning...");
-            onCompleteRef.current(recoveredScan);
-            return;
-          }
-        }
         setStatusText(
           err?.name === 'AbortError'
             ? 'Analysis timed out after about 10 minutes. Please try again with a smaller image or try again in a moment.'
@@ -5649,6 +5638,10 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
     null;
   const authenticityFlag = getAuthenticityFlag(dashboardData);
   const uncannyFlag = getUncannyFlag(dashboardData);
+  const showUncannyFlagUnderScore = Boolean(
+    uncannyFlag &&
+    !/\b(?:synthetic|non[-\s]?human|ai[-\s]?generated|score capped)\b/i.test(authenticityFlag)
+  );
   const personalizedFeedback = Array.isArray(dashboardData?.personalizedFeedback)
     ? dashboardData.personalizedFeedback.filter((item) => item && (item.title || item.description))
     : [];
@@ -5857,7 +5850,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                           {authenticityFlag}
                         </span>
                       )}
-                      {uncannyFlag && (
+                      {showUncannyFlagUnderScore && (
                         <span className="mt-2 max-w-[85%] text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
                           ({uncannyFlag})
                         </span>
@@ -5954,7 +5947,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                           {authenticityFlag}
                         </span>
                       )}
-                      {uncannyFlag && (
+                      {showUncannyFlagUnderScore && (
                         <span className="mt-2 max-w-[85%] text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
                           ({uncannyFlag})
                         </span>
