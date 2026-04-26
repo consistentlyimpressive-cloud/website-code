@@ -740,7 +740,7 @@ const PADDLE_PRICE_IDS = {
   single_scan:
     String(import.meta.env.VITE_PADDLE_PRICE_SINGLE_SCAN || 'pri_01kph4qjjrtbdbnswrvdt16jkn').trim(),
   pro: String(import.meta.env.VITE_PADDLE_PRICE_PRO || 'pri_01kph4pr6xpxhq7c4jfztdmr44').trim(),
-  pro_yearly: String(import.meta.env.VITE_PADDLE_PRICE_PRO_YEARLY || '').trim(),
+  pro_yearly: String(import.meta.env.VITE_PADDLE_PRICE_PRO_YEARLY || 'pri_01kq54g14he2zakyxr0nrt1ckc').trim(),
 };
 
 function isLocalPaddleHost() {
@@ -6494,14 +6494,14 @@ const PlansPage = ({ setCurrentPage, user }) => {
       {/* --- Two Scans --- */}
       <FadeUp delay={300}>
         <div className="h-full bg-gradient-to-b from-[#0f1520] via-zinc-900/60 to-[#0c0d0e] border border-cyan-500/30 rounded-3xl p-8 md:p-10 flex flex-col relative hover:border-cyan-500/50 transition-colors shadow-[0_0_60px_rgba(34,211,238,0.04)] hover:shadow-[0_0_60px_rgba(34,211,238,0.1)]">
-          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-cyan-500 text-black px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Best Value</div>
+          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-cyan-500 text-black px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">One-Time</div>
 
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center p-1.5">
               <MogCheckLogoIcon size={28} className="opacity-95 [filter:drop-shadow(0_0_8px_rgba(34,211,238,0.35))]" />
             </div>
             <div>
-              <h3 className="text-xl font-black uppercase italic tracking-tighter text-cyan-400">2 Scans</h3>
+              <h3 className="text-xl font-black uppercase italic tracking-tighter text-cyan-400">1 Scan</h3>
               <p className="text-cyan-400/40 font-sans text-[9px] uppercase tracking-widest">One-time</p>
             </div>
           </div>
@@ -6514,9 +6514,9 @@ const PlansPage = ({ setCurrentPage, user }) => {
 
           <div className="w-full h-px bg-cyan-500/15 mb-8" />
 
-          <p className="text-cyan-400/60 font-sans text-[10px] uppercase tracking-widest mb-5">Two premium analyses include</p>
+          <p className="text-cyan-400/60 font-sans text-[10px] uppercase tracking-widest mb-5">One premium analysis includes</p>
           <ul className="flex flex-col gap-4 text-sm font-sans text-zinc-300 w-full mb-10">
-            <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>2 full-detail AI facial analyses with 40+ measurements each</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>1 full-detail AI facial analysis with 40+ measurements</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>Exact final rating with detailed ratio breakdown</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>Customized personal improvement protocols</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>Celebrity lookalike matching & comparison</span></li>
@@ -6537,7 +6537,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
               </span>
             </label>
             <button onClick={() => handleCheckout('single_scan')} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[1.02] transition-transform shadow-[0_0_25px_rgba(34,211,238,0.25)] flex items-center justify-center gap-2">
-              <Zap size={14} /> Buy 2 Scans
+              <Zap size={14} /> Buy 1 Scan
             </button>
           </div>
         </div>
@@ -6559,7 +6559,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
           </div>
 
           <div className="flex items-baseline gap-1 mb-1">
-            <span className="text-5xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">$14.99</span>
+            <span className="text-5xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">$15</span>
             <span className="text-sm text-zinc-500 font-sans tracking-widest">/mo</span>
           </div>
           <p className="text-zinc-400 font-sans text-xs uppercase tracking-wide mb-8">Cancel anytime, no commitment</p>
@@ -6613,9 +6613,9 @@ const PlansPage = ({ setCurrentPage, user }) => {
 
           <div className="flex items-baseline gap-1 mb-1">
             <span className="text-5xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">$10</span>
-            <span className="text-sm text-zinc-500 font-sans tracking-widest">/mo</span>
+            <span className="text-sm text-zinc-500 font-sans tracking-widest">/year</span>
           </div>
-          <p className="text-zinc-400 font-sans text-xs uppercase tracking-wide mb-8">Billed annually at $119.88</p>
+          <p className="text-zinc-400 font-sans text-xs uppercase tracking-wide mb-8">Billed annually at $10</p>
 
           <div className="w-full h-px bg-emerald-500/15 mb-8" />
 
@@ -8284,7 +8284,6 @@ const App = () => {
   
   return (
     <div className="min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black">
-      <div className="fixed left-2 top-2 z-[9999] pointer-events-none text-[10px] font-black uppercase tracking-widest text-red-500">penis goat</div>
       <NoiseOverlay />
       {!isScanOnlyPage && (
         <Navbar

@@ -41,7 +41,7 @@ const PrivacyPolicyPage = ({ setCurrentPage }) => {
             We only collect data that is strictly necessary to provide the analysis service:
           </p>
           <ul className="list-disc pl-5 space-y-3 text-sm">
-            <li><strong className="text-zinc-100">Account Information:</strong> Email address (provided via Paddle) to deliver your reports and manage your $20/month subscription.</li>
+            <li><strong className="text-zinc-100">Account Information:</strong> Email address (provided via Paddle) to deliver your reports and manage your $15/month or $10/year subscription.</li>
             <li><strong className="text-zinc-100">Analysis Images:</strong> The photos you upload for analysis.</li>
             <li><strong className="text-zinc-100">Technical Data:</strong> IP address and browser type (collected for security and fraud prevention).</li>
           </ul>

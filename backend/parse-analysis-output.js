@@ -687,11 +687,14 @@ function computeVisibleAgingPenalty(rawOutput, appealAssessment, debugJustificat
   const suppressWords = '(?:suppress(?:ed|es|ing)?|limit(?:ed|s|ing)?|drag(?:ged|s)?\\s+down|downward|penalty|penaliz(?:ed|es|ing)?|deduct(?:ed|s|ing)?|hurt(?:s|ing)?|lower(?:s|ed|ing)?)';
   const heavyCue = new RegExp(`\\b${heavyWords}\\b[^.\\n]{0,90}\\b${agingWords}\\b|\\b${agingWords}\\b[^.\\n]{0,90}\\b${heavyWords}\\b`).test(text);
   const suppressCue = new RegExp(`\\b${suppressWords}\\b[^.\\n]{0,90}\\b${agingWords}\\b|\\b${agingWords}\\b[^.\\n]{0,90}\\b${suppressWords}\\b`).test(text);
+  const obviousAgingCue =
+    /\b(?:visible|clear|obvious|noticeable)\b[^.\n]{0,70}\b(?:nasolabial folds?|wrinkles?|sagging|skin laxity|marionette|baldness|reced(?:ing|ed) hairline|hairline recession|diffuse thinning)\b/.test(text) ||
+    /\b(?:deep|pronounced|severe|significant|substantial)\s+(?:nasolabial folds?|wrinkles?|sagging|skin laxity|marionette lines?|hairline recession|baldness|diffuse thinning)\b/.test(text);
 
   if (heavyCue && suppressCue) return 6;
-  if (heavyCue) return 5;
-  if (suppressCue) return 4;
-  return 3;
+  if (heavyCue && obviousAgingCue) return 5;
+  if (suppressCue && obviousAgingCue) return 4;
+  return 0;
 }
 
 function hasVisibleAgingFlaw(entries) {

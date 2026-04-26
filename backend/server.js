@@ -382,7 +382,7 @@ const unlockLimiter = rateLimit({
 const PADDLE_PRICE_SINGLE_SCAN =
 process.env.PADDLE_PRICE_SINGLE_SCAN || 'pri_01kph4qjjrtbdbnswrvdt16jkn';
 const PADDLE_PRICE_PRO = process.env.PADDLE_PRICE_PRO || 'pri_01kph4pr6xpxhq7c4jfztdmr44';
-const PADDLE_PRICE_PRO_YEARLY = process.env.PADDLE_PRICE_PRO_YEARLY || '';
+const PADDLE_PRICE_PRO_YEARLY = process.env.PADDLE_PRICE_PRO_YEARLY || 'pri_01kq54g14he2zakyxr0nrt1ckc';
 
 function parsePaddleSignature(signatureHeader = '') {
   return String(signatureHeader)
@@ -568,12 +568,12 @@ app.post(
           await userRef.set(
             {
               plan: 'single_scan',
-              scanCredits: admin.firestore.FieldValue.increment(2),
+              scanCredits: admin.firestore.FieldValue.increment(1),
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             },
             { merge: true }
           );
-          console.log(`[webhook:paddle] User ${userId} -> single_scan (+2 credits)`);
+          console.log(`[webhook:paddle] User ${userId} -> single_scan (+1 credit)`);
         }
 
         if (

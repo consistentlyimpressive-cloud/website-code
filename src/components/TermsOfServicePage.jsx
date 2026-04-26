@@ -50,11 +50,11 @@ const TermsOfServicePage = ({ setCurrentPage }) => {
         <section>
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">4. Fees and No-Refund Policy</h2>
           <ul className="list-disc pl-5 space-y-3 text-sm">
-            <li><strong className="text-zinc-100">Pricing:</strong> We offer a $8.00 One-Time Report and a $20.00 Monthly Subscription.</li>
+            <li><strong className="text-zinc-100">Pricing:</strong> We offer an $8.00 One-Time Scan, a $15.00 Monthly Subscription, and a $10.00 Annual Subscription.</li>
             <li><strong className="text-zinc-100">Immediate Performance:</strong> By purchasing a report or subscription, you expressly request that the Service begins immediately.</li>
             <li><strong className="text-zinc-100">No Refunds:</strong> Due to the digital nature of the product and the immediate delivery of value (AI analysis), all sales are final and non-refundable.</li>
             <li><strong className="text-zinc-100">Waiver of Withdrawal:</strong> You acknowledge that you lose your statutory right of withdrawal (including under EU/UK consumer law) once the AI analysis has been generated for your account.</li>
-            <li><strong className="text-zinc-100">Subscriptions:</strong> You may cancel your $20.00 Monthly Subscription at any time to prevent future billing. No pro-rata refunds are provided for the remaining days of a billing cycle already in progress.</li>
+            <li><strong className="text-zinc-100">Subscriptions:</strong> You may cancel your monthly or annual subscription at any time to prevent future billing. No pro-rata refunds are provided for the remaining days of a billing cycle already in progress.</li>
           </ul>
         </section>
 
