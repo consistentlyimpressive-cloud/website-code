@@ -252,6 +252,8 @@ const normalizeVisibility = (value) => {
   return normalized === 'public' ? 'community' : normalized;
 };
 
+const getScanId = (scan) => String(scan?.scanId || scan?.id || '').trim();
+
 const tierFromRating = (rating) => {
   const score = Number(rating) || 0;
   if (score >= 85) return 'S-TIER';
@@ -506,10 +508,11 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   };
 
   const handleUpdateActiveScanVisibility = async (scanId, visibility) => {
-    if (!scanId || !visibility || !user) return false;
+    const targetScanId = String(scanId || '').trim();
+    if (!targetScanId || !visibility || !user) return false;
     try {
       const token = await user.getIdToken();
-      const res = await fetch(`${API_BASE}/api/user/scans/${encodeURIComponent(scanId)}`, {
+      const res = await fetch(`${API_BASE}/api/user/scans/${encodeURIComponent(targetScanId)}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -519,21 +522,22 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `Could not update scan visibility (${res.status})`);
+      const nextVisibility = normalizeVisibility(body.scan?.visibility || visibility);
 
       setDashboardData?.((prev) => {
         const nextHistory = Array.isArray(prev?.scanHistory)
-          ? prev.scanHistory.map((item) => (item.scanId === scanId ? { ...item, visibility } : item))
+          ? prev.scanHistory.map((item) => (getScanId(item) === targetScanId ? { ...item, visibility: nextVisibility } : item))
           : prev?.scanHistory;
         return {
           ...(prev || {}),
-          ...(prev?.scanId === scanId ? { visibility } : {}),
+          ...(getScanId(prev) === targetScanId ? { visibility: nextVisibility } : {}),
           scanHistory: nextHistory,
         };
       });
-      setAllScans((prev) => prev.map((scan) => (scan.id === scanId ? { ...scan, visibility } : scan)));
+      setAllScans((prev) => prev.map((scan) => (getScanId(scan) === targetScanId ? { ...scan, visibility: nextVisibility } : scan)));
       setDashboardCommunityScans((prev) => {
-        if (visibility === 'community') return prev;
-        return prev.filter((scan) => String(scan?.scanId || scan?.dashboardData?.scanId || scan?.id || '') !== scanId);
+        if (nextVisibility === 'community') return prev;
+        return prev.filter((scan) => getScanId(scan?.dashboardData || scan) !== targetScanId);
       });
       await loadMogPreviews();
       return true;
@@ -546,13 +550,13 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   };
 
   const getShareUrlForScan = (scan) => {
-    const scanId = scan?.scanId || scan?.id;
+    const scanId = getScanId(scan);
     if (!user?.uid || !scanId) return '';
     return `${window.location.origin}/scan/${encodeURIComponent(user.uid)}/${encodeURIComponent(scanId)}`;
   };
 
   const handleShareScan = async (scan) => {
-    const scanId = scan?.scanId || scan?.id;
+    const scanId = getScanId(scan);
     if (!scanId || !user) return;
     const visibility = normalizeVisibility(scan?.visibility || 'private');
     if (!['unlisted', 'community'].includes(visibility)) {
@@ -579,8 +583,8 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   );
 
   const publishScanToCommunity = async (scan) => {
-    if (!scan?.id || !user) return;
-    const scanId = String(scan.id);
+    const scanId = getScanId(scan);
+    if (!scanId || !user) return;
     if (communityScanIds.has(scanId) || normalizeVisibility(scan.visibility) === 'community') {
       setCommunityNotice('That scan is already in Community Scans.');
       return;
@@ -951,6 +955,8 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   const communityPreview = (dashboardCommunityScans.length ? dashboardCommunityScans : COMMUNITY_SCANS).slice(0, 4);
   const communityGallery = dashboardCommunityScans.length ? dashboardCommunityScans : COMMUNITY_SCANS;
   const showAnalysisShell = hasActiveAnalysis;
+  const activeDashboardScanId = getScanId(dashboardData);
+  const activeDashboardVisibility = normalizeVisibility(dashboardData?.visibility || 'private');
 
   useEffect(() => {
     if (!hasActiveAnalysis) return undefined;
@@ -1381,7 +1387,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                   Go to Mog Battles <ChevronRight size={16} />
                 </button>
               </div>
-              {dashboardData?.scanId && user && (
+              {activeDashboardScanId && user && (
                 <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div>
@@ -1389,12 +1395,12 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       <p className="mt-1 text-xs font-sans text-zinc-400">Visibility is now per scan, not per profile.</p>
                     </div>
                     <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">
-                      {String(dashboardData.visibility || 'private') === 'community' ? 'public' : String(dashboardData.visibility || 'private')}
+                      {activeDashboardVisibility === 'community' ? 'public' : activeDashboardVisibility}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {['private', 'unlisted', 'community'].map((visibility) => {
-                      const active = String(dashboardData.visibility || 'private') === visibility;
+                      const active = activeDashboardVisibility === visibility;
                       const label = visibility === 'community' ? 'public' : visibility;
                       return (
                         <button
@@ -1403,9 +1409,9 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                           onClick={() => {
                             if (active) return;
                             if (visibility === 'community') {
-                              setScanVisibilityIntent({ scanId: dashboardData.scanId, visibility });
+                              setScanVisibilityIntent({ scanId: activeDashboardScanId, visibility });
                             } else {
-                              handleUpdateActiveScanVisibility(dashboardData.scanId, visibility);
+                              handleUpdateActiveScanVisibility(activeDashboardScanId, visibility);
                             }
                           }}
                           className={`rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors ${active ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300' : 'border-zinc-800 bg-black/40 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'}`}
