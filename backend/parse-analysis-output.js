@@ -665,6 +665,42 @@ function hasConventionalAppealCue(appealAssessment) {
   return /\buniversally conventional\b|\byouthful\b|\brefined,\s*clean look\b|\bclean look\b|\bprioriti[sz]es harmony\b|\bharmony and symmetry over aggressive dimorphism\b|\bbalanced,\s*polished\b|\bapproachable\b|\bsoft,\s*youthful appeal\b/.test(text);
 }
 
+function computeVisibleAgingPenalty(rawOutput, appealAssessment, debugJustification, technicalSummary) {
+  const text = [
+    debugJustification,
+    appealAssessment,
+    technicalSummary,
+    rawOutput
+  ].filter(Boolean).join('\n').toLowerCase();
+
+  const hasNegatedAgingCue =
+    /\b(?:no|without|minimal|little|low|not|barely)\b[^.\n]{0,60}\b(?:aging|age-related|nasolabial|wrinkle|fold|sagging|laxity|bald|hairline recession|receding hairline|thinning)\b/.test(text) ||
+    /\b(?:aging|age-related|nasolabial|wrinkle|fold|sagging|laxity|bald|hairline recession|receding hairline|thinning)\b[^.\n]{0,60}\b(?:not visible|absent|minimal|minor|negligible)\b/.test(text);
+  if (hasNegatedAgingCue) return 0;
+
+  const agingCue =
+    /\baging markers?\b|\bage-related\b|\bnasolabial folds?\b|\bmarionette\b|\bwrinkles?\b|\bskin laxity\b|\bsagging\b|\bsoft-tissue decline\b|\bsoft tissue decline\b|\borbital tiredness\b|\bunder-eye aging\b|\bworn\b|\bolder\b|\bbaldness\b|\bbald\b|\breced(?:ing|ed) hairline\b|\bhairline recession\b|\bdiffuse thinning\b|\bhigh hairline\b|\bweak hairline\b/.test(text);
+  if (!agingCue) return 0;
+
+  const agingWords = '(?:aging|age-related|nasolabial|fold|wrinkle|laxity|sagging|bald|hairline|recession|thinning|marionette|soft[-\\s]?tissue)';
+  const heavyWords = '(?:heavily|strongly|major|severe|deep|pronounced|significant|materially|substantial)';
+  const suppressWords = '(?:suppress(?:ed|es|ing)?|limit(?:ed|s|ing)?|drag(?:ged|s)?\\s+down|downward|penalty|penaliz(?:ed|es|ing)?|deduct(?:ed|s|ing)?|hurt(?:s|ing)?|lower(?:s|ed|ing)?)';
+  const heavyCue = new RegExp(`\\b${heavyWords}\\b[^.\\n]{0,90}\\b${agingWords}\\b|\\b${agingWords}\\b[^.\\n]{0,90}\\b${heavyWords}\\b`).test(text);
+  const suppressCue = new RegExp(`\\b${suppressWords}\\b[^.\\n]{0,90}\\b${agingWords}\\b|\\b${agingWords}\\b[^.\\n]{0,90}\\b${suppressWords}\\b`).test(text);
+
+  if (heavyCue && suppressCue) return 6;
+  if (heavyCue) return 5;
+  if (suppressCue) return 4;
+  return 3;
+}
+
+function hasVisibleAgingFlaw(entries) {
+  return (entries || []).some((entry) => {
+    const text = `${entry?.title || ''} ${entry?.description || ''}`.toLowerCase();
+    return /\baging\b|\bage-related\b|\bnasolabial\b|\bwrinkle\b|\bsagging\b|\blaxity\b|\bbald\b|\breced(?:ing|ed) hairline\b|\bhairline recession\b|\bthinning\b/.test(text);
+  });
+}
+
 function isContradictoryAggressiveStyleFlaw(entry) {
   const text = `${entry?.title || ''} ${entry?.description || ''}`.toLowerCase();
   return /\bbrutalist\b|\boverbuilt\s*\/\s*editorial\b|\boverbuilt\b|\bover-?aggressive\b|\baggressive dimorphism\b|\btoo heavily on sharp\b|\bextreme dimorphism\b|\bhyper-?masculine\b/.test(text);
@@ -1150,6 +1186,37 @@ function parseDebugJustification(raw) {
   return null;
 }
 
+function formatRatingForDebug(value) {
+  if (value == null || Number.isNaN(Number(value))) return null;
+  const rounded = Math.round(Number(value) * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+function syncDebugJustificationRatings(debugJustification, finalRating, sideRating) {
+  if (!debugJustification) return debugJustification;
+  let text = String(debugJustification);
+
+  const replaceRating = (labels, value) => {
+    const formatted = formatRatingForDebug(value);
+    if (formatted == null) return;
+    labels.forEach((label) => {
+      const labelPattern = label.replace(/\s+/g, '\\s+');
+      text = text.replace(
+        new RegExp(`\\b(${labelPattern}\\s*\\(\\s*)(\\d+(?:\\.\\d+)?)(\\s*(?:\\/\\s*100)?\\s*\\))`, 'ig'),
+        `$1${formatted}$3`
+      );
+      text = text.replace(
+        new RegExp(`\\b(${labelPattern}\\s*(?:is|:)?\\s*)(\\d+(?:\\.\\d+)?)(\\s*\\/\\s*100)?`, 'ig'),
+        `$1${formatted}$3`
+      );
+    });
+  };
+
+  replaceRating(['Final Frontal Rating', 'Frontal Rating', 'Final Rating'], finalRating);
+  replaceRating(['Final Side Rating', 'Side Rating'], sideRating);
+  return text;
+}
+
 function parseHexagonChart(raw, type) {
   const regex = new RegExp(`\\*\\*Hexagon Chart Ratings \\(${type}\\)\\*\\*\\s*\\n([\\s\\S]*?)(?=\\n\\*\\*|\\n###|$)`, 'i');
   const match = raw.match(regex);
@@ -1276,7 +1343,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     technicalSummary = DEFAULT_SUMMARY;
   }
   const appealAssessment = parseAppealAssessment(rawOutput);
-  const debugJustification = parseDebugJustification(rawOutput);
+  let debugJustification = parseDebugJustification(rawOutput);
   const facialFatRead = parseFacialFatRead(rawOutput);
 
   const bestFeatures = [];
@@ -1502,6 +1569,16 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     if (finalRating != null) finalRating = Math.min(finalRating, 40);
     if (sideRating != null) sideRating = Math.min(sideRating, 40);
   }
+  const visibleAgingPenalty = authenticityFlag ? 0 : computeVisibleAgingPenalty(rawOutput, appealAssessment, debugJustification, technicalSummary);
+  if (visibleAgingPenalty > 0 && finalRating != null) {
+    finalRating = Math.round(clamp(finalRating - visibleAgingPenalty, 0, 100) * 10) / 10;
+  }
+  if (visibleAgingPenalty > 0 && !hasVisibleAgingFlaw(primaryFlaws)) {
+    primaryFlaws.unshift({
+      title: visibleAgingPenalty >= 5 ? 'Pronounced Aging Markers' : 'Visible Aging Markers',
+      description: 'Age-related cues such as nasolabial folds, skin laxity, baldness, or hairline recession are reducing the frontal rating.'
+    });
+  }
   if (uncannyPrimaryFlaws.length) {
     const mergedPrimary = mergeFeatureEntries(uncannyPrimaryFlaws, primaryFlaws, 5);
     primaryFlaws.splice(0, primaryFlaws.length, ...mergedPrimary);
@@ -1539,6 +1616,8 @@ function parseAnalysisOutput(rawOutput, backendDir) {
       });
     }
   }
+
+  debugJustification = syncDebugJustificationRatings(debugJustification, finalRating, sideRating);
 
   const summaryIsReal = technicalSummary !== DEFAULT_SUMMARY && technicalSummary.trim().length >= 12;
   const hasSubstantiveParse =

@@ -5418,14 +5418,14 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
     user.email.endsWith('@looksmaxxing.com')
   ));
 
-  const renderBlurredOverlay = (title) => (
-    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a0a0b]/60 backdrop-blur-[6px] rounded-3xl border border-zinc-800/50 group transition-all select-none">
-      <Lock size={32} className="text-yellow-500 mb-3 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" />
-      <span className="text-white font-black italic uppercase tracking-widest text-lg mb-1 drop-shadow-md">PRO FEATURE</span>
-      <span className="text-zinc-300 font-sans text-[10px] uppercase tracking-widest mb-6 text-center px-4 max-w-[min(100%,280px)] leading-relaxed">{title} requires a premium model</span>
+  const renderBlurredOverlay = (title, compact = false) => (
+    <div className={`absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a0a0b]/60 backdrop-blur-[6px] rounded-3xl border border-zinc-800/50 group transition-all select-none ${compact ? 'py-3' : ''}`}>
+      <Lock size={compact ? 14 : 32} className={`text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)] ${compact ? 'mb-2' : 'mb-3'}`} />
+      <span className={`text-white font-black italic uppercase tracking-widest mb-1 drop-shadow-md ${compact ? 'text-base' : 'text-lg'}`}>PRO FEATURE</span>
+      <span className={`text-zinc-300 font-sans text-[10px] uppercase tracking-widest text-center px-4 max-w-[min(100%,280px)] leading-relaxed ${compact ? 'mb-4' : 'mb-6'}`}>{title} requires a premium model</span>
       <button 
         onClick={() => setCurrentPage('plans')}
-        className="px-6 py-2 bg-gradient-to-r from-yellow-600 to-yellow-500 text-black font-bold uppercase tracking-widest text-xs rounded-full hover:scale-105 transition-transform shadow-[0_0_15px_rgba(234,179,8,0.4)]"
+        className={`bg-gradient-to-r from-yellow-600 to-yellow-500 text-black font-bold uppercase tracking-widest rounded-full hover:scale-105 transition-transform shadow-[0_0_15px_rgba(234,179,8,0.4)] ${compact ? 'px-5 py-1.5 text-[10px]' : 'px-6 py-2 text-xs'}`}
       >
         Upgrade to Pro
       </button>
@@ -5658,7 +5658,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   useEffect(() => {
     if (!isRestrictedPreview) return;
     const interval = setInterval(() => {
-      setFreeRatingLoop((prev) => (prev >= 95 ? 70 : prev + 1));
+      setFreeRatingLoop(Math.floor(70 + Math.random() * 30));
     }, 120);
     return () => clearInterval(interval);
   }, [isRestrictedPreview]);
@@ -5670,7 +5670,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
     ? blendNumeric(baseDisplayedFinalRating, oppositeRawRating, 0.18)
     : baseDisplayedFinalRating;
   const displayedFinalRating = isFreeModelResult
-    ? 'Descriptive'
+    ? freeRatingLoop
     : (numericDisplayedFinalRating ?? 85);
   const cohesiveExperimentToggle = hasBothProfileViews && !isFreeModelResult ? (
     <button
@@ -5752,11 +5752,6 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
               AI used: {getAnalysisModelLabel(selectedModel || dashboardData?.model)}
             </span>
-            {isFreeModelResult && (
-              <span className="rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-400">
-                      Descriptive result - no score
-              </span>
-            )}
             {(dashboardData?.cohesiveFrontSide || effectiveCohesiveEnabled) && (
               <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">
                 Cohesive side/front enabled
@@ -6064,7 +6059,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           )}
 
           {/* Detailed Ratios Section */}
-          {!isFreeModelResult && (
+          {(isRestrictedPreview || !isFreeModelResult) && (
           <div className="relative bg-[#0c0d0e] p-6 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
             {isRestrictedPreview && renderBlurredOverlay("Detailed Ratios")}
             <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
@@ -6099,7 +6094,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           {!isRestrictedPreview && <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={effectiveProfileView} showFeatureLists />}
 
           {/* Actionable Protocol */}
-          {!isFreeModelResult && !hideActionableProtocols && (
+          {(isRestrictedPreview || !isFreeModelResult) && !hideActionableProtocols && (
             <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 shadow-lg group hover:border-zinc-700 transition-colors">
               {isRestrictedPreview && renderBlurredOverlay("Actionable Protocol")}
               <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
@@ -6152,9 +6147,9 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </div>
           )}
 
-          {!isFreeModelResult && !hidePersonalizedFeedback && (
+          {(isRestrictedPreview || !isFreeModelResult) && !hidePersonalizedFeedback && (
             <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 shadow-lg group hover:border-zinc-700 transition-colors">
-              {isRestrictedPreview && renderBlurredOverlay("Personalized Feedback")}
+              {isRestrictedPreview && renderBlurredOverlay("Personalized Feedback", true)}
               <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
                 <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-zinc-800 pb-4">
                   <Sparkles size={14} className="text-zinc-500" /> Personalized Feedback
@@ -6178,7 +6173,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             </div>
           )}
 
-          {!isFreeModelResult && !hideUnlockPotential && (
+          {(isRestrictedPreview || !isFreeModelResult) && !hideUnlockPotential && (
           <div className="bg-gradient-to-br from-zinc-900/80 to-black p-1 rounded-2xl overflow-hidden mt-4 relative shadow-[0_10px_50px_rgba(0,0,0,0.5)] border border-zinc-800/50 group hover:border-zinc-700 transition-colors">
             {isRestrictedPreview && renderBlurredOverlay("Analyze Potential")}
             <div className={`bg-[#0a0a0b] p-8 md:p-12 rounded-[14px] flex flex-col md:flex-row items-center gap-12 relative overflow-hidden ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>

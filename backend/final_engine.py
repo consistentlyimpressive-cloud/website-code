@@ -428,8 +428,13 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            If weak definition is caused by lighting, blur, beard, image quality, angle, soft bone structure, or lack of cheekbone/jaw projection rather than visible fat, do NOT call it high facial fat.
            - AGING / SOFT TISSUE / ORBITAL TIREDNESS / OVERALL READ:
            Penalize visible soft-tissue decline, orbital tiredness, under-eye fatigue, nasolabial folds, laxity, puffiness, and a generally worn / non-elite facial read more harshly than you currently do.
+           Nasolabial folds are especially important: visible moderate-to-deep nasolabial folds should materially lower skin/soft-tissue freshness, harmony, and final rating because they age the face and reduce a fresh high-tier look.
+           Deep nasolabial folds, marionette-line heaviness, sagging cheek tissue, or pronounced midface/lower-face creasing should be treated as a major aging/soft-tissue flaw when obvious.
            Even if some bone metrics are decent, a face that looks tired, aged, puffy, saggy, or generally non-elite should not float into an inflated band.
            "Overall non-elite read" is a real penalty factor and should materially lower the final score when it is obvious.
+           - BALDNESS / HAIRLINE: Penalize visible baldness, severe recession, diffuse thinning, or a high/weak hairline more than you currently do when it hurts facial framing or makes the face look older.
+           Baldness should reduce perceived youth, harmony, and overall appeal when it is visually obvious, especially if the scalp is exposed, the hairline is heavily receded, or the face loses upper-third framing.
+           Do not let strong facial bones fully rescue a visibly aged/bald presentation if the overall read becomes older, harsher, or less fresh.
         1B. INTERNAL VISUAL BUCKETING (VERY IMPORTANT):
            Before deciding the final score, internally classify the face into ONE of these buckets:
            - NATURAL / COHERENT HIGH-TIER: Strong features that still read human, believable, and harmonious.
@@ -553,10 +558,12 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
            - A face with truly exceptional eyes and otherwise decent harmony should not get stuck too low purely because the bone structure is less aggressive or less brute-dimorphic.
         5. SIGNS OF AGING:
            - Penalize visible aging signs MORE harshly than you currently do.
-           - Nasolabial folds, under-eye aging, wrinkles, sagging skin, skin laxity, orbital tiredness, and a worn / non-fresh look should reduce the rating in a clearly noticeable way when visible.
+           - Nasolabial folds, especially moderate-to-deep folds, should be punished more strongly because they visually age the midface and lower face.
+           - Under-eye aging, wrinkles, sagging skin, skin laxity, orbital tiredness, and a worn / non-fresh look should reduce the rating in a clearly noticeable way when visible.
            - Visible aging, weak definition, soft-tissue decline, and a generally non-elite read should matter materially, not just cosmetically.
            - If the face looks noticeably older, puffier, more tired, or less structurally fresh than the metrics alone would suggest, let that lower the final score in a meaningful way.
            - If aging signs are not visible, do not invent an aging penalty.
+           - Visible baldness, severe recession, diffuse thinning, or a weak/high hairline should count as an aging/presentation penalty when it noticeably worsens facial framing.
 
 
         OUTPUT FORMAT:
