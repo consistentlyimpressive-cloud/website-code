@@ -3110,7 +3110,7 @@ app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
     }
 
     if (Object.keys(updateData).length === 1) {
-      return res.json({ ok: true, scan: normalizeStoredScanUrls({ id: doc.id, ...currentData }) });
+      return res.json({ ok: true, scan: normalizeStoredScanUrls({ id: scanId, ...currentData }) });
     }
 
     if (docRef) {
@@ -3129,7 +3129,7 @@ app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
     res.json({
       ok: true,
       scan: {
-        ...normalizeStoredScanUrls({ id: doc.id, ...nextData }),
+        ...normalizeStoredScanUrls({ id: scanId, ...nextData }),
       },
     });
   } catch (e) {

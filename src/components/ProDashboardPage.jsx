@@ -334,6 +334,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   const [deleteProfileId, setDeleteProfileId] = useState(null);
   const [profileVisibilityIntent, setProfileVisibilityIntent] = useState(null);
   const [scanVisibilityIntent, setScanVisibilityIntent] = useState(null);
+  const [scanVisibilityOverrides, setScanVisibilityOverrides] = useState({});
   const [communityAddOpen, setCommunityAddOpen] = useState(false);
   const [communityNotice, setCommunityNotice] = useState('');
   const [shareNotice, setShareNotice] = useState('');
@@ -510,6 +511,19 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   const handleUpdateActiveScanVisibility = async (scanId, visibility) => {
     const targetScanId = String(scanId || '').trim();
     if (!targetScanId || !visibility || !user) return false;
+    const requestedVisibility = normalizeVisibility(visibility);
+    setScanVisibilityOverrides((prev) => ({ ...prev, [targetScanId]: requestedVisibility }));
+    setDashboardData?.((prev) => {
+      const nextHistory = Array.isArray(prev?.scanHistory)
+        ? prev.scanHistory.map((item) => (getScanId(item) === targetScanId ? { ...item, visibility: requestedVisibility } : item))
+        : prev?.scanHistory;
+      return {
+        ...(prev || {}),
+        ...(getScanId(prev) === targetScanId ? { visibility: requestedVisibility } : {}),
+        scanHistory: nextHistory,
+      };
+    });
+    setAllScans((prev) => prev.map((scan) => (getScanId(scan) === targetScanId ? { ...scan, visibility: requestedVisibility } : scan)));
     try {
       const token = await user.getIdToken();
       const res = await fetch(`${API_BASE}/api/user/scans/${encodeURIComponent(targetScanId)}`, {
@@ -522,7 +536,8 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `Could not update scan visibility (${res.status})`);
-      const nextVisibility = normalizeVisibility(body.scan?.visibility || visibility);
+      const nextVisibility = normalizeVisibility(body.scan?.visibility || requestedVisibility);
+      setScanVisibilityOverrides((prev) => ({ ...prev, [targetScanId]: nextVisibility }));
 
       setDashboardData?.((prev) => {
         const nextHistory = Array.isArray(prev?.scanHistory)
@@ -956,7 +971,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   const communityGallery = dashboardCommunityScans.length ? dashboardCommunityScans : COMMUNITY_SCANS;
   const showAnalysisShell = hasActiveAnalysis;
   const activeDashboardScanId = getScanId(dashboardData);
-  const activeDashboardVisibility = normalizeVisibility(dashboardData?.visibility || 'private');
+  const activeDashboardVisibility = normalizeVisibility(scanVisibilityOverrides[activeDashboardScanId] || dashboardData?.visibility || 'private');
 
   useEffect(() => {
     if (!hasActiveAnalysis) return undefined;
