@@ -8371,7 +8371,7 @@ const App = () => {
       <button
         type="button"
         onClick={() => setMobileModeEnabled((prev) => !prev)}
-        className={`fixed bottom-4 left-4 z-[230] inline-flex items-center gap-2 rounded-full border px-3 py-2 font-mono text-[9px] font-black uppercase tracking-[0.18em] shadow-[0_14px_44px_rgba(0,0,0,0.45)] backdrop-blur md:hidden ${
+        className={`fixed bottom-4 left-4 z-[230] inline-flex items-center gap-2 rounded-full border px-3 py-2 font-mono text-[9px] font-black uppercase tracking-[0.18em] shadow-[0_14px_44px_rgba(0,0,0,0.45)] backdrop-blur ${
           mobileModeEnabled
             ? 'border-cyan-400/35 bg-cyan-400/15 text-cyan-100'
             : 'border-zinc-700 bg-black/80 text-zinc-400'
