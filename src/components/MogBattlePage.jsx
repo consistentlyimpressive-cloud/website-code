@@ -161,8 +161,11 @@ const fighterGenderLabel = (fighter) => {
 const fighterAnalysisPath = (fighter, currentUserUid = '') => {
   const ownerUid = String(fighter?.ownerUid || fighter?.uid || '').trim();
   const scanId = String(fighter?.scanId || '').trim();
-  if (!ownerUid || !scanId) return null;
-  return `/scan/${encodeURIComponent(ownerUid)}/${encodeURIComponent(scanId)}`;
+  const profileId = String(fighter?.profileId || '').trim();
+  if (!ownerUid) return null;
+  if (scanId) return `/scan/${encodeURIComponent(ownerUid)}/${encodeURIComponent(scanId)}`;
+  if (profileId) return `/users/${encodeURIComponent(ownerUid)}/${encodeURIComponent(profileId)}`;
+  return null;
 };
 
 const battleShareUrl = (battleId) => {
@@ -407,23 +410,25 @@ const FighterMiniCard = ({ fighter, scoreTone = 'text-cyan-300', hidden = false,
       )}
       <div className="min-w-0">
         <p className="truncate text-sm font-black uppercase tracking-[0.12em] text-white">{fighterLabel(fighter)}</p>
-        <p className={`mt-1 text-xl font-black italic tabular-nums ${hidden ? 'text-zinc-500' : scoreTone}`}>
-          {hidden ? 'Hidden' : (fighterScore(fighter)?.toFixed(1) ?? '--')}
-        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <p className={`text-xl font-black italic tabular-nums ${hidden ? 'text-zinc-500' : scoreTone}`}>
+            {hidden ? 'Hidden' : (fighterScore(fighter)?.toFixed(1) ?? '--')}
+          </p>
+          {analysisPath ? (
+            <button
+              type="button"
+              onClick={() => openInternalPath(analysisPath)}
+              className="inline-flex items-center gap-1 rounded-full border border-cyan-400/25 bg-cyan-400/[0.06] px-2 py-1 font-mono text-[8px] font-black uppercase tracking-[0.12em] text-cyan-100 transition-colors hover:border-cyan-300/50 hover:text-white"
+            >
+              View full analysis <ExternalLink size={9} />
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
     <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-zinc-400">
       {hidden ? 'Vote first to unlock the AI rating and metric breakdown for this participant.' : fighterSummary(fighter)}
     </p>
-    {analysisPath ? (
-      <button
-        type="button"
-        onClick={() => openInternalPath(analysisPath)}
-        className="mt-3 inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-950/80 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition-colors hover:border-cyan-400/30 hover:text-white"
-      >
-        View full analysis <ExternalLink size={11} />
-      </button>
-    ) : null}
   </div>
 );
 
