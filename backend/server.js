@@ -861,6 +861,51 @@ async function syncCommunityScanVisibility(uid, scanId, scanData, visibility) {
   }
 }
 
+async function makeMogBattleFighterUnlistedForOwner(uid, fighter) {
+  const scanId = String(fighter?.scanId || '').trim();
+  const ownerUid = String(fighter?.ownerUid || fighter?.uid || uid || '').trim();
+  const profileId = String(fighter?.profileId || '').trim();
+  const visibility = normalizeScanVisibility(fighter?.visibility);
+  const nextFighter = { ...fighter };
+
+  if (ownerUid !== uid || !scanId) return nextFighter;
+
+  nextFighter.ownerUid = uid;
+  if (!nextFighter.uid) nextFighter.uid = uid;
+
+  if (!['unlisted', 'community'].includes(visibility)) {
+    const scanRef = firestore.collection('users').doc(uid).collection('scans').doc(scanId);
+    const scanSnap = await scanRef.get();
+    if (scanSnap.exists) {
+      await scanRef.set(
+        {
+          visibility: 'unlisted',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+      nextFighter.visibility = 'unlisted';
+    }
+  }
+
+  if (profileId) {
+    await firestore
+      .collection('users')
+      .doc(uid)
+      .collection('profiles')
+      .doc(profileId)
+      .set(
+        {
+          visibility: 'unlisted',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+  }
+
+  return nextFighter;
+}
+
 async function deleteFirestoreCollection(collectionRef, batchSize = 200) {
   if (!collectionRef) return;
   while (true) {
@@ -1240,10 +1285,17 @@ app.post('/api/mog-battle/community', requireFirestore, async (req, res) => {
     const nameError = getMogBattleNameError(fighterA.name) || getMogBattleNameError(fighterB.name);
     if (nameError) return res.status(400).json({ error: nameError });
 
+    const [battleFighterA, battleFighterB] = firestore
+      ? await Promise.all([
+          makeMogBattleFighterUnlistedForOwner(decoded.uid, fighterA),
+          makeMogBattleFighterUnlistedForOwner(decoded.uid, fighterB),
+        ])
+      : [fighterA, fighterB];
+
     const battleData = {
       creatorId: decoded.uid,
-      fighterA,
-      fighterB,
+      fighterA: battleFighterA,
+      fighterB: battleFighterB,
       votesA: 0,
       votesB: 0,
       createdAt: firestore ? admin.firestore.FieldValue.serverTimestamp() : new Date().toISOString()
