@@ -87,9 +87,10 @@
     gap: 1rem !important;
   }
 
-  .mog-mobile-compact img[class*="aspect-[3/4]"],
-  .mog-mobile-compact img[class*="aspect-[4/5]"] {
-    max-height: 52vh;
+  .mog-mobile-compact img:not([class*="h-4"]):not([class*="h-5"]):not([class*="h-6"]):not([class*="h-8"]):not([class*="h-10"]):not([class*="h-12"]):not([class*="h-14"]):not([class*="h-16"]),
+  .mog-mobile-compact video {
+    max-height: 40vh !important;
+    object-fit: contain;
   }
 
   .mog-mobile-compact p,

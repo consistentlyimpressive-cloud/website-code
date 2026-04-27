@@ -209,16 +209,33 @@ const officialCelebrityCommunityScans = celebrityData.map((celeb, index) => {
 
 const timestampToMillis = (value) => {
   if (!value) return 0;
-  if (typeof value === 'number') return value;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value <= 0) return 0;
+    return value < 100000000000 ? value * 1000 : value;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return 0;
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric) && numeric > 0) return numeric < 100000000000 ? numeric * 1000 : numeric;
+    const parsed = new Date(trimmed).getTime();
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  }
   if (typeof value?.toMillis === 'function') return value.toMillis();
-  if (typeof value?.seconds === 'number') return value.seconds * 1000;
+  if (typeof value?.seconds === 'number') return value.seconds > 0 ? value.seconds * 1000 : 0;
+  if (typeof value?._seconds === 'number') return value._seconds > 0 ? value._seconds * 1000 : 0;
   const parsed = new Date(value).getTime();
-  return Number.isFinite(parsed) ? parsed : 0;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 };
 
 const timestampToIso = (value) => {
   const millis = timestampToMillis(value);
   return millis ? new Date(millis).toISOString() : new Date().toISOString();
+};
+
+const formatDashboardDate = (value, fallback = '-') => {
+  const millis = timestampToMillis(value);
+  return millis ? new Date(millis).toLocaleString() : fallback;
 };
 
 const modelUsesProDashboard = (model) => {
@@ -1130,7 +1147,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                   <div className="md:max-w-xs md:border-l md:border-zinc-800 md:pl-8">
                     <p className="text-[10px] font-sans uppercase tracking-[0.3em] text-zinc-500 mb-2">Last Scan</p>
                     <p className="text-sm font-sans text-zinc-300 leading-relaxed">
-                      {scanHistory.length > 0 ? 'Your latest scan is loaded below.' : 'Complete an analysis to date your profile.'}
+                      {scanHistory.length > 0 ? formatDashboardDate(scanHistory[scanHistory.length - 1]?.scannedAt) : 'Complete an analysis to date your profile.'}
                     </p>
                   </div>
                 </div>
@@ -1517,7 +1534,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       {latestScanProfile?.name || 'Latest profile activity'}
                     </h3>
                     <p className="mt-2 text-sm font-sans text-zinc-400">
-                      {latestScanAcrossProfiles?.model ? `Model ${latestScanAcrossProfiles.model}` : 'Saved scan'} - {new Date(timestampToMillis(latestScanAcrossProfiles.timestamp || latestScanAcrossProfiles.scannedAt)).toLocaleString()}
+                      {latestScanAcrossProfiles?.model ? `Model ${latestScanAcrossProfiles.model}` : 'Saved scan'} - {formatDashboardDate(latestScanAcrossProfiles.timestamp || latestScanAcrossProfiles.scannedAt)}
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
@@ -1593,10 +1610,10 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                         Dashboard: {p.latestScan ? (modelUsesProDashboard(p.latestScan.model) ? 'Pro' : 'Free') : 'No scans yet'}
                       </p>
                       <p className="text-xs text-zinc-500 uppercase tracking-widest mt-1">
-                    Created: {p.createdAt?.seconds ? new Date(p.createdAt.seconds * 1000).toLocaleDateString() : '-'}
+                    Created: {formatDashboardDate(p.createdAt)}
                       </p>
                       <p className="text-xs text-zinc-500 uppercase tracking-widest mt-1">
-                        {openingProfileId === p.id ? 'Opening profile...' : p.latestScanAt ? `Last scan: ${new Date(p.latestScanAt).toLocaleDateString()}` : 'Last scan: -'}
+                        {openingProfileId === p.id ? 'Opening profile...' : `Last scan: ${formatDashboardDate(p.latestScanAt)}`}
                       </p>
                     </div>
                   </div>

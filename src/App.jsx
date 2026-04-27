@@ -14,7 +14,7 @@ import { getNavbarPlanChip, hasEffectiveProAccess, canAlwaysAccessDashboard } fr
 import { initializeApp } from 'firebase/app';
 import { celebrityData } from './data/celebrityData';
 import { COMMUNITY_SCANS } from './data/communityScans';
-import { measureItems, researchItems, reviewsData, compBefore1, compAfter1, compBefore2, compAfter2, compBefore3, compAfter3 } from './data/shared';
+import { measureItems, reviewsData, compBefore1, compAfter1, compBefore2, compAfter2, compBefore3, compAfter3 } from './data/shared';
 import HolographicCard from './components/ui/HolographicCard';
 import {
   getAuth,
@@ -33,6 +33,14 @@ import { getApiBase } from './utils/apiBase';
 import { resolveMediaUrl } from './utils/mediaUrl';
 
 const GENERIC_ERROR = 'Something went wrong. Please try again later.';
+const EMPTY_ANALYSIS_RESPONSE_ERROR = 'Analysis finished but no usable text was parsed';
+const FRIENDLY_FRONTAL_IMAGE_ERROR = "Analysis failed. Are you sure you're using a frontal image?";
+
+function friendlyAnalysisErrorMessage(message) {
+  const text = String(message || '').trim();
+  if (text.includes(EMPTY_ANALYSIS_RESPONSE_ERROR)) return FRIENDLY_FRONTAL_IMAGE_ERROR;
+  return text;
+}
 
 function parseAppLocation(pathname, userUid = null) {
   const cleanPath = String(pathname || '/').split('?')[0].replace(/\/+$/, '') || '/';
@@ -78,6 +86,14 @@ function parseAppLocation(pathname, userUid = null) {
         slug: parts[1] || null,
         profileId: parts[2] || null,
       },
+    };
+  }
+
+  if (parts[0] === 'analysis' || parts[0] === 'consulting-ai') {
+    return {
+      page: 'analysis',
+      routeParams: {},
+      dashboardRoute: { slug: null, profileId: null },
     };
   }
 
@@ -289,7 +305,21 @@ function sanitizeResolvedFeatures(features, dashboardData, type) {
   const conventionalCue = hasConventionalAppealCue(dashboardData);
   const authenticityFlag = getAuthenticityFlag(dashboardData);
 
-  return (features || []).filter((feature) => {
+  return (features || []).map((feature) => {
+    const title = String(feature?.title || '').trim().toLowerCase();
+    const description = String(feature?.description || '').trim().toLowerCase();
+    if (
+      title === 'synthetic / uncanny look' &&
+      description === 'the face reads too designed and over-processed, which hurts natural facial harmony.'
+    ) {
+      return {
+        ...feature,
+        title: 'Synthetic Uncanny Face Detected',
+        description: 'Three or more uncanny cues were detected, making the facial read appear synthetic or overbuilt rather than naturally harmonious.',
+      };
+    }
+    return feature;
+  }).filter((feature) => {
     if (isModerateBigonialStandaloneFeature(feature, dashboardData)) return false;
     if (isBalancedIpdStandaloneFeature(feature, dashboardData)) return false;
     if (isBalancedMouthStandaloneFeature(feature, dashboardData)) return false;
@@ -1745,6 +1775,29 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
     });
   }, [communityScans, communitySort]);
 
+  const getCelebrityScanShareUrl = useCallback((scan) => {
+    const ownerUid = String(scan?.ownerUid || scan?.uid || '').trim();
+    const scanId = String(scan?.scanId || scan?.id || '').trim();
+    if (ownerUid && scanId && !scan?.officialScan) {
+      return `${window.location.origin}/scan/${encodeURIComponent(ownerUid)}/${encodeURIComponent(scanId)}`;
+    }
+    return `${window.location.origin}/celebrity?scan=${encodeURIComponent(scanId || scan?.id || 'community')}`;
+  }, []);
+
+  const shareCommunityScan = useCallback(async (scan) => {
+    const url = getCelebrityScanShareUrl(scan);
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setCommunityNotice('Scan link copied.');
+      } else {
+        setCommunityNotice(url);
+      }
+    } catch {
+      setCommunityNotice(url);
+    }
+  }, [getCelebrityScanShareUrl]);
+
   useEffect(() => {
     if (!communityScans.length || communityPeek) return;
     const requestedScanId = new URLSearchParams(window.location.search).get('scan');
@@ -2459,20 +2512,6 @@ const HomePage = ({ setCurrentPage }) => {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-10 w-full max-w-5xl mx-auto">{measureItems.map((item, idx) => (<FadeUp key={idx} delay={idx * 150}><SpotlightImageCard item={item} /></FadeUp>))}</div>
     </section>
 
-    <section className="w-full py-32 px-6 max-w-5xl mx-auto border-t border-zinc-900">
-      <FadeUp>
-        <h2 className="text-4xl font-black italic uppercase tracking-tighter text-white mb-20 text-center">Backed by Research</h2>
-        <div className="space-y-6">
-          {researchItems.map((item, idx) => (
-            <a key={idx} href={item.url} target="_blank" rel="noopener noreferrer" className="flex flex-col sm:flex-row items-center justify-between p-8 rounded-2xl bg-zinc-900/20 border border-zinc-900 hover:border-zinc-700 hover:bg-zinc-900/40 transition-all group">
-              <div className="flex flex-col gap-3"><div className="flex items-center gap-4 text-blue-500 group-hover:text-blue-400 transition-colors uppercase font-sans font-bold tracking-widest text-lg">{item.label} <ArrowUpRight size={20} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></div><span className="text-zinc-500 font-sans text-xs uppercase tracking-[0.2em]">{item.text}</span></div>
-              <div className="w-32 h-40 sm:w-40 sm:h-48 bg-zinc-800 rounded-xl mt-8 sm:mt-0 overflow-hidden border border-zinc-700 shadow-2xl"><img src={item.imgSrc} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover [filter:grayscale(100%)_saturate(0)]" /></div>
-            </a>
-          ))}
-        </div>
-      </FadeUp>
-    </section>
-
     <section className="w-full py-32 px-6 border-t border-zinc-900">
       <FadeUp>
         <div className="flex flex-col items-center gap-6">
@@ -2663,45 +2702,47 @@ const RegisterPage = ({ setCurrentPage, user }) => {
 // --- Photo Guide Page ---
 const PhotoGuidePage = ({ setCurrentPage }) => {
   return (
-    <div className="flex-grow flex flex-col items-center pt-32 pb-24 px-6 relative font-sans overflow-hidden">
+    <div className="flex-grow flex flex-col items-center pt-24 pb-16 px-4 md:px-6 relative font-sans overflow-hidden">
       <FadeUp>
-        <div className="w-full max-w-4xl bg-[#0c0d0e]/80 border border-zinc-800 rounded-2xl p-8 md:p-12 shadow-2xl backdrop-blur-xl relative z-10 mx-auto">
+        <div className="w-full max-w-3xl bg-[#0c0d0e]/80 border border-zinc-800 rounded-2xl p-5 md:p-8 shadow-2xl backdrop-blur-xl relative z-10 mx-auto">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500" />
           
-          <div className="flex flex-col items-center gap-4 mb-6">
-            <MogCheckLogoMark size={56} className="w-14 h-14 opacity-90" />
-            <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white text-center">Take the Perfect Photo</h2>
+          <div className="flex flex-col items-center gap-3 mb-5">
+            <MogCheckLogoMark size={48} className="w-12 h-12 opacity-90" />
+            <h2 className="text-3xl md:text-4xl font-black italic uppercase tracking-tighter text-white text-center">Take the Perfect Photo</h2>
           </div>
           
-          <div className="flex items-start gap-4 bg-red-500/10 border border-red-500/30 p-5 rounded-xl mb-12 shadow-[0_0_20px_rgba(239,68,68,0.1)]">
+          <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 p-4 rounded-xl mb-8 shadow-[0_0_20px_rgba(239,68,68,0.1)]">
             <span className="text-red-500 font-bold uppercase tracking-widest text-sm md:text-base mt-0.5 animate-pulse">Warning:</span>
             <p className="text-zinc-300 text-xs md:text-sm uppercase tracking-wider leading-relaxed">
               A bad photo can massively skew your stats and render the analysis completely inaccurate. Follow these instructions carefully.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mb-8">
             <div className="flex flex-col">
-              <h3 className="text-green-500 font-black italic uppercase text-3xl tracking-tighter mb-6 drop-shadow-[0_0_10px_rgba(34,197,94,0.5)]">DO:</h3>
-              <ul className="space-y-6 text-zinc-300 text-sm md:text-base tracking-wider leading-relaxed mb-8 flex-grow">
+              <h3 className="text-green-500 font-black italic uppercase text-2xl tracking-tighter mb-4 drop-shadow-[0_0_10px_rgba(34,197,94,0.5)]">DO:</h3>
+              <ul className="space-y-4 text-zinc-300 text-sm tracking-wider leading-relaxed mb-5 flex-grow">
                 <li><span className="text-white font-bold">1.</span> Place your phone roughly 6 feet (2 meters) away from you.</li>
                 <li><span className="text-white font-bold">2.</span> Set your camera to 2x or 3x zoom and step back until your head fits the frame.</li>
                 <li><span className="text-white font-bold">3.</span> Ensure the camera is exactly at eye level - not tilted up or down.</li>
+                <li><span className="text-white font-bold">4.</span> Keep your forehead and hairline visible.</li>
               </ul>
-              <img src="/guide/do-example.png" alt="Do example" className="w-full aspect-square object-cover rounded-xl border border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.1)] grayscale opacity-80" />
+              <img src="/guide/do-example.png" alt="Do example" className="w-full max-h-[240px] object-cover rounded-xl border border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.1)] grayscale opacity-80" />
             </div>
 
             <div className="flex flex-col">
-              <h3 className="text-red-500 font-black italic uppercase text-3xl tracking-tighter mb-6 drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]">DO NOT:</h3>
-              <ul className="space-y-6 text-zinc-300 text-sm md:text-base tracking-wider leading-relaxed mb-8 flex-grow">
+              <h3 className="text-red-500 font-black italic uppercase text-2xl tracking-tighter mb-4 drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]">DO NOT:</h3>
+              <ul className="space-y-4 text-zinc-300 text-sm tracking-wider leading-relaxed mb-5 flex-grow">
                 <li><span className="text-white font-bold">1.</span> Do not take a close-up selfie by holding the phone at arm's length.</li>
                 <li><span className="text-white font-bold">2.</span> Do not take a photo in dark lighting.</li>
+                <li><span className="text-white font-bold">3.</span> Do not cover your forehead or hairline with hair, hats, hoods, or cropping.</li>
               </ul>
-              <img src="/guide/do-not-example.png" alt="Do not example" className="w-full aspect-square object-cover rounded-xl border border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.1)] grayscale opacity-80" />
+              <img src="/guide/do-not-example.png" alt="Do not example" className="w-full max-h-[240px] object-cover rounded-xl border border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.1)] grayscale opacity-80" />
             </div>
           </div>
           
-          <button onClick={() => setCurrentPage('upload-photo')} className="w-full py-5 bg-white text-black font-black uppercase tracking-widest text-sm md:text-base flex items-center justify-center gap-4 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer shadow-[0_0_30px_rgba(255,255,255,0.2)] rounded-sm">
+          <button onClick={() => setCurrentPage('upload-photo')} className="w-full py-4 bg-white text-black font-black uppercase tracking-widest text-sm md:text-base flex items-center justify-center gap-4 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer shadow-[0_0_30px_rgba(255,255,255,0.2)] rounded-sm">
             I understand, let's go
             <ChevronRight size={20} className="text-black" />
           </button>
@@ -3380,7 +3421,7 @@ const ScanningView = ({
             null;
           setStatusText(
             getQuotaAwareScanMessage(
-              msg,
+              friendlyAnalysisErrorMessage(msg),
               `Request failed (${apiRes.status}). ${isUltra ? 'For premium models, confirm you are signed in with Pro or a scan credit.' : ''} If this persists, check the backend logs.`
             )
           );
@@ -3408,7 +3449,7 @@ const ScanningView = ({
            console.error('[analyze] success=false', data?.error || data);
            const detail =
              typeof data?.error === 'string' && data.error.trim()
-               ? getQuotaAwareScanMessage(data.error, 'The AI engine did not return a valid analysis. Please try again in a moment.')
+               ? getQuotaAwareScanMessage(friendlyAnalysisErrorMessage(data.error), 'The AI engine did not return a valid analysis. Please try again in a moment.')
                : 'The AI engine did not return a valid analysis. Please try again in a moment.';
            setStatusText(detail);
            setHasError(true);
@@ -3560,7 +3601,7 @@ const ScanningView = ({
         }
       `}</style>
       <div className="text-center mb-10 mt-10">
-        <h2 className={`text-2xl sm:text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-cyan-400 mb-2 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] ${isCompactViewport ? '' : 'animate-pulse'}`}>Consulting AI</h2>
+        <h2 className={`text-2xl sm:text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-cyan-400 mb-2 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] ${isCompactViewport ? '' : 'animate-pulse'}`}>Analysing Face</h2>
         <p className="font-sans text-xs sm:text-sm text-zinc-400 normal-case tracking-normal max-w-lg mx-auto px-4 leading-relaxed">
           {statusText}
         </p>
@@ -3831,7 +3872,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
       <div className="flex flex-col items-center pt-24 pb-16 px-6 lg:px-12 relative min-h-screen">
         <div className="w-full h-full flex flex-col items-center justify-center animate-[fadeIn_0.5s_ease-out]">
           <div className="text-center mb-10 mt-10">
-            <h2 className="text-2xl sm:text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-cyan-400 mb-2 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] animate-pulse">Consulting AI</h2>
+            <h2 className="text-2xl sm:text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-cyan-400 mb-2 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] animate-pulse">Analysing Face</h2>
             <p className="font-sans text-xs sm:text-sm text-zinc-400 normal-case tracking-normal max-w-lg mx-auto px-4 leading-relaxed">
               {statusText}
             </p>
@@ -3919,6 +3960,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [activeScanProfileId, setActiveScanProfileId] = useState(initialProfileId || 'new');
   const [newProfileName, setNewProfileName] = useState('');
   const [profilesUnavailable, setProfilesUnavailable] = useState(false);
+  const [profileScanCounts, setProfileScanCounts] = useState({});
 
   useEffect(() => {
     setFrontImage(null);
@@ -3935,9 +3977,25 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
         const res = await fetch(`${API_BASE}/api/user/profiles`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-          if (res.ok) {
+        if (res.ok) {
             const data = await res.json();
             const fetchedProfiles = data.profiles || [];
+            try {
+              const scansRes = await fetch(`${API_BASE}/api/user/scans`, {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              if (scansRes.ok) {
+                const scansData = await scansRes.json();
+                const counts = {};
+                (scansData.scans || []).forEach((scan) => {
+                  const profileId = scan.profileId || scan.payload?.profileId || 'default';
+                  counts[profileId] = (counts[profileId] || 0) + 1;
+                });
+                setProfileScanCounts(counts);
+              }
+            } catch (scanErr) {
+              console.warn('Failed to fetch profile scan counts', scanErr);
+            }
             setProfilesUnavailable(Boolean(data.profilesUnavailable));
             setProfiles((prev) => (
               fetchedProfiles.length > 0 || prev.length === 0 || !data.warning
@@ -4033,6 +4091,10 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
           (userPlan?.plan === 'single_scan' && (userPlan?.scanCredits ?? 0) > 0))));
   const missingRequiredImage = shouldUseSideProfile ? (!frontImage || !sideImage) : !frontImage;
   const scanAccessLocked = isUltraModel && (ultraAccessPending || !canUseUltra);
+  const selectedProfileScanCount = selectedProfileId !== 'new'
+    ? (profileScanCounts[selectedProfileId] || 0)
+    : 0;
+  const selectedProfileFull = selectedProfileId !== 'new' && selectedProfileScanCount >= PROFILE_SCAN_HISTORY_LIMIT;
 
   useEffect(() => {
     if (ultraAccessPending) return;
@@ -4112,6 +4174,10 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     };
 
     setScanningCeleb(null);
+    setProfileScanCounts((prev) => ({
+      ...prev,
+      [completedScan.profileId]: Math.min(PROFILE_SCAN_HISTORY_LIMIT, (prev[completedScan.profileId] || 0) + 1),
+    }));
 
     setDashboardData(prev => {
       const sameProfile =
@@ -4541,7 +4607,9 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                     >
                       <option value="new">+ Create new profile</option>
                       {profiles.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
+                        <option key={p.id} value={p.id} disabled={(profileScanCounts[p.id] || 0) >= PROFILE_SCAN_HISTORY_LIMIT}>
+                          {p.name} ({Math.min(profileScanCounts[p.id] || 0, PROFILE_SCAN_HISTORY_LIMIT)}/{PROFILE_SCAN_HISTORY_LIMIT})
+                        </option>
                       ))}
                     </select>
                     <ChevronDown
@@ -4558,6 +4626,11 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                       className="w-full bg-zinc-900/80 border border-zinc-700/80 rounded-xl px-4 py-3 text-sm font-sans text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
                     />
                   )}
+                  {selectedProfileId !== 'new' && !profilesUnavailable && (
+                    <p className={`mt-[-0.5rem] mb-1 text-[10px] font-sans uppercase tracking-[0.18em] ${selectedProfileFull ? 'text-red-400' : 'text-zinc-500'}`}>
+                      {Math.min(selectedProfileScanCount, PROFILE_SCAN_HISTORY_LIMIT)}/{PROFILE_SCAN_HISTORY_LIMIT} profile slots used
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -4565,6 +4638,10 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
             <button 
               onClick={async () => {
                 let actualProfileId = selectedProfileId;
+                if (actualProfileId !== 'new' && (profileScanCounts[actualProfileId] || 0) >= PROFILE_SCAN_HISTORY_LIMIT) {
+                  setUploadNotice('This profile has reached its 10/10 scan limit. Create a new profile or choose a different one.');
+                  return;
+                }
                 if (selectedProfileId === 'new') {
                   if (!user) {
                     actualProfileId = 'guest';
@@ -4614,7 +4691,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                 if (queuedJob) {
                   setActiveAnalysisJob(null);
                   setIsScanning(false);
-                  setCurrentPage('consulting-ai');
+                  setCurrentPage('analysis');
                 }
 
                 setFrontImage(null);
@@ -4626,7 +4703,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                   setNewProfileName('');
                 }
               }} 
-              disabled={missingRequiredImage || scanAccessLocked} 
+              disabled={missingRequiredImage || scanAccessLocked || selectedProfileFull}
               className={`relative overflow-hidden px-20 py-6 bg-white text-black font-black uppercase tracking-widest text-lg md:text-xl flex items-center justify-center gap-5 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none ${justUnlocked ? 'animate-[buttonUnlock_1s_ease-out_forwards]' : 'shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}
             >
             {justUnlocked && <div className="absolute top-0 bottom-0 w-[50%] bg-gradient-to-r from-transparent via-white to-transparent opacity-80 mix-blend-overlay" style={{ animation: 'sweepGlow 1.5s ease-out forwards' }} />}
@@ -8345,7 +8422,7 @@ const App = () => {
     }
     setFocusedAnalysisJobId(jobId);
     setAnalysisDockCollapsed(false);
-    setCurrentPage('consulting-ai');
+    setCurrentPage('analysis');
   }, [openAnalysisResult, setCurrentPage]);
 
   const focusedAnalysisJob = analysisJobs.find((job) => job.id === focusedAnalysisJobId) || null;
@@ -8392,7 +8469,7 @@ const App = () => {
       <main className="flex flex-col min-h-screen">
         {currentPage === 'home' && <HomePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'photo-guide' && <PhotoGuidePage setCurrentPage={setCurrentPage} />}
-        {currentPage === 'consulting-ai' && <ConsultingStatusPage job={focusedAnalysisJob} setCurrentPage={setCurrentPage} user={user} />}
+        {currentPage === 'analysis' && <ConsultingStatusPage job={focusedAnalysisJob} setCurrentPage={setCurrentPage} user={user} />}
         {(currentPage === 'upload-photo' || currentPage === 'upload-ultra') && (
           <UploadPhotoPage
             key={`upload-${currentPage}-${pendingUploadModel ?? 'default'}`}
