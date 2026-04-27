@@ -298,13 +298,6 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         - Example: if the ratios are mixed but the eye area is clearly the strongest visual trait, then the eye area can be the best feature.
         - Every BEST FEATURE / PRIMARY FLAW entry must contain a short explanation of WHY it helps or hurts the face. Do not say only "flagged in the scan output."
     """
-    visual_only_prompt_rules = """
-        EXPERIMENTAL AI #2 VISUAL-ONLY OVERRIDE:
-        - MediaPipe/frontal measurements and side-profile measurements are intentionally withheld for this run.
-        - Rate purely from the provided image(s), lighting, angle, and visible facial evidence.
-        - Do not infer, invent, or rate numerical ratios/measurements.
-        - Leave ### RATINGS (USE THIS) blank because no measurements were provided to you.
-    """ if choice == "7" else ""
     experimental_prompt_rules = """
         EXPERIMENTAL AI PROMPT:
         Act as a clinical maxillofacial analyst.
@@ -340,7 +333,29 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         **Final Frontal Rating**, **Appeal Assessment**, **Technical Summary** for structural overview,
         **CRITICAL MARKERS**, ### DASHBOARD_DATA BEST FEATURES / PRIMARY FLAWS, and ### RATINGS (USE THIS).
         If a dashboard section has missing information, leave it blank rather than inventing content.
-    """ if choice in ["6", "7"] else ""
+    """ if choice == "6" else ""
+    experimental_visual_only_prompt = """
+Act as a clinical maxillofacial analyst.
+Rate the subject facially in terms of overall facial attractiveness and aesthetics.
+Be brutally objective and hyper-critical. Evaluate facial structure, skin quality, health indicators, and grooming. Judge the subject purely based off the photo given, with the lighting and angle as is.
+IMPORTANT: Rate the subject based on the perspective of an 18-20 year old familiar  with elite modeling standards . If a feature is not "elite" or "model-tier," it must be critiqued as a significant flaw. Do not give credit for "harmony" if the individual features are soft or aged. CRITICAL CRITERIA:
+• Bone Definition: Be harsh on the lack of mandibular definition and any soft tissue covering the bone structure.
+• Aging/Vitality: Significantly penalize nasolabial folds, skin laxity, and any indicators of a declining "prime."
+• Skin Quality: Scrutinize texture, pores, and hyperpigmentation as major aesthetic failures.
+• Modern Aesthetics: Bias heavily toward high leanness, sharp angles (buccal hollowness), and "hunter" eye metrics.
+WHAT YOU MUST OUTPUT:
+Appeal assessment (1 paragraph ~40 word description of the subject’s phenotype)
+Structural overview (1 paragraph description describing flaws/positives)
+Best Feature + ~20 word description
+Worst feature + ~20 word description
+5 primary flaws and 5 best features (~20 word description for each)
+A 1-100 final rating, 50 = dead average. (Note: A 50 should represent a common person; if he does not meet modeling standards, he should be rated accordingly).
+
+*Override*: be more general in the output descriptions, judge based on modelling standards like i said but do not talk relate things to modelling in your descriptions.
+If the person does not really have any major flaws , and has a good number of positives, hem to get up to 79/100 without sharp striking definition. Allow soft tissue levels at ~16% body fat and lower to pass as at least decent.
+
+INSTRUCTIONS: Make a final rating PURELY based on the image provided first, without any other assumptions or info. THEN, rate 1-100 the following ratios/measurements that I will provide you. Write all the descriptions after. Your descriptions should correspond to the previous steps. DO NOT neglect any other part of the face, you are not required to force the provided measurements into the outputs.
+""" if choice == "7" else ""
     prompt_clinical_data = (
         "MEASUREMENTS_WITHHELD_FOR_EXPERIMENTAL_AI_2_VISUAL_ONLY. Judge from the image only."
         if choice == "7"
@@ -353,7 +368,9 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     )
 
     # --- PROMPT SELECTION LOGIC ---
-    if choice in ["1", "2", "6", "7"]:
+    if choice == "7":
+        active_prompt = experimental_visual_only_prompt
+    elif choice in ["1", "2", "6"]:
         active_prompt = f"""
         MANDATE: Conduct a DUAL-INPUT structural evaluation (FRONTAL + LATERAL).
         INPUT A (Frontal Metadata): {prompt_clinical_data}
@@ -399,7 +416,6 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         Forbidden wording/logic: "lacks the aggressive dimorphism required for high-tier appeal", "needs more aggressive dimorphism", "more masculine means better", "extreme dimorphism is elite by default".
 {feature_selection_rules}
 {experimental_prompt_rules}
-{visual_only_prompt_rules}
 
         SHARED RATING PROTOCOL:
         The following ratings MUST be identical for both the Front and Side profiles.

@@ -2605,13 +2605,22 @@ app.post(
           (typeof parsed.technicalSummary === 'string' && parsed.technicalSummary.trim().length > 24)
         );
 
+      const isVisualOnlyExperimentalChoice = modelChoice === '7';
+
       // Free models are descriptive-only, so a substantive text parse is enough.
       // Premium models should not be marked successful unless the structured scan data is actually there.
+      // Experimental AI #2 intentionally hides measurements, so biometrics may be blank by design.
       const success =
         code === 0 &&
         (
           isFreeModelChoice
             ? parsed.hasSubstantiveParse === true
+            : isVisualOnlyExperimentalChoice
+              ? (
+                  parsed.finalRating != null &&
+                  !Number.isNaN(Number(parsed.finalRating)) &&
+                  parsed.hasSubstantiveParse === true
+                )
             : (
                 parsed.finalRating != null &&
                 !Number.isNaN(Number(parsed.finalRating)) &&

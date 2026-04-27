@@ -920,7 +920,7 @@ function parseFeatureBlock(block) {
 
 function trimFeatureDescription(value) {
   return String(value || '')
-    .split(/\r?\n(?=\s*(?:#{2,}\s*|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|TECHNICAL SUMMARY\b|APPEAL ASSESSMENT\b|HEXAGON CHART RATINGS\b|CORE CATEGORY SCORES\b|CRITICAL MARKERS\b))/i)[0]
+    .split(/\r?\n(?=\s*(?:#{2,}\s*|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|JUSTIFICATION\b|TECHNICAL SUMMARY\b|STRUCTURAL OVERVIEW\b|APPEAL ASSESSMENT\b|BEST FEATURE\b|WORST FEATURE\b|BEST FEATURES\b|PRIMARY FLAWS\b|HEXAGON CHART RATINGS\b|CORE CATEGORY SCORES\b|CRITICAL MARKERS\b))/i)[0]
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -1149,7 +1149,7 @@ function parsePotentialRating(raw, label) {
 
 function parseTechnicalSummary(raw) {
   const terminators =
-    '(?=\\*\\*Appeal Assessment|\\*\\*Hexagon Chart Ratings|\\*\\*CORE CATEGORY SCORES|\\*\\*CRITICAL MARKERS|###\\s*DASHBOARD_DATA|###\\s*MOG_REPORT|\\*\\*Max Natural Potential)';
+    '(?=\\*\\*Appeal Assessment|\\*\\*Best Feature|\\*\\*Worst Feature|\\*\\*Hexagon Chart Ratings|\\*\\*CORE CATEGORY SCORES|\\*\\*CRITICAL MARKERS|###\\s*DASHBOARD_DATA|###\\s*MOG_REPORT|\\*\\*Max Natural Potential)';
 
   let m = raw.match(
     new RegExp(
@@ -1165,12 +1165,15 @@ function parseTechnicalSummary(raw) {
   m = raw.match(/Technical Summary:\s*\*?\*?\s*\n?([\s\S]*?)(?=\n\*\*[A-Z]|\n###\s|$)/i);
   if (m) return m[1].trim();
 
+  m = raw.match(/Structural Overview:\s*\*?\*?\s*\n?([\s\S]*?)(?=\n\s*(?:\*{0,2}Best Feature\b|\*{0,2}Worst Feature\b|5\s+Primary Flaws\b|Primary Flaws\b|5\s+Best Features\b|Best Features\b|Final Rating\b|###\s)|$)/i);
+  if (m) return m[1].trim();
+
   return null;
 }
 
 function parseAppealAssessment(raw) {
   const terminators =
-    '(?=\\*\\*Hexagon Chart Ratings|\\*\\*CORE CATEGORY SCORES|\\*\\*CRITICAL MARKERS|###\\s*DASHBOARD_DATA|###\\s*MOG_REPORT|\\*\\*Max Natural Potential)';
+    '(?=\\*\\*Structural Overview|\\*\\*Technical Summary|\\*\\*Best Feature|\\*\\*Worst Feature|\\*\\*Hexagon Chart Ratings|\\*\\*CORE CATEGORY SCORES|\\*\\*CRITICAL MARKERS|###\\s*DASHBOARD_DATA|###\\s*MOG_REPORT|\\*\\*Max Natural Potential)';
 
   let m = raw.match(
     new RegExp(
@@ -1180,7 +1183,7 @@ function parseAppealAssessment(raw) {
   );
   if (m) return m[1].trim();
 
-  m = raw.match(/Appeal Assessment:\s*\*?\*?\s*\n?([\s\S]*?)(?=\n\*\*[A-Z]|\n###\s|$)/i);
+  m = raw.match(/Appeal Assessment:\s*\*?\*?\s*\n?([\s\S]*?)(?=\n\s*(?:\*{0,2}Structural Overview\b|\*{0,2}Technical Summary\b|\*{0,2}Best Feature\b|\*{0,2}Worst Feature\b|5\s+Primary Flaws\b|Primary Flaws\b|5\s+Best Features\b|Best Features\b|Final Rating\b|###\s)|$)/i);
   if (m) return m[1].trim();
 
   return null;
@@ -1366,7 +1369,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   const sideBestFeatures = [];
   const sidePrimaryFlaws = [];
 
-  const bestMatch = rawOutput.match(/BEST FEATURES[\s\d()]*[\*:]*([\s\S]*?)(?=PRIMARY FLAWS[\s\d()]*[\*:]*|###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b|$)/i);
+  const bestMatch = rawOutput.match(/BEST FEATURES[\s\d()]*[\*:]*([\s\S]*?)(?=PRIMARY FLAWS[\s\d()]*[\*:]*|FINAL RATING\b|###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b|$)/i);
   if (bestMatch) {
     const allBest = parseFeatureBlock(bestMatch[1]);
     for (const f of allBest) {
@@ -1392,7 +1395,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     sideBestFeatures.splice(0, sideBestFeatures.length, ...mergedSideBest);
   }
 
-  const flawMatch = rawOutput.match(/PRIMARY FLAWS[\s\d()]*[\*:]*([\s\S]*?)(?=###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b|$)/i);
+  const flawMatch = rawOutput.match(/PRIMARY FLAWS[\s\d()]*[\*:]*([\s\S]*?)(?=BEST FEATURES[\s\d()]*[\*:]*|FINAL RATING\b|###|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b|$)/i);
   if (flawMatch) {
     const allFlaws = parseFeatureBlock(flawMatch[1]);
     for (const f of allFlaws) {
@@ -1421,7 +1424,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   if (bestFeatures.length === 0) {
     const bestHighlight = parseSingleHighlight(
       rawOutput,
-      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*BEST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=(?:\n\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*WORST FEATURE)|\n\s*(?:###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b)|$)/i,
+      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?(?:#1\s*)?BEST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=(?:\n\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?(?:#1\s*)?WORST FEATURE)|\n\s*(?:BEST FEATURES\b|PRIMARY FLAWS\b|FINAL RATING\b|###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b)|$)/i,
       'Best Feature'
     );
     if (bestHighlight) bestFeatures.push(bestHighlight);
@@ -1430,7 +1433,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   if (primaryFlaws.length === 0) {
     const flawHighlight = parseSingleHighlight(
       rawOutput,
-      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?#1\s*WORST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=\n\s*(?:###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b)|$)/i,
+      /(?:^|\n)\s*(?:[-*]\s*)?(?:\*{1,2}\s*)?(?:#1\s*)?WORST FEATURE(?:\s*\*{1,2})?\s*:?\s*([\s\S]*?)(?=\n\s*(?:BEST FEATURES\b|PRIMARY FLAWS\b|FINAL RATING\b|###\s*DASHBOARD_DATA|RATINGS\s*\(USE THIS\)|PERSONALI[ZS]ED FEEDBACK|ACTIONABLE PROTOCOLS|MOG_REPORT_REVISION|DEBUG RATING JUSTIFICATION\b|JUSTIFICATION\b)|$)/i,
       'Primary Flaw'
     );
     if (flawHighlight) primaryFlaws.push(flawHighlight);
