@@ -253,7 +253,7 @@ const formatDashboardDate = (value, fallback = '-') => {
 
 const modelUsesProDashboard = (model) => {
   const normalized = String(model || '').trim();
-  return normalized === '1' || normalized === '2';
+  return normalized === '1' || normalized === '2' || normalized === '6' || normalized === '7';
 };
 
 const hydrateScanForDashboard = (scan) => {
@@ -877,6 +877,25 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       description: 'Fast premium scan for lighter, quicker entertainment-focused output.',
       buttonClass: 'bg-purple-500/10 border-purple-500/30 text-purple-400 hover:bg-purple-500/20',
     },
+    ...(user?.email && (
+      user.email === 'laithbu07@gmail.com' ||
+      user.email === 'admin@looksmaxxing.com' ||
+      user.email === 'serenity.eyb@gmail.com' ||
+      user.email.endsWith('@looksmaxxing.com')
+    ) ? [
+      {
+        id: '6',
+        label: 'Experimental AI',
+        description: 'Admin-only experimental scan using the highest-quality engine.',
+        buttonClass: 'bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20',
+      },
+      {
+        id: '7',
+        label: 'Experimental AI #2',
+        description: 'Admin-only visual-only experimental scan without MediaPipe measurements.',
+        buttonClass: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20',
+      },
+    ] : []),
     {
       id: '3',
       label: 'Basic Scan (Free)',
