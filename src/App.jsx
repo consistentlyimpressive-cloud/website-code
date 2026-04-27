@@ -848,6 +848,7 @@ const ANALYSIS_MODEL_LABELS = {
   '4': 'Free Core',
   '5': 'Free Geneva',
   '6': 'Experimental AI',
+  '7': 'Experimental AI #2',
   official: 'Official Scan',
 };
 
@@ -2329,7 +2330,7 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-sm font-black text-zinc-100">{scan.finalRating ?? '-'}/100</span>
-                          {(scan.model === '1' || scan.model === '6') && <span className="bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Premium</span>}
+                          {(scan.model === '1' || scan.model === '6' || scan.model === '7') && <span className="bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Premium</span>}
                           {scan.success === false && <span className="bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Failed</span>}
                         </div>
                         <div className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest">
@@ -3030,7 +3031,7 @@ const SCAN_PROGRESS_MESSAGES = [
 
 const getEstimatedScanTotalMs = (choice, fairUsageState) => {
   if (fairUsageState?.lowPriority) return 5 * 60 * 1000;
-  if (choice === '1' || choice === '6') return 3.5 * 60 * 1000;
+  if (choice === '1' || choice === '6' || choice === '7') return 3.5 * 60 * 1000;
   if (choice === '2') return 2.5 * 60 * 1000;
   return 90 * 1000;
 };
@@ -3138,7 +3139,7 @@ const ScanningView = ({
   const [landmarks, setLandmarks] = useState(null);
   const [hasError, setHasError] = useState(false);
   const [fairUsageState, setFairUsageState] = useState(null);
-  const isUltra31 = choice === "1" || choice === "6";
+  const isUltra31 = choice === "1" || choice === "6" || choice === "7";
   const isCompactViewport = typeof window !== 'undefined' && window.innerWidth < 768;
   const overlayRevealSeconds = isUltra31 ? 34 : choice === "2" ? 24 : 36;
   const overlayScanLoopSeconds = isUltra31 ? 4 : choice === "2" ? 4.5 : 4;
@@ -3306,7 +3307,7 @@ const ScanningView = ({
       };
 
       try {
-        const isUltra = choice === "1" || choice === "2" || choice === "6";
+        const isUltra = choice === "1" || choice === "2" || choice === "6" || choice === "7";
         activeUser = userRef.current;
         if (activeUser) {
           try {
@@ -3932,7 +3933,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
     );
   }
 
-  const isUltra31 = job.choice === "1" || job.choice === "6";
+  const isUltra31 = job.choice === "1" || job.choice === "6" || job.choice === "7";
   const overlayRevealSeconds = job.overlayRevealSeconds || (isUltra31 ? 34 : job.choice === "2" ? 24 : 36);
   const overlayScanLoopSeconds = job.overlayScanLoopSeconds || (isUltra31 ? 4 : job.choice === "2" ? 4.5 : 4);
   const lowPriorityBadge = job.fairUsageState?.lowPriority
@@ -4143,6 +4144,15 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       adminOnly: true,
       Icon: Sparkles
     },
+    {
+      id: "7",
+      name: "Experimental AI #2 (Admin only)",
+      description:
+        "Admin-only visual-only experimental calibration. Uses the same prompt without sending MediaPipe measurements to the AI.",
+      tier: "ultra",
+      adminOnly: true,
+      Icon: Eye
+    },
     { id: "separator" },
     {
       id: "3",
@@ -4170,7 +4180,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     }
   ];
 
-  const isUltraModel = selectedModel === "1" || selectedModel === "2" || selectedModel === "6";
+  const isUltraModel = selectedModel === "1" || selectedModel === "2" || selectedModel === "6" || selectedModel === "7";
   const shouldUseSideProfile = isUltraModel && useSideProfile;
 
   // Check if current user is an admin by email domain or specific email
@@ -4198,7 +4208,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
   useEffect(() => {
     if (ultraAccessPending) return;
-    if ((!canUseUltra && (selectedModel === '1' || selectedModel === '2')) || (!isAdmin && selectedModel === '6')) {
+    if ((!canUseUltra && (selectedModel === '1' || selectedModel === '2')) || (!isAdmin && (selectedModel === '6' || selectedModel === '7'))) {
       setSelectedModel('3');
     }
   }, [canUseUltra, isAdmin, selectedModel, ultraAccessPending]);

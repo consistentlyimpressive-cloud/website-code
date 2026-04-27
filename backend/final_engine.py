@@ -121,7 +121,8 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             "3": ("gemma-4-26b-a4b-it", "OPTIC"),
             "4": ("gemma-4-26b-a4b-it", "CORE"),
             "5": ("gemma-4-26b-a4b-it", "GENEVA"),
-            "6": ("gemma-4-31b-it", "Experimental AI")
+            "6": ("gemma-4-31b-it", "Experimental AI"),
+            "7": ("gemma-4-31b-it", "Experimental AI #2")
         }
 
         if choice not in mapping:
@@ -198,6 +199,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("1. ULTRA - Highest Quality")
     print("2. ULTRA - Fast")
     print("6. Experimental AI (Admin only)")
+    print("7. Experimental AI #2 (Admin only, visual only)")
     print("-" * 30)
     print("3. OPTIC (Balance & Alignment)")
     print("4. CORE (Objective Attractiveness)")
@@ -208,12 +210,12 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         print(f"\n[DEBUG] Model selected via API args: {choice}")
     else:
         try:
-            choice = input("\nSelect Model [1-6]: ").strip()
+            choice = input("\nSelect Model [1-7]: ").strip()
         except KeyboardInterrupt:
             print("\nExiting script...")
             return
 
-    if choice not in {"1", "2", "3", "4", "5", "6"}:
+    if choice not in {"1", "2", "3", "4", "5", "6", "7"}:
         print(f"[ERROR] Invalid model choice: {choice}")
         return "Error: Model selection failed."
 
@@ -228,7 +230,10 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
                 side_data = "Lateral metadata unavailable. Focus on frontal visuals and input."
         else:
             side_data = "IGNORE_SIDE_ANALYSIS"
-    has_side_profile = bool(choice in ["1", "2", "6"] and side_img_path and os.path.exists(side_img_path) and side_data != "IGNORE_SIDE_ANALYSIS")
+    has_side_profile = bool(
+        (choice in ["1", "2", "6"] and side_img_path and os.path.exists(side_img_path) and side_data != "IGNORE_SIDE_ANALYSIS")
+        or (choice == "7" and side_img_path and os.path.exists(side_img_path))
+    )
     side_prompt_policy = """
         FRONT-ONLY MODE:
         No side profile image was provided. Use ONLY the frontal image and frontal metadata.
@@ -293,29 +298,66 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         - Example: if the ratios are mixed but the eye area is clearly the strongest visual trait, then the eye area can be the best feature.
         - Every BEST FEATURE / PRIMARY FLAW entry must contain a short explanation of WHY it helps or hurts the face. Do not say only "flagged in the scan output."
     """
+    visual_only_prompt_rules = """
+        EXPERIMENTAL AI #2 VISUAL-ONLY OVERRIDE:
+        - MediaPipe/frontal measurements and side-profile measurements are intentionally withheld for this run.
+        - Rate purely from the provided image(s), lighting, angle, and visible facial evidence.
+        - Do not infer, invent, or rate numerical ratios/measurements.
+        - Leave ### RATINGS (USE THIS) blank because no measurements were provided to you.
+    """ if choice == "7" else ""
     experimental_prompt_rules = """
-        EXPERIMENTAL AI CALIBRATION:
-        - Act as a clinical maxillofacial analyst rating overall facial attractiveness and aesthetics from the submitted image as-is.
-        - Be brutally objective and hyper-critical about facial structure, skin quality, health indicators, and grooming, but keep visible descriptions general and professional.
-        - First decide the Final Frontal Rating purely from the image, then use INPUT A ratios/measurements to calibrate and explain category/biometric scores.
-        - Judge against very high modern aesthetic standards internally, but do NOT repeatedly mention modeling standards in user-facing descriptions.
-        - Treat lack of mandibular definition, soft tissue hiding bone structure, weak eye compactness, poor skin texture, hyperpigmentation, nasolabial folds, laxity, or declining vitality as significant negatives when clearly visible.
-        - Favor high leanness, clean angles, buccal/cheek definition, compact eye area, and strong health/vitality cues, but do not invent flaws that are not visible in the image.
-        - A score of 50 represents a common average person. If the subject does not meet strong aesthetic standards, rate accordingly.
-        - Do not over-penalize normal lean-to-average soft tissue. Facial fat around roughly 16% body fat or lower may pass as decent when the face is not visibly puffy/bloated.
-        - If the person has no major flaws and a good number of positives, allow scores up to about 79/100 even without sharp striking definition.
-        - Use the existing **Technical Summary** field as the requested structural overview: one concise paragraph covering major positives and flaws.
-        - Keep **Appeal Assessment** near 40 words and describe phenotype/appeal generally.
-        - BEST FEATURES and PRIMARY FLAWS should each contain exactly 5 front entries when no side profile exists, or 5 front plus 5 side entries when side profile exists. Each description should be roughly 20 words.
-        - Preserve every dashboard-compatible section and heading exactly so the website can parse ratings, categories, biometrics, features, flaws, protocols, and saved scan data.
-    """ if choice == "6" else ""
+        EXPERIMENTAL AI PROMPT:
+        Act as a clinical maxillofacial analyst.
+        Rate the subject facially in terms of overall facial attractiveness and aesthetics.
+        Be brutally objective and hyper-critical. Evaluate facial structure, skin quality, health indicators, and grooming. Judge the subject purely based off the photo given, with the lighting and angle as is.
+        IMPORTANT: Rate the subject based on the perspective of an 18-20 year old familiar with elite modeling standards. If a feature is not "elite" or "model-tier," it must be critiqued as a significant flaw. Do not give credit for "harmony" if the individual features are soft or aged.
+
+        CRITICAL CRITERIA:
+        - Bone Definition: Be harsh on the lack of mandibular definition and any soft tissue covering the bone structure.
+        - Aging/Vitality: Significantly penalize nasolabial folds, skin laxity, and any indicators of a declining "prime."
+        - Skin Quality: Scrutinize texture, pores, and hyperpigmentation as major aesthetic failures.
+        - Modern Aesthetics: Bias heavily toward high leanness, sharp angles (buccal hollowness), and "hunter" eye metrics.
+
+        WHAT YOU MUST OUTPUT:
+        Appeal assessment (1 paragraph ~40 word description of the subject's phenotype)
+        Structural overview (1 paragraph description describing flaws/positives)
+        Best Feature + ~20 word description
+        Worst feature + ~20 word description
+        5 primary flaws and 5 best features (~20 word description for each)
+        A 1-100 final rating, 50 = dead average. A 50 should represent a common person; if he does not meet modeling standards, he should be rated accordingly.
+
+        Override: be more general in the output descriptions, judge based on modelling standards like stated above but do not relate things to modelling in your descriptions.
+        If the person does not really have any major flaws, and has a good number of positives, allow him to get up to 79/100 without sharp striking definition.
+        Allow soft tissue levels at ~16% body fat and lower to pass as at least decent.
+
+        INSTRUCTIONS:
+        Make a final rating PURELY based on the image provided first, without any other assumptions or info.
+        THEN, rate 1-100 the ratios/measurements provided in INPUT A.
+        Write all the descriptions after. Your descriptions should correspond to the previous steps.
+        DO NOT neglect any other part of the face, and do not force the provided measurements into the outputs.
+
+        For website compatibility only: use the existing output section names where possible:
+        **Final Frontal Rating**, **Appeal Assessment**, **Technical Summary** for structural overview,
+        **CRITICAL MARKERS**, ### DASHBOARD_DATA BEST FEATURES / PRIMARY FLAWS, and ### RATINGS (USE THIS).
+        If a dashboard section has missing information, leave it blank rather than inventing content.
+    """ if choice in ["6", "7"] else ""
+    prompt_clinical_data = (
+        "MEASUREMENTS_WITHHELD_FOR_EXPERIMENTAL_AI_2_VISUAL_ONLY. Judge from the image only."
+        if choice == "7"
+        else clinical_data
+    )
+    prompt_side_data = (
+        "SIDE_PROFILE_MEASUREMENTS_WITHHELD_FOR_EXPERIMENTAL_AI_2_VISUAL_ONLY. Judge from the side image only if it was provided."
+        if choice == "7"
+        else side_data
+    )
 
     # --- PROMPT SELECTION LOGIC ---
-    if choice in ["1", "2", "6"]:
+    if choice in ["1", "2", "6", "7"]:
         active_prompt = f"""
         MANDATE: Conduct a DUAL-INPUT structural evaluation (FRONTAL + LATERAL).
-        INPUT A (Frontal Metadata): {clinical_data}
-        INPUT B (Side Profile Metadata): {side_data}
+        INPUT A (Frontal Metadata): {prompt_clinical_data}
+        INPUT B (Side Profile Metadata): {prompt_side_data}
         {prompt_visual_inputs}
         {content_safety_rules}
         {side_prompt_policy}
@@ -357,6 +399,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         Forbidden wording/logic: "lacks the aggressive dimorphism required for high-tier appeal", "needs more aggressive dimorphism", "more masculine means better", "extreme dimorphism is elite by default".
 {feature_selection_rules}
 {experimental_prompt_rules}
+{visual_only_prompt_rules}
 
         SHARED RATING PROTOCOL:
         The following ratings MUST be identical for both the Front and Side profiles.
