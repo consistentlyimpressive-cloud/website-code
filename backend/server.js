@@ -155,6 +155,7 @@ function firestoreQuotaCooldownWarning() {
 }
 
 const activeAnalysisByUser = new Map();
+const analysisRecoveryByUser = new Map();
 
 // Stale local scan fallbacks caused old parsed scores to reappear in dashboards.
 // Keep real Firestore persistence, but never read/write local cached scans.
@@ -326,6 +327,34 @@ function markUserAnalysisStarted(uid, metadata = {}) {
 function clearUserAnalysis(uid) {
   if (!uid) return;
   activeAnalysisByUser.delete(uid);
+}
+
+function getAnalysisRecoveryKey(uid, scanRequestId) {
+  const safeUid = String(uid || '').trim();
+  const safeRequestId = String(scanRequestId || '').trim();
+  return safeUid && safeRequestId ? `${safeUid}::${safeRequestId}` : '';
+}
+
+function rememberAnalysisRecovery(uid, scanRequestId, patch = {}) {
+  const key = getAnalysisRecoveryKey(uid, scanRequestId);
+  if (!key) return;
+  const previous = analysisRecoveryByUser.get(key) || {};
+  analysisRecoveryByUser.set(key, {
+    ...previous,
+    ...patch,
+    scanRequestId,
+    updatedAt: Date.now(),
+  });
+
+  const cutoff = Date.now() - 30 * 60 * 1000;
+  for (const [entryKey, entry] of analysisRecoveryByUser.entries()) {
+    if ((entry?.updatedAt || 0) < cutoff) analysisRecoveryByUser.delete(entryKey);
+  }
+}
+
+function readAnalysisRecovery(uid, scanRequestId) {
+  const key = getAnalysisRecoveryKey(uid, scanRequestId);
+  return key ? analysisRecoveryByUser.get(key) || null : null;
 }
 
 /** Process start time for /api/health uptime */
@@ -2366,10 +2395,17 @@ app.post(
     const pythonExecutable = getPythonExecutable();
     if (req.uid && fairUsage.enabled) {
       markUserAnalysisStarted(req.uid, {
+        scanRequestId,
         profileId: req.body.profileId || 'default',
         modelChoice,
       });
     }
+    rememberAnalysisRecovery(req.uid, scanRequestId, {
+      state: 'running',
+      startedAt: Date.now(),
+      profileId: req.body.profileId || 'default',
+      modelChoice,
+    });
 
     const py = spawn(pythonExecutable, args, {
       cwd: __dirname,
@@ -2397,6 +2433,10 @@ app.post(
     py.on('error', (err) => {
       clearTimeout(killTimer);
       clearUserAnalysis(req.uid);
+      rememberAnalysisRecovery(req.uid, scanRequestId, {
+        state: 'failed',
+        error: 'Python environment missing or final_engine.py failed to start.',
+      });
       console.error('Failed to start Python process:', err);
       if (!res.headersSent) {
         res.json({
@@ -2428,6 +2468,10 @@ app.post(
 
       if (analyzeTimedOut) {
         console.log(`\n[api/analyze] Python closed after timeout (code=${code})`);
+        rememberAnalysisRecovery(req.uid, scanRequestId, {
+          state: 'failed',
+          error: 'Analysis timed out after about 8 minutes. Please try again with a smaller image or try again in a moment.',
+        });
         return res.status(504).json({
           success: false,
           error:
@@ -2437,6 +2481,10 @@ app.post(
 
       console.log(`\n[api/analyze] Python process closed with exit code ${code}`);
       if (/###\s*CONTENT_REJECTED/i.test(pythonOutput)) {
+        rememberAnalysisRecovery(req.uid, scanRequestId, {
+          state: 'failed',
+          error: 'This image cannot be analyzed. Please upload a non-explicit face photo.',
+        });
         adminStore.logAnalysis({
           model: modelChoice,
           durationMs: Date.now() - analysisStartTime,
@@ -2574,6 +2622,13 @@ app.post(
       payload.error = 'Analysis did not complete successfully.';
     }
   }
+  rememberAnalysisRecovery(req.uid, scanRequestId, {
+    state: success ? 'completed' : 'failed',
+    payload: success ? payload : null,
+    error: success ? null : payload.error,
+    profileId: req.body.profileId || 'default',
+    modelChoice,
+  });
 
   console.log(
     `[api/analyze] Parsed -> bestFeatures=${payload.bestFeatures.length} flaws=${payload.primaryFlaws.length} biometrics=${(payload.biometrics || []).length} rating=${finalRating ?? 'n/a'}`
@@ -2699,6 +2754,15 @@ app.post(
     });
   }
 
+  if (success) {
+    rememberAnalysisRecovery(req.uid, scanRequestId, {
+      state: 'completed',
+      payload,
+      profileId: payload.profileId || req.body.profileId || 'default',
+      modelChoice,
+    });
+  }
+
   if (success && fairUsage.minimumDurationMs > 0) {
     await new Promise((resolve) => setTimeout(resolve, fairUsage.minimumDurationMs));
   }
@@ -2768,6 +2832,45 @@ app.post(
     });
   }
 );
+
+app.get('/api/analyze/status/:scanRequestId', extractUserOptional, async (req, res) => {
+  if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
+  const scanRequestId = String(req.params.scanRequestId || '').trim();
+  if (!scanRequestId) return res.status(400).json({ error: 'Missing scan request id' });
+
+  const recovery = readAnalysisRecovery(req.uid, scanRequestId);
+  if (recovery?.state === 'completed' && recovery.payload) {
+    return res.json({ state: 'completed', payload: recovery.payload });
+  }
+
+  if (firestore) {
+    try {
+      const snap = await firestore
+        .collection('users')
+        .doc(req.uid)
+        .collection('scans')
+        .where('scanRequestId', '==', scanRequestId)
+        .limit(3)
+        .get();
+      const scans = [];
+      snap.forEach((doc) => scans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
+      if (scans.length) {
+        scans.sort((a, b) => storedTimestampMillis(b.timestamp || b.scannedAt || b.createdAt) - storedTimestampMillis(a.timestamp || a.scannedAt || a.createdAt));
+        return res.json({ state: 'completed', scan: scans[0] });
+      }
+    } catch (e) {
+      console.warn('[analyze/status] scan lookup failed:', e.message);
+    }
+  }
+
+  if (recovery?.state === 'failed') {
+    return res.json({ state: 'failed', error: recovery.error || 'Analysis failed' });
+  }
+  if (recovery?.state === 'running') {
+    return res.json({ state: 'running', startedAt: recovery.startedAt || null, profileId: recovery.profileId || null });
+  }
+  return res.json({ state: 'pending' });
+});
 
 app.post('/api/unlock-potential', unlockLimiter, extractUserOptional, upload.single('image'), (req, res) => {
   if (!req.file) {

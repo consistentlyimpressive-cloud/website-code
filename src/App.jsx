@@ -3256,10 +3256,25 @@ const ScanningView = ({
         }
 
         const startedAt = Date.now();
-        const maxWaitMs = 3 * 60 * 1000;
+        const maxWaitMs = 11 * 60 * 1000;
         while (active && Date.now() - startedAt < maxWaitMs) {
           setStatusText('Connection briefly dropped. This scan is still running... reconnecting to its result.');
           try {
+            const statusRes = await fetchWithTimeoutRetry(`${API_BASE}/api/analyze/status/${encodeURIComponent(scanRequestId)}`, {
+              timeoutMs: 12000,
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (statusRes.ok) {
+              const statusData = await statusRes.json().catch(() => ({}));
+              if (statusData.state === 'completed') {
+                if (statusData.payload?.success) return statusData.payload;
+                if (statusData.scan) return buildRecoveredScanPayload(statusData.scan);
+              }
+              if (statusData.state === 'failed') {
+                throw new Error(statusData.error || 'Analysis failed. Please try again with a clear frontal image.');
+              }
+            }
+
             const scansRes = await fetchWithTimeoutRetry(`${API_BASE}/api/user/scans`, {
               timeoutMs: 12000,
               headers: { Authorization: `Bearer ${token}` },
@@ -3279,6 +3294,9 @@ const ScanningView = ({
               if (recovered) return buildRecoveredScanPayload(recovered);
             }
           } catch (pollErr) {
+            if (pollErr?.message && !isTransientMobileScanError(pollErr) && pollErr.name !== 'AbortError') {
+              throw pollErr;
+            }
             console.warn('Saved scan recovery poll failed', pollErr);
           }
           await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -3451,6 +3469,24 @@ const ScanningView = ({
           data = await apiRes.json();
         } catch (parseErr) {
           console.error("Analyze response not JSON", parseErr);
+          if (activeUser) {
+            try {
+              const recoveredScan = await pollForSavedScan();
+              if (!active) return;
+              if (recoveredScan) {
+                scanSucceeded = true;
+                rememberScanDuration(choice, currentFairUsage, Date.now() - scanStartedAt);
+                setStatusText("Analysis Complete! Transitioning...");
+                onCompleteRef.current(recoveredScan);
+                return;
+              }
+            } catch (recoveryErr) {
+              if (!active) return;
+              setStatusText(friendlyAnalysisErrorMessage(recoveryErr?.message || 'Analysis failed. Please try again.'));
+              setHasError(true);
+              return;
+            }
+          }
           setStatusText(GENERIC_ERROR);
           setHasError(true);
           return;
@@ -3503,7 +3539,15 @@ const ScanningView = ({
       } catch (err) {
         console.error("API failed", err);
         if (isTransientMobileScanError(err) && activeUser) {
-          const recoveredScan = await pollForSavedScan();
+          let recoveredScan = null;
+          try {
+            recoveredScan = await pollForSavedScan();
+          } catch (recoveryErr) {
+            if (!active) return;
+            setStatusText(friendlyAnalysisErrorMessage(recoveryErr?.message || 'Analysis failed. Please try again.'));
+            setHasError(true);
+            return;
+          }
           if (!active) return;
           if (recoveredScan) {
             scanSucceeded = true;
