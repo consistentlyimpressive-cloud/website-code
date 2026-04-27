@@ -832,6 +832,48 @@ async function syncCommunityScanVisibility(uid, scanId, scanData, visibility) {
   }
 }
 
+async function deleteFirestoreCollection(collectionRef, batchSize = 200) {
+  if (!collectionRef) return;
+  while (true) {
+    const snap = await collectionRef.limit(batchSize).get();
+    if (snap.empty) break;
+    const batch = firestore.batch();
+    snap.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+    if (snap.size < batchSize) break;
+  }
+}
+
+async function deleteMogBattleEverywhere(battleId) {
+  const id = String(battleId || '').trim();
+  if (!id) return false;
+
+  if (!firestore) {
+    const before = localCommunityBattles.length;
+    const nextBattles = localCommunityBattles.filter((battle) => String(battle.id) !== id);
+    localCommunityBattles.splice(0, localCommunityBattles.length, ...nextBattles);
+    delete localMogBattles[id];
+    delete localMogVotes[id];
+    delete localMogBattleFollows[id];
+    return before !== localCommunityBattles.length;
+  }
+
+  const communityRef = firestore.collection('mogBattlesCommunity').doc(id);
+  const tallyRef = firestore.collection('mogBattles').doc(id);
+  const communitySnap = await communityRef.get();
+  const tallySnap = await tallyRef.get();
+  await Promise.all([
+    deleteFirestoreCollection(tallyRef.collection('voters')).catch(() => {}),
+    deleteFirestoreCollection(tallyRef.collection('followers')).catch(() => {}),
+    deleteFirestoreCollection(tallyRef.collection('adminVoteEvents')).catch(() => {}),
+  ]);
+  await Promise.all([
+    communityRef.delete().catch(() => {}),
+    tallyRef.delete().catch(() => {}),
+  ]);
+  return communitySnap.exists || tallySnap.exists;
+}
+
 async function createNotification(uid, payload = {}) {
   const safeUid = String(uid || '').trim();
   if (!safeUid) return null;
@@ -1201,6 +1243,56 @@ app.post('/api/mog-battle/community', requireFirestore, async (req, res) => {
   }
 });
 
+app.delete('/api/mog-battle/community/:battleId', requireFirestore, async (req, res) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!token) return res.status(401).json({ error: 'Sign in to delete this battle' });
+
+  const battleId = String(req.params.battleId || '').trim();
+  if (!battleId) return res.status(400).json({ error: 'Missing battle id' });
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(token);
+
+    if (!firestore) {
+      const battle = localCommunityBattles.find((item) => String(item.id) === battleId);
+      if (!battle) return res.status(404).json({ error: 'Battle not found' });
+      if (String(battle.creatorId || '') !== decoded.uid) return res.status(403).json({ error: 'You can only delete your own battle' });
+      await deleteMogBattleEverywhere(battleId);
+      return res.json({ ok: true });
+    }
+
+    const battleSnap = await firestore.collection('mogBattlesCommunity').doc(battleId).get();
+    if (!battleSnap.exists) return res.status(404).json({ error: 'Battle not found' });
+    const battle = battleSnap.data() || {};
+    if (String(battle.creatorId || '') !== decoded.uid) return res.status(403).json({ error: 'You can only delete your own battle' });
+    await deleteMogBattleEverywhere(battleId);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[mog-battle] DELETE community', e.message || e);
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+});
+
+app.delete('/api/admin/mog-battles/:battleId', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  const battleId = String(req.params.battleId || '').trim();
+  if (!battleId) return res.status(400).json({ error: 'Missing battle id' });
+
+  try {
+    const deleted = await deleteMogBattleEverywhere(battleId);
+    if (!deleted) return res.status(404).json({ error: 'Battle not found' });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[admin] Failed to delete Mog Battle:', e);
+    if (isQuotaExceededError(e)) {
+      return res.status(503).json({ error: 'Firestore quota exceeded. Try again when quota resets.' });
+    }
+    return res.status(500).json({ error: e.message || 'Failed to delete Mog Battle' });
+  }
+});
+
 app.get('/api/community-scans', requireFirestore, async (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 30, 1), 100);
 
@@ -1265,6 +1357,31 @@ app.post('/api/admin/community-scans/:scanDocId/official', async (req, res) => {
       return res.status(503).json({ error: 'Firestore quota exceeded. Try again when quota resets.' });
     }
     return res.status(500).json({ error: e.message || 'Failed to mark official' });
+  }
+});
+
+app.delete('/api/admin/community-scans/:scanDocId', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  const scanDocId = String(req.params.scanDocId || '').trim();
+  if (!scanDocId) return res.status(400).json({ error: 'Missing scan id' });
+
+  if (!firestore) {
+    const before = localCommunityScans.length;
+    const nextScans = localCommunityScans.filter((scan) => scan.id !== scanDocId && scan.scanId !== scanDocId);
+    localCommunityScans.splice(0, localCommunityScans.length, ...nextScans);
+    return res.json({ ok: true, local: true, removed: before !== localCommunityScans.length });
+  }
+
+  try {
+    await firestore.collection('communityScans').doc(scanDocId).delete();
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('[admin] Failed to delete community scan listing:', e);
+    if (isQuotaExceededError(e)) {
+      return res.status(503).json({ error: 'Firestore quota exceeded. Try again when quota resets.' });
+    }
+    return res.status(500).json({ error: e.message || 'Failed to delete community scan listing' });
   }
 });
 

@@ -131,6 +131,10 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, renderScanDash
       try {
         const token = user ? await user.getIdToken() : null;
         const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const search = new URLSearchParams(window.location.search);
+        const adminView = search.get('admin') === '1';
+        const adminPassword = adminView ? window.localStorage.getItem('mogcheck_admin_pw') || '' : '';
+        if (adminPassword) headers['x-admin-password'] = adminPassword;
 
         const uid = routeParams.uid || routeParams.username || user?.uid || '';
         const actualProfileId = routeParams.profileId || '';
@@ -142,7 +146,7 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, renderScanDash
 
         const res = await fetch(
           requestedDirectScanId
-            ? `${API_BASE}/api/public/scans/${encodeURIComponent(uid)}/${encodeURIComponent(requestedDirectScanId)}`
+            ? `${API_BASE}/api/public/scans/${encodeURIComponent(uid)}/${encodeURIComponent(requestedDirectScanId)}${adminView ? '?admin=1' : ''}`
             : `${API_BASE}/api/public/profiles/${encodeURIComponent(uid)}/${encodeURIComponent(actualProfileId)}`,
           { headers }
         );
@@ -154,7 +158,6 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, renderScanDash
         const data = await res.json();
         setProfile(data.profile);
         setScans(data.scans || []);
-        const search = new URLSearchParams(window.location.search);
         const requestedScanId = requestedDirectScanId || search.get('scan');
         if (requestedScanId && data.scans?.some((scan) => scan.id === requestedScanId)) {
           setSelectedScanId(requestedScanId);

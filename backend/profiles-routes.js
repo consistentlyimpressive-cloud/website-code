@@ -1,5 +1,6 @@
 const { sanitizeFirebaseError, shouldSkipFirebaseStorage } = require('./firebase-errors');
 const localUserStore = require('./local-user-store');
+const adminStore = require('./admin-store');
 
 function isPublicScanVisibility(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -207,7 +208,9 @@ module.exports = function(app, firestore, admin, extractUserOptional) {
 
       const scan = normalizeStoredScanUrls({ id: scanDoc.id, ...scanDoc.data() });
       const isOwner = req.uid === uid;
-      if (!isOwner && !isPublicScanVisibility(scan.visibility)) {
+      const adminPassword = req.headers['x-admin-password'] || '';
+      const hasAdminAccess = String(req.query?.admin || '').trim() === '1' && adminStore.checkPassword(adminPassword);
+      if (!isOwner && !hasAdminAccess && !isPublicScanVisibility(scan.visibility)) {
         return res.status(403).json({ error: 'This scan is private' });
       }
 

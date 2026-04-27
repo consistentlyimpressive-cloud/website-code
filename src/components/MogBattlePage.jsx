@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Crown, ChevronDown, Plus, History, X, ShieldCheck, Swords, Trophy, Sparkles, Activity, Share2, Heart, Copy, ExternalLink } from 'lucide-react';
+import { Crown, ChevronDown, Plus, History, X, ShieldCheck, Swords, Trophy, Sparkles, Activity, Share2, Heart, Copy, ExternalLink, Trash2 } from 'lucide-react';
 import { getAllFeaturedBattles, getMetricRowsForBattle, aiWinner } from '../data/mogBattles';
 import {
   fetchCommunityBattles,
@@ -9,6 +9,8 @@ import {
   fetchMyMogBattleVote,
   postMogBattleVote,
   postCommunityBattle,
+  deleteCommunityBattle,
+  adminDeleteCommunityBattle,
   setMogBattleFollow,
 } from '../api/mogBattleVotes';
 import { getApiBase } from '../utils/apiBase';
@@ -60,9 +62,14 @@ const getMogBattleNameError = (value) => {
 
 const timestampToMillis = (value) => {
   if (!value) return 0;
-  if (typeof value === 'number') return value;
+  if (typeof value === 'number') return value < 1000000000000 ? value * 1000 : value;
   if (typeof value?.toMillis === 'function') return value.toMillis();
   if (typeof value?.seconds === 'number') return value.seconds * 1000;
+  if (typeof value?._seconds === 'number') return value._seconds * 1000;
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+    const numeric = Number(value.trim());
+    return numeric < 1000000000000 ? numeric * 1000 : numeric;
+  }
   const parsed = new Date(value).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
 };
@@ -70,11 +77,22 @@ const timestampToMillis = (value) => {
 const formatBattleTime = (value) => {
   const millis = timestampToMillis(value);
   if (!millis) return 'Unknown time';
-  return new Date(millis).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const diff = Date.now() - millis;
+  const abs = Math.abs(diff);
+  const units = [
+    ['year', 365 * 24 * 60 * 60 * 1000],
+    ['month', 30 * 24 * 60 * 60 * 1000],
+    ['day', 24 * 60 * 60 * 1000],
+    ['hour', 60 * 60 * 1000],
+    ['minute', 60 * 1000],
+  ];
+  for (const [unit, size] of units) {
+    if (abs >= size) {
+      const count = Math.max(1, Math.round(abs / size));
+      return diff >= 0 ? `${count} ${unit}${count === 1 ? '' : 's'} ago` : `in ${count} ${unit}${count === 1 ? '' : 's'}`;
+    }
+  }
+  return 'Just now';
 };
 
 const fighterLabel = (fighter, fallback = 'Scan') => {
@@ -142,13 +160,11 @@ const fighterGenderLabel = (fighter) => {
 
 const fighterAnalysisPath = (fighter, currentUserUid = '') => {
   const ownerUid = String(fighter?.ownerUid || fighter?.uid || '').trim();
-  const profileId = String(fighter?.profileId || '').trim();
   const scanId = String(fighter?.scanId || '').trim();
   const visibility = String(fighter?.visibility || '').trim().toLowerCase();
-  if (!ownerUid || !profileId) return null;
+  if (!ownerUid || !scanId) return null;
   if (visibility === 'private' && ownerUid !== currentUserUid) return null;
-  const base = `/users/${encodeURIComponent(ownerUid)}/${encodeURIComponent(profileId)}`;
-  return scanId ? `${base}?scan=${encodeURIComponent(scanId)}` : base;
+  return `/scan/${encodeURIComponent(ownerUid)}/${encodeURIComponent(scanId)}`;
 };
 
 const battleShareUrl = (battleId) => {
@@ -407,7 +423,7 @@ const FighterMiniCard = ({ fighter, scoreTone = 'text-cyan-300', hidden = false,
         onClick={() => openInternalPath(analysisPath)}
         className="mt-3 inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-950/80 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-zinc-300 transition-colors hover:border-cyan-400/30 hover:text-white"
       >
-        Full analysis <ExternalLink size={11} />
+        View full analysis <ExternalLink size={11} />
       </button>
     ) : null}
   </div>
@@ -1004,10 +1020,27 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
   );
 };
 
+const AnalysisLinkButton = ({ path }) => {
+  if (!path) return null;
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        openInternalPath(path);
+      }}
+      className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-1.5 font-mono text-[9px] font-black uppercase tracking-[0.16em] text-cyan-100 transition-all hover:border-cyan-300/45 hover:text-white"
+    >
+      View full analysis
+      <ExternalLink size={10} />
+    </button>
+  );
+};
+
 const BattleAnalysisLinks = ({ battle, currentUserUid = '' }) => {
   const links = [
-    { label: 'A Analysis', path: fighterAnalysisPath(battle?.fighterA, currentUserUid) },
-    { label: 'B Analysis', path: fighterAnalysisPath(battle?.fighterB, currentUserUid) },
+    { label: 'A', path: fighterAnalysisPath(battle?.fighterA, currentUserUid) },
+    { label: 'B', path: fighterAnalysisPath(battle?.fighterB, currentUserUid) },
   ].filter((item) => item.path);
 
   if (!links.length) return null;
@@ -1015,29 +1048,20 @@ const BattleAnalysisLinks = ({ battle, currentUserUid = '' }) => {
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2">
       {links.map((item) => (
-        <button
-          key={item.label}
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            openInternalPath(item.path);
-          }}
-          className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-1.5 font-mono text-[9px] font-black uppercase tracking-[0.16em] text-cyan-100 transition-all hover:border-cyan-300/45 hover:text-white"
-        >
-          {item.label}
-          <ExternalLink size={10} />
-        </button>
+        <AnalysisLinkButton key={`${item.label}-${item.path}`} path={item.path} />
       ))}
     </div>
   );
 };
 
-const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, isFollowed = false, onOpen, onToggleFollow, onShare, currentUserUid = '' }) => {
+const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, isFollowed = false, canDelete = false, onOpen, onToggleFollow, onShare, onDelete, currentUserUid = '' }) => {
   const labelA = fighterLabel(battle.fighterA);
   const labelB = fighterLabel(battle.fighterB);
   const totalVotes = Number(battle.votesA || 0) + Number(battle.votesB || 0);
   const pctA = totalVotes ? Math.round((Number(battle.votesA || 0) / totalVotes) * 100) : 50;
   const pctB = totalVotes ? 100 - pctA : 50;
+  const analysisPathA = fighterAnalysisPath(battle.fighterA, currentUserUid);
+  const analysisPathB = fighterAnalysisPath(battle.fighterB, currentUserUid);
 
   return (
     <article
@@ -1068,6 +1092,16 @@ const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, isFollowed
           <Share2 size={12} />
           Share
         </button>
+        {canDelete && (
+          <button
+            type="button"
+            onClick={() => onDelete?.(battle)}
+            className="inline-flex items-center gap-2 rounded-full border border-red-500/25 bg-red-500/10 px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-red-300 transition-all hover:border-red-400/40 hover:text-red-100"
+          >
+            <Trash2 size={12} />
+            Delete
+          </button>
+        )}
       </div>
       <div className="grid gap-6 pt-4 lg:grid-cols-[minmax(0,0.9fr)_260px_minmax(0,0.9fr)] lg:items-center">
         <div className="space-y-4">
@@ -1097,7 +1131,7 @@ const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, isFollowed
               {hasVoted ? 'View' : 'Vote'}
             </button>
           </div>
-          <BattleAnalysisLinks battle={battle} currentUserUid={currentUserUid} />
+          <AnalysisLinkButton path={analysisPathA} />
         </div>
 
         <div className="flex flex-col items-center justify-center gap-4 lg:px-2">
@@ -1192,14 +1226,16 @@ const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, isFollowed
               </h3>
             </div>
           </div>
-          <BattleAnalysisLinks battle={battle} currentUserUid={currentUserUid} />
+          <div className="flex justify-end">
+            <AnalysisLinkButton path={analysisPathB} />
+          </div>
         </div>
       </div>
     </article>
   );
 };
 
-const LatestBattleCard = ({ battle, isFollowed = false, onOpen, onShare, onToggleFollow, currentUserUid = '' }) => {
+const LatestBattleCard = ({ battle, isFollowed = false, canDelete = false, onOpen, onShare, onToggleFollow, onDelete, currentUserUid = '' }) => {
   const labelA = fighterLabel(battle.fighterA);
   const labelB = fighterLabel(battle.fighterB);
 
@@ -1247,6 +1283,16 @@ const LatestBattleCard = ({ battle, isFollowed = false, onOpen, onShare, onToggl
           Share battle
         </button>
         <BattleAnalysisLinks battle={battle} currentUserUid={currentUserUid} />
+        {canDelete && (
+          <button
+            type="button"
+            onClick={() => onDelete?.(battle)}
+            className="inline-flex items-center gap-2 rounded-full border border-red-500/25 bg-red-500/10 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-red-300 transition-all hover:border-red-400/40 hover:text-red-100"
+          >
+            <Trash2 size={11} />
+            Delete
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1265,6 +1311,21 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
   const [followedBattleIds, setFollowedBattleIds] = useState([]);
   const [shareStatus, setShareStatus] = useState('');
   const [openedSharedBattleId, setOpenedSharedBattleId] = useState('');
+  const isMogBattleAdmin = Boolean(user?.email && (
+    user.email === 'laithbu07@gmail.com' ||
+    user.email === 'admin@looksmaxxing.com' ||
+    user.email === 'serenity.eyb@gmail.com' ||
+    user.email.endsWith('@looksmaxxing.com')
+  ));
+
+  const isCommunityBattle = useCallback((battle) => (
+    Boolean(battle?.creatorId) || communityBattles.some((item) => String(item.id) === String(battle?.id))
+  ), [communityBattles]);
+
+  const canDeleteBattle = useCallback((battle) => {
+    if (!battle?.id || !isCommunityBattle(battle)) return false;
+    return Boolean((user?.uid && String(battle.creatorId || '') === user.uid) || isMogBattleAdmin);
+  }, [isCommunityBattle, isMogBattleAdmin, user?.uid]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1343,6 +1404,32 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
     }
     window.setTimeout(() => setShareStatus(''), 2600);
   }, []);
+
+  const deleteBattle = useCallback(async (battle) => {
+    if (!canDeleteBattle(battle)) return;
+    const confirmed = window.confirm('Delete this Mog Battle? This removes it from public Mog Battles.');
+    if (!confirmed) return;
+
+    try {
+      let result;
+      if (isMogBattleAdmin) {
+        const adminPassword = window.localStorage.getItem('mogcheck_admin_pw') || '';
+        if (!adminPassword) throw new Error('Admin password is required. Log into the admin panel once, then try again.');
+        result = await adminDeleteCommunityBattle(adminPassword, battle.id);
+      } else {
+        const token = await user.getIdToken();
+        result = await deleteCommunityBattle(token, battle.id);
+      }
+      if (!result.ok) throw new Error(result.data?.error || 'Could not delete this battle');
+      setCommunityBattles((prev) => prev.filter((item) => String(item.id) !== String(battle.id)));
+      setFollowedBattleIds((prev) => prev.filter((item) => String(item) !== String(battle.id)));
+      setVoteModalBattle((current) => (String(current?.id) === String(battle.id) ? null : current));
+      setShareStatus('Mog Battle deleted.');
+    } catch (e) {
+      setShareStatus(e.message || 'Could not delete this battle.');
+    }
+    window.setTimeout(() => setShareStatus(''), 3200);
+  }, [canDeleteBattle, isMogBattleAdmin, user]);
 
   const loadCommunityBattles = useCallback(async () => {
     try {
@@ -1643,9 +1730,11 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                         key={battle.id}
                         battle={battle}
                         isFollowed={followedBattleIds.includes(String(battle.id))}
+                        canDelete={canDeleteBattle(battle)}
                         onOpen={setVoteModalBattle}
                         onShare={shareBattle}
                         onToggleFollow={toggleFollowBattle}
+                        onDelete={deleteBattle}
                         currentUserUid={user?.uid || ''}
                       />
                     ))
@@ -1729,8 +1818,10 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                         isFeatured={index === 0}
                         hasVoted={Boolean(myVotesByBattle[battle.id])}
                         isFollowed={followedBattleIds.includes(String(battle.id))}
+                        canDelete={canDeleteBattle(battle)}
                         onToggleFollow={toggleFollowBattle}
                         onShare={shareBattle}
+                        onDelete={deleteBattle}
                         onOpen={setVoteModalBattle}
                         currentUserUid={user?.uid || ''}
                       />
@@ -1837,6 +1928,18 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                   >
                     Share
                   </button>
+                  {canDeleteBattle(battle) && (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        deleteBattle(battle);
+                      }}
+                      className="shrink-0 rounded-full border border-red-500/25 bg-red-500/10 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-red-300 transition-all hover:border-red-400/40 hover:text-red-100"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               ))
             ) : (

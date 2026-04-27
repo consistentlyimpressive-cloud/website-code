@@ -79,6 +79,33 @@ export async function postCommunityBattle(idToken, fighterA, fighterB) {
   return { ok: r.ok, status: r.status, data };
 }
 
+export async function deleteCommunityBattle(idToken, battleId) {
+  const r = await fetch(`${API_BASE}/api/mog-battle/community/${encodeURIComponent(battleId)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  const data = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, data };
+}
+
+export async function adminDeleteCommunityBattle(adminPassword, battleId) {
+  const r = await fetch(`${API_BASE}/api/admin/mog-battles/${encodeURIComponent(battleId)}`, {
+    method: 'DELETE',
+    headers: { 'x-admin-password': adminPassword },
+  });
+  const data = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, data };
+}
+
+export async function adminDeleteCommunityScan(adminPassword, scanDocId) {
+  const r = await fetch(`${API_BASE}/api/admin/community-scans/${encodeURIComponent(scanDocId)}`, {
+    method: 'DELETE',
+    headers: { 'x-admin-password': adminPassword },
+  });
+  const data = await r.json().catch(() => ({}));
+  return { ok: r.ok, status: r.status, data };
+}
+
 export async function fetchFollowedMogBattles(idToken) {
   const r = await fetch(`${API_BASE}/api/mog-battle/follows`, {
     headers: { Authorization: `Bearer ${idToken}` },

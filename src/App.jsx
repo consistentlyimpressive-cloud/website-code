@@ -1638,16 +1638,28 @@ const CommunityScanCard = ({
               <span className="text-lg leading-none">...</span>
             </button>
             {communityMenuId === scan.id && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMarkOfficial(!scan.officialScan);
-                }}
-                className="absolute right-0 top-10 w-52 rounded-2xl border border-zinc-700 bg-[#090a0b] px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.18em] text-zinc-200 shadow-[0_20px_50px_rgba(0,0,0,0.5)] hover:bg-white/5"
-              >
-                {scan.officialScan ? 'Turn into community scan' : 'Turn into official scan'}
-              </button>
+              <div className="absolute right-0 top-10 w-56 overflow-hidden rounded-2xl border border-zinc-700 bg-[#090a0b] text-left text-[10px] font-black uppercase tracking-[0.18em] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMarkOfficial(!scan.officialScan);
+                  }}
+                  className="block w-full px-4 py-3 text-left text-zinc-200 hover:bg-white/5"
+                >
+                  {scan.officialScan ? 'Turn into community scan' : 'Turn into official scan'}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove();
+                  }}
+                  className="block w-full border-t border-zinc-800 px-4 py-3 text-left text-red-300 hover:bg-red-500/10"
+                >
+                  Remove listing
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -1828,6 +1840,38 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
     }
   };
 
+  const removeAdminCommunityScan = async (scan) => {
+    const password = window.localStorage.getItem('mogcheck_admin_pw') || '';
+    if (!password || !scan?.id) {
+      setCommunityNotice('Admin password is required. Log into the admin panel once, then try again.');
+      setCommunityRemovalIntent(null);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/community-scans/${encodeURIComponent(scan.id)}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-password': password },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Failed to remove community scan listing');
+      setCommunityScans((prev) => prev.filter((item) => item.id !== scan.id && item.scanId !== scan.scanId));
+      setCommunityNotice('Community scan listing removed. The saved user scan was not deleted.');
+    } catch (e) {
+      setCommunityNotice(e.message || 'Failed to remove community scan listing.');
+    } finally {
+      setCommunityRemovalIntent(null);
+      setCommunityMenuId(null);
+    }
+  };
+
+  const removeCommunityScan = async (scan) => {
+    const isOwner = Boolean(user?.uid && scan?.ownerUid && scan.ownerUid === user.uid && scan?.scanId);
+    if (isOwner) return removeOwnedCommunityScan(scan);
+    if (isAdmin) return removeAdminCommunityScan(scan);
+    setCommunityRemovalIntent(null);
+    return undefined;
+  };
+
   const markCommunityScanOfficial = async (scan, official = true) => {
     const password = window.localStorage.getItem('mogcheck_admin_pw') || '';
     if (!password || !scan?.id) {
@@ -1980,11 +2024,13 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
       {communityRemovalIntent && (
         <ConfirmDialog
           title="Remove From Community?"
-          body="This will set the scan back to private. It will stay saved on your dashboard, but it will disappear from Community Scans."
+          body={isAdmin && !(user?.uid && communityRemovalIntent?.ownerUid === user.uid)
+            ? 'This removes the public Community Scans listing only. The saved user scan will not be deleted.'
+            : 'This will set the scan back to private. It will stay saved on your dashboard, but it will disappear from Community Scans.'}
           confirmLabel="Remove"
           tone="danger"
           onClose={() => setCommunityRemovalIntent(null)}
-          onConfirm={() => removeOwnedCommunityScan(communityRemovalIntent)}
+          onConfirm={() => removeCommunityScan(communityRemovalIntent)}
         />
       )}
       {communityNotice && (
@@ -7175,6 +7221,29 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     }
   };
 
+  const handleDeleteAdminMogBattle = async (uid, battleId) => {
+    try {
+      const delRes = await fetch(`${API_BASE}/api/admin/mog-battles/${encodeURIComponent(battleId)}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-password': storedPw.current }
+      });
+      const data = await delRes.json().catch(() => ({}));
+      if (!delRes.ok) throw new Error(data.error || 'Failed to delete Mog Battle');
+      setUserMogBattlesByUser((prev) => ({
+        ...prev,
+        [uid]: Array.isArray(prev[uid]) ? prev[uid].filter((battle) => battle.id !== battleId) : [],
+      }));
+    } catch (err) {
+      setUserMogBattlesError((prev) => ({ ...prev, [uid]: err.message }));
+    }
+  };
+
+  const handleViewUserScan = (uid, scanId) => {
+    if (!uid || !scanId) return;
+    const url = `${window.location.origin}/scan/${encodeURIComponent(uid)}/${encodeURIComponent(scanId)}?admin=1`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   if (!authenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4 pt-24">
@@ -7713,7 +7782,10 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                                                 <p className="mt-2 line-clamp-2 text-xs font-sans leading-relaxed text-zinc-400">{scan.payload.technicalSummary}</p>
                                               )}
                                             </div>
-                                            <div className="flex items-start">
+                                            <div className="flex flex-wrap items-start gap-2">
+                                              <button onClick={() => handleViewUserScan(u.uid, scan.id)} className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-[10px] font-sans uppercase tracking-[0.22em] text-cyan-300 transition-colors hover:bg-cyan-500/20">
+                                                View analysis
+                                              </button>
                                               <button onClick={() => handleDeleteUserScan(u.uid, scan.id)} className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-[10px] font-sans uppercase tracking-[0.22em] text-red-300 transition-colors hover:bg-red-500/20">
                                                 Delete
                                               </button>
@@ -7789,6 +7861,9 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                                               <div className="flex flex-col items-start gap-2 md:items-end">
                                                 <span className="text-[10px] font-sans uppercase tracking-[0.24em] text-zinc-500">AI winner</span>
                                                 <span className="text-xs font-black uppercase tracking-widest text-cyan-300">{winnerName}</span>
+                                                <button onClick={() => handleDeleteAdminMogBattle(u.uid, battle.id)} className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-[10px] font-sans uppercase tracking-[0.22em] text-red-300 transition-colors hover:bg-red-500/20">
+                                                  Delete
+                                                </button>
                                               </div>
                                             </div>
                                           );

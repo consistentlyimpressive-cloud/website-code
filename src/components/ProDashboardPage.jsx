@@ -56,6 +56,7 @@ function DashboardCommunityScanCard({
   onOpen,
   onToggleMenu,
   onToggleOfficial,
+  onRemove,
 }) {
   const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
   const [isHovered, setIsHovered] = useState(false);
@@ -138,16 +139,28 @@ function DashboardCommunityScanCard({
                 <span className="text-lg leading-none">...</span>
               </button>
               {communityMenuId === scan?.id && (
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onToggleOfficial?.(!scan?.officialScan);
-                  }}
-                  className="absolute right-0 top-10 w-52 rounded-2xl border border-zinc-700 bg-[#090a0b] px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.18em] text-zinc-200 shadow-[0_20px_50px_rgba(0,0,0,0.5)] hover:bg-white/5"
-                >
-                  {scan?.officialScan ? 'Turn into community scan' : 'Turn into official scan'}
-                </button>
+                <div className="absolute right-0 top-10 w-56 overflow-hidden rounded-2xl border border-zinc-700 bg-[#090a0b] text-left text-[10px] font-black uppercase tracking-[0.18em] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onToggleOfficial?.(!scan?.officialScan);
+                    }}
+                    className="block w-full px-4 py-3 text-left text-zinc-200 hover:bg-white/5"
+                  >
+                    {scan?.officialScan ? 'Turn into community scan' : 'Turn into official scan'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRemove?.();
+                    }}
+                    className="block w-full border-t border-zinc-800 px-4 py-3 text-left text-red-300 hover:bg-red-500/10"
+                  >
+                    Remove listing
+                  </button>
+                </div>
               )}
             </div>
           )}
@@ -683,6 +696,29 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       setCommunityNotice(official ? 'Scan marked as official.' : 'Scan turned back into a normal community scan.');
     } catch (err) {
       setCommunityNotice(err.message || 'Failed to update official status.');
+    } finally {
+      setCommunityMenuId(null);
+    }
+  };
+
+  const removeAdminCommunityScan = async (scan) => {
+    const password = window.localStorage.getItem('mogcheck_admin_pw') || '';
+    if (!password || !scan?.id) {
+      setCommunityNotice('Admin password is required. Log into the admin panel once, then try again.');
+      setCommunityMenuId(null);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/community-scans/${encodeURIComponent(scan.id)}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-password': password },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Failed to remove community scan listing');
+      setDashboardCommunityScans((prev) => prev.filter((item) => item.id !== scan.id && item.scanId !== scan.scanId));
+      setCommunityNotice('Community scan listing removed. The saved user scan was not deleted.');
+    } catch (err) {
+      setCommunityNotice(err.message || 'Failed to remove community scan listing.');
     } finally {
       setCommunityMenuId(null);
     }
@@ -1290,6 +1326,55 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
               </div>
             </section>
 
+            {activeDashboardScanId && user && (
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Post settings</p>
+                    <p className="mt-1 text-xs font-sans text-zinc-400">Visibility is now per scan, not per profile.</p>
+                  </div>
+                  <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">
+                    {activeDashboardVisibility === 'community' ? 'public' : activeDashboardVisibility}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {['private', 'unlisted', 'community'].map((visibility) => {
+                    const active = activeDashboardVisibility === visibility;
+                    const label = visibility === 'community' ? 'public' : visibility;
+                    return (
+                      <button
+                        key={visibility}
+                        type="button"
+                        onClick={() => {
+                          if (active) return;
+                          if (visibility === 'community') {
+                            setScanVisibilityIntent({ scanId: activeDashboardScanId, visibility });
+                          } else {
+                            handleUpdateActiveScanVisibility(activeDashboardScanId, visibility);
+                          }
+                        }}
+                        className={`rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors ${active ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300' : 'border-zinc-800 bg-black/40 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'}`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => handleShareScan(dashboardData)}
+                    className="inline-flex items-center gap-2 rounded-full border border-cyan-500/35 bg-cyan-500/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300 transition-colors hover:bg-cyan-500/20"
+                  >
+                    <Share2 size={13} /> Share
+                  </button>
+                </div>
+                {shareNotice && (
+                  <p className="mt-3 flex items-center gap-2 text-xs text-emerald-300">
+                    <Check size={13} /> {shareNotice}
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="border-t border-zinc-900 pt-8">
               {analysisContent}
             </div>
@@ -1419,54 +1504,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                   Go to Mog Battles <ChevronRight size={16} />
                 </button>
               </div>
-              {activeDashboardScanId && user && (
-                <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Post settings</p>
-                      <p className="mt-1 text-xs font-sans text-zinc-400">Visibility is now per scan, not per profile.</p>
-                    </div>
-                    <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">
-                      {activeDashboardVisibility === 'community' ? 'public' : activeDashboardVisibility}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {['private', 'unlisted', 'community'].map((visibility) => {
-                      const active = activeDashboardVisibility === visibility;
-                      const label = visibility === 'community' ? 'public' : visibility;
-                      return (
-                        <button
-                          key={visibility}
-                          type="button"
-                          onClick={() => {
-                            if (active) return;
-                            if (visibility === 'community') {
-                              setScanVisibilityIntent({ scanId: activeDashboardScanId, visibility });
-                            } else {
-                              handleUpdateActiveScanVisibility(activeDashboardScanId, visibility);
-                            }
-                          }}
-                          className={`rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] transition-colors ${active ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300' : 'border-zinc-800 bg-black/40 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'}`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      onClick={() => handleShareScan(dashboardData)}
-                      className="inline-flex items-center gap-2 rounded-full border border-cyan-500/35 bg-cyan-500/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300 transition-colors hover:bg-cyan-500/20"
-                    >
-                      <Share2 size={13} /> Share
-                    </button>
-                  </div>
-                  {shareNotice && (
-                    <p className="mt-3 flex items-center gap-2 text-xs text-emerald-300">
-                      <Check size={13} /> {shareNotice}
-                    </p>
-                  )}
-                </div>
-              )}
             </section>
 
             <section ref={communityRef} className="scroll-mt-28 border-t border-zinc-900 pt-8">
@@ -1495,6 +1532,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                         onOpen={() => openCommunityScan(scan)}
                         onToggleMenu={() => setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id))}
                         onToggleOfficial={(official) => markCommunityScanOfficial(scan, official)}
+                        onRemove={() => removeAdminCommunityScan(scan)}
                       />
                     );
                   })}
@@ -1739,6 +1777,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                   onOpen={() => openCommunityScan(scan)}
                   onToggleMenu={() => setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id))}
                   onToggleOfficial={(official) => markCommunityScanOfficial(scan, official)}
+                  onRemove={() => removeAdminCommunityScan(scan)}
                 />
               ))}
             </div>
