@@ -161,9 +161,7 @@ const fighterGenderLabel = (fighter) => {
 const fighterAnalysisPath = (fighter, currentUserUid = '') => {
   const ownerUid = String(fighter?.ownerUid || fighter?.uid || '').trim();
   const scanId = String(fighter?.scanId || '').trim();
-  const visibility = String(fighter?.visibility || '').trim().toLowerCase();
   if (!ownerUid || !scanId) return null;
-  if (visibility === 'private' && ownerUid !== currentUserUid) return null;
   return `/scan/${encodeURIComponent(ownerUid)}/${encodeURIComponent(scanId)}`;
 };
 
@@ -833,6 +831,46 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
   const fighterA = activeScans.find((scan) => scan.id === fighterAId) || null;
   const fighterB = activeScans.find((scan) => scan.id === fighterBId) || null;
 
+  const makeBattleScanUnlisted = async (fighter, token) => {
+    const ownerUid = String(fighter?.ownerUid || fighter?.uid || '').trim();
+    const scanId = String(fighter?.scanId || '').trim();
+    const profileId = String(fighter?.profileId || '').trim();
+    const visibility = String(fighter?.visibility || '').trim().toLowerCase();
+    if (!scanId || ownerUid !== user?.uid) {
+      return fighter;
+    }
+
+    let nextVisibility = visibility;
+    if (!['unlisted', 'community', 'public'].includes(visibility)) {
+      const scanRes = await fetch(`${API_BASE}/api/user/scans/${encodeURIComponent(scanId)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ visibility: 'unlisted' }),
+      });
+      const data = await scanRes.json().catch(() => ({}));
+      if (!scanRes.ok) throw new Error(data.error || 'Could not make scan unlisted for Mog Battle.');
+      nextVisibility = data.scan?.visibility || 'unlisted';
+    }
+
+    if (profileId) {
+      const profileRes = await fetch(`${API_BASE}/api/user/profiles/${encodeURIComponent(profileId)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ visibility: 'unlisted' }),
+      });
+      const profileData = await profileRes.json().catch(() => ({}));
+      if (!profileRes.ok) throw new Error(profileData.error || 'Could not make profile unlisted for Mog Battle.');
+    }
+
+    return { ...fighter, visibility: nextVisibility || 'unlisted' };
+  };
+
   const submitBattle = async () => {
     if (!user) {
       setError('Sign in to create a battle.');
@@ -859,12 +897,16 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
 
     try {
       const token = await user.getIdToken();
+      const [unlistedFighterA, unlistedFighterB] = await Promise.all([
+        makeBattleScanUnlisted(fighterA, token),
+        makeBattleScanUnlisted(fighterB, token),
+      ]);
       const payloadA = {
-        ...fighterA,
+        ...unlistedFighterA,
         name: displayNameA,
       };
       const payloadB = {
-        ...fighterB,
+        ...unlistedFighterB,
         name: displayNameB,
       };
 
