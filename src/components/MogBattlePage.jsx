@@ -159,7 +159,7 @@ const fighterGenderLabel = (fighter) => {
 };
 
 const fighterAnalysisPath = (fighter, currentUserUid = '') => {
-  const ownerUid = String(fighter?.ownerUid || fighter?.uid || '').trim();
+  const ownerUid = String(fighter?.ownerUid || fighter?.uid || currentUserUid || '').trim();
   const scanId = String(fighter?.scanId || '').trim();
   const profileId = String(fighter?.profileId || '').trim();
   if (!ownerUid) return null;
