@@ -19,6 +19,7 @@ import HolographicCard from './components/ui/HolographicCard';
 import {
   getAuth,
   signInWithPopup,
+  signInWithRedirect,
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -27,6 +28,7 @@ import {
   setPersistence,
   browserLocalPersistence,
   browserSessionPersistence,
+  inMemoryPersistence,
 } from 'firebase/auth';
 import { getFirestore, doc, onSnapshot } from 'firebase/firestore';
 import { getApiBase } from './utils/apiBase';
@@ -757,7 +759,36 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
+function isMobileOperaBrowser() {
+  if (typeof navigator === 'undefined') return false;
+  const userAgent = navigator.userAgent || '';
+  return /(OPR\/|OPT\/|Opera|OPiOS|OPX\/)/i.test(userAgent) && /Mobile|Android|iPhone|iPad|iPod/i.test(userAgent);
+}
+
+async function setAuthPersistenceSafely(rememberMe = false) {
+  const persistenceOrder = rememberMe
+    ? [browserLocalPersistence, browserSessionPersistence, inMemoryPersistence]
+    : [browserSessionPersistence, browserLocalPersistence, inMemoryPersistence];
+
+  let lastError = null;
+  for (const persistence of persistenceOrder) {
+    try {
+      await setPersistence(auth, persistence);
+      return;
+    } catch (err) {
+      lastError = err;
+      console.warn('Firebase auth persistence failed, trying fallback', err);
+    }
+  }
+
+  throw lastError;
+}
+
 const signInWithGoogleProvider = async () => {
+  await setAuthPersistenceSafely(true);
+  if (isMobileOperaBrowser()) {
+    return signInWithRedirect(auth, googleProvider);
+  }
   return signInWithPopup(auth, googleProvider);
 };
 
@@ -2608,23 +2639,30 @@ const LoginPage = ({ setCurrentPage, user }) => {
     'auth/invalid-email': 'Please enter a valid email address.',
     'auth/too-many-requests': 'Too many attempts. Please try again later.',
     'auth/invalid-credential': 'Invalid email or password.',
-  }[code] || 'Something went wrong. Please try again.');
+    'auth/user-disabled': 'This account has been disabled.',
+    'auth/operation-not-allowed': 'This login method is not enabled.',
+    'auth/network-request-failed': 'Network error. Check your connection and try again.',
+    'auth/unauthorized-domain': 'Login is not enabled for this domain in Firebase.',
+    'auth/popup-blocked': 'Your browser blocked the Google sign-in popup.',
+    'auth/popup-closed-by-user': 'Google sign-in was closed before it finished.',
+    'auth/cancelled-popup-request': 'Another Google sign-in popup is already open.',
+  }[code] || `Login failed${code ? ` (${code})` : ''}. Please try again.`);
 
   const handleEmailLogin = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+      await setAuthPersistenceSafely(rememberMe);
       await signInWithEmailAndPassword(auth, email, password);
       setCurrentPage('photo-guide');
-    } catch (err) { setError(friendlyError(err.code)); } finally { setLoading(false); }
+    } catch (err) { console.error('Email login failed', err); setError(friendlyError(err.code)); } finally { setLoading(false); }
   };
 
   const handleGoogleLogin = async () => {
     setError('');
     setLoading(true);
-    try { const result = await signInWithGoogleProvider(); if (result) setCurrentPage('photo-guide'); } catch (e) { setError(friendlyError(e.code)); } finally { setLoading(false); }
+    try { const result = await signInWithGoogleProvider(); if (result) setCurrentPage('photo-guide'); } catch (e) { console.error('Google login failed', e); setError(friendlyError(e.code)); } finally { setLoading(false); }
   };
 
   return (
@@ -2688,7 +2726,12 @@ const RegisterPage = ({ setCurrentPage, user }) => {
     'auth/invalid-email': 'Please enter a valid email address.',
     'auth/weak-password': 'Password must be at least 6 characters.',
     'auth/operation-not-allowed': 'Email/password accounts are not enabled.',
-  }[code] || 'Something went wrong. Please try again.');
+    'auth/network-request-failed': 'Network error. Check your connection and try again.',
+    'auth/unauthorized-domain': 'Login is not enabled for this domain in Firebase.',
+    'auth/popup-blocked': 'Your browser blocked the Google sign-in popup.',
+    'auth/popup-closed-by-user': 'Google sign-in was closed before it finished.',
+    'auth/cancelled-popup-request': 'Another Google sign-in popup is already open.',
+  }[code] || `Registration failed${code ? ` (${code})` : ''}. Please try again.`);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -2698,13 +2741,13 @@ const RegisterPage = ({ setCurrentPage, user }) => {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       setCurrentPage('photo-guide');
-    } catch (err) { setError(friendlyError(err.code)); } finally { setLoading(false); }
+    } catch (err) { console.error('Registration failed', err); setError(friendlyError(err.code)); } finally { setLoading(false); }
   };
 
   const handleGoogleRegister = async () => {
     setError('');
     setLoading(true);
-    try { const result = await signInWithGoogleProvider(); if (result) setCurrentPage('photo-guide'); } catch (e) { setError(friendlyError(e.code)); } finally { setLoading(false); }
+    try { const result = await signInWithGoogleProvider(); if (result) setCurrentPage('photo-guide'); } catch (e) { console.error('Google registration failed', e); setError(friendlyError(e.code)); } finally { setLoading(false); }
   };
 
   return (
