@@ -2266,10 +2266,10 @@ async function extractUserOptional(req, res, next) {
   next();
 }
 
-/** Ultra models (choice 1 / 2 / 6 / 7) require Firebase auth + Pro plan or Single Scan with credits. */
+/** Ultra models (choice 1 / 2 / 6 / 7 / 8) require Firebase auth + Pro plan or Single Scan with credits. */
 async function verifyUltraAccess(req, res, next) {
   const modelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
-  const isUltra = modelChoice === '1' || modelChoice === '2' || modelChoice === '6' || modelChoice === '7';
+  const isUltra = modelChoice === '1' || modelChoice === '2' || modelChoice === '6' || modelChoice === '7' || modelChoice === '8';
   if (!isUltra) {
     req.ultraContext = null;
     return next();
@@ -2309,10 +2309,10 @@ async function verifyUltraAccess(req, res, next) {
     return next();
   }
 
-  if (modelChoice === '6' || modelChoice === '7') {
+  if (modelChoice === '6' || modelChoice === '7' || modelChoice === '8') {
     return res.status(403).json({
       success: false,
-      error: 'Experimental AI is available to admins only.',
+      error: 'This admin-only AI model is available to admins only.',
     });
   }
 

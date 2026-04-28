@@ -122,7 +122,8 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             "4": ("gemma-4-26b-a4b-it", "CORE"),
             "5": ("gemma-4-26b-a4b-it", "GENEVA"),
             "6": ("gemma-4-31b-it", "Experimental AI"),
-            "7": ("gemma-4-31b-it", "Experimental AI #2")
+            "7": ("gemma-4-31b-it", "Experimental AI #2"),
+            "8": ("gemma-4-31b-it", "Anti diddy")
         }
 
         if choice not in mapping:
@@ -200,6 +201,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("2. ULTRA - Fast")
     print("6. Experimental AI (Admin only)")
     print("7. Experimental AI #2 (Admin only, visual only)")
+    print("8. Anti diddy (Admin only)")
     print("-" * 30)
     print("3. OPTIC (Balance & Alignment)")
     print("4. CORE (Objective Attractiveness)")
@@ -210,18 +212,18 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         print(f"\n[DEBUG] Model selected via API args: {choice}")
     else:
         try:
-            choice = input("\nSelect Model [1-7]: ").strip()
+            choice = input("\nSelect Model [1-8]: ").strip()
         except KeyboardInterrupt:
             print("\nExiting script...")
             return
 
-    if choice not in {"1", "2", "3", "4", "5", "6", "7"}:
+    if choice not in {"1", "2", "3", "4", "5", "6", "7", "8"}:
         print(f"[ERROR] Invalid model choice: {choice}")
         return "Error: Model selection failed."
 
     # --- SIDE PROFILE DATA COLLECTION ---
     side_data = "IGNORE_SIDE_ANALYSIS"
-    if choice in ["1", "2", "6"]:
+    if choice in ["1", "2", "6", "8"]:
         print("[ðŸš€] Gathering Lateral Data from engineside.py...")
         if side_img_path and os.path.exists(side_img_path):
             try:
@@ -231,7 +233,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         else:
             side_data = "IGNORE_SIDE_ANALYSIS"
     has_side_profile = bool(
-        (choice in ["1", "2", "6"] and side_img_path and os.path.exists(side_img_path) and side_data != "IGNORE_SIDE_ANALYSIS")
+        (choice in ["1", "2", "6", "8"] and side_img_path and os.path.exists(side_img_path) and side_data != "IGNORE_SIDE_ANALYSIS")
         or (choice == "7" and side_img_path and os.path.exists(side_img_path))
     )
     side_prompt_policy = """
@@ -334,6 +336,28 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         **CRITICAL MARKERS**, ### DASHBOARD_DATA BEST FEATURES / PRIMARY FLAWS, and ### RATINGS (USE THIS).
         If a dashboard section has missing information, leave it blank rather than inventing content.
     """ if choice == "6" else ""
+    anti_diddy_prompt_rules = """
+        ANTI DIDDY PROMPT ADD-ON:
+        Check for the following signe:
+        1. Slightly narrow mouth width.
+        2. Mild infraorbital puffiness.
+        3. Visible dark circles.
+        4. Slightly elongated philtrum.
+        5. fWHR slightly below ideal.
+        6. Mild nasolabial folds.
+        7. Slight midface length.
+        8. Minor under-eye volume loss.
+        9. Narrow nasal base.
+        10. Mild soft-tissue fatigue.
+        11. Lower lip could be fuller.
+        12. Slight orbital tiredness.
+        13. Midface ratio is acceptable but not elite.
+        14. Skin freshness slightly reduced by aging signs.
+        15. Lack of extreme bone projection.
+
+        If 6/15, cap score at 65.
+        If 9/15, cap score at 50.
+    """ if choice == "8" else ""
     experimental_visual_only_prompt = """
 Act as a clinical maxillofacial analyst.
 Rate the subject facially in terms of overall facial attractiveness and aesthetics.
@@ -370,7 +394,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
     # --- PROMPT SELECTION LOGIC ---
     if choice == "7":
         active_prompt = experimental_visual_only_prompt
-    elif choice in ["1", "2", "6"]:
+    elif choice in ["1", "2", "6", "8"]:
         active_prompt = f"""
         MANDATE: Conduct a DUAL-INPUT structural evaluation (FRONTAL + LATERAL).
         INPUT A (Frontal Metadata): {prompt_clinical_data}
@@ -416,6 +440,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         Forbidden wording/logic: "lacks the aggressive dimorphism required for high-tier appeal", "needs more aggressive dimorphism", "more masculine means better", "extreme dimorphism is elite by default".
 {feature_selection_rules}
 {experimental_prompt_rules}
+{anti_diddy_prompt_rules}
 
         SHARED RATING PROTOCOL:
         The following ratings MUST be identical for both the Front and Side profiles.

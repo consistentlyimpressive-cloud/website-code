@@ -24,6 +24,9 @@ const modelLabel = (model) => ({
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
+  '6': 'Experimental AI',
+  '7': 'Experimental AI #2',
+  '8': 'Anti diddy',
   official: 'Official Scan',
 }[String(model || '').trim()] || 'Unknown AI');
 
@@ -253,7 +256,7 @@ const formatDashboardDate = (value, fallback = '-') => {
 
 const modelUsesProDashboard = (model) => {
   const normalized = String(model || '').trim();
-  return normalized === '1' || normalized === '2' || normalized === '6' || normalized === '7';
+  return normalized === '1' || normalized === '2' || normalized === '6' || normalized === '7' || normalized === '8';
 };
 
 const hydrateScanForDashboard = (scan) => {
@@ -894,6 +897,12 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         label: 'Experimental AI #2',
         description: 'Admin-only visual-only experimental scan without MediaPipe measurements.',
         buttonClass: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20',
+      },
+      {
+        id: '8',
+        label: 'Anti diddy',
+        description: 'Admin-only premium scan with the Anti diddy prompt add-on.',
+        buttonClass: 'bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20',
       },
     ] : []),
     {
