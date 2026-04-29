@@ -9325,6 +9325,9 @@ const App = () => {
   return (
     <div className={`min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black ${mobileModeEnabled ? 'mog-mobile-compact' : ''}`}>
       <NoiseOverlay />
+      <div className="fixed right-4 top-4 z-[999] font-mono text-xs font-black uppercase tracking-widest text-red-500">
+        penis goat
+      </div>
       <button
         type="button"
         onClick={() => setMobileModeEnabled((prev) => !prev)}
