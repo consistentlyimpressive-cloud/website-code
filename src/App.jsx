@@ -797,11 +797,16 @@ const PADDLE_CLIENT_TOKEN =
 const PADDLE_ENVIRONMENT =
   String(import.meta.env.VITE_PADDLE_ENV || 'production').trim().toLowerCase();
 
+function normalizePaddlePriceId(value, fallback) {
+  const candidate = String(value || '').trim();
+  return candidate.startsWith('pri_') ? candidate : fallback;
+}
+
 const PADDLE_PRICE_IDS = {
   single_scan:
-    String(import.meta.env.VITE_PADDLE_PRICE_SINGLE_SCAN || 'pri_01kph4qjjrtbdbnswrvdt16jkn').trim(),
-  pro: String(import.meta.env.VITE_PADDLE_PRICE_PRO || 'pri_01kph4pr6xpxhq7c4jfztdmr44').trim(),
-  pro_yearly: String(import.meta.env.VITE_PADDLE_PRICE_PRO_YEARLY || 'pri_01kq54g14he2zakyxr0nrt1ckc').trim(),
+    normalizePaddlePriceId(import.meta.env.VITE_PADDLE_PRICE_SINGLE_SCAN, 'pri_01kph4qjjrtbdbnswrvdt16jkn'),
+  pro: normalizePaddlePriceId(import.meta.env.VITE_PADDLE_PRICE_PRO, 'pri_01kph4pr6xpxhq7c4jfztdmr44'),
+  pro_yearly: normalizePaddlePriceId(import.meta.env.VITE_PADDLE_PRICE_PRO_YEARLY, 'pri_01kq54g14he2zakyxr0nrt1ckc'),
 };
 
 function isLocalPaddleHost() {

@@ -414,10 +414,13 @@ const unlockLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const PADDLE_PRICE_SINGLE_SCAN =
-process.env.PADDLE_PRICE_SINGLE_SCAN || 'pri_01kph4qjjrtbdbnswrvdt16jkn';
-const PADDLE_PRICE_PRO = process.env.PADDLE_PRICE_PRO || 'pri_01kph4pr6xpxhq7c4jfztdmr44';
-const PADDLE_PRICE_PRO_YEARLY = process.env.PADDLE_PRICE_PRO_YEARLY || 'pri_01kq54g14he2zakyxr0nrt1ckc';
+function normalizePaddlePriceId(value, fallback) {
+  const candidate = String(value || '').trim();
+  return candidate.startsWith('pri_') ? candidate : fallback;
+}
+const PADDLE_PRICE_SINGLE_SCAN = normalizePaddlePriceId(process.env.PADDLE_PRICE_SINGLE_SCAN, 'pri_01kph4qjjrtbdbnswrvdt16jkn');
+const PADDLE_PRICE_PRO = normalizePaddlePriceId(process.env.PADDLE_PRICE_PRO, 'pri_01kph4pr6xpxhq7c4jfztdmr44');
+const PADDLE_PRICE_PRO_YEARLY = normalizePaddlePriceId(process.env.PADDLE_PRICE_PRO_YEARLY, 'pri_01kq54g14he2zakyxr0nrt1ckc');
 
 function parsePaddleSignature(signatureHeader = '') {
   return String(signatureHeader)
