@@ -2068,6 +2068,36 @@ function getPythonExecutable() {
   return process.platform === 'win32' ? 'python' : 'python3';
 }
 
+function terminateProcessTree(childProcess, label = 'child process') {
+  if (!childProcess?.pid) return;
+  const pid = String(childProcess.pid);
+  if (process.platform === 'win32') {
+    const killer = spawn('taskkill', ['/PID', pid, '/T', '/F'], {
+      windowsHide: true,
+      stdio: 'ignore',
+    });
+    killer.on('error', (error) => {
+      console.error(`[process] Failed to taskkill ${label} tree (${pid}):`, error.message);
+      try {
+        childProcess.kill('SIGKILL');
+      } catch (killError) {
+        console.error(`[process] Failed fallback kill for ${label} (${pid}):`, killError.message);
+      }
+    });
+    return;
+  }
+
+  try {
+    process.kill(-childProcess.pid, 'SIGKILL');
+  } catch {
+    try {
+      childProcess.kill('SIGKILL');
+    } catch (killError) {
+      console.error(`[process] Failed to kill ${label} (${pid}):`, killError.message);
+    }
+  }
+}
+
 function getRequestBase(req) {
   if (!req) return '';
   const host = String(req.headers['x-forwarded-host'] || req.headers.host || '')
@@ -2468,11 +2498,13 @@ app.post(
 
     const py = spawn(pythonExecutable, args, {
       cwd: __dirname,
+      detached: process.platform !== 'win32',
       env: {
         ...process.env,
         MOGCHECK_RUN_OUTPUT_DIR: runOutputDir,
         PYTHONIOENCODING: 'utf-8',
         PYTHONUTF8: '1',
+        PYTHONUNBUFFERED: '1',
       },
     });
 
@@ -2481,12 +2513,20 @@ app.post(
     let analyzeTimedOut = false;
     const killTimer = setTimeout(() => {
       analyzeTimedOut = true;
-      console.error(`[api/analyze] Python exceeded ${PYTHON_MAX_MS}ms — terminating process`);
-      try {
-        py.kill('SIGKILL');
-      } catch (e) {
-        console.error('[api/analyze] Failed to kill Python:', e.message);
+      const timeoutMessage = 'Analysis timed out after about 8 minutes. Please try again in a moment.';
+      console.error(`[api/analyze] Python exceeded ${PYTHON_MAX_MS}ms - terminating process tree`);
+      clearUserAnalysis(req.uid);
+      rememberAnalysisRecovery(req.uid, scanRequestId, {
+        state: 'failed',
+        error: timeoutMessage,
+      });
+      if (!res.headersSent) {
+        res.status(504).json({
+          success: false,
+          error: 'Analysis timed out - the AI engine took too long. The scan was stopped safely; please try again in a moment.',
+        });
       }
+      terminateProcessTree(py, 'analysis Python');
     }, PYTHON_MAX_MS);
 
     py.on('error', (err) => {
@@ -2523,20 +2563,13 @@ app.post(
     py.on('close', async (code) => {
       clearTimeout(killTimer);
       clearUserAnalysis(req.uid);
-      if (res.headersSent) return;
 
       if (analyzeTimedOut) {
         console.log(`\n[api/analyze] Python closed after timeout (code=${code})`);
-        rememberAnalysisRecovery(req.uid, scanRequestId, {
-          state: 'failed',
-          error: 'Analysis timed out after about 8 minutes. Please try again with a smaller image or try again in a moment.',
-        });
-        return res.status(504).json({
-          success: false,
-          error:
-            'Analysis timed out — the AI engine took too long. Check backend/.env for API keys, your network, or try a smaller image. See the backend terminal for Python errors.',
-        });
+        return;
       }
+
+      if (res.headersSent) return;
 
       console.log(`\n[api/analyze] Python process closed with exit code ${code}`);
       if (/###\s*CONTENT_REJECTED/i.test(pythonOutput)) {
