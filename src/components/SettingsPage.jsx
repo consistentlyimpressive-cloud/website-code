@@ -22,9 +22,28 @@ const timestampToMillis = (value) => {
   return Number.isFinite(fallback) ? fallback : 0;
 };
 
+const formatPlanTimeRemaining = (userPlan) => {
+  const isPro = userPlan?.plan === 'pro' || userPlan?.plan === 'pro_yearly';
+  if (!isPro) return 'Not active';
+  const endMs = timestampToMillis(userPlan?.subscriptionCurrentPeriodEnd);
+  const daysFromApi = Number(userPlan?.proDaysLeft);
+  if (endMs > Date.now()) {
+    const totalHours = Math.ceil((endMs - Date.now()) / 3600000);
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    if (days > 0) return `${days} day${days === 1 ? '' : 's'}${hours > 0 ? ` ${hours}h` : ''} left`;
+    return `${Math.max(1, hours)}h left`;
+  }
+  if (Number.isFinite(daysFromApi) && daysFromApi > 0) {
+    return `${daysFromApi} day${daysFromApi === 1 ? '' : 's'} left`;
+  }
+  return 'Active';
+};
+
 const SettingsPage = ({ setCurrentPage, user, userPlan, dashboardData }) => {
   const planName = userPlan?.plan === 'pro' || userPlan?.plan === 'pro_yearly' ? 'Pro' : userPlan?.plan === 'single_scan' ? 'Single Scan' : 'Free';
   const credits = userPlan?.scanCredits || 0;
+  const planTimeRemaining = formatPlanTimeRemaining(userPlan);
   const [userScans, setUserScans] = useState([]);
   const [purchaseHistory, setPurchaseHistory] = useState([]);
   const [purchasesLoading, setPurchasesLoading] = useState(false);
@@ -69,10 +88,13 @@ const SettingsPage = ({ setCurrentPage, user, userPlan, dashboardData }) => {
     };
     setPurchasesLoading(!!user);
     fetchScans();
+    const handleFocus = () => fetchScans();
+    window.addEventListener('focus', handleFocus);
     return () => {
       cancelled = true;
+      window.removeEventListener('focus', handleFocus);
     };
-  }, [user]);
+  }, [user, userPlan?.plan, userPlan?.subscriptionId, userPlan?.subscriptionCurrentPeriodEnd]);
 
   const effectiveScans = useMemo(() => {
     if (userScans.length > 0) return userScans;
@@ -136,6 +158,17 @@ const SettingsPage = ({ setCurrentPage, user, userPlan, dashboardData }) => {
                 <p className="text-lg font-bold text-zinc-300 flex items-center gap-2">
                   <Calendar size={16} className="text-cyan-500" /> {timeStr}
                 </p>
+              </div>
+              <div className="bg-black/40 border border-zinc-800/50 rounded-xl p-4 sm:col-span-2">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Plan Time Remaining</p>
+                <p className="text-lg font-bold text-zinc-300 flex items-center gap-2">
+                  <Clock size={16} className="text-cyan-500" /> {planTimeRemaining}
+                </p>
+                {userPlan?.subscriptionCurrentPeriodEnd && (
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Renews or expires on {new Date(timestampToMillis(userPlan.subscriptionCurrentPeriodEnd)).toLocaleString()}
+                  </p>
+                )}
               </div>
             </div>
             

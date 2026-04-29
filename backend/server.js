@@ -801,6 +801,25 @@ function serializePurchase(input = {}) {
   };
 }
 
+function buildPlanPurchaseFallback(userData = {}) {
+  const plan = String(userData.plan || '').toLowerCase();
+  const subscriptionId = String(userData.subscriptionId || '').trim();
+  if (!subscriptionId || (plan !== 'pro' && plan !== 'pro_yearly')) return null;
+  const updatedMs = timestampMs(userData.updatedAt) || Date.now();
+  return {
+    id: `subscription-${subscriptionId}`,
+    plan,
+    label: plan === 'pro_yearly' ? 'MogCheck Pro Annual' : 'MogCheck Pro Monthly',
+    amount: null,
+    currency: 'USD',
+    status: userData.subscriptionStatus || 'active',
+    subscriptionId,
+    purchasedAt: new Date(updatedMs).toISOString(),
+    purchasedAtMs: updatedMs,
+    source: 'subscription',
+  };
+}
+
 async function recordActivityEvent(req, event = {}) {
   const uid = event.uid || req.uid || null;
   const now = Date.now();
@@ -3847,6 +3866,11 @@ app.get('/api/user/purchases', extractUserOptional, async (req, res) => {
     }
     const purchases = [];
     snap.forEach((doc) => purchases.push(serializePurchase({ id: doc.id, ...doc.data() })));
+    const userSnap = await firestore.collection('users').doc(req.uid).get();
+    const fallbackPurchase = userSnap.exists ? buildPlanPurchaseFallback(userSnap.data() || {}) : null;
+    if (fallbackPurchase && !purchases.some((purchase) => String(purchase.subscriptionId || '') === fallbackPurchase.subscriptionId)) {
+      purchases.push(fallbackPurchase);
+    }
     purchases.sort((a, b) => (Number(b.purchasedAtMs) || timestampMs(b.purchasedAt)) - (Number(a.purchasedAtMs) || timestampMs(a.purchasedAt)));
     res.json({ purchases });
   } catch (e) {
