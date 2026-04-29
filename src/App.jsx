@@ -3151,6 +3151,56 @@ const formatElapsedMinutes = (ms) => {
   return `${minutes}.${String(Math.floor(seconds / 6)).padStart(1, '0')}m elapsed`;
 };
 
+const ACTIVE_ANALYSIS_STORAGE_KEY = 'mogcheck_active_analysis_jobs_v1';
+const ACTIVE_ANALYSIS_MAX_AGE_MS = 35 * 60 * 1000;
+
+function readPersistedAnalysisJobs(userUid) {
+  if (typeof window === 'undefined' || !userUid) return [];
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_ANALYSIS_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    const now = Date.now();
+    return parsed.filter((job) =>
+      job?.userUid === userUid &&
+      job?.scanRequestId &&
+      now - (Number(job.createdAt) || Number(job.startedAt) || now) < ACTIVE_ANALYSIS_MAX_AGE_MS
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writePersistedAnalysisJobs(jobs) {
+  if (typeof window === 'undefined') return;
+  try {
+    const now = Date.now();
+    const activeJobs = (Array.isArray(jobs) ? jobs : [])
+      .filter((job) => job?.userUid && job?.scanRequestId)
+      .filter((job) => now - (Number(job.createdAt) || Number(job.startedAt) || now) < ACTIVE_ANALYSIS_MAX_AGE_MS)
+      .slice(0, 4);
+    if (activeJobs.length) {
+      window.localStorage.setItem(ACTIVE_ANALYSIS_STORAGE_KEY, JSON.stringify(activeJobs));
+    } else {
+      window.localStorage.removeItem(ACTIVE_ANALYSIS_STORAGE_KEY);
+    }
+  } catch {
+    // Best-effort recovery only.
+  }
+}
+
+function upsertPersistedAnalysisJob(job) {
+  if (!job?.userUid || !job?.scanRequestId) return;
+  const existing = readPersistedAnalysisJobs(job.userUid).filter((entry) => entry.scanRequestId !== job.scanRequestId);
+  writePersistedAnalysisJobs([{ ...job, updatedAt: Date.now() }, ...existing]);
+}
+
+function clearPersistedAnalysisJob(userUid, scanRequestId) {
+  if (!userUid || !scanRequestId) return;
+  const next = readPersistedAnalysisJobs(userUid).filter((job) => job.scanRequestId !== scanRequestId);
+  writePersistedAnalysisJobs(next);
+}
+
 const isTransientMobileScanError = (error) => {
   const message = String(error?.message || error || '').toLowerCase();
   return (
@@ -3200,9 +3250,12 @@ const ScanningView = ({
   onDismiss,
   onOpen,
   onStatusChange,
+  scanRequestId: providedScanRequestId,
 }) => {
   const [statusText, setStatusText] = useState('Connecting to Backend Bridge...');
   const [elapsedScanMs, setElapsedScanMs] = useState(0);
+  const [activeScanRequestId, setActiveScanRequestId] = useState(providedScanRequestId || null);
+  const [scanStartedAtMs, setScanStartedAtMs] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
   const [landmarks, setLandmarks] = useState(null);
   const [hasError, setHasError] = useState(false);
@@ -3241,8 +3294,11 @@ const ScanningView = ({
       fairUsageState,
       overlayRevealSeconds,
       overlayScanLoopSeconds,
+      scanRequestId: activeScanRequestId,
+      startedAt: scanStartedAtMs,
+      elapsedScanMs,
     });
-  }, [fairUsageState, hasError, landmarks, overlayRevealSeconds, overlayScanLoopSeconds, statusText, videoUrl]);
+  }, [activeScanRequestId, elapsedScanMs, fairUsageState, hasError, landmarks, overlayRevealSeconds, overlayScanLoopSeconds, scanStartedAtMs, statusText, videoUrl]);
 
   useEffect(() => {
     let active = true;
@@ -3285,11 +3341,14 @@ const ScanningView = ({
     const startScan = async () => {
       const minScanMs = 3200;
       const scanStartedAt = Date.now();
+      setScanStartedAtMs(scanStartedAt);
       setElapsedScanMs(0);
       const scanRequestId =
-        (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+        providedScanRequestId ||
+        ((typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
           ? crypto.randomUUID()
-          : `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+          : `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+      setActiveScanRequestId(scanRequestId);
       let scanSucceeded = false;
       let currentFairUsage = null;
       let authToken = null;
@@ -3385,6 +3444,18 @@ const ScanningView = ({
       try {
         const isUltra = choice === "1" || choice === "2";
         activeUser = userRef.current;
+        if (activeUser?.uid) {
+          upsertPersistedAnalysisJob({
+            userUid: activeUser.uid,
+            scanRequestId,
+            choice: choice || '3',
+            profileId: profileId || 'default',
+            analysisLabel,
+            mainImageSrc: mainImageSrc && !String(mainImageSrc).startsWith('blob:') ? mainImageSrc : null,
+            createdAt: scanStartedAt,
+            startedAt: scanStartedAt,
+          });
+        }
         if (activeUser) {
           try {
             authToken = await activeUser.getIdToken();
@@ -3554,6 +3625,7 @@ const ScanningView = ({
               if (!active) return;
               if (recoveredScan) {
                 scanSucceeded = true;
+                clearPersistedAnalysisJob(activeUser?.uid, scanRequestId);
                 rememberScanDuration(choice, currentFairUsage, Date.now() - scanStartedAt);
                 setStatusText("Analysis Complete! Transitioning...");
                 onCompleteRef.current(recoveredScan);
@@ -3603,6 +3675,7 @@ const ScanningView = ({
            }
            rememberScanDuration(choice, currentFairUsage, Date.now() - scanStartedAt);
            scanSucceeded = true;
+           clearPersistedAnalysisJob(activeUser?.uid, scanRequestId);
            setStatusText("Analysis Complete! Transitioning...");
            setVideoUrl(data.videoUrl);
            if (active) onCompleteRef.current(data);
@@ -3630,6 +3703,7 @@ const ScanningView = ({
           if (!active) return;
           if (recoveredScan) {
             scanSucceeded = true;
+            clearPersistedAnalysisJob(activeUser?.uid, scanRequestId);
             rememberScanDuration(choice, currentFairUsage, Date.now() - scanStartedAt);
             setStatusText("Analysis Complete! Transitioning...");
             onCompleteRef.current(recoveredScan);
@@ -3659,7 +3733,7 @@ const ScanningView = ({
       active = false;
       cancelAnalyzeRequest();
     };
-  }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, profileId]);
+  }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, profileId, providedScanRequestId, analysisLabel]);
 
   if (compact) {
     return (
@@ -3875,6 +3949,174 @@ const AnalysisDockSummaryCard = ({ job, onOpenResult, onDismiss }) => (
   </div>
 );
 
+const RecoveredAnalysisJobCard = ({ job, onOpen, onStatusChange, onComplete, onDismiss }) => {
+  const [statusText, setStatusText] = useState(job.statusText || 'Restoring scan session...');
+  const [hasError, setHasError] = useState(false);
+  const startedAt = Number(job.startedAt || job.createdAt || Date.now());
+  const elapsedMs = Math.max(0, Date.now() - startedAt);
+
+  useEffect(() => {
+    let active = true;
+    let tick = null;
+
+    const fetchWithTimeout = async (url, options = {}) => {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), options.timeoutMs || 12000);
+      try {
+        return await fetch(url, {
+          cache: 'no-store',
+          ...options,
+          signal: ctrl.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
+    const poll = async () => {
+      if (!job?.user || !job?.scanRequestId) {
+        setHasError(true);
+        setStatusText('Could not restore this scan. Please start a new scan.');
+        return;
+      }
+
+      try {
+        const token = await job.user.getIdToken();
+        const elapsed = Math.max(0, Date.now() - startedAt);
+        const expectedMs = getAdaptiveScanTotalMs(job.choice, job.fairUsageState);
+        const nextStatus =
+          elapsed > expectedMs
+            ? 'Taking longer than usual. The scan is still running and we are waiting for the result...'
+            : 'Scan restored. Waiting for the result...';
+        if (active) {
+          setStatusText(nextStatus);
+          onStatusChange?.({
+            statusText: nextStatus,
+            hasError: false,
+            scanRequestId: job.scanRequestId,
+            startedAt,
+            elapsedScanMs: elapsed,
+          });
+        }
+
+        const statusRes = await fetchWithTimeout(`${API_BASE}/api/analyze/status/${encodeURIComponent(job.scanRequestId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (statusRes.ok) {
+          const statusData = await statusRes.json().catch(() => ({}));
+          if (statusData.state === 'completed') {
+            const payload = statusData.payload?.success
+              ? statusData.payload
+              : statusData.scan
+                ? buildRecoveredScanPayload(statusData.scan)
+                : null;
+            if (payload) {
+              clearPersistedAnalysisJob(job.user.uid, job.scanRequestId);
+              onComplete?.(payload);
+              return;
+            }
+          }
+          if (statusData.state === 'failed') {
+            clearPersistedAnalysisJob(job.user.uid, job.scanRequestId);
+            setHasError(true);
+            setStatusText(statusData.error || 'Analysis did not complete successfully.');
+            return;
+          }
+        }
+
+        const scansRes = await fetchWithTimeout(`${API_BASE}/api/user/scans`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (scansRes.ok) {
+          const scansData = await scansRes.json().catch(() => ({}));
+          const scans = Array.isArray(scansData.scans) ? scansData.scans : [];
+          const recovered = scans.find((scan) => {
+            const payload = scan && typeof scan.payload === 'object' && scan.payload ? scan.payload : {};
+            return String(scan.scanRequestId || payload.scanRequestId || '').trim() === String(job.scanRequestId).trim();
+          });
+          if (recovered) {
+            clearPersistedAnalysisJob(job.user.uid, job.scanRequestId);
+            onComplete?.(buildRecoveredScanPayload(recovered));
+            return;
+          }
+        }
+      } catch (err) {
+        if (!active) return;
+        console.warn('Restored scan poll failed', err);
+        setStatusText('Connection briefly dropped. The scan is still running...');
+      }
+    };
+
+    poll();
+    tick = setInterval(poll, 5000);
+    return () => {
+      active = false;
+      if (tick) clearInterval(tick);
+    };
+  }, [job, onComplete, onStatusChange, startedAt]);
+
+  return (
+    <div
+      className={`overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#0c0d0e]/95 shadow-[0_0_28px_rgba(34,211,238,0.12)] backdrop-blur-xl ${onOpen ? 'cursor-pointer transition-transform hover:scale-[1.01]' : ''}`}
+      onClick={onOpen}
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onKeyDown={(event) => {
+        if (!onOpen) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+    >
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-cyan-500/25 bg-zinc-950">
+          {job.mainImageSrc ? (
+            <img src={job.mainImageSrc} alt="Scan target" className="absolute inset-0 h-full w-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%]" />
+          ) : (
+            <div className="absolute inset-0 bg-cyan-500/10" />
+          )}
+          <div className="absolute inset-0 bg-blue-900/20 mix-blend-overlay" />
+          <div className="absolute left-2 top-2 h-3 w-3 border-l-2 border-t-2 border-cyan-500/80" />
+          <div className="absolute right-2 top-2 h-3 w-3 border-r-2 border-t-2 border-cyan-500/80" />
+          <div className="absolute bottom-2 left-2 h-3 w-3 border-b-2 border-l-2 border-cyan-500/80" />
+          <div className="absolute bottom-2 right-2 h-3 w-3 border-b-2 border-r-2 border-cyan-500/80" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex h-2.5 w-2.5 rounded-full ${hasError ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.85)]' : 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.85)] animate-pulse'}`} />
+            <p className={`truncate text-[10px] font-black uppercase tracking-[0.28em] ${hasError ? 'text-red-300/85' : 'text-cyan-300/85'}`}>
+              {hasError ? 'Scan paused' : 'Scan in progress'}
+            </p>
+          </div>
+          <p className="mt-1 truncate text-[11px] font-black uppercase tracking-[0.22em] text-white">
+            {job.analysisLabel || 'Profile'}
+          </p>
+          <p className="mt-0.5 truncate text-[10px] font-sans uppercase tracking-[0.2em] text-zinc-500">
+            {getAnalysisModelLabel(job.choice)}
+          </p>
+          <p className="mt-1 truncate text-[10px] leading-relaxed text-zinc-400">{statusText}</p>
+          <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-400">
+            {formatElapsedMinutes(elapsedMs)}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            clearPersistedAnalysisJob(job.user?.uid, job.scanRequestId);
+            onDismiss?.();
+          }}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-500 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
+          aria-label="Dismiss analysis"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const AnalysisDock = ({
   jobs,
   collapsed,
@@ -3972,6 +4214,14 @@ const AnalysisDock = ({
                 onOpenResult={onOpenResult}
                 onDismiss={onDismiss}
               />
+            ) : job.recoveryOnly ? (
+              <RecoveredAnalysisJobCard
+                job={job}
+                onOpen={() => onOpenRunning(job.id)}
+                onStatusChange={(status) => onJobStatusChange(job.id, status)}
+                onComplete={job.onComplete}
+                onDismiss={() => onDismiss(job.id)}
+              />
             ) : (
               <ScanningView
                 compact
@@ -3989,6 +4239,7 @@ const AnalysisDock = ({
                 onScanFailed={() => onDismiss(job.id)}
                 user={job.user}
                 profileId={job.profileId}
+                scanRequestId={job.scanRequestId}
               />
             )}
           </div>
@@ -4023,6 +4274,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
     ? (job.fairUsageState.badgeText || 'High usage detected, you have been placed on low-priority queue.')
     : '';
   const statusText = job.statusText || 'Preparing analysis... Estimated time left: calculating.';
+  const elapsedMs = job.elapsedScanMs ?? Math.max(0, Date.now() - Number(job.startedAt || job.createdAt || Date.now()));
 
   return (
     <div className="flex-grow flex flex-col bg-[#0c0d0e] scroll-mt-20">
@@ -4051,6 +4303,9 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
             <p className="font-sans text-xs sm:text-sm text-zinc-400 normal-case tracking-normal max-w-lg mx-auto px-4 leading-relaxed">
               {statusText}
             </p>
+            <p className="mt-2 text-[10px] font-black uppercase tracking-[0.24em] text-emerald-400">
+              {formatElapsedMinutes(elapsedMs)}
+            </p>
             {lowPriorityBadge && (
               <div className="mt-4 inline-flex max-w-[min(92vw,720px)] rounded-full border border-red-500/35 bg-red-500/12 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-red-300">
                 <span className="truncate">{lowPriorityBadge}</span>
@@ -4063,7 +4318,11 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
               <video src={job.videoUrl} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover z-10" />
             ) : (
               <>
-                <img src={job.mainImageSrc} alt="Scan target" className="absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%] z-0" />
+                {job.mainImageSrc ? (
+                  <img src={job.mainImageSrc} alt="Scan target" className="absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%] z-0" />
+                ) : (
+                  <div className="absolute inset-0 z-0 bg-cyan-500/10" />
+                )}
                 <div className="absolute inset-0 bg-blue-900/30 mix-blend-overlay z-0" />
               </>
             )}
@@ -4410,6 +4669,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
              user={activeAnalysisJob.user || user}
              profileId={activeAnalysisJob.profileId || activeScanProfileId}
              analysisLabel={activeAnalysisJob.analysisLabel || 'Analysis'}
+             scanRequestId={activeAnalysisJob.scanRequestId}
              onScanFailed={() => {
                setIsScanning(false);
                setActiveAnalysisJob(null);
@@ -8892,9 +9152,15 @@ const App = () => {
       (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
         ? crypto.randomUUID()
         : `analysis-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const scanRequestId =
+      jobInput.scanRequestId ||
+      ((typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+        ? crypto.randomUUID()
+        : `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
 
     const baseJob = {
       id: jobId,
+      scanRequestId,
       state: 'running',
       createdAt: Date.now(),
       ...jobInput,
@@ -8910,6 +9176,7 @@ const App = () => {
             : job
         )
       );
+      clearPersistedAnalysisJob(latestJob.user?.uid, latestJob.scanRequestId);
       if (!options?.skipDashboardUpdate) {
         setDashboardData(completedScan);
         setCurrentPage('dashboard');
@@ -8917,6 +9184,18 @@ const App = () => {
     };
 
     const queuedJob = { ...baseJob, onComplete };
+    if (queuedJob.user?.uid && queuedJob.scanRequestId) {
+      upsertPersistedAnalysisJob({
+        userUid: queuedJob.user.uid,
+        scanRequestId: queuedJob.scanRequestId,
+        choice: queuedJob.choice || '3',
+        profileId: queuedJob.profileId || 'default',
+        analysisLabel: queuedJob.analysisLabel || 'Analysis',
+        mainImageSrc: queuedJob.mainImageSrc && !String(queuedJob.mainImageSrc).startsWith('blob:') ? queuedJob.mainImageSrc : null,
+        createdAt: queuedJob.createdAt,
+        startedAt: queuedJob.createdAt,
+      });
+    }
     setFocusedAnalysisJobId(jobId);
     setAnalysisDockCollapsed(false);
     setAnalysisJobs((prev) => [queuedJob, ...prev]);
@@ -8925,15 +9204,29 @@ const App = () => {
 
   const updateAnalysisJobStatus = useCallback((jobId, status = {}) => {
     setAnalysisJobs((prev) =>
-      prev.map((job) =>
-        job.id === jobId && job.state === 'running'
-          ? { ...job, ...status }
-          : job
-      )
+      prev.map((job) => {
+        if (job.id !== jobId || job.state !== 'running') return job;
+        const nextJob = { ...job, ...status };
+        if (nextJob.user?.uid && nextJob.scanRequestId) {
+          upsertPersistedAnalysisJob({
+            userUid: nextJob.user.uid,
+            scanRequestId: nextJob.scanRequestId,
+            choice: nextJob.choice || '3',
+            profileId: nextJob.profileId || 'default',
+            analysisLabel: nextJob.analysisLabel || 'Analysis',
+            mainImageSrc: nextJob.mainImageSrc && !String(nextJob.mainImageSrc).startsWith('blob:') ? nextJob.mainImageSrc : null,
+            createdAt: nextJob.createdAt || Date.now(),
+            startedAt: nextJob.startedAt || nextJob.createdAt || Date.now(),
+          });
+        }
+        return nextJob;
+      })
     );
   }, []);
 
   const dismissAnalysisJob = useCallback((jobId) => {
+    const job = analysisJobsRef.current.find((entry) => entry.id === jobId);
+    clearPersistedAnalysisJob(job?.user?.uid, job?.scanRequestId);
     setAnalysisJobs((prev) => prev.filter((job) => job.id !== jobId));
   }, []);
 
@@ -8958,6 +9251,34 @@ const App = () => {
   }, [openAnalysisResult, setCurrentPage]);
 
   const focusedAnalysisJob = analysisJobs.find((job) => job.id === focusedAnalysisJobId) || null;
+
+  useEffect(() => {
+    if (!authResolved || !user?.uid) return;
+    const persistedJobs = readPersistedAnalysisJobs(user.uid);
+    if (!persistedJobs.length) return;
+    const existingRequestIds = new Set(
+      analysisJobsRef.current.map((job) => String(job.scanRequestId || '')).filter(Boolean)
+    );
+    const restored = persistedJobs.filter((job) => !existingRequestIds.has(String(job.scanRequestId)));
+    if (!restored.length) return;
+    restored.forEach((job) => {
+      queueAnalysisJob({
+        recoveryOnly: true,
+        scanRequestId: job.scanRequestId,
+        choice: job.choice || '3',
+        profileId: job.profileId || 'default',
+        analysisLabel: job.analysisLabel || 'Restored scan',
+        mainImageSrc: job.mainImageSrc || null,
+        createdAt: job.createdAt || job.startedAt || Date.now(),
+        startedAt: job.startedAt || job.createdAt || Date.now(),
+        statusText: 'Scan restored. Waiting for the result...',
+        user,
+      });
+    });
+    if (currentPage === 'analysis') {
+      setAnalysisDockCollapsed(false);
+    }
+  }, [authResolved, currentPage, queueAnalysisJob, user]);
 
   useEffect(() => {
     if (currentPage !== 'dashboard') return;
