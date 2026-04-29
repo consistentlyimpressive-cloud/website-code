@@ -197,6 +197,37 @@ function calculateDaysLeft(value) {
   return Math.max(0, Math.ceil((ms - Date.now()) / 86400000));
 }
 
+const PRO_PLAN_VALUES = new Set(['pro', 'pro_monthly', 'pro_annual', 'pro_yearly', 'pro_infinite', 'quota_bypass']);
+
+function normalizeUserPlan(plan) {
+  const value = String(plan || 'free').trim().toLowerCase();
+  if (value === 'pro yearly' || value === 'pro-annual' || value === 'pro annual') return 'pro_annual';
+  if (value === 'pro monthly' || value === 'pro-monthly') return 'pro_monthly';
+  if (value === 'pro infinite' || value === 'pro-infinite') return 'pro_infinite';
+  if (value === 'pro_yearly') return 'pro_annual';
+  return value || 'free';
+}
+
+function isProPlanValue(plan) {
+  return PRO_PLAN_VALUES.has(normalizeUserPlan(plan));
+}
+
+function getPlanLabel(plan) {
+  const normalized = normalizeUserPlan(plan);
+  if (normalized === 'pro_monthly' || normalized === 'pro') return 'PRO - MONTHLY';
+  if (normalized === 'pro_annual') return 'PRO - ANNUAL';
+  if (normalized === 'pro_infinite' || normalized === 'quota_bypass') return 'PRO - INFINITE';
+  if (normalized === 'single_scan') return '2 Scans';
+  return 'FREE';
+}
+
+function getManualPlanPeriodEnd(plan) {
+  const normalized = normalizeUserPlan(plan);
+  if (normalized === 'pro_monthly') return new Date(Date.now() + 30 * 86400000).toISOString();
+  if (normalized === 'pro_annual') return new Date(Date.now() + 365 * 86400000).toISOString();
+  return null;
+}
+
 async function countSuccessfulScansToday(uid) {
   if (!uid) return 0;
   const { startMs, endMs } = getDayBounds();
@@ -272,11 +303,8 @@ async function setScanLimitOverride(uid, data) {
 }
 
 async function buildFairUsagePolicy(plan, uid, options = {}) {
-  const normalizedPlan = String(plan || '').trim().toLowerCase();
-  const eligible =
-    normalizedPlan === 'pro' ||
-    normalizedPlan === 'pro_yearly' ||
-    normalizedPlan === 'quota_bypass';
+  const normalizedPlan = normalizeUserPlan(plan);
+  const eligible = isProPlanValue(normalizedPlan);
 
   if (options.adminExempt) {
     return {
@@ -470,7 +498,7 @@ function getPaddlePeriodEnd(data = {}, fallbackPlan = 'pro') {
     null;
   const parsed = raw ? new Date(raw).getTime() : 0;
   if (Number.isFinite(parsed) && parsed > Date.now()) return new Date(parsed).toISOString();
-  const days = fallbackPlan === 'pro_yearly' ? 365 : 30;
+  const days = normalizeUserPlan(fallbackPlan) === 'pro_annual' ? 365 : 30;
   return new Date(Date.now() + days * 86400000).toISOString();
 }
 
@@ -657,8 +685,8 @@ app.post(
         const purchasePlan = priceIds.includes(PADDLE_PRICE_SINGLE_SCAN)
           ? 'two_scans'
           : isYearlyPurchase
-            ? 'pro_yearly'
-            : 'pro';
+            ? 'pro_annual'
+            : 'pro_monthly';
         const total = extractPaddleTotal(data);
         await savePurchaseRecord(userId, {
           id: String(data.id || event.event_id || `purchase-${Date.now()}`),
@@ -666,7 +694,7 @@ app.post(
           transactionId: String(data.id || ''),
           subscriptionId: String(data.subscription_id || ''),
           plan: purchasePlan,
-          label: purchasePlan === 'two_scans' ? '2 Scans' : purchasePlan === 'pro_yearly' ? 'MogCheck Pro Annual' : 'MogCheck Pro Monthly',
+          label: getPlanLabel(purchasePlan),
           priceIds,
           amount: total.amount,
           currency: total.currency,
@@ -692,16 +720,17 @@ app.post(
         ) {
           await userRef.set(
             {
-              plan: 'pro',
+              plan: isYearlyPurchase ? 'pro_annual' : 'pro_monthly',
+              planLabel: getPlanLabel(isYearlyPurchase ? 'pro_annual' : 'pro_monthly'),
               scanCredits: 999,
               subscriptionId: String(data.subscription_id || ''),
               subscriptionStatus: 'active',
-              subscriptionCurrentPeriodEnd: getPaddlePeriodEnd(data, isYearlyPurchase ? 'pro_yearly' : 'pro'),
+              subscriptionCurrentPeriodEnd: getPaddlePeriodEnd(data, isYearlyPurchase ? 'pro_annual' : 'pro_monthly'),
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             },
             { merge: true }
           );
-          console.log(`[webhook:paddle] User ${userId} -> pro (transaction completed)`);
+          console.log(`[webhook:paddle] User ${userId} -> ${isYearlyPurchase ? 'pro_annual' : 'pro_monthly'} (transaction completed)`);
         }
       }
 
@@ -709,18 +738,33 @@ app.post(
         ['subscription.created', 'subscription.activated', 'subscription.updated', 'subscription.resumed', 'subscription.trialing'].includes(eventName)
       ) {
         const status = String(data.status || 'active').toLowerCase();
+        const subscriptionPlan = priceIds.includes(PADDLE_PRICE_PRO_YEARLY) ? 'pro_annual' : 'pro_monthly';
         await userRef.set(
           {
-            plan: 'pro',
+            plan: subscriptionPlan,
+            planLabel: getPlanLabel(subscriptionPlan),
             scanCredits: 999,
             subscriptionId: String(data.id || ''),
             subscriptionStatus: status || 'active',
-            subscriptionCurrentPeriodEnd: getPaddlePeriodEnd(data, priceIds.includes(PADDLE_PRICE_PRO_YEARLY) ? 'pro_yearly' : 'pro'),
+            subscriptionCurrentPeriodEnd: getPaddlePeriodEnd(data, subscriptionPlan),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           },
           { merge: true }
         );
-        console.log(`[webhook:paddle] User ${userId} -> pro (${status || eventName})`);
+        await savePurchaseRecord(userId, {
+          id: String(data.id || event.event_id || `subscription-${Date.now()}`),
+          eventId: event.event_id || null,
+          transactionId: '',
+          subscriptionId: String(data.id || ''),
+          plan: subscriptionPlan,
+          label: getPlanLabel(subscriptionPlan),
+          priceIds,
+          amount: null,
+          currency: 'USD',
+          status: status || 'active',
+          source: 'subscription',
+        }).catch((purchaseErr) => console.warn('[webhook:paddle] Subscription purchase record failed:', purchaseErr.message));
+        console.log(`[webhook:paddle] User ${userId} -> ${subscriptionPlan} (${status || eventName})`);
       }
 
       if (
@@ -802,14 +846,14 @@ function serializePurchase(input = {}) {
 }
 
 function buildPlanPurchaseFallback(userData = {}) {
-  const plan = String(userData.plan || '').toLowerCase();
+  const plan = normalizeUserPlan(userData.plan || '');
   const subscriptionId = String(userData.subscriptionId || '').trim();
-  if (!subscriptionId || (plan !== 'pro' && plan !== 'pro_yearly')) return null;
+  if (!isProPlanValue(plan)) return null;
   const updatedMs = timestampMs(userData.updatedAt) || Date.now();
   return {
-    id: `subscription-${subscriptionId}`,
+    id: subscriptionId ? `subscription-${subscriptionId}` : `plan-${plan}-${updatedMs}`,
     plan,
-    label: plan === 'pro_yearly' ? 'MogCheck Pro Annual' : 'MogCheck Pro Monthly',
+    label: getPlanLabel(plan),
     amount: null,
     currency: 'USD',
     status: userData.subscriptionStatus || 'active',
@@ -859,7 +903,11 @@ async function recordActivityEvent(req, event = {}) {
       email: base.email || null,
     }, { merge: true }));
   }
-  await Promise.all(writes);
+  const results = await Promise.allSettled(writes);
+  const failed = results.find((result) => result.status === 'rejected');
+  if (failed) {
+    console.warn('[activity] Activity write partially failed:', failed.reason?.message || failed.reason);
+  }
   return { id: globalRef.id, ...base };
 }
 
@@ -2103,14 +2151,15 @@ app.get('/api/user/plan', extractUserOptional, async (req, res) => {
   try {
     const snap = await firestore.collection('users').doc(req.uid).get();
     const data = snap.exists ? snap.data() : {};
-    const plan = data.plan || 'free';
-    const isProPlan = plan === 'pro' || plan === 'pro_yearly' || isAdminEmail;
+    const plan = normalizeUserPlan(data.plan || 'free');
+    const isProPlan = isProPlanValue(plan) || isAdminEmail;
     const dailyScansToday = await countSuccessfulScansToday(req.uid);
     const dailyFreeLimit = isProPlan ? null : 1;
     const subscriptionCurrentPeriodEnd = data.subscriptionCurrentPeriodEnd || null;
     return res.json({
       ok: true,
       plan,
+      planLabel: data.planLabel || getPlanLabel(plan),
       scanCredits: Number(data.scanCredits) || 0,
       subscriptionId: data.subscriptionId || null,
       subscriptionStatus: data.subscriptionStatus || null,
@@ -2650,11 +2699,11 @@ async function verifyUltraAccess(req, res, next) {
       });
     }
     const data = snap.exists ? snap.data() : {};
-    const plan = String(data.plan || 'free');
+    const plan = normalizeUserPlan(data.plan || 'free');
     const scanCredits = Number(data.scanCredits) || 0;
 
-    if (plan === 'pro' || plan === 'pro_yearly' || data.isAdmin || isAdminEmail) {
-      req.ultraContext = { uid, plan: plan === 'pro_yearly' ? 'pro_yearly' : 'pro' };
+    if (isProPlanValue(plan) || data.isAdmin || isAdminEmail) {
+      req.ultraContext = { uid, plan: isProPlanValue(plan) ? plan : 'pro_infinite' };
       return next();
     }
     if (plan === 'single_scan' && scanCredits > 0) {
@@ -3340,20 +3389,32 @@ app.get('/api/admin/visitor-stats', async (req, res) => {
     if (!firestore) {
       events.push(...localActivityEvents.filter((event) => Number(event.timestampMs) >= bucketData.startMs));
     } else {
-      const snap = await firestore
-        .collection('activityEvents')
-        .where('timestampMs', '>=', bucketData.startMs)
-        .orderBy('timestampMs', 'asc')
-        .limit(5000)
-        .get();
+      let snap;
+      try {
+        snap = await firestore
+          .collection('activityEvents')
+          .where('timestampMs', '>=', bucketData.startMs)
+          .orderBy('timestampMs', 'asc')
+          .limit(5000)
+          .get();
+      } catch (queryErr) {
+        console.warn('[admin] visitor stats indexed query failed, falling back:', queryErr.message);
+        snap = await firestore
+          .collection('activityEvents')
+          .orderBy('timestampMs', 'desc')
+          .limit(5000)
+          .get();
+      }
       snap.forEach((doc) => events.push({ id: doc.id, ...doc.data() }));
     }
 
+    const inRangeEvents = [];
     events.forEach((event) => {
       const ts = Number(event.timestampMs) || timestampMs(event.timestamp);
       if (!ts) return;
       const index = bucketData.buckets.findIndex((bucket) => ts >= bucket.startMs && ts < bucket.endMs);
       if (index < 0) return;
+      inRangeEvents.push(event);
       bucketData.buckets[index].visitors.add(String(event.visitorId || event.uid || event.ip || 'unknown'));
     });
 
@@ -3365,13 +3426,19 @@ app.get('/api/admin/visitor-stats', async (req, res) => {
     res.json({
       range: bucketData.range,
       label: bucketData.label,
-      totalUnique: new Set(events.map((event) => String(event.visitorId || event.uid || event.ip || 'unknown'))).size,
+      totalUnique: new Set(inRangeEvents.map((event) => String(event.visitorId || event.uid || event.ip || 'unknown'))).size,
       buckets,
     });
   } catch (e) {
     if (isQuotaExceededError(e)) return res.json({ range: bucketData.range, label: bucketData.label, totalUnique: 0, buckets: bucketData.buckets.map((bucket) => ({ startMs: bucket.startMs, label: bucket.label, count: 0 })), warning: 'Firestore quota exceeded.' });
     console.error('[admin] Failed to read visitor stats:', e);
-    res.status(500).json({ error: e.message || 'Failed to read visitor stats' });
+    res.json({
+      range: bucketData.range,
+      label: bucketData.label,
+      totalUnique: 0,
+      buckets: bucketData.buckets.map((bucket) => ({ startMs: bucket.startMs, label: bucket.label, count: 0 })),
+      warning: e.message || 'Failed to read visitor stats',
+    });
   }
 });
 
@@ -3456,7 +3523,8 @@ app.get('/api/admin/users', async (req, res) => {
         uid,
         email: authUser?.email || fd.email || 'Unknown',
         displayName: authUser?.displayName || fd.displayName || 'No Name',
-        plan: fd.plan || 'free',
+        plan: normalizeUserPlan(fd.plan || 'free'),
+        planLabel: fd.planLabel || getPlanLabel(fd.plan || 'free'),
         scanCredits: fd.scanCredits || 0,
         subscriptionStatus: fd.subscriptionStatus || null,
         subscriptionCurrentPeriodEnd: fd.subscriptionCurrentPeriodEnd || null,
@@ -3589,9 +3657,8 @@ app.delete('/api/admin/scan-limits/:uid', async (req, res) => {
   try {
     const userDoc = await firestore.collection('users').doc(uid).get();
     const fd = userDoc.data() || {};
-    const plan = fd.plan || 'free';
-    const normalizedPlan = String(plan).trim().toLowerCase();
-    const eligible = ['pro', 'pro_yearly', 'quota_bypass'].includes(normalizedPlan);
+    const plan = normalizeUserPlan(fd.plan || 'free');
+    const eligible = isProPlanValue(plan);
     const scansToday = eligible ? await countSuccessfulScansToday(uid) : 0;
     const stillAutoLimited = eligible && calculateFairUsageDelay(scansToday) > 0;
 
@@ -3621,12 +3688,12 @@ app.post('/api/admin/users/:uid/plan', async (req, res) => {
 
   const { uid } = req.params;
   const { plan, scanCredits } = req.body;
-  const normalizedPlan = String(plan || 'free').trim().toLowerCase();
+  const normalizedPlan = normalizeUserPlan(plan || 'free');
   const parsedCredits = Number(scanCredits ?? 0);
-  const allowedPlans = new Set(['free', 'pro', 'single_scan']);
+  const allowedPlans = new Set(['free', 'pro', 'pro_monthly', 'pro_annual', 'pro_infinite', 'single_scan']);
 
   if (!allowedPlans.has(normalizedPlan)) {
-    return res.status(400).json({ error: 'Plan must be free, pro, or single_scan.' });
+    return res.status(400).json({ error: 'Plan must be free, pro_monthly, pro_annual, pro_infinite, or single_scan.' });
   }
 
   if (!Number.isFinite(parsedCredits)) {
@@ -3634,14 +3701,31 @@ app.post('/api/admin/users/:uid/plan', async (req, res) => {
   }
 
   const normalizedCredits = Math.max(0, Math.floor(parsedCredits));
+  const manualPeriodEnd = getManualPlanPeriodEnd(normalizedPlan);
+  const planUpdate = {
+    plan: normalizedPlan,
+    planLabel: getPlanLabel(normalizedPlan),
+    scanCredits: normalizedPlan === 'pro_monthly' || normalizedPlan === 'pro_annual' || normalizedPlan === 'pro_infinite' || normalizedPlan === 'pro'
+      ? 999
+      : normalizedCredits,
+    subscriptionStatus: isProPlanValue(normalizedPlan)
+      ? (normalizedPlan === 'pro_infinite' ? 'manual_infinite' : 'manual_active')
+      : null,
+    subscriptionCurrentPeriodEnd: manualPeriodEnd,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  };
   
   try {
-    await firestore.collection('users').doc(uid).set({
+    await firestore.collection('users').doc(uid).set(planUpdate, { merge: true });
+    res.json({
+      ok: true,
       plan: normalizedPlan,
-      scanCredits: normalizedCredits,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-    res.json({ ok: true, plan: normalizedPlan, scanCredits: normalizedCredits });
+      planLabel: planUpdate.planLabel,
+      scanCredits: planUpdate.scanCredits,
+      subscriptionStatus: planUpdate.subscriptionStatus,
+      subscriptionCurrentPeriodEnd: planUpdate.subscriptionCurrentPeriodEnd,
+      proDaysLeft: calculateDaysLeft(planUpdate.subscriptionCurrentPeriodEnd),
+    });
   } catch (e) {
     console.error('[admin] Failed to update user plan:', e);
     res.status(500).json({ error: e.message });
@@ -3735,7 +3819,8 @@ app.get('/api/admin/users/:uid/mog-battles', async (req, res) => {
     res.json({ battles });
   } catch (e) {
     if (isQuotaExceededError(e)) return res.json({ battles: [], warning: 'Firestore quota exceeded.' });
-    res.status(500).json({ error: e.message });
+    console.error('[admin] Failed to read user Mog Battles:', e);
+    res.json({ battles: [], warning: e.message || 'Failed to read Mog Battles' });
   }
 });
 
@@ -3762,7 +3847,8 @@ app.get('/api/admin/users/:uid/activity', async (req, res) => {
     res.json({ events });
   } catch (e) {
     if (isQuotaExceededError(e)) return res.json({ events: [], warning: 'Firestore quota exceeded.' });
-    res.status(500).json({ error: e.message || 'Failed to read activity' });
+    console.error('[admin] Failed to read activity:', e);
+    res.json({ events: [], warning: e.message || 'Failed to read activity' });
   }
 });
 
@@ -3785,11 +3871,20 @@ app.get('/api/admin/users/:uid/purchases', async (req, res) => {
     }
     const purchases = [];
     snap.forEach((doc) => purchases.push(serializePurchase({ id: doc.id, ...doc.data() })));
+    const userSnap = await firestore.collection('users').doc(uid).get().catch(() => null);
+    const fallbackPurchase = userSnap?.exists ? buildPlanPurchaseFallback(userSnap.data() || {}) : null;
+    if (fallbackPurchase && !purchases.some((purchase) =>
+      (fallbackPurchase.subscriptionId && String(purchase.subscriptionId || '') === fallbackPurchase.subscriptionId) ||
+      String(purchase.id || '') === fallbackPurchase.id
+    )) {
+      purchases.push(fallbackPurchase);
+    }
     purchases.sort((a, b) => (Number(b.purchasedAtMs) || timestampMs(b.purchasedAt)) - (Number(a.purchasedAtMs) || timestampMs(a.purchasedAt)));
     res.json({ purchases });
   } catch (e) {
     if (isQuotaExceededError(e)) return res.json({ purchases: [], warning: 'Firestore quota exceeded.' });
-    res.status(500).json({ error: e.message || 'Failed to read purchases' });
+    console.error('[admin] Failed to read purchases:', e);
+    res.json({ purchases: [], warning: e.message || 'Failed to read purchases' });
   }
 });
 
@@ -3868,7 +3963,10 @@ app.get('/api/user/purchases', extractUserOptional, async (req, res) => {
     snap.forEach((doc) => purchases.push(serializePurchase({ id: doc.id, ...doc.data() })));
     const userSnap = await firestore.collection('users').doc(req.uid).get();
     const fallbackPurchase = userSnap.exists ? buildPlanPurchaseFallback(userSnap.data() || {}) : null;
-    if (fallbackPurchase && !purchases.some((purchase) => String(purchase.subscriptionId || '') === fallbackPurchase.subscriptionId)) {
+    if (fallbackPurchase && !purchases.some((purchase) =>
+      (fallbackPurchase.subscriptionId && String(purchase.subscriptionId || '') === fallbackPurchase.subscriptionId) ||
+      String(purchase.id || '') === fallbackPurchase.id
+    )) {
       purchases.push(fallbackPurchase);
     }
     purchases.sort((a, b) => (Number(b.purchasedAtMs) || timestampMs(b.purchasedAt)) - (Number(a.purchasedAtMs) || timestampMs(a.purchasedAt)));

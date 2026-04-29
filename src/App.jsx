@@ -10,7 +10,7 @@ import PrivacyPolicyPage from './components/PrivacyPolicyPage';
 import SettingsPage from './components/SettingsPage';
 import { ConfirmDialog, ImageLightbox, SiteModal } from './components/ui/SiteModal';
 import { DashboardHubPreviewsCompact } from './components/DashboardHubPreviews';
-import { getNavbarPlanChip, hasEffectiveProAccess, canAlwaysAccessDashboard } from './utils/planAccess';
+import { getNavbarPlanChip, hasEffectiveProAccess, canAlwaysAccessDashboard, isProPlan, normalizePlanValue } from './utils/planAccess';
 import { initializeApp } from 'firebase/app';
 import { celebrityData } from './data/celebrityData';
 import { COMMUNITY_SCANS } from './data/communityScans';
@@ -2315,7 +2315,7 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
             <div className="border-t border-zinc-800 pt-4 mb-4">
               <h3 className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest mb-2">Current Plan</h3>
               <div className="flex items-center justify-between">
-                <span className="text-lg font-black uppercase text-cyan-400">{userPlan.plan}</span>
+                <span className="text-lg font-black uppercase text-cyan-400">{userPlan.planLabel || userPlan.plan}</span>
                 {userPlan.plan === 'single_scan' && (
                   <span className="text-xs font-sans text-zinc-400 bg-zinc-800 px-2 py-1 rounded">{userPlan.scanCredits} credits</span>
                 )}
@@ -3144,6 +3144,13 @@ const formatTimeLeft = (ms) => {
   return `${m}:${String(s).padStart(2, '0')}`;
 };
 
+const formatElapsedMinutes = (ms) => {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}.${String(Math.floor(seconds / 6)).padStart(1, '0')}m elapsed`;
+};
+
 const isTransientMobileScanError = (error) => {
   const message = String(error?.message || error || '').toLowerCase();
   return (
@@ -3195,6 +3202,7 @@ const ScanningView = ({
   onStatusChange,
 }) => {
   const [statusText, setStatusText] = useState('Connecting to Backend Bridge...');
+  const [elapsedScanMs, setElapsedScanMs] = useState(0);
   const [videoUrl, setVideoUrl] = useState(null);
   const [landmarks, setLandmarks] = useState(null);
   const [hasError, setHasError] = useState(false);
@@ -3277,6 +3285,7 @@ const ScanningView = ({
     const startScan = async () => {
       const minScanMs = 3200;
       const scanStartedAt = Date.now();
+      setElapsedScanMs(0);
       const scanRequestId =
         (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
           ? crypto.randomUUID()
@@ -3321,6 +3330,7 @@ const ScanningView = ({
         const maxWaitMs = 18 * 60 * 1000;
         while (active && Date.now() - startedAt < maxWaitMs) {
           const elapsedMs = Date.now() - scanStartedAt;
+          setElapsedScanMs(elapsedMs);
           const expectedMs = getAdaptiveScanTotalMs(choice, currentFairUsage);
           setStatusText(
             elapsedMs > expectedMs
@@ -3510,6 +3520,7 @@ const ScanningView = ({
 
         const progressTick = setInterval(() => {
           if (!active) return;
+          setElapsedScanMs(Date.now() - scanStartedAt);
           setStatusText(buildProgressMessage());
         }, 1000);
 
@@ -3715,6 +3726,9 @@ const ScanningView = ({
             <p className="mt-1 truncate text-[10px] leading-relaxed text-zinc-400">
               {statusText}
             </p>
+            <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-400">
+              {formatElapsedMinutes(elapsedScanMs)}
+            </p>
             {!hasError && (
               <div className="mt-2 overflow-hidden rounded-full border border-cyan-500/15 bg-zinc-900/80 p-1">
                 <div className="h-1.5 rounded-full bg-gradient-to-r from-cyan-700/40 via-cyan-300 to-cyan-700/40 animate-pulse" />
@@ -3762,6 +3776,9 @@ const ScanningView = ({
         <h2 className={`text-2xl sm:text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-cyan-400 mb-2 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] ${isCompactViewport ? '' : 'animate-pulse'}`}>Analysing Face</h2>
         <p className="font-sans text-xs sm:text-sm text-zinc-400 normal-case tracking-normal max-w-lg mx-auto px-4 leading-relaxed">
           {statusText}
+        </p>
+        <p className="mt-2 text-[10px] font-black uppercase tracking-[0.24em] text-emerald-400">
+          {formatElapsedMinutes(elapsedScanMs)}
         </p>
         {lowPriorityBadge && (
           <div className="mt-4 inline-flex max-w-[min(92vw,720px)] rounded-full border border-red-500/35 bg-red-500/12 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-red-300">
@@ -4245,7 +4262,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     !!user &&
     (isAdmin ||
       (planResolved &&
-        (userPlan?.plan === 'pro' ||
+        (isProPlan(userPlan) ||
           (userPlan?.plan === 'single_scan' && (userPlan?.scanCredits ?? 0) > 0))));
   const missingRequiredImage = shouldUseSideProfile ? (!frontImage || !sideImage) : !frontImage;
   const scanAccessLocked = isUltraModel && (ultraAccessPending || !canUseUltra);
@@ -5709,7 +5726,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
 const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback, forceFullAnalysis = false, onBackToProfiles = null, onOpenHistoryScan = null }) => {
   const selectedModel = String(dashboardData?.selectedModel || '').trim();
   const isFreeModelResult = !forceFullAnalysis && ['3', '4', '5'].includes(selectedModel);
-  const hasFullProUnlock = userPlan?.plan === 'pro';
+  const hasFullProUnlock = isProPlan(userPlan);
   const isRestrictedPreview = !forceFullAnalysis && isFreeModelResult;
   const showBestFlaw = !hideBestFlawSection;
   const isAdmin = Boolean(user?.email && (
@@ -7267,10 +7284,10 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
 
   const handleUpdatePlan = async (uid) => {
     const draft = planDrafts[uid] || { plan: 'free', scanCredits: 0 };
-    const normalizedPlan = String(draft.plan || 'free').trim().toLowerCase();
+    const normalizedPlan = normalizePlanValue(draft.plan || 'free');
     const normalizedCredits = Math.max(0, parseInt(draft.scanCredits, 10) || 0);
-    if (!['free', 'pro', 'single_scan'].includes(normalizedPlan)) {
-      setPlanSaveError((prev) => ({ ...prev, [uid]: 'Plan must be free, pro, or single_scan.' }));
+    if (!['free', 'pro', 'pro_monthly', 'pro_annual', 'pro_infinite', 'single_scan'].includes(normalizedPlan)) {
+      setPlanSaveError((prev) => ({ ...prev, [uid]: 'Plan must be free, PRO monthly, PRO annual, PRO infinite, or single_scan.' }));
       return;
     }
 
@@ -7282,11 +7299,20 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
         headers: { 'x-admin-password': storedPw.current, 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan: normalizedPlan, scanCredits: normalizedCredits })
       });
-      if (!res.ok) throw new Error('Failed to update plan');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed to update plan');
       setUsers((prev) =>
         prev.map((user) =>
           user.uid === uid
-            ? { ...user, plan: normalizedPlan, scanCredits: normalizedCredits }
+            ? {
+                ...user,
+                plan: data.plan || normalizedPlan,
+                planLabel: data.planLabel || user.planLabel,
+                scanCredits: data.scanCredits ?? normalizedCredits,
+                subscriptionStatus: data.subscriptionStatus ?? user.subscriptionStatus,
+                subscriptionCurrentPeriodEnd: data.subscriptionCurrentPeriodEnd ?? null,
+                proDaysLeft: data.proDaysLeft ?? null,
+              }
             : user
         )
       );
@@ -7957,8 +7983,11 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                               <div className="font-sans text-[10px] text-zinc-600 truncate max-w-[150px]">{u.uid}</div>
                             </td>
                             <td className="py-3 pr-4">
-                              <div className="font-sans text-[11px] text-cyan-400 uppercase tracking-wider">{u.plan}</div>
+                              <div className="font-sans text-[11px] text-cyan-400 uppercase tracking-wider">{u.planLabel || u.plan}</div>
                               <div className="font-sans text-[10px] text-zinc-500">{u.scanCredits} credits</div>
+                              {u.proDaysLeft != null && (
+                                <div className="font-sans text-[10px] text-emerald-400">{u.proDaysLeft} days left</div>
+                              )}
                             </td>
                             <td className="py-3 pr-4">
                               <div className="flex items-center gap-1.5">
@@ -8002,7 +8031,10 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                                         className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm font-sans text-zinc-100 outline-none transition-colors focus:border-cyan-500/50"
                                       >
                                         <option value="free">free</option>
-                                        <option value="pro">pro</option>
+                                        <option value="pro_monthly">PRO - MONTHLY</option>
+                                        <option value="pro_annual">PRO - ANNUAL</option>
+                                        <option value="pro_infinite">PRO - INFINITE</option>
+                                        <option value="pro">pro legacy</option>
                                         <option value="single_scan">single_scan</option>
                                       </select>
                                     </label>
@@ -8650,14 +8682,20 @@ const App = () => {
 
     const applyPlan = (data = {}) => {
       if (cancelled) return;
+      const subscriptionEnd = data.subscriptionCurrentPeriodEnd || null;
+      const subscriptionEndMs = timestampToMillis(subscriptionEnd);
+      const computedProDaysLeft = subscriptionEndMs > Date.now()
+        ? Math.max(0, Math.ceil((subscriptionEndMs - Date.now()) / 86400000))
+        : null;
       setUserPlan((prev) => ({
         ...prev,
-        plan: data.plan || 'free',
+        plan: normalizePlanValue(data.plan || 'free'),
+        planLabel: data.planLabel || null,
         scanCredits: data.scanCredits ?? 0,
         subscriptionId: data.subscriptionId || null,
         subscriptionStatus: data.subscriptionStatus || null,
-        subscriptionCurrentPeriodEnd: data.subscriptionCurrentPeriodEnd || null,
-        proDaysLeft: data.proDaysLeft ?? prev.proDaysLeft ?? null,
+        subscriptionCurrentPeriodEnd: subscriptionEnd,
+        proDaysLeft: data.proDaysLeft ?? computedProDaysLeft ?? null,
         dailyFreeLimit: data.dailyFreeLimit ?? prev.dailyFreeLimit ?? 1,
         dailyScansToday: data.dailyScansToday ?? prev.dailyScansToday ?? 0,
         dailyScansRemaining: data.dailyScansRemaining ?? prev.dailyScansRemaining ?? 1,

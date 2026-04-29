@@ -5,12 +5,26 @@ const ELEVATED_PRO_EMAILS = new Set([
   'admin@looksmaxxing.com',
 ]);
 
+const PRO_PLAN_VALUES = new Set(['pro', 'pro_monthly', 'pro_annual', 'pro_yearly', 'pro_infinite', 'quota_bypass']);
+
+export function normalizePlanValue(plan) {
+  const value = String(plan || 'free').trim().toLowerCase();
+  if (value === 'pro yearly' || value === 'pro-annual' || value === 'pro annual' || value === 'pro_yearly') return 'pro_annual';
+  if (value === 'pro monthly' || value === 'pro-monthly') return 'pro_monthly';
+  if (value === 'pro infinite' || value === 'pro-infinite') return 'pro_infinite';
+  return value || 'free';
+}
+
+export function isProPlan(userPlan) {
+  return PRO_PLAN_VALUES.has(normalizePlanValue(userPlan?.plan ?? userPlan));
+}
+
 /**
  * True when the user should see Pro billing features: paid plan in Firestore, or elevated email / domain.
  */
 export function hasEffectiveProAccess(user, userPlan) {
-  const p = userPlan?.plan;
-  if (p === 'pro' || p === 'single_scan') return true;
+  const p = normalizePlanValue(userPlan?.plan);
+  if (PRO_PLAN_VALUES.has(p) || p === 'single_scan') return true;
   const e = user?.email?.toLowerCase?.() ?? '';
   if (!e) return false;
   if (e.endsWith('@looksmaxxing.com')) return true;
@@ -36,9 +50,11 @@ export function canAlwaysAccessDashboard(user) {
  */
 export function getNavbarPlanChip(userPlan, user) {
   const e = user?.email?.toLowerCase?.() ?? '';
-  const p = userPlan?.plan || 'free';
+  const p = normalizePlanValue(userPlan?.plan || 'free');
   const daysLeft = Number(userPlan?.proDaysLeft);
-  const proDaysLabel = Number.isFinite(daysLeft) && daysLeft > 0 ? ` - ${daysLeft}D LEFT` : '';
+  const proDaysLabel = p === 'pro_infinite'
+    ? ' - INFINITE'
+    : Number.isFinite(daysLeft) && daysLeft > 0 ? ` - ${daysLeft}D LEFT` : '';
 
   if (e === ADMIN_BADGE_EMAIL) {
     return {
@@ -47,7 +63,7 @@ export function getNavbarPlanChip(userPlan, user) {
     };
   }
 
-  if (p === 'pro' || p === 'pro_yearly') {
+  if (PRO_PLAN_VALUES.has(p)) {
     return { label: `Unlimited${proDaysLabel}`, className: 'text-yellow-300 border-yellow-500/40 bg-yellow-500/10' };
   }
 

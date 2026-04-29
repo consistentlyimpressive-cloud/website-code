@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Clock, User, Battery, Calendar, ChevronRight, Receipt } from 'lucide-react';
 import { getApiBase } from '../utils/apiBase';
+import { isProPlan, normalizePlanValue } from '../utils/planAccess';
 
 const API_BASE = getApiBase();
 
@@ -23,8 +24,10 @@ const timestampToMillis = (value) => {
 };
 
 const formatPlanTimeRemaining = (userPlan) => {
-  const isPro = userPlan?.plan === 'pro' || userPlan?.plan === 'pro_yearly';
+  const normalizedPlan = normalizePlanValue(userPlan?.plan);
+  const isPro = isProPlan(userPlan);
   if (!isPro) return 'Not active';
+  if (normalizedPlan === 'pro_infinite') return 'Infinite';
   const endMs = timestampToMillis(userPlan?.subscriptionCurrentPeriodEnd);
   const daysFromApi = Number(userPlan?.proDaysLeft);
   if (endMs > Date.now()) {
@@ -41,7 +44,8 @@ const formatPlanTimeRemaining = (userPlan) => {
 };
 
 const SettingsPage = ({ setCurrentPage, user, userPlan, dashboardData }) => {
-  const planName = userPlan?.plan === 'pro' || userPlan?.plan === 'pro_yearly' ? 'Pro' : userPlan?.plan === 'single_scan' ? 'Single Scan' : 'Free';
+  const normalizedPlan = normalizePlanValue(userPlan?.plan);
+  const planName = userPlan?.planLabel || (isProPlan(userPlan) ? (normalizedPlan === 'pro_infinite' ? 'PRO - INFINITE' : normalizedPlan === 'pro_annual' ? 'PRO - ANNUAL' : 'PRO - MONTHLY') : userPlan?.plan === 'single_scan' ? 'Single Scan' : 'Free');
   const credits = userPlan?.scanCredits || 0;
   const planTimeRemaining = formatPlanTimeRemaining(userPlan);
   const [userScans, setUserScans] = useState([]);
