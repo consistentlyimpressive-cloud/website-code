@@ -3861,7 +3861,7 @@ const ScanningView = ({
         )}
       </div>
 
-      <div className="relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
+      <div className="mog-scan-frame relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
         {videoUrl ? (
            <video src={videoUrl} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover z-10" />
         ) : (
@@ -4134,10 +4134,10 @@ const AnalysisDock = ({
   const visibleJobs = jobs.slice(0, 4);
   const hiddenJobsCount = Math.max(0, jobs.length - visibleJobs.length);
 
-  if (collapsed) {
-    return (
+  return (
+    <>
       <div
-        className="fixed bottom-5 z-[240] flex flex-col items-end gap-2"
+        className={collapsed ? "fixed bottom-5 z-[240] flex flex-col items-end gap-2" : "hidden"}
         style={{ right: '1.6rem' }}
       >
         {jobs.slice(0, 4).map((job) => (
@@ -4165,12 +4165,8 @@ const AnalysisDock = ({
           </button>
         )}
       </div>
-    );
-  }
-
-  return (
     <div
-      className="fixed bottom-5 z-[240] flex max-w-[92vw] flex-col items-end gap-2"
+      className={`fixed bottom-5 z-[240] flex max-w-[92vw] flex-col items-end gap-2 transition-opacity ${collapsed ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
       style={{ right: '2.35rem' }}
     >
       <div className="inline-flex items-center justify-between gap-5 rounded-full border border-zinc-800 bg-[#0c0d0e]/95 px-4 py-2 shadow-[0_0_35px_rgba(34,211,238,0.08)] backdrop-blur-xl">
@@ -4246,6 +4242,7 @@ const AnalysisDock = ({
         )}
       </div>
     </div>
+    </>
   );
 };
 
@@ -4313,7 +4310,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
             )}
           </div>
 
-          <div className="relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
+          <div className="mog-scan-frame relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
             {job.videoUrl ? (
               <video src={job.videoUrl} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover z-10" />
             ) : (
@@ -9254,30 +9251,60 @@ const App = () => {
 
   useEffect(() => {
     if (!authResolved || !user?.uid) return;
-    const persistedJobs = readPersistedAnalysisJobs(user.uid);
-    if (!persistedJobs.length) return;
-    const existingRequestIds = new Set(
-      analysisJobsRef.current.map((job) => String(job.scanRequestId || '')).filter(Boolean)
-    );
-    const restored = persistedJobs.filter((job) => !existingRequestIds.has(String(job.scanRequestId)));
-    if (!restored.length) return;
-    restored.forEach((job) => {
-      queueAnalysisJob({
-        recoveryOnly: true,
-        scanRequestId: job.scanRequestId,
-        choice: job.choice || '3',
-        profileId: job.profileId || 'default',
-        analysisLabel: job.analysisLabel || 'Restored scan',
-        mainImageSrc: job.mainImageSrc || null,
-        createdAt: job.createdAt || job.startedAt || Date.now(),
-        startedAt: job.startedAt || job.createdAt || Date.now(),
-        statusText: 'Scan restored. Waiting for the result...',
-        user,
+    let cancelled = false;
+    const restoreJobs = async () => {
+      let jobsToRestore = readPersistedAnalysisJobs(user.uid);
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch(`${API_BASE}/api/user/active-analyses`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          const serverJobs = Array.isArray(data.analyses) ? data.analyses : [];
+          const byRequestId = new Map(jobsToRestore.map((job) => [String(job.scanRequestId), job]));
+          serverJobs.forEach((job) => {
+            if (!job?.scanRequestId) return;
+            byRequestId.set(String(job.scanRequestId), {
+              ...(byRequestId.get(String(job.scanRequestId)) || {}),
+              ...job,
+            });
+          });
+          jobsToRestore = Array.from(byRequestId.values());
+        }
+      } catch (err) {
+        console.warn('Active analysis restore fetch failed', err);
+      }
+      if (cancelled || !jobsToRestore.length) return;
+      const existingRequestIds = new Set(
+        analysisJobsRef.current.map((job) => String(job.scanRequestId || '')).filter(Boolean)
+      );
+      const restored = jobsToRestore.filter((job) => job?.scanRequestId && !existingRequestIds.has(String(job.scanRequestId)));
+      if (!restored.length) return;
+      restored.forEach((job) => {
+        queueAnalysisJob({
+          recoveryOnly: true,
+          scanRequestId: job.scanRequestId,
+          choice: job.choice || '3',
+          profileId: job.profileId || 'default',
+          analysisLabel: job.analysisLabel || 'Restored scan',
+          mainImageSrc: job.mainImageSrc || null,
+          sideImageUrl: job.sideImageUrl || null,
+          createdAt: job.createdAt || job.startedAt || Date.now(),
+          startedAt: job.startedAt || job.createdAt || Date.now(),
+          statusText: 'Scan restored. Waiting for the result...',
+          user,
+        });
       });
-    });
-    if (currentPage === 'analysis') {
-      setAnalysisDockCollapsed(false);
-    }
+      if (currentPage === 'analysis') {
+        setAnalysisDockCollapsed(false);
+      }
+    };
+    restoreJobs();
+    return () => {
+      cancelled = true;
+    };
   }, [authResolved, currentPage, queueAnalysisJob, user]);
 
   useEffect(() => {

@@ -156,6 +156,7 @@ function firestoreQuotaCooldownWarning() {
 
 const activeAnalysisByUser = new Map();
 const analysisRecoveryByUser = new Map();
+const ACTIVE_ANALYSIS_MAX_AGE_MS = Number(process.env.ACTIVE_ANALYSIS_MAX_AGE_MS || 35 * 60 * 1000);
 
 // Stale local scan fallbacks caused old parsed scores to reappear in dashboards.
 // Keep real Firestore persistence, but never read/write local cached scans.
@@ -2580,7 +2581,7 @@ function guessContentType(filePath) {
   return 'image/jpeg';
 }
 
-async function uploadImageToFirebase(localPath, uid, prefix = 'front') {
+async function uploadImageToFirebase(localPath, uid, prefix = 'front', options = {}) {
   if (!localPath || !fs.existsSync(localPath)) return null;
   if (!firestore) return null; // require firebase admin
   if (shouldSkipFirebaseStorage()) {
@@ -2607,8 +2608,12 @@ async function uploadImageToFirebase(localPath, uid, prefix = 'front') {
     await file.makePublic();
     const publicUrl = `https://storage.googleapis.com/${bucket.name}/${dest}`;
     
-    fs.unlinkSync(localPath);
-    console.log(`[storage] Uploaded and removed local: ${dest}`);
+    if (!options.keepLocal) {
+      fs.unlinkSync(localPath);
+      console.log(`[storage] Uploaded and removed local: ${dest}`);
+    } else {
+      console.log(`[storage] Uploaded and kept local for active analysis: ${dest}`);
+    }
     return { dest, url: publicUrl };
   } catch (e) {
     console.error('[storage] Upload failed (local file kept):', e.message);
@@ -2802,6 +2807,58 @@ app.post(
     const safeRunId = `${scanRequestId.replace(/[^a-z0-9_-]/gi, '-').slice(0, 60)}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
     const runOutputDir = path.join(__dirname, 'tmp-analysis', safeRunId);
     fs.mkdirSync(runOutputDir, { recursive: true });
+    const scanPlatform = getClientPlatform(req);
+    const profileId = req.body.profileId || 'default';
+    let savedScanRef = null;
+    let savedScanBase = null;
+    let earlyFrontUpload = null;
+    let earlySideUpload = null;
+    let earlyFrontUrl = getLocalUploadUrl(req, imagePath);
+    let earlySideUrl = getLocalUploadUrl(req, sideImagePath);
+
+    if (req.uid && firestore) {
+      try {
+        savedScanRef = firestore.collection('users').doc(req.uid).collection('scans').doc();
+        if (imagePath) earlyFrontUpload = await uploadImageToFirebase(imagePath, req.uid, 'front', { keepLocal: true });
+        if (sideImagePath) earlySideUpload = await uploadImageToFirebase(sideImagePath, req.uid, 'side', { keepLocal: true });
+        earlyFrontUrl = earlyFrontUpload?.url || earlyFrontUrl || null;
+        earlySideUrl = earlySideUpload?.url || earlySideUrl || null;
+        savedScanBase = {
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          model: modelChoice,
+          platform: scanPlatform,
+          cohesiveFrontSide: false,
+          visibility: 'private',
+          finalRating: null,
+          sideRating: null,
+          frontImageUrl: earlyFrontUrl,
+          sideImageUrl: earlySideUrl,
+          frontImageDest: earlyFrontUpload?.dest || null,
+          sideImageDest: earlySideUpload?.dest || null,
+          success: false,
+          state: 'running',
+          scanRequestId,
+          profileId,
+          payload: {
+            success: false,
+            selectedModel: String(modelChoice || '').trim() || '1',
+            scanRequestId,
+            profileId,
+            platform: scanPlatform,
+            frontImage: earlyFrontUrl,
+            sideImage: earlySideUrl,
+            status: 'running',
+          },
+        };
+        await savedScanRef.set(savedScanBase, { merge: true });
+        console.log(`[analyze] Active scan pre-saved before AI run: ${savedScanRef.id}`);
+      } catch (e) {
+        savedScanRef = null;
+        savedScanBase = null;
+        console.error('[analyze] Failed to pre-save active scan:', e.message);
+      }
+    }
 
     console.log('\n========== PY ENGINE (this same terminal: npm start in /backend) ==========');
     console.log(`[api/analyze] image=${imagePath} sideImage=${sideImagePath || 'none'} model=${modelChoice}`);
@@ -2821,16 +2878,36 @@ app.post(
     if (req.uid && fairUsage.enabled) {
       markUserAnalysisStarted(req.uid, {
         scanRequestId,
-        profileId: req.body.profileId || 'default',
+        profileId,
         modelChoice,
       });
     }
     rememberAnalysisRecovery(req.uid, scanRequestId, {
       state: 'running',
       startedAt: Date.now(),
-      profileId: req.body.profileId || 'default',
+      profileId,
       modelChoice,
     });
+
+    const markSavedScanFailed = async (errorMessage) => {
+      if (!savedScanRef) return;
+      try {
+        await savedScanRef.set({
+          success: false,
+          state: 'failed',
+          error: errorMessage || 'Analysis failed',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          payload: {
+            ...(savedScanBase?.payload || {}),
+            success: false,
+            error: errorMessage || 'Analysis failed',
+            status: 'failed',
+          },
+        }, { merge: true });
+      } catch (e) {
+        console.warn('[analyze] Failed to mark active scan failed:', e.message);
+      }
+    };
 
     const py = spawn(pythonExecutable, args, {
       cwd: __dirname,
@@ -2856,6 +2933,7 @@ app.post(
         state: 'failed',
         error: timeoutMessage,
       });
+      markSavedScanFailed(timeoutMessage);
       if (!res.headersSent) {
         res.status(504).json({
           success: false,
@@ -2872,6 +2950,7 @@ app.post(
         state: 'failed',
         error: 'Python environment missing or final_engine.py failed to start.',
       });
+      markSavedScanFailed('Python environment missing or final_engine.py failed to start.');
       console.error('Failed to start Python process:', err);
       if (!res.headersSent) {
         res.json({
@@ -2913,6 +2992,7 @@ app.post(
           state: 'failed',
           error: 'This image cannot be analyzed. Please upload a non-explicit face photo.',
         });
+        await markSavedScanFailed('This image cannot be analyzed. Please upload a non-explicit face photo.');
         adminStore.logAnalysis({
           model: modelChoice,
           durationMs: Date.now() - analysisStartTime,
@@ -3029,8 +3109,8 @@ app.post(
   const sideFallbackUrl = getLocalUploadUrl(req, sideImagePath);
   const debugAnchorsUrl = copyDebugArtifactToUploads(req, path.join(runOutputDir, 'debug_final_anchors.jpg'), 'debug-anchors');
   const debugRatiosUrl = copyDebugArtifactToUploads(req, path.join(runOutputDir, 'debug_ratios.jpg'), 'debug-ratios');
-  if (frontFallbackUrl) payload.frontImage = frontFallbackUrl;
-  if (sideFallbackUrl) payload.sideImage = sideFallbackUrl;
+  if (earlyFrontUrl || frontFallbackUrl) payload.frontImage = earlyFrontUrl || frontFallbackUrl;
+  if (earlySideUrl || sideFallbackUrl) payload.sideImage = earlySideUrl || sideFallbackUrl;
   if (debugAnchorsUrl) {
     payload.debugAnchorsImage = debugAnchorsUrl;
     payload.debugAnchorsImageUrl = debugAnchorsUrl;
@@ -3049,12 +3129,13 @@ app.post(
     } else {
       payload.error = 'Analysis did not complete successfully.';
     }
+    await markSavedScanFailed(payload.error);
   }
   rememberAnalysisRecovery(req.uid, scanRequestId, {
     state: success ? 'completed' : 'failed',
     payload: success ? payload : null,
     error: success ? null : payload.error,
-    profileId: req.body.profileId || 'default',
+    profileId,
     modelChoice,
   });
 
@@ -3081,7 +3162,6 @@ app.post(
   console.log('========== END PY ENGINE ==========\n');
 
   adminStore.parseKeyEventsFromStdout(pythonOutput);
-  const scanPlatform = getClientPlatform(req);
   adminStore.logAnalysis({
     model: modelChoice,
     durationMs: Date.now() - analysisStartTime,
@@ -3105,38 +3185,38 @@ app.post(
     }
   }
 
-  let savedScanRef = null;
-  let savedScanBase = null;
   if (success && req.uid && firestore) {
     try {
-      savedScanRef = firestore.collection('users').doc(req.uid).collection('scans').doc();
+      savedScanRef = savedScanRef || firestore.collection('users').doc(req.uid).collection('scans').doc();
       payload.scanId = savedScanRef.id;
       payload.scanRequestId = scanRequestId;
-      payload.profileId = req.body.profileId || 'default';
+      payload.profileId = profileId;
       payload.selectedModel = String(modelChoice || payload.selectedModel || '').trim() || '1';
       payload.cohesiveFrontSide = false;
       payload.platform = scanPlatform;
 
       savedScanBase = {
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: savedScanBase?.timestamp || admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         model: modelChoice,
         platform: scanPlatform,
         cohesiveFrontSide: false,
         visibility: 'private',
         finalRating,
         sideRating,
-        frontImageUrl: frontFallbackUrl || payload.frontImage || null,
-        sideImageUrl: sideFallbackUrl || payload.sideImage || null,
+        frontImageUrl: earlyFrontUrl || frontFallbackUrl || payload.frontImage || null,
+        sideImageUrl: earlySideUrl || sideFallbackUrl || payload.sideImage || null,
         debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
         debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
-        frontImageDest: null,
-        sideImageDest: null,
+        frontImageDest: earlyFrontUpload?.dest || null,
+        sideImageDest: earlySideUpload?.dest || null,
         success: true,
+        state: 'completed',
         scanRequestId,
         payload: {
           ...payload,
-          frontImage: frontFallbackUrl || payload.frontImage || null,
-          sideImage: sideFallbackUrl || payload.sideImage || null,
+          frontImage: earlyFrontUrl || frontFallbackUrl || payload.frontImage || null,
+          sideImage: earlySideUrl || sideFallbackUrl || payload.sideImage || null,
           debugAnchorsImage: debugAnchorsUrl || payload.debugAnchorsImage || null,
           debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
           debugRatiosImage: debugRatiosUrl || payload.debugRatiosImage || null,
@@ -3150,7 +3230,7 @@ app.post(
       };
 
       // Save the scan before responding so the frontend can recover if the response is dropped.
-      await savedScanRef.set(savedScanBase);
+      await savedScanRef.set(savedScanBase, { merge: true });
       console.log(`[analyze] Scan history pre-saved: ${savedScanRef.id}`);
       pruneFirestoreProfileScans(req.uid, payload.profileId).catch((e) => {
         console.warn('[analyze] Failed to prune old profile scans:', e.message);
@@ -3211,8 +3291,8 @@ app.post(
         let frontUpload = null;
         let sideUpload = null;
 
-        if (imagePath) frontUpload = await uploadImageToFirebase(imagePath, req.uid, 'front');
-        if (sideImagePath) sideUpload = await uploadImageToFirebase(sideImagePath, req.uid, 'side');
+        if (imagePath) frontUpload = earlyFrontUpload || await uploadImageToFirebase(imagePath, req.uid, 'front');
+        if (sideImagePath) sideUpload = earlySideUpload || await uploadImageToFirebase(sideImagePath, req.uid, 'side');
 
         try {
           const persistedFrontImage = frontUpload ? frontUpload.url : (savedScanBase?.frontImageUrl || frontFallbackUrl);
@@ -3225,6 +3305,8 @@ app.post(
             frontImageDest: frontUpload ? frontUpload.dest : null,
             sideImageDest: sideUpload ? sideUpload.dest : null,
             scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
+            success: true,
+            state: 'completed',
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             payload: {
               ...payload,
@@ -3292,7 +3374,14 @@ app.get('/api/analyze/status/:scanRequestId', extractUserOptional, async (req, r
       snap.forEach((doc) => scans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
       if (scans.length) {
         scans.sort((a, b) => storedTimestampMillis(b.timestamp || b.scannedAt || b.createdAt) - storedTimestampMillis(a.timestamp || a.scannedAt || a.createdAt));
-        return res.json({ state: 'completed', scan: scans[0] });
+        const scan = scans[0];
+        if (scan.state === 'failed' || scan.success === false && scan.error) {
+          return res.json({ state: 'failed', error: scan.error || scan.payload?.error || 'Analysis failed', scan });
+        }
+        if (scan.state === 'running' || scan.success === false) {
+          return res.json({ state: 'running', startedAt: storedTimestampMillis(scan.timestamp || scan.createdAt) || null, profileId: scan.profileId || null, scan });
+        }
+        return res.json({ state: 'completed', scan });
       }
     } catch (e) {
       console.warn('[analyze/status] scan lookup failed:', e.message);
@@ -3306,6 +3395,57 @@ app.get('/api/analyze/status/:scanRequestId', extractUserOptional, async (req, r
     return res.json({ state: 'running', startedAt: recovery.startedAt || null, profileId: recovery.profileId || null });
   }
   return res.json({ state: 'pending' });
+});
+
+app.get('/api/user/active-analyses', extractUserOptional, async (req, res) => {
+  if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
+  if (!firestore) return res.json({ analyses: [] });
+
+  try {
+    let snap;
+    try {
+      snap = await firestore
+        .collection('users')
+        .doc(req.uid)
+        .collection('scans')
+        .where('state', '==', 'running')
+        .limit(10)
+        .get();
+    } catch (queryErr) {
+      console.warn('[active-analyses] running query failed, falling back:', queryErr.message);
+      snap = await firestore
+        .collection('users')
+        .doc(req.uid)
+        .collection('scans')
+        .limit(50)
+        .get();
+    }
+
+    const analyses = [];
+    snap.forEach((doc) => {
+      const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
+      if (scan.state !== 'running') return;
+      const startedAt = storedTimestampMillis(scan.timestamp || scan.createdAt || scan.updatedAt) || Date.now();
+      if (Date.now() - startedAt > ACTIVE_ANALYSIS_MAX_AGE_MS) return;
+      analyses.push({
+        id: scan.id,
+        scanRequestId: scan.scanRequestId || scan.payload?.scanRequestId || null,
+        choice: String(scan.model || scan.payload?.selectedModel || '3'),
+        profileId: scan.profileId || scan.payload?.profileId || 'default',
+        analysisLabel: 'Restored scan',
+        mainImageSrc: scan.frontImageUrl || scan.frontImage || scan.payload?.frontImage || null,
+        sideImageUrl: scan.sideImageUrl || scan.sideImage || scan.payload?.sideImage || null,
+        createdAt: startedAt,
+        startedAt,
+      });
+    });
+
+    analyses.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+    res.json({ analyses });
+  } catch (e) {
+    console.error('[active-analyses] Failed to fetch active analyses:', e);
+    res.json({ analyses: [], warning: e.message || 'Failed to fetch active analyses' });
+  }
 });
 
 app.post('/api/unlock-potential', unlockLimiter, extractUserOptional, upload.single('image'), (req, res) => {
