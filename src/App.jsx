@@ -3090,7 +3090,7 @@ const FaceScanOverlay = ({
 
   return (
     <div className="absolute inset-0 z-20 overflow-hidden" style={{ perspective: '1000px' }}>
-      <svg viewBox="0 0 100 133.33" className={`w-full h-full ${compactMotion ? '' : 'drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]'}`} preserveAspectRatio="xMidYMid slice">
+      <svg viewBox="0 0 100 133.33" className={`w-full h-full ${compactMotion ? '' : 'drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]'}`} preserveAspectRatio="none">
         {mappedEdges.map((edge, i) => {
           const length = Math.sqrt(Math.pow(edge[1].x - edge[0].x, 2) + Math.pow(edge[1].y - edge[0].y, 2));
           const avgY = (edge[0].y + edge[1].y) / 2;
@@ -3804,13 +3804,13 @@ const ScanningView = ({
         <div className="flex items-center gap-3 px-3 py-2.5">
           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-cyan-500/25 bg-zinc-950">
             {videoUrl ? (
-              <video src={videoUrl} autoPlay loop muted playsInline className="absolute inset-0 h-full w-full object-cover" />
+              <video src={videoUrl} autoPlay loop muted playsInline className="mog-scan-media absolute inset-0 h-full w-full object-cover" />
             ) : (
               <>
                 <img
                   src={mainImageSrc}
                   alt="Scan target"
-                  className="absolute inset-0 h-full w-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%]"
+                  className="mog-scan-media absolute inset-0 h-full w-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%]"
                 />
                 <div className="absolute inset-0 bg-blue-900/20 mix-blend-overlay" />
               </>
@@ -3914,10 +3914,10 @@ const ScanningView = ({
 
       <div className="mog-scan-frame relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
         {videoUrl ? (
-           <video src={videoUrl} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover z-10" />
+           <video src={videoUrl} autoPlay loop muted playsInline className="mog-scan-media absolute inset-0 w-full h-full object-cover z-10" />
         ) : (
            <>
-             <img src={mainImageSrc} alt="Scan target" className="absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%] z-0" />
+             <img src={mainImageSrc} alt="Scan target" className="mog-scan-media absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%] z-0" />
              <div className="absolute inset-0 bg-blue-900/30 mix-blend-overlay z-0" />
            </>
         )}
@@ -4123,7 +4123,7 @@ const RecoveredAnalysisJobCard = ({ job, onOpen, onStatusChange, onComplete, onD
       <div className="flex items-center gap-3 px-3 py-2.5">
         <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-cyan-500/25 bg-zinc-950">
           {job.mainImageSrc ? (
-            <img src={job.mainImageSrc} alt="Scan target" className="absolute inset-0 h-full w-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%]" />
+            <img src={job.mainImageSrc} alt="Scan target" className="mog-scan-media absolute inset-0 h-full w-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%]" />
           ) : (
             <div className="absolute inset-0 bg-cyan-500/10" />
           )}
@@ -4414,11 +4414,11 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
 
           <div className="mog-scan-frame relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
             {job.videoUrl ? (
-              <video src={job.videoUrl} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover z-10" />
+              <video src={job.videoUrl} autoPlay loop muted playsInline className="mog-scan-media absolute inset-0 w-full h-full object-cover z-10" />
             ) : (
               <>
                 {job.mainImageSrc ? (
-                  <img src={job.mainImageSrc} alt="Scan target" className="absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%] z-0" />
+                  <img src={job.mainImageSrc} alt="Scan target" className="mog-scan-media absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%] z-0" />
                 ) : (
                   <div className="absolute inset-0 z-0 bg-cyan-500/10" />
                 )}

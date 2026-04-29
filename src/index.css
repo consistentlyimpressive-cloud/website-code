@@ -100,6 +100,15 @@
     object-fit: cover !important;
   }
 
+  .mog-mobile-compact .mog-scan-frame .mog-scan-media {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: cover !important;
+    object-position: center center !important;
+  }
+
   .mog-mobile-compact p,
   .mog-mobile-compact li {
     line-height: 1.45;
