@@ -2861,8 +2861,59 @@ const PhotoGuidePage = ({ setCurrentPage }) => {
 };
 
 // --- Upload Photo Page ---
+const createPersistentImagePreview = (file) => new Promise((resolve) => {
+  if (!(file instanceof File)) {
+    resolve(null);
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const source = typeof reader.result === 'string' ? reader.result : null;
+    if (!source) {
+      resolve(null);
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const maxSide = 1200;
+        const largestSide = Math.max(img.naturalWidth || 0, img.naturalHeight || 0);
+        if (!largestSide || largestSide <= maxSide) {
+          resolve(source);
+          return;
+        }
+        const scale = maxSide / largestSide;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round((img.naturalWidth || maxSide) * scale));
+        canvas.height = Math.max(1, Math.round((img.naturalHeight || maxSide) * scale));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(source);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.88));
+      } catch {
+        resolve(source);
+      }
+    };
+    img.onerror = () => resolve(source);
+    img.src = source;
+  };
+  reader.onerror = () => resolve(null);
+  reader.readAsDataURL(file);
+});
+
 const FileDropzone = ({ label, file, setFile, isPulsing }) => {
   const [isDragging, setIsDragging] = useState(false);
+
+  const handleSelectedFile = async (selectedFile) => {
+    if (!selectedFile) return;
+    const previewUrl = await createPersistentImagePreview(selectedFile);
+    setFile(previewUrl || URL.createObjectURL(selectedFile), selectedFile);
+  };
 
   return (
     <div className="flex flex-col items-center w-full">
@@ -2876,7 +2927,7 @@ const FileDropzone = ({ label, file, setFile, isPulsing }) => {
           setIsDragging(false);
           if (e.dataTransfer.files && e.dataTransfer.files[0]) {
             const f = e.dataTransfer.files[0];
-            setFile(URL.createObjectURL(f), f);
+            handleSelectedFile(f);
           }
         }}
         className={`w-full aspect-[3/4] max-w-sm mx-auto rounded-3xl border transition-all duration-300 flex flex-col items-center justify-center cursor-pointer relative overflow-hidden group ${
@@ -2885,7 +2936,7 @@ const FileDropzone = ({ label, file, setFile, isPulsing }) => {
             : (isPulsing && !file ? 'border-zinc-500 bg-zinc-900/40 shadow-[0_0_30px_rgba(255,255,255,0.1)] animate-pulse hover:border-zinc-400' : 'border-zinc-800 bg-zinc-900/30 backdrop-blur-md hover:border-zinc-600 hover:bg-zinc-900/50 shadow-2xl')
         }`}
       >
-        <input type="file" className="hidden" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(URL.createObjectURL(f), f); }} />
+        <input type="file" className="hidden" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleSelectedFile(f); }} />
         {file ? (
           <>
             <img src={file} alt={label} className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-40 transition-opacity duration-300" />
