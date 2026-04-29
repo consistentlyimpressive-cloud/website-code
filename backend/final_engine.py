@@ -5,6 +5,7 @@ import base64
 import numpy as np
 import sys
 import json
+import random
 from pathlib import Path
 
 # Load .env if it exists
@@ -54,10 +55,11 @@ except ImportError:
 # API KEY VAULT (GOOGLE AI STUDIO / GEMMA API)
 # ==========================================================
 GOOGLE_GENAI_KEYS = [
-    (os.getenv(f"GEMINI_KEY_{index}") or "").strip()
+    (index, (os.getenv(f"GEMINI_KEY_{index}") or "").strip())
     for index in range(1, 6)
 ]
-GOOGLE_GENAI_KEYS = [key for key in GOOGLE_GENAI_KEYS if key]
+GOOGLE_GENAI_KEYS = [(index, key) for index, key in GOOGLE_GENAI_KEYS if key]
+GEMMA_PER_KEY_TIMEOUT_MS = int(os.getenv("GEMMA_PER_KEY_TIMEOUT_MS") or "270000")
 
 BENCHMARK_CALIBRATION_PATH = Path(__file__).resolve().parent / "gemini-benchmark-calibration.json"
 
@@ -140,12 +142,15 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             )
 
         provider_errors = []
-        for key_index, key in enumerate(GOOGLE_GENAI_KEYS, start=1):
+        key_attempts = GOOGLE_GENAI_KEYS.copy()
+        random.shuffle(key_attempts)
+        print(f"[DEBUG] Gemma key order this scan: {', '.join(f'GEMINI_KEY_{index}' for index, _ in key_attempts)}")
+        for attempt_number, (key_index, key) in enumerate(key_attempts, start=1):
             if not key:
                 continue
             try:
-                print(f"[DEBUG] Trying Google GenAI/Gemma key {key_index}/{len(GOOGLE_GENAI_KEYS)}...")
-                client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=240000))
+                print(f"[DEBUG] Trying Google GenAI/Gemma GEMINI_KEY_{key_index} ({attempt_number}/{len(key_attempts)})...")
+                client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=GEMMA_PER_KEY_TIMEOUT_MS))
                 with open(img_path, "rb") as f:
                     image_bytes = f.read()
                 contents = [
@@ -164,18 +169,18 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
                 if res.text:
                     duration = round(time.time() - start_time, 2)
                     return res.text, friendly_name, duration
-                provider_errors.append(f"key {key_index}: empty model response")
+                provider_errors.append(f"GEMINI_KEY_{key_index}: empty model response")
             except Exception as e:
                 if "User interrupted" in str(e):
                     raise
                 error_text = str(e).replace("\n", " ").strip()
                 short_error = error_text[:260] if error_text else "Unknown provider error"
-                provider_errors.append(f"key {key_index}: {short_error}")
+                provider_errors.append(f"GEMINI_KEY_{key_index}: {short_error}")
                 quota_hit = "RESOURCE_EXHAUSTED" in error_text or "quota" in error_text.lower()
                 if quota_hit:
-                    print(f"      [!] {friendly_name} Google GenAI key {key_index} quota exhausted. Trying next key...")
+                    print(f"      [!] {friendly_name} Google GenAI GEMINI_KEY_{key_index} quota exhausted. Trying next key...")
                 else:
-                    print(f"      [!] {friendly_name} key {key_index} failed: {short_error}")
+                    print(f"      [!] {friendly_name} GEMINI_KEY_{key_index} failed: {short_error}")
                 continue
 
     except KeyboardInterrupt:
