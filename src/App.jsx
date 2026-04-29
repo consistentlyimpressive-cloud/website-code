@@ -878,9 +878,6 @@ const ANALYSIS_MODEL_LABELS = {
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
-  '6': 'Experimental AI',
-  '7': 'Experimental AI #2',
-  '8': 'Anti diddy',
   official: 'Official Scan',
 };
 
@@ -1162,6 +1159,17 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDa
             <button
               type="button"
               onClick={() => {
+                setCurrentPage('photo-guide');
+                setShowUserMenu(false);
+                setShowNotifications(false);
+              }}
+              className="inline-flex h-10 items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300 transition-all hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-cyan-100"
+            >
+              <Plus size={14} /> Start Scan
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 setShowNotifications((v) => !v);
                 setShowUserMenu(false);
                 loadNotifications();
@@ -1288,6 +1296,9 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDa
           <button onClick={() => { setCurrentPage('plans'); setIsOpen(false); }} className="text-yellow-500/70 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Crown size={13} /> Plans</button>
           {user ? (
             <>
+              <button type="button" onClick={() => { setCurrentPage('photo-guide'); setIsOpen(false); }} className="flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-6 py-2 text-cyan-300 hover:text-cyan-100 font-bold text-xs uppercase tracking-widest">
+                <Plus size={14} /> Start Scan
+              </button>
               <div className="flex flex-col items-center gap-1">
                 <span className="text-zinc-300 font-sans text-xs">{username}</span>
                 {planChip && (
@@ -2362,7 +2373,7 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-sm font-black text-zinc-100">{scan.finalRating ?? '-'}/100</span>
-                          {(scan.model === '1' || scan.model === '6' || scan.model === '7' || scan.model === '8') && <span className="bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Premium</span>}
+                          {(scan.model === '1' || scan.model === '2') && <span className="bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Premium</span>}
                           {scan.success === false && <span className="bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Failed</span>}
                         </div>
                         <div className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest">
@@ -3183,7 +3194,7 @@ const ScanningView = ({
   const [landmarks, setLandmarks] = useState(null);
   const [hasError, setHasError] = useState(false);
   const [fairUsageState, setFairUsageState] = useState(null);
-  const isUltra31 = choice === "1" || choice === "6" || choice === "7" || choice === "8";
+  const isUltra31 = choice === "1";
   const isCompactViewport = typeof window !== 'undefined' && window.innerWidth < 768;
   const overlayRevealSeconds = isUltra31 ? 34 : choice === "2" ? 24 : 36;
   const overlayScanLoopSeconds = isUltra31 ? 4 : choice === "2" ? 4.5 : 4;
@@ -3351,7 +3362,7 @@ const ScanningView = ({
       };
 
       try {
-        const isUltra = choice === "1" || choice === "2" || choice === "6" || choice === "7" || choice === "8";
+        const isUltra = choice === "1" || choice === "2";
         activeUser = userRef.current;
         if (activeUser) {
           try {
@@ -3977,7 +3988,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
     );
   }
 
-  const isUltra31 = job.choice === "1" || job.choice === "6" || job.choice === "7" || job.choice === "8";
+  const isUltra31 = job.choice === "1";
   const overlayRevealSeconds = job.overlayRevealSeconds || (isUltra31 ? 34 : job.choice === "2" ? 24 : 36);
   const overlayScanLoopSeconds = job.overlayScanLoopSeconds || (isUltra31 ? 4 : job.choice === "2" ? 4.5 : 4);
   const lowPriorityBadge = job.fairUsageState?.lowPriority
@@ -4179,33 +4190,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       tier: "ultra",
       Icon: Zap
     },
-    {
-      id: "6",
-      name: "Experimental AI (Admin only)",
-      description:
-        "Admin-only experimental calibration using the highest quality engine with a stricter clinical prompt.",
-      tier: "ultra",
-      adminOnly: true,
-      Icon: Sparkles
-    },
-    {
-      id: "7",
-      name: "Experimental AI #2 (Admin only)",
-      description:
-        "Admin-only visual-only experimental calibration. Uses the same prompt without sending MediaPipe measurements to the AI.",
-      tier: "ultra",
-      adminOnly: true,
-      Icon: Eye
-    },
-    {
-      id: "8",
-      name: "Anti diddy (admin)",
-      description:
-        "Admin-only highest quality scan with the Anti diddy prompt add-on.",
-      tier: "ultra",
-      adminOnly: true,
-      Icon: Bug
-    },
     { id: "separator" },
     {
       id: "3",
@@ -4233,7 +4217,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     }
   ];
 
-  const isUltraModel = selectedModel === "1" || selectedModel === "2" || selectedModel === "6" || selectedModel === "7" || selectedModel === "8";
+  const isUltraModel = selectedModel === "1" || selectedModel === "2";
   const shouldUseSideProfile = isUltraModel && useSideProfile;
 
   // Check if current user is an admin by email domain or specific email
@@ -4261,10 +4245,10 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
   useEffect(() => {
     if (ultraAccessPending) return;
-    if ((!canUseUltra && (selectedModel === '1' || selectedModel === '2')) || (!isAdmin && (selectedModel === '6' || selectedModel === '7' || selectedModel === '8'))) {
+    if (!canUseUltra && (selectedModel === '1' || selectedModel === '2')) {
       setSelectedModel('3');
     }
-  }, [canUseUltra, isAdmin, selectedModel, ultraAccessPending]);
+  }, [canUseUltra, selectedModel, ultraAccessPending]);
 
   useEffect(() => {
     if (!shouldUseSideProfile) {
@@ -5711,7 +5695,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
   );
 };
 
-const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback, forceFullAnalysis = false }) => {
+const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback, forceFullAnalysis = false, onBackToProfiles = null, onOpenHistoryScan = null }) => {
   const selectedModel = String(dashboardData?.selectedModel || '').trim();
   const isFreeModelResult = !forceFullAnalysis && ['3', '4', '5'].includes(selectedModel);
   const hasFullProUnlock = userPlan?.plan === 'pro';
@@ -5770,6 +5754,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   const [showAllProtocols, setShowAllProtocols] = useState(false);
   const [completedProtocolIds, setCompletedProtocolIds] = useState({});
   const [scanLightbox, setScanLightbox] = useState(null);
+  const freeHistoryStripRef = useRef(null);
 
   useEffect(() => {
     if (!communityPeek) return undefined;
@@ -6021,6 +6006,37 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
     </button>
   ) : null;
   const radarFinalScore = Number(numericDisplayedFinalRating ?? dashboardData?.finalRating ?? 0) || 0;
+  const freeHistoryCards = useMemo(() => {
+    const items = Array.isArray(dashboardData?.scanHistory) ? [...dashboardData.scanHistory] : [];
+    const currentSnapshot = dashboardData?.frontImage || dashboardData?.finalRating != null
+      ? {
+          ...dashboardData,
+          scannedAt: dashboardData?.scannedAt || new Date().toISOString(),
+        }
+      : null;
+
+    if (currentSnapshot) {
+      const alreadyPresent = items.some((item) =>
+        item?.frontImage === currentSnapshot.frontImage &&
+        item?.sideImage === currentSnapshot.sideImage &&
+        item?.finalRating === currentSnapshot.finalRating
+      );
+      if (!alreadyPresent) items.push(currentSnapshot);
+    }
+
+    return items
+      .filter((item) => item && (item.frontImage || item.finalRating != null))
+      .slice(-PROFILE_SCAN_HISTORY_LIMIT)
+      .reverse();
+  }, [dashboardData]);
+
+  const scrollFreeHistoryStrip = (direction) => {
+    const el = freeHistoryStripRef.current;
+    if (!el) return;
+    const amount = Math.max(240, el.clientWidth * 0.75);
+    el.scrollBy({ left: direction * amount, behavior: 'smooth' });
+  };
+  const isFreeHistoryScan = (scan) => ['3', '4', '5'].includes(String(scan?.selectedModel || scan?.model || scan?.payload?.selectedModel || '').trim());
 
   return (
     <div className={`w-full flex-grow flex flex-col items-center relative font-sans overflow-hidden bg-[#0a0a0b] ${isEmbedded ? '' : 'pt-16 pb-24 px-4 sm:px-6'}`}>
@@ -6091,6 +6107,85 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
               </span>
             )}
           </div>
+          {!isEmbedded && isFreeModelResult && user && onBackToProfiles && (
+            <button
+              type="button"
+              onClick={onBackToProfiles}
+              className="inline-flex w-fit items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/80 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-300 transition-colors hover:border-cyan-500/45 hover:text-cyan-300"
+            >
+              <ArrowLeft size={14} /> Back to Profiles
+            </button>
+          )}
+          {!isEmbedded && isFreeModelResult && freeHistoryCards.length > 0 && (
+            <section className="w-full scroll-mt-28">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-2xl font-black uppercase tracking-[0.25em] text-white">Face Analysis</h2>
+                  <p className="mt-1 text-sm font-sans text-zinc-500">Snapshot of your latest scan, trajectory, and quick signals.</p>
+                </div>
+                {freeHistoryCards.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => scrollFreeHistoryStrip(-1)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
+                      aria-label="Previous scans"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => scrollFreeHistoryStrip(1)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
+                      aria-label="Next scans"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div ref={freeHistoryStripRef} className="flex gap-3 overflow-x-auto pb-2">
+                {freeHistoryCards.map((scan, index) => {
+                  const isActive =
+                    scan?.frontImage === dashboardData?.frontImage &&
+                    scan?.sideImage === dashboardData?.sideImage &&
+                    scan?.finalRating === dashboardData?.finalRating;
+                  const scanIsFree = isFreeHistoryScan(scan);
+                  const numericRating = Number(scan?.finalRating);
+                  return (
+                    <button
+                      key={`${scan.frontImage || 'scan'}-${scan.scannedAt || index}-${index}`}
+                      type="button"
+                      onClick={() => onOpenHistoryScan?.({
+                        ...scan,
+                        scanHistory: freeHistoryCards.slice().reverse(),
+                        ratingHistory: freeHistoryCards
+                          .slice()
+                          .reverse()
+                          .map((item) => Number(item?.finalRating))
+                          .filter((rating) => Number.isFinite(rating)),
+                      })}
+                      className={`group relative flex h-24 w-48 shrink-0 overflow-hidden rounded-2xl border bg-[#0c0d0e] text-left transition-all ${isActive ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.18)]' : 'border-zinc-800'}`}
+                    >
+                      <div className={`absolute left-2 top-2 z-10 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold ${
+                        scanIsFree
+                          ? 'text-emerald-300 blur-[3px] drop-shadow-[0_0_10px_rgba(16,185,129,0.75)]'
+                          : 'text-cyan-300'
+                      }`}>
+                        {scanIsFree ? freeRatingLoop.toFixed(1) : (Number.isFinite(numericRating) ? numericRating.toFixed(1) : '-')}
+                      </div>
+                      <div className="relative flex-1 border-r border-zinc-900">
+                        <img src={scan.frontImage || placeholderProfileImage} alt="Front profile" className="h-full w-full object-cover" />
+                      </div>
+                      <div className="relative flex-1">
+                        <img src={scan.sideImage || scan.frontImage || placeholderProfileImage} alt="Side profile" className="h-full w-full object-cover object-top" />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
           {/* Top Section: Subject & History */}
           {!hideTopSection && (
           <div className="flex flex-col gap-8 hidden">
@@ -6616,75 +6711,18 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             />
           )}
 
-          {!isEmbedded && isRestrictedPreview && (
-            <section className="w-full max-w-6xl mx-auto mt-8 scroll-mt-24">
-              <div className="flex flex-col gap-6">
-                <div>
-                  <h2 className="text-2xl font-black uppercase tracking-tighter italic text-white mb-2">Community Scans</h2>
-                  <p className="text-zinc-400 font-sans text-sm uppercase tracking-widest">See how others in the community stack up.</p>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {COMMUNITY_SCANS.map((scan) => {
-                    const dd = scan.dashboardData;
-                    const rating = dd?.finalRating ?? 0;
-                    const scanTier = scan.tier || '-';
-                    const tierUpper = String(scanTier).toUpperCase();
-                    const tierBadgeClass =
-                      tierUpper.includes('S') && tierUpper.includes('TIER')
-                        ? 'bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
-                        : tierUpper.includes('A') && tierUpper.includes('TIER')
-                          ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.6)]'
-                          : 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
-                    return (
-                      <button
-                        key={scan.id}
-                        type="button"
-                        onClick={() => openCommunityScan(scan)}
-                        className="text-left bg-[#0c0d0e] border border-zinc-800 rounded-[28px] overflow-hidden group cursor-pointer hover:border-cyan-500/50 hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] transition-all relative"
-                      >
-                        <div className="aspect-[3/4] bg-zinc-900 relative overflow-hidden rounded-[28px]">
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-transparent to-transparent z-10 pointer-events-none" />
-                          {dd?.frontImage ? (
-                            <img
-                              src={dd.frontImage}
-                              alt=""
-                              className="absolute inset-0 w-full h-full object-cover object-top"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-zinc-700 opacity-50">
-                              <Users size={48} />
-                            </div>
-                          )}
-                          <div className="absolute top-3 left-3 z-20">
-                            <span className={`border text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${tierBadgeClass}`}>
-                              {scanTier}
-                            </span>
-                          </div>
-                          <div className="absolute bottom-3 left-3 z-20 flex items-baseline gap-1">
-                            <span className="text-white font-black italic text-2xl drop-shadow-[0_0_10px_rgba(255,255,255,0.4)] tabular-nums">
-                              {Number(rating).toFixed(1)}
-                            </span>
-                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
-                          </div>
-                        </div>
-                        <div className="p-4 flex items-center justify-between bg-[#0a0a0b] relative z-20">
-                          <span className="text-zinc-500 font-sans text-[9px] uppercase tracking-[0.25em]">
-                            View results & analysis
-                          </span>
-                          <ExternalLink size={12} className="text-zinc-600 group-hover:text-cyan-400 transition-colors shrink-0" />
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
-          )}
-
-          {!isEmbedded && (
+          {!isEmbedded && isFreeModelResult && (
             <DashboardHubPreviewsCompact
               setCurrentPage={setCurrentPage}
-              hideCommunity={isRestrictedPreview}
+              variant="sections"
+              onOpenCommunityScan={openCommunityScan}
+              onAddScan={() => setCurrentPage('photo-guide')}
+            />
+          )}
+
+          {!isEmbedded && !isFreeModelResult && (
+            <DashboardHubPreviewsCompact
+              setCurrentPage={setCurrentPage}
               onOpenCommunityScan={openCommunityScan}
             />
           )}
@@ -8713,7 +8751,22 @@ const App = () => {
                 )}
               />
             )
-            : <DashboardPage dashboardData={dashboardData} setCurrentPage={setCurrentPage} userPlan={userPlan} user={user} />
+            : (
+              <DashboardPage
+                dashboardData={dashboardData}
+                setCurrentPage={setCurrentPage}
+                userPlan={userPlan}
+                user={user}
+                onBackToProfiles={() => {
+                  setDashboardData(null);
+                  setCurrentPage('dashboard');
+                }}
+                onOpenHistoryScan={(scan) => {
+                  setDashboardData(scan);
+                  setCurrentPage('dashboard');
+                }}
+              />
+            )
         )}
         {currentPage === 'plans' && <PlansPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'mog-battles' && (

@@ -2296,10 +2296,17 @@ async function extractUserOptional(req, res, next) {
   next();
 }
 
-/** Ultra models (choice 1 / 2 / 6 / 7 / 8) require Firebase auth + Pro plan or Single Scan with credits. */
+/** Ultra models (choice 1 / 2) require Firebase auth + Pro plan or Single Scan with credits. */
 async function verifyUltraAccess(req, res, next) {
   const modelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
-  const isUltra = modelChoice === '1' || modelChoice === '2' || modelChoice === '6' || modelChoice === '7' || modelChoice === '8';
+  const allowedModelChoices = new Set(['1', '2', '3', '4', '5']);
+  if (!allowedModelChoices.has(modelChoice)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid AI model selected. Please choose an available scan model.',
+    });
+  }
+  const isUltra = modelChoice === '1' || modelChoice === '2';
   if (!isUltra) {
     req.ultraContext = null;
     return next();
@@ -2337,13 +2344,6 @@ async function verifyUltraAccess(req, res, next) {
   if (isAdminEmail) {
     req.ultraContext = { uid, plan: 'pro', source: 'admin-email-bypass' };
     return next();
-  }
-
-  if (modelChoice === '6' || modelChoice === '7' || modelChoice === '8') {
-    return res.status(403).json({
-      success: false,
-      error: 'This admin-only AI model is available to admins only.',
-    });
   }
 
   if (!firestore) {
@@ -2638,22 +2638,13 @@ app.post(
           (typeof parsed.technicalSummary === 'string' && parsed.technicalSummary.trim().length > 24)
         );
 
-      const isVisualOnlyExperimentalChoice = modelChoice === '7';
-
       // Free models are descriptive-only, so a substantive text parse is enough.
       // Premium models should not be marked successful unless the structured scan data is actually there.
-      // Experimental AI #2 intentionally hides measurements, so biometrics may be blank by design.
       const success =
         code === 0 &&
         (
           isFreeModelChoice
             ? parsed.hasSubstantiveParse === true
-            : isVisualOnlyExperimentalChoice
-              ? (
-                  parsed.finalRating != null &&
-                  !Number.isNaN(Number(parsed.finalRating)) &&
-                  parsed.hasSubstantiveParse === true
-                )
             : (
                 parsed.finalRating != null &&
                 !Number.isNaN(Number(parsed.finalRating)) &&

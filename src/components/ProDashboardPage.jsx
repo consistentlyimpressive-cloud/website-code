@@ -24,9 +24,6 @@ const modelLabel = (model) => ({
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
-  '6': 'Experimental AI',
-  '7': 'Experimental AI #2',
-  '8': 'Anti diddy',
   official: 'Official Scan',
 }[String(model || '').trim()] || 'Unknown AI');
 
@@ -185,6 +182,26 @@ function DashboardCommunityScanCard({
   );
 }
 
+const FreeScanShiftingScore = ({ className = '' }) => {
+  const [score, setScore] = useState(70);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setScore(Math.floor(70 + Math.random() * 30));
+    }, 120);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <span
+      className={`inline-block select-none font-black italic tabular-nums text-emerald-300 blur-[5px] drop-shadow-[0_0_18px_rgba(16,185,129,0.8)] ${className}`}
+      aria-label="Free scan score hidden"
+    >
+      {score.toFixed(1)}
+    </span>
+  );
+};
+
 const slugifyScanName = (value) =>
   String(value || 'scan')
     .toLowerCase()
@@ -256,8 +273,10 @@ const formatDashboardDate = (value, fallback = '-') => {
 
 const modelUsesProDashboard = (model) => {
   const normalized = String(model || '').trim();
-  return normalized === '1' || normalized === '2' || normalized === '6' || normalized === '7' || normalized === '8';
+  return normalized === '1' || normalized === '2';
 };
+
+const isFreeScanModel = (model) => ['3', '4', '5'].includes(String(model || '').trim());
 
 const hydrateScanForDashboard = (scan) => {
   if (!scan) return null;
@@ -862,6 +881,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     return [...allScans]
       .sort((a, b) => timestampToMillis(b.timestamp || b.scannedAt) - timestampToMillis(a.timestamp || a.scannedAt))[0] || null;
   }, [allScans]);
+  const latestScanIsFree = isFreeScanModel(latestScanAcrossProfiles?.model || latestScanAcrossProfiles?.payload?.selectedModel);
 
   const latestScanProfile = useMemo(() => {
     if (!latestScanAcrossProfiles) return null;
@@ -880,31 +900,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       description: 'Fast premium scan for lighter, quicker entertainment-focused output.',
       buttonClass: 'bg-purple-500/10 border-purple-500/30 text-purple-400 hover:bg-purple-500/20',
     },
-    ...(user?.email && (
-      user.email === 'laithbu07@gmail.com' ||
-      user.email === 'admin@looksmaxxing.com' ||
-      user.email === 'serenity.eyb@gmail.com' ||
-      user.email.endsWith('@looksmaxxing.com')
-    ) ? [
-      {
-        id: '6',
-        label: 'Experimental AI',
-        description: 'Admin-only experimental scan using the highest-quality engine.',
-        buttonClass: 'bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20',
-      },
-      {
-        id: '7',
-        label: 'Experimental AI #2',
-        description: 'Admin-only visual-only experimental scan without MediaPipe measurements.',
-        buttonClass: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20',
-      },
-      {
-        id: '8',
-        label: 'Anti diddy',
-        description: 'Admin-only premium scan with the Anti diddy prompt add-on.',
-        buttonClass: 'bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20',
-      },
-    ] : []),
     {
       id: '3',
       label: 'Basic Scan (Free)',
@@ -1299,6 +1294,8 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                     scan?.frontImage === dashboardData?.frontImage &&
                     scan?.sideImage === dashboardData?.sideImage &&
                     scan?.finalRating === dashboardData?.finalRating;
+                  const scanIsFree = isFreeScanModel(scan?.selectedModel || scan?.model || scan?.payload?.selectedModel);
+                  const numericRating = Number(scan?.finalRating);
                   return (
                     <button
                       key={`${scan.frontImage || 'scan'}-${scan.finalRating || index}-${index}`}
@@ -1306,8 +1303,12 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       onClick={() => handleSelectScan(scan)}
                       className={`group relative flex h-24 w-48 shrink-0 overflow-hidden rounded-2xl border bg-[#0c0d0e] text-left transition-all ${isActive ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.18)]' : 'border-zinc-800 hover:border-zinc-700'}`}
                     >
-                      <div className="absolute left-2 top-2 z-10 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300">
-                          {typeof scan.finalRating === 'number' ? scan.finalRating.toFixed(1) : '-'}
+                      <div className={`absolute left-2 top-2 z-10 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold ${
+                        scanIsFree
+                          ? 'text-emerald-300 blur-[3px] drop-shadow-[0_0_10px_rgba(16,185,129,0.75)]'
+                          : 'text-cyan-300'
+                      }`}>
+                        {scanIsFree ? <FreeScanShiftingScore /> : (Number.isFinite(numericRating) ? numericRating.toFixed(1) : '-')}
                       </div>
                       {user && scan?.scanId && (
                         <span
@@ -1612,9 +1613,13 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       />
                     </div>
                     <div className="text-right">
-                      <p className="text-4xl font-black italic text-cyan-300">
-                        {Number(latestScanAcrossProfiles.finalRating || 0).toFixed(1)}
-                      </p>
+                      {latestScanIsFree ? (
+                        <FreeScanShiftingScore className="text-4xl" />
+                      ) : (
+                        <p className="text-4xl font-black italic text-cyan-300">
+                          {Number(latestScanAcrossProfiles.finalRating || 0).toFixed(1)}
+                        </p>
+                      )}
                       <button
                         type="button"
                         onClick={() => latestScanProfile && openProfile(latestScanProfile)}
