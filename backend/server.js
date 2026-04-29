@@ -2776,12 +2776,12 @@ app.post(
       },
     });
 
-    /** Prevent hung Gemini/API calls from blocking the client forever (default 8 min). */
-    const PYTHON_MAX_MS = Number(process.env.ANALYZE_PYTHON_TIMEOUT_MS || 480000);
+    /** Prevent hung Gemini/API calls from blocking the client forever (default 12 min). */
+    const PYTHON_MAX_MS = Number(process.env.ANALYZE_PYTHON_TIMEOUT_MS || 720000);
     let analyzeTimedOut = false;
     const killTimer = setTimeout(() => {
       analyzeTimedOut = true;
-      const timeoutMessage = 'Analysis timed out after about 8 minutes. Please try again in a moment.';
+      const timeoutMessage = 'Analysis timed out after about 12 minutes. Please try again in a moment.';
       console.error(`[api/analyze] Python exceeded ${PYTHON_MAX_MS}ms - terminating process tree`);
       clearUserAnalysis(req.uid);
       rememberAnalysisRecovery(req.uid, scanRequestId, {
@@ -2791,7 +2791,7 @@ app.post(
       if (!res.headersSent) {
         res.status(504).json({
           success: false,
-          error: 'Analysis timed out - the AI engine took too long. The scan was stopped safely; please try again in a moment.',
+          error: 'Analysis timed out after about 12 minutes - the AI engine took too long. The scan was stopped safely; please try again in a moment.',
         });
       }
       terminateProcessTree(py, 'analysis Python');

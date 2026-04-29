@@ -3318,9 +3318,15 @@ const ScanningView = ({
         }
 
         const startedAt = Date.now();
-        const maxWaitMs = 11 * 60 * 1000;
+        const maxWaitMs = 18 * 60 * 1000;
         while (active && Date.now() - startedAt < maxWaitMs) {
-          setStatusText('Connection briefly dropped. This scan is still running... reconnecting to its result.');
+          const elapsedMs = Date.now() - scanStartedAt;
+          const expectedMs = getAdaptiveScanTotalMs(choice, currentFairUsage);
+          setStatusText(
+            elapsedMs > expectedMs
+              ? 'Taking longer than usual. The scan is still running and we are waiting for the result...'
+              : 'Still analyzing. Reconnecting to the scan result...'
+          );
           try {
             const statusRes = await fetchWithTimeoutRetry(`${API_BASE}/api/analyze/status/${encodeURIComponent(scanRequestId)}`, {
               timeoutMs: 12000,
@@ -3487,14 +3493,14 @@ const ScanningView = ({
       /** So the UI never sits on "Consulting AI" forever if Python/API hangs */
         const analyzeAbort = new AbortController();
         cancelAnalyzeRequest = () => analyzeAbort.abort();
-        const ANALYZE_CLIENT_MAX_MS = 10 * 60 * 1000;
+        const ANALYZE_CLIENT_MAX_MS = 14 * 60 * 1000;
         const analyzeHardStop = setTimeout(() => analyzeAbort.abort(), ANALYZE_CLIENT_MAX_MS);
 
         const buildProgressMessage = () => {
           const elapsedMs = Date.now() - scanStartedAt;
           const totalMs = getAdaptiveScanTotalMs(choice, currentFairUsage);
           const remainingMs = totalMs - elapsedMs;
-          const remaining = remainingMs <= 0 ? 'finalizing' : formatTimeLeft(remainingMs);
+          const remaining = remainingMs <= 0 ? 'taking longer than usual' : formatTimeLeft(remainingMs);
           const phaseIndex = Math.floor(elapsedMs / 5000) % SCAN_PROGRESS_MESSAGES.length;
           const queueNote = currentFairUsage?.lowPriority ? ' Low-priority queue active.' : '';
           return `${SCAN_PROGRESS_MESSAGES[phaseIndex]}... Estimated time left: ${remaining}.${queueNote}`;
@@ -3621,7 +3627,7 @@ const ScanningView = ({
         }
         setStatusText(
           err?.name === 'AbortError'
-            ? 'Analysis timed out after about 10 minutes. Please try again with a smaller image or try again in a moment.'
+            ? 'Analysis timed out after about 14 minutes. Please try again with a smaller image or try again in a moment.'
             : getQuotaAwareScanMessage(
                 null,
                 `Network error: ${err?.message || 'failed to reach server'}. Please try again in a moment.`
