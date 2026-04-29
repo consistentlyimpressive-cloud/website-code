@@ -4299,6 +4299,56 @@ const AnalysisDock = ({
 
 const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
   const [scanningCeleb, setScanningCeleb] = useState(null);
+  const [restoredLandmarks, setRestoredLandmarks] = useState(null);
+
+  useEffect(() => {
+    if (!job?.mainImageSrc || job.landmarks) {
+      setRestoredLandmarks(null);
+      return undefined;
+    }
+
+    let active = true;
+    const detectRestoredLandmarks = async () => {
+      try {
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+        );
+        const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+            delegate: "GPU"
+          },
+          outputFaceBlendshapes: false,
+          runningMode: "IMAGE",
+          numFaces: 1
+        });
+
+        const img = new Image();
+        if (!String(job.mainImageSrc).startsWith('data:')) {
+          img.crossOrigin = 'anonymous';
+        }
+        img.onload = () => {
+          if (!active) return;
+          const result = faceLandmarker.detect(img);
+          if (result.faceLandmarks && result.faceLandmarks.length > 0) {
+            setRestoredLandmarks({
+              points: result.faceLandmarks[0],
+              imgW: img.naturalWidth,
+              imgH: img.naturalHeight
+            });
+          }
+        };
+        img.src = job.mainImageSrc;
+      } catch (err) {
+        console.warn('Restored scan MediaPipe detection failed', err);
+      }
+    };
+
+    detectRestoredLandmarks();
+    return () => {
+      active = false;
+    };
+  }, [job?.mainImageSrc, job?.landmarks]);
 
   if (!job) {
     return (
@@ -4323,6 +4373,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
     : '';
   const statusText = job.statusText || 'Preparing analysis... Estimated time left: calculating.';
   const elapsedMs = job.elapsedScanMs ?? Math.max(0, Date.now() - Number(job.startedAt || job.createdAt || Date.now()));
+  const overlayLandmarks = job.landmarks || restoredLandmarks;
 
   return (
     <div className="flex-grow flex flex-col bg-[#0c0d0e] scroll-mt-20">
@@ -4377,7 +4428,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
 
             {!job.videoUrl && (
               <FaceScanOverlay
-                landmarksData={job.landmarks}
+                landmarksData={overlayLandmarks}
                 revealDurationSeconds={overlayRevealSeconds}
                 scanLoopSeconds={overlayScanLoopSeconds}
               />
