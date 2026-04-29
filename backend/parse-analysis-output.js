@@ -905,14 +905,17 @@ function parseFeatureBlock(block) {
     const cleanLine = line.replace(/^(\d+\.|-|\*)\s+/, '');
     const colon = cleanLine.match(/^(.+?):\s+(.+)$/);
     if (colon) {
-      out.push({ title: colon[1].trim(), description: colon[2].trim() });
+      const entry = { title: colon[1].trim(), description: colon[2].trim() };
+      if (!isPlaceholderFeatureEntry(entry)) out.push(entry);
       continue;
     }
     const dash = cleanLine.split(/\s+-\s+/);
     if (dash.length >= 2) {
-      out.push({ title: dash[0].trim(), description: dash.slice(1).join(' - ').trim() });
+      const entry = { title: dash[0].trim(), description: dash.slice(1).join(' - ').trim() };
+      if (!isPlaceholderFeatureEntry(entry)) out.push(entry);
     } else if (cleanLine.length > 5) {
-      out.push({ title: 'Highlighted', description: cleanLine });
+      const entry = { title: 'Highlighted', description: cleanLine };
+      if (!isPlaceholderFeatureEntry(entry)) out.push(entry);
     }
   }
   return out;
@@ -927,6 +930,27 @@ function trimFeatureDescription(value) {
 
 function looksLikeFeatureSectionLeak(value) {
   return /###\s*(?:DASHBOARD_DATA|RATINGS|PERSONALISED\s+FEEDBACK|ACTIONABLE\s+PROTOCOLS|MOG_REPORT_REVISION)|\b(?:BEST FEATURES|PRIMARY FLAWS)\s*\(10\)|\bJUSTIFICATION\b/i.test(trimFeatureDescription(value));
+}
+
+function looksLikePlaceholderFeature(value) {
+  const text = String(value || '')
+    .replace(/\*/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  if (!text) return true;
+  return (
+    /\[(?:actual\s+)?(?:feature|flaw)\s+name\]/i.test(text) ||
+    /\[(?:actual\s+)?(?:brief\s+)?(?:personalized\s+)?(?:explanation|reason)[^\]]*\]/i.test(text) ||
+    /\bactual (?:feature|flaw) name\b/i.test(text) ||
+    /\bactual personalized reason from this face\b/i.test(text) ||
+    text === 'best feature' ||
+    text === 'primary flaw'
+  );
+}
+
+function isPlaceholderFeatureEntry(entry) {
+  return looksLikePlaceholderFeature(entry?.title) || looksLikePlaceholderFeature(entry?.description);
 }
 
 function splitDashboardFeatureItems(value) {
@@ -977,6 +1001,7 @@ function buildDashboardFeatureEntry(rawItem, type) {
       title: split[1].trim(),
       description: split[2].trim(),
     };
+    if (isPlaceholderFeatureEntry(entry)) return null;
     return looksLikeFeatureSectionLeak(`${entry.title} ${entry.description}`) ? null : entry;
   }
 
@@ -987,6 +1012,7 @@ function buildDashboardFeatureEntry(rawItem, type) {
         ? 'Flagged in the scan output as one of the strongest structural features.'
         : 'Flagged in the scan output as one of the main structural weaknesses.',
   };
+  if (isPlaceholderFeatureEntry(fallbackEntry)) return null;
   return looksLikeFeatureSectionLeak(`${fallbackEntry.title} ${fallbackEntry.description}`) ? null : fallbackEntry;
 }
 
@@ -1059,16 +1085,18 @@ function parseSingleHighlight(raw, regex, fallbackTitle) {
 
   const split = clean.match(/^([^:.]{3,80}?)(?:\s+-\s+|:\s+)(.+)$/);
   if (split) {
-    return {
+    const entry = {
       title: split[1].trim(),
       description: split[2].trim(),
     };
+    return isPlaceholderFeatureEntry(entry) ? null : entry;
   }
 
-  return {
+  const entry = {
     title: fallbackTitle,
     description: clean,
   };
+  return isPlaceholderFeatureEntry(entry) ? null : entry;
 }
 
 function parseSex(raw) {
@@ -1149,7 +1177,7 @@ function parsePotentialRating(raw, label) {
 
 function parseTechnicalSummary(raw) {
   const terminators =
-    '(?=\\*\\*Appeal Assessment|\\*\\*Best Feature|\\*\\*Worst Feature|\\*\\*Hexagon Chart Ratings|\\*\\*CORE CATEGORY SCORES|\\*\\*CRITICAL MARKERS|###\\s*DASHBOARD_DATA|###\\s*MOG_REPORT|\\*\\*Max Natural Potential)';
+    '(?=\\*\\*Appeal Assessment|\\*\\*(?:#1\\s*)?Best Feature|\\*\\*(?:#1\\s*)?Worst Feature|\\*\\*Hexagon Chart Ratings|\\*\\*CORE CATEGORY SCORES|\\*\\*CRITICAL MARKERS|###\\s*DASHBOARD_DATA|###\\s*MOG_REPORT|\\*\\*Max Natural Potential)';
 
   let m = raw.match(
     new RegExp(
@@ -1173,7 +1201,7 @@ function parseTechnicalSummary(raw) {
 
 function parseAppealAssessment(raw) {
   const terminators =
-    '(?=\\*\\*Structural Overview|\\*\\*Technical Summary|\\*\\*Best Feature|\\*\\*Worst Feature|\\*\\*Hexagon Chart Ratings|\\*\\*CORE CATEGORY SCORES|\\*\\*CRITICAL MARKERS|###\\s*DASHBOARD_DATA|###\\s*MOG_REPORT|\\*\\*Max Natural Potential)';
+    '(?=\\*\\*Structural Overview|\\*\\*Technical Summary|\\*\\*(?:#1\\s*)?Best Feature|\\*\\*(?:#1\\s*)?Worst Feature|\\*\\*Hexagon Chart Ratings|\\*\\*CORE CATEGORY SCORES|\\*\\*CRITICAL MARKERS|###\\s*DASHBOARD_DATA|###\\s*MOG_REPORT|\\*\\*Max Natural Potential)';
 
   let m = raw.match(
     new RegExp(

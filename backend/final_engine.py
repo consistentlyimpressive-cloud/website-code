@@ -761,6 +761,27 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         STRICT MANDATE: Do NOT mention, hint at, or include any numerical scores, percentages, or overall ratings in your assessment.
         Focus entirely on descriptive analysis. Use vague descriptors like 'Above Average', 'Below Average', or 'Significantly Above Average' to describe the tier if necessary.
         Do NOT use color-code wrappers like &blue&, &green&, $red$, #blue#, or @yellow@ anywhere in the output.
+        PERSONALIZATION MANDATE:
+        - The best feature and worst feature MUST be chosen uniquely for the submitted face.
+        - Do NOT reuse generic labels or descriptions across scans.
+        - Do NOT output placeholders such as "[Feature Name]", "[Brief explanation]", "Best Feature", or "Primary Flaw".
+        - Every feature explanation must reference the actual visible face and/or INPUT A measurements for this scan.
+        - If a visual issue is more obvious than any ratio issue, name the visual issue instead.
+        DASHBOARD FEATURE FORMAT:
+        After the two headline feature lines, include a dashboard-compatible block with exactly this structure:
+        ### DASHBOARD_DATA
+        BEST FEATURES (5):
+        1. [FRONT] Actual feature name - Actual personalized reason from this face
+        2. [FRONT] Actual feature name - Actual personalized reason from this face
+        3. [FRONT] Actual feature name - Actual personalized reason from this face
+        4. [FRONT] Actual feature name - Actual personalized reason from this face
+        5. [FRONT] Actual feature name - Actual personalized reason from this face
+        PRIMARY FLAWS (5):
+        1. [FRONT] Actual flaw name - Actual personalized reason from this face
+        2. [FRONT] Actual flaw name - Actual personalized reason from this face
+        3. [FRONT] Actual flaw name - Actual personalized reason from this face
+        4. [FRONT] Actual flaw name - Actual personalized reason from this face
+        5. [FRONT] Actual flaw name - Actual personalized reason from this face
         """
 
         if choice == "3":  # OPTIC
@@ -775,10 +796,10 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
             If a visual issue is more obvious than any ratio issue, name that instead.
             Give a brief explanation after each feature label.
             OUTPUT FORMAT:
-            ### ANALYSIS [SEX]
-            **Technical Summary:** [Focus on balance/alignment]
-            **#1 BEST FEATURE:** [Feature Name] - [Brief explanation]
-            **#1 WORST FEATURE:** [Feature Name] - [Brief explanation]
+            ### ANALYSIS [MALE or FEMALE]
+            **Technical Summary:** Write a personalized balance/alignment summary for this exact face.
+            **#1 BEST FEATURE:** Actual feature name - Actual personalized reason from this face.
+            **#1 WORST FEATURE:** Actual flaw name - Actual personalized reason from this face.
             """
         elif choice == "4":  # CORE
             active_prompt = f"""{free_guidelines}
@@ -791,10 +812,10 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
             If a visual issue is more obvious than any ratio issue, name that instead.
             Give a brief explanation after each feature label.
             OUTPUT FORMAT:
-            ### ANALYSIS [SEX]
-            **Technical Summary:** [Focus on attractiveness/appeal]
-            **#1 BEST FEATURE:** [Feature Name] - [Brief explanation]
-            **#1 WORST FEATURE:** [Feature Name] - [Brief explanation]
+            ### ANALYSIS [MALE or FEMALE]
+            **Technical Summary:** Write a personalized attractiveness/appeal summary for this exact face.
+            **#1 BEST FEATURE:** Actual feature name - Actual personalized reason from this face.
+            **#1 WORST FEATURE:** Actual flaw name - Actual personalized reason from this face.
             """
         elif choice == "5":  # GENEVA
             active_prompt = f"""{free_guidelines}
@@ -808,10 +829,10 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
             If a visual issue is more obvious than any ratio issue, name that instead.
             Give a brief explanation after each feature label.
             OUTPUT FORMAT:
-            ### ANALYSIS [SEX]
-            **Technical Summary:** [Focus on geometry/ratios]
-            **#1 BEST FEATURE:** [Feature Name] - [Brief explanation]
-            **#1 WORST FEATURE:** [Feature Name] - [Brief explanation]
+            ### ANALYSIS [MALE or FEMALE]
+            **Technical Summary:** Write a personalized geometry/ratio summary for this exact face.
+            **#1 BEST FEATURE:** Actual feature name - Actual personalized reason from this face.
+            **#1 WORST FEATURE:** Actual flaw name - Actual personalized reason from this face.
             """
 
     result, model_used, duration = consult_ai_with_selection(

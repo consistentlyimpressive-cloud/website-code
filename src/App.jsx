@@ -6855,7 +6855,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
               <MogCheckLogoIcon size={28} className="opacity-95 [filter:drop-shadow(0_0_8px_rgba(34,211,238,0.35))]" />
             </div>
             <div>
-              <h3 className="text-xl font-black uppercase italic tracking-tighter text-cyan-400">1 Scan</h3>
+              <h3 className="text-xl font-black uppercase italic tracking-tighter text-cyan-400">2 Scans</h3>
               <p className="text-cyan-400/40 font-sans text-[9px] uppercase tracking-widest">One-time</p>
             </div>
           </div>
@@ -6868,9 +6868,9 @@ const PlansPage = ({ setCurrentPage, user }) => {
 
           <div className="w-full h-px bg-cyan-500/15 mb-8" />
 
-          <p className="text-cyan-400/60 font-sans text-[10px] uppercase tracking-widest mb-5">One premium analysis includes</p>
+          <p className="text-cyan-400/60 font-sans text-[10px] uppercase tracking-widest mb-5">Two premium analyses include</p>
           <ul className="flex flex-col gap-4 text-sm font-sans text-zinc-300 w-full mb-10">
-            <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>1 full-detail AI facial analysis with 40+ measurements</span></li>
+            <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>2 full-detail AI facial analyses with 40+ measurements</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>Exact final rating with detailed ratio breakdown</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>Customized personal improvement protocols</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-cyan-400 mt-0.5 shrink-0" /> <span>Celebrity lookalike matching & comparison</span></li>
@@ -6891,7 +6891,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
               </span>
             </label>
             <button onClick={() => handleCheckout('single_scan')} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[1.02] transition-transform shadow-[0_0_25px_rgba(34,211,238,0.25)] flex items-center justify-center gap-2">
-              <Zap size={14} /> Buy 1 Scan
+              <Zap size={14} /> Buy 2 Scans
             </button>
           </div>
         </div>
@@ -6920,7 +6920,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
 
           <div className="w-full h-px bg-yellow-500/15 mb-8" />
 
-          <p className="text-yellow-500/60 font-sans text-[10px] uppercase tracking-widest mb-5">Everything in Single Scan, plus</p>
+          <p className="text-yellow-500/60 font-sans text-[10px] uppercase tracking-widest mb-5">Everything in 2 Scans, plus</p>
           <ul className="flex flex-col gap-4 text-sm font-sans text-zinc-300 w-full mb-10">
               <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>Unlimited analysis (fair usage)</span></li>
             <li className="flex items-start gap-3"><Check size={15} className="text-yellow-500 mt-0.5 shrink-0" /> <span>AI potential analysis - see your projected best self</span></li>
@@ -6966,10 +6966,11 @@ const PlansPage = ({ setCurrentPage, user }) => {
           </div>
 
           <div className="flex items-baseline gap-1 mb-1">
-            <span className="text-5xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">$10</span>
-            <span className="text-sm text-zinc-500 font-sans tracking-widest">/year</span>
+            <span className="text-5xl font-black text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.1)]">$12</span>
+            <span className="text-sm text-zinc-500 font-sans tracking-widest">/mo</span>
           </div>
-          <p className="text-zinc-400 font-sans text-xs uppercase tracking-wide mb-8">Billed annually at $10</p>
+          <p className="text-zinc-400 font-sans text-xs uppercase tracking-wide mb-2">Billed annually at <span className="line-through text-zinc-600">$180</span> <span className="text-emerald-300">$144</span></p>
+          <p className="mb-8 inline-flex w-fit rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-300">Save $36</p>
 
           <div className="w-full h-px bg-emerald-500/15 mb-8" />
 
@@ -7054,6 +7055,16 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
   const [userMogBattlesByUser, setUserMogBattlesByUser] = useState({});
   const [userMogBattlesLoading, setUserMogBattlesLoading] = useState({});
   const [userMogBattlesError, setUserMogBattlesError] = useState({});
+  const [userActivityByUser, setUserActivityByUser] = useState({});
+  const [userActivityLoading, setUserActivityLoading] = useState({});
+  const [userActivityError, setUserActivityError] = useState({});
+  const [userPurchasesByUser, setUserPurchasesByUser] = useState({});
+  const [userPurchasesLoading, setUserPurchasesLoading] = useState({});
+  const [userPurchasesError, setUserPurchasesError] = useState({});
+  const [visitorRange, setVisitorRange] = useState('24h');
+  const [visitorStats, setVisitorStats] = useState(null);
+  const [visitorStatsLoading, setVisitorStatsLoading] = useState(false);
+  const [visitorStatsError, setVisitorStatsError] = useState('');
   const [planDrafts, setPlanDrafts] = useState({});
   const [planSaveLoading, setPlanSaveLoading] = useState({});
   const [planSaveError, setPlanSaveError] = useState({});
@@ -7118,6 +7129,26 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     }
   };
 
+  const fetchVisitorStats = useCallback(async (range = visitorRange, pw = storedPw.current) => {
+    if (!pw) return;
+    setVisitorStatsLoading(true);
+    setVisitorStatsError('');
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/visitor-stats?range=${encodeURIComponent(range)}`, {
+        headers: { 'x-admin-password': pw },
+        cache: 'no-store',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed to fetch visitor stats');
+      setVisitorStats(data);
+    } catch (err) {
+      setVisitorStatsError(err.message || 'Failed to fetch visitor stats');
+      setVisitorStats(null);
+    } finally {
+      setVisitorStatsLoading(false);
+    }
+  }, [visitorRange]);
+
   const handleLogin = (e) => {
     e.preventDefault();
     const pw = password.trim();
@@ -7131,6 +7162,11 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     const iv = setInterval(() => fetchStats(storedPw.current), 120000);
     return () => clearInterval(iv);
   }, [authenticated]);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    fetchVisitorStats(visitorRange);
+  }, [authenticated, fetchVisitorStats, visitorRange]);
 
   const fmtUptime = (ms) => {
     const h = Math.floor(ms / 3600000);
@@ -7315,12 +7351,16 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     }
 
     setExpandedUserId(uid);
-    if (userScansByUser[uid] && userMogBattlesByUser[uid]) return;
+    if (userScansByUser[uid] && userMogBattlesByUser[uid] && userActivityByUser[uid] && userPurchasesByUser[uid]) return;
 
     setUserScansLoading((prev) => ({ ...prev, [uid]: !userScansByUser[uid] }));
     setUserScansError((prev) => ({ ...prev, [uid]: '' }));
     setUserMogBattlesLoading((prev) => ({ ...prev, [uid]: !userMogBattlesByUser[uid] }));
     setUserMogBattlesError((prev) => ({ ...prev, [uid]: '' }));
+    setUserActivityLoading((prev) => ({ ...prev, [uid]: !userActivityByUser[uid] }));
+    setUserActivityError((prev) => ({ ...prev, [uid]: '' }));
+    setUserPurchasesLoading((prev) => ({ ...prev, [uid]: !userPurchasesByUser[uid] }));
+    setUserPurchasesError((prev) => ({ ...prev, [uid]: '' }));
     try {
       const requests = [];
 
@@ -7354,10 +7394,42 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
         );
       }
 
+      if (!userActivityByUser[uid]) {
+        requests.push(
+          fetch(`${API_BASE}/api/admin/users/${uid}/activity`, {
+            headers: { 'x-admin-password': storedPw.current },
+            cache: 'no-store',
+          }).then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data?.error || 'Failed to fetch activity');
+            setUserActivityByUser((prev) => ({ ...prev, [uid]: data.events || [] }));
+          }).catch((err) => {
+            setUserActivityError((prev) => ({ ...prev, [uid]: err.message || 'Failed to fetch activity' }));
+          })
+        );
+      }
+
+      if (!userPurchasesByUser[uid]) {
+        requests.push(
+          fetch(`${API_BASE}/api/admin/users/${uid}/purchases`, {
+            headers: { 'x-admin-password': storedPw.current },
+            cache: 'no-store',
+          }).then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data?.error || 'Failed to fetch purchases');
+            setUserPurchasesByUser((prev) => ({ ...prev, [uid]: data.purchases || [] }));
+          }).catch((err) => {
+            setUserPurchasesError((prev) => ({ ...prev, [uid]: err.message || 'Failed to fetch purchases' }));
+          })
+        );
+      }
+
       await Promise.allSettled(requests);
     } finally {
       setUserScansLoading((prev) => ({ ...prev, [uid]: false }));
       setUserMogBattlesLoading((prev) => ({ ...prev, [uid]: false }));
+      setUserActivityLoading((prev) => ({ ...prev, [uid]: false }));
+      setUserPurchasesLoading((prev) => ({ ...prev, [uid]: false }));
     }
   };
 
@@ -7443,6 +7515,8 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
 
   const ov = stats?.overview || {};
   const maxHour = stats?.hourlyUsage ? Math.max(...stats.hourlyUsage, 1) : 1;
+  const visitorBuckets = visitorStats?.buckets || [];
+  const maxVisitorBucket = visitorBuckets.length ? Math.max(...visitorBuckets.map((bucket) => Number(bucket.count) || 0), 1) : 1;
   const limitedUserIds = new Set(scanLimits.map((limit) => limit.uid));
 
   return (
@@ -7643,6 +7717,62 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
             </div>
           </div>
 
+          <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 mb-6">
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Users size={14} className="text-cyan-400" />
+                <h3 className="font-sans text-xs uppercase tracking-widest text-zinc-300">Unique Website Visitors</h3>
+              </div>
+              <span className="text-[9px] font-sans uppercase tracking-[0.2em] text-zinc-600">
+                {visitorStats?.totalUnique ?? 0} unique
+              </span>
+              <div className="ml-auto flex flex-wrap gap-2">
+                {[
+                  ['hour', 'Last hour'],
+                  ['6h', '6 hours'],
+                  ['24h', '24 hours'],
+                  ['week', 'Week'],
+                ].map(([range, label]) => (
+                  <button
+                    key={range}
+                    type="button"
+                    onClick={() => setVisitorRange(range)}
+                    className={`rounded-lg border px-3 py-1.5 text-[9px] font-sans uppercase tracking-[0.22em] transition-colors ${visitorRange === range ? 'border-cyan-500/35 bg-cyan-500/10 text-cyan-300' : 'border-zinc-800 bg-zinc-950/60 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {visitorStatsLoading ? (
+              <div className="py-10 text-center text-zinc-500 text-xs font-sans uppercase tracking-widest">Loading visitor graph...</div>
+            ) : visitorStatsError ? (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs font-sans text-red-400">{visitorStatsError}</div>
+            ) : (
+              <div className="flex h-28 items-end gap-[3px]">
+                {(visitorBuckets.length ? visitorBuckets : Array(12).fill(null)).map((bucket, i) => {
+                  const count = Number(bucket?.count) || 0;
+                  const h = maxVisitorBucket > 0 ? (count / maxVisitorBucket) * 100 : 0;
+                  return (
+                    <div key={bucket?.startMs || i} className="group relative flex flex-1 flex-col items-center gap-1">
+                      <div
+                        className="w-full rounded-t-sm bg-gradient-to-t from-cyan-700 to-cyan-300 transition-all duration-300 group-hover:opacity-80"
+                        style={{ height: `${Math.max(h, count > 0 ? 6 : 2)}%`, opacity: count > 0 ? 1 : 0.25 }}
+                      >
+                        <div className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded bg-zinc-800 px-1.5 py-0.5 text-[8px] font-sans text-zinc-300 opacity-0 transition-opacity group-hover:opacity-100 whitespace-nowrap">
+                          {count} unique
+                        </div>
+                      </div>
+                      {i % Math.max(1, Math.ceil((visitorBuckets.length || 12) / 6)) === 0 && (
+                        <span className="text-[7px] font-sans text-zinc-600">{bucket?.label || '-'}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Recent Analyses Table */}
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-4">
@@ -7798,6 +7928,12 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                       const mogBattles = userMogBattlesByUser[u.uid] || [];
                       const mogBattlesLoading = !!userMogBattlesLoading[u.uid];
                       const mogBattlesError = userMogBattlesError[u.uid];
+                      const activityEvents = userActivityByUser[u.uid] || [];
+                      const activityLoading = !!userActivityLoading[u.uid];
+                      const activityError = userActivityError[u.uid];
+                      const purchases = userPurchasesByUser[u.uid] || [];
+                      const purchasesLoading = !!userPurchasesLoading[u.uid];
+                      const purchasesError = userPurchasesError[u.uid];
                       const planDraft = planDrafts[u.uid] || { plan: u.plan || 'free', scanCredits: u.scanCredits ?? 0 };
                       const isSavingPlan = !!planSaveLoading[u.uid];
                       const planError = planSaveError[u.uid];
@@ -7818,7 +7954,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                                 <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-zinc-600'}`}></span>
                                 <span className="font-sans text-[11px] text-zinc-400">{isActive ? 'Online' : (u.lastActive ? new Date(u.lastActive).toLocaleString() : 'Never')}</span>
                               </div>
-                              <div className="font-sans text-[10px] text-zinc-600 mt-0.5">{u.lastIp}</div>
+                              <div className="font-sans text-[10px] text-zinc-600 mt-0.5">{u.lastIp} {u.lastPlatform ? `- ${u.lastPlatform}` : ''}</div>
                             </td>
                             <td className="py-3 text-right">
                               <div className="flex items-center justify-end gap-2">
@@ -7931,6 +8067,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                                               <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-black text-zinc-100">{scan.finalRating ?? '-'}/100</span>
                                                 <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] text-cyan-300">{modelLabel(scan.model)}</span>
+                                                <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] text-violet-300">{scan.platform || scan.payload?.platform || 'unknown'}</span>
                                                 {scan.profileId && <span className="rounded-full border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] text-zinc-400">{scan.profileId}</span>}
                                               </div>
                                               <p className="mt-2 text-[10px] font-sans uppercase tracking-[0.24em] text-zinc-500">{formatTimestamp(scan.timestamp || scan.scannedAt || scan.createdAt)}</p>
@@ -7951,6 +8088,77 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                                       })}
                                     </div>
                                   )}
+
+                                  <div className="mt-6 grid gap-4 border-t border-zinc-800/70 pt-5 lg:grid-cols-2">
+                                    <div>
+                                      <div className="mb-4 flex items-center justify-between gap-3">
+                                        <div>
+                                          <p className="text-[10px] font-sans uppercase tracking-[0.28em] text-zinc-500">Activity log</p>
+                                          <h4 className="mt-1 text-sm font-black uppercase tracking-widest text-zinc-100">Pages and votes</h4>
+                                        </div>
+                                        <span className="text-[10px] font-sans uppercase tracking-widest text-zinc-600">{activityEvents.length} events</span>
+                                      </div>
+                                      {activityLoading ? (
+                                        <div className="py-8 text-center text-zinc-500 text-xs font-sans uppercase tracking-widest">Loading activity...</div>
+                                      ) : activityError ? (
+                                        <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs font-sans text-red-400">{activityError}</div>
+                                      ) : activityEvents.length === 0 ? (
+                                        <div className="py-6 text-center text-zinc-500 text-xs font-sans uppercase tracking-widest">No activity logged yet.</div>
+                                      ) : (
+                                        <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                                          {activityEvents.slice(0, 80).map((event, index) => (
+                                            <div key={event.id || index} className="rounded-xl border border-zinc-800 bg-zinc-900/35 p-3">
+                                              <div className="flex flex-wrap items-center gap-2">
+                                                <span className={`rounded-full border px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] ${event.type === 'mog_battle_vote' ? 'border-cyan-500/20 bg-cyan-500/10 text-cyan-300' : 'border-zinc-700 bg-zinc-800/60 text-zinc-400'}`}>
+                                                  {event.type === 'mog_battle_vote' ? 'Vote' : 'Page'}
+                                                </span>
+                                                <span className="text-xs font-sans text-zinc-200">
+                                                  {event.type === 'mog_battle_vote'
+                                                    ? `${event.battleName || event.battleId || 'Mog Battle'} - ${String(event.side || '').toUpperCase()}`
+                                                    : (event.page || event.path || 'Unknown page')}
+                                                </span>
+                                                <span className="ml-auto rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] text-violet-300">{event.platform || 'unknown'}</span>
+                                              </div>
+                                              <p className="mt-2 text-[10px] font-sans uppercase tracking-[0.24em] text-zinc-600">{formatTimestamp(event.timestamp || event.timestampMs)}</p>
+                                              {event.path && <p className="mt-1 truncate text-[10px] font-sans text-zinc-600">{event.path}</p>}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div>
+                                      <div className="mb-4 flex items-center justify-between gap-3">
+                                        <div>
+                                          <p className="text-[10px] font-sans uppercase tracking-[0.28em] text-zinc-500">Purchase history</p>
+                                          <h4 className="mt-1 text-sm font-black uppercase tracking-widest text-zinc-100">Payments</h4>
+                                        </div>
+                                        <span className="text-[10px] font-sans uppercase tracking-widest text-zinc-600">{purchases.length} records</span>
+                                      </div>
+                                      {purchasesLoading ? (
+                                        <div className="py-8 text-center text-zinc-500 text-xs font-sans uppercase tracking-widest">Loading purchases...</div>
+                                      ) : purchasesError ? (
+                                        <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs font-sans text-red-400">{purchasesError}</div>
+                                      ) : purchases.length === 0 ? (
+                                        <div className="py-6 text-center text-zinc-500 text-xs font-sans uppercase tracking-widest">No purchases found.</div>
+                                      ) : (
+                                        <div className="space-y-2">
+                                          {purchases.map((purchase) => (
+                                            <div key={purchase.id} className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/35 p-3">
+                                              <div className="min-w-0">
+                                                <p className="truncate text-xs font-black uppercase tracking-widest text-zinc-100">{purchase.label || purchase.plan || 'Purchase'}</p>
+                                                <p className="mt-1 text-[10px] font-sans uppercase tracking-[0.24em] text-zinc-600">{formatTimestamp(purchase.purchasedAt || purchase.purchasedAtMs)}</p>
+                                              </div>
+                                              <div className="text-right">
+                                                <p className="text-xs font-bold text-emerald-300">{purchase.amount ? `${purchase.currency || 'USD'} ${purchase.amount}` : '-'}</p>
+                                                <p className="text-[9px] font-sans uppercase tracking-[0.22em] text-zinc-600">{purchase.status || 'completed'}</p>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
 
                                   <div className="mt-6 border-t border-zinc-800/70 pt-5">
                                     <div className="mb-4 flex items-center justify-between gap-3">
@@ -8368,7 +8576,7 @@ const App = () => {
   const [dashboardRoute, setDashboardRoute] = useState(initialLocation.dashboardRoute);
   const [user, setUser] = useState(null);
   const [authResolved, setAuthResolved] = useState(false);
-  const [userPlan, setUserPlan] = useState({ plan: 'free', scanCredits: 0, loaded: false });
+  const [userPlan, setUserPlan] = useState({ plan: 'free', scanCredits: 0, dailyFreeLimit: 1, dailyScansRemaining: 1, loaded: false });
   const [analysisJobs, setAnalysisJobs] = useState([]);
   const [analysisDockCollapsed, setAnalysisDockCollapsed] = useState(false);
   const [focusedAnalysisJobId, setFocusedAnalysisJobId] = useState(null);
@@ -8425,20 +8633,26 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (!user?.uid) { setUserPlan({ plan: 'free', scanCredits: 0, loaded: true }); return; }
+    if (!user?.uid) { setUserPlan({ plan: 'free', scanCredits: 0, dailyFreeLimit: 1, dailyScansRemaining: 1, loaded: true }); return; }
     setUserPlan((prev) => ({ ...prev, loaded: false }));
     let cancelled = false;
 
     const applyPlan = (data = {}) => {
       if (cancelled) return;
-      setUserPlan({
+      setUserPlan((prev) => ({
+        ...prev,
         plan: data.plan || 'free',
         scanCredits: data.scanCredits ?? 0,
         subscriptionId: data.subscriptionId || null,
         subscriptionStatus: data.subscriptionStatus || null,
+        subscriptionCurrentPeriodEnd: data.subscriptionCurrentPeriodEnd || null,
+        proDaysLeft: data.proDaysLeft ?? prev.proDaysLeft ?? null,
+        dailyFreeLimit: data.dailyFreeLimit ?? prev.dailyFreeLimit ?? 1,
+        dailyScansToday: data.dailyScansToday ?? prev.dailyScansToday ?? 0,
+        dailyScansRemaining: data.dailyScansRemaining ?? prev.dailyScansRemaining ?? 1,
         updatedAt: data.updatedAt || null,
         loaded: true,
-      });
+      }));
     };
 
     const fetchPlanFromApi = async () => {
@@ -8503,6 +8717,44 @@ const App = () => {
   }, [user?.uid]);
 
   useEffect(() => { window.scrollTo(0, 0); }, [currentPage]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let cancelled = false;
+    const logPageVisit = async () => {
+      try {
+        const visitorKey = 'mogcheck_visitor_id';
+        let visitorId = window.localStorage.getItem(visitorKey);
+        if (!visitorId) {
+          visitorId = `visitor-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          window.localStorage.setItem(visitorKey, visitorId);
+        }
+        const headers = { 'Content-Type': 'application/json' };
+        if (user) {
+          const token = await user.getIdToken();
+          headers.Authorization = `Bearer ${token}`;
+        }
+        if (cancelled) return;
+        fetch(`${API_BASE}/api/activity/page`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            page: currentPage,
+            path: `${window.location.pathname}${window.location.search}`,
+            visitorId,
+            platform: /mobi|android|iphone|ipad|ipod|opera mini|opera mobi/i.test(window.navigator.userAgent) ? 'mobile' : 'desktop',
+          }),
+          keepalive: true,
+        }).catch(() => {});
+      } catch {
+        // Activity logging should never block navigation.
+      }
+    };
+    logPageVisit();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentPage, user?.uid]);
 
   useEffect(() => {
     if (currentPage !== 'upload-photo' && currentPage !== 'upload-ultra') {

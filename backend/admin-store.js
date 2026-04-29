@@ -121,7 +121,7 @@ function save() {
   saveToFirestore().catch(() => {});
 }
 
-function logAnalysis({ model, durationMs, success, rating, sideRating, error }) {
+function logAnalysis({ model, durationMs, success, rating, sideRating, error, uid, platform }) {
   store.analyses.unshift({
     id: Date.now(),
     ts: new Date().toISOString(),
@@ -131,6 +131,8 @@ function logAnalysis({ model, durationMs, success, rating, sideRating, error }) 
     rating: rating ?? null,
     sideRating: sideRating ?? null,
     error: error || null,
+    uid: uid || null,
+    platform: platform || null,
   });
   if (store.analyses.length > 500) store.analyses.length = 500;
   save();

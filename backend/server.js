@@ -191,6 +191,12 @@ function timestampMs(value) {
   return Number.isFinite(ms) ? ms : 0;
 }
 
+function calculateDaysLeft(value) {
+  const ms = timestampMs(value);
+  if (!ms) return null;
+  return Math.max(0, Math.ceil((ms - Date.now()) / 86400000));
+}
+
 async function countSuccessfulScansToday(uid) {
   if (!uid) return 0;
   const { startMs, endMs } = getDayBounds();
@@ -452,6 +458,57 @@ function extractPaddlePriceIds(data = {}) {
     : [];
 }
 
+function getPaddlePeriodEnd(data = {}, fallbackPlan = 'pro') {
+  const raw =
+    data.current_billing_period?.ends_at ||
+    data.billing_period?.ends_at ||
+    data.next_billed_at ||
+    data.subscription?.current_billing_period?.ends_at ||
+    null;
+  const parsed = raw ? new Date(raw).getTime() : 0;
+  if (Number.isFinite(parsed) && parsed > Date.now()) return new Date(parsed).toISOString();
+  const days = fallbackPlan === 'pro_yearly' ? 365 : 30;
+  return new Date(Date.now() + days * 86400000).toISOString();
+}
+
+function extractPaddleTotal(data = {}) {
+  const totals = data.details?.totals || data.totals || {};
+  const rawTotal = totals.total ?? totals.grand_total ?? totals.subtotal ?? data.total ?? null;
+  const numericTotal = rawTotal == null ? null : Number(rawTotal);
+  const amount =
+    Number.isFinite(numericTotal) && numericTotal > 0
+      ? numericTotal >= 100
+        ? (numericTotal / 100).toFixed(2)
+        : numericTotal.toFixed(2)
+      : null;
+  return {
+    amount,
+    currency: String(data.currency_code || totals.currency_code || data.currency || 'USD').toUpperCase(),
+  };
+}
+
+async function savePurchaseRecord(userId, record = {}) {
+  if (!userId) return;
+  const purchase = {
+    ...record,
+    userId,
+    purchasedAt: admin.firestore?.FieldValue?.serverTimestamp?.() || new Date().toISOString(),
+    purchasedAtMs: Date.now(),
+  };
+  if (!firestore) {
+    if (!localPurchases[userId]) localPurchases[userId] = [];
+    localPurchases[userId].unshift({
+      id: purchase.id || `purchase-${Date.now()}`,
+      ...purchase,
+      purchasedAt: new Date().toISOString(),
+    });
+    localPurchases[userId] = localPurchases[userId].slice(0, 100);
+    return;
+  }
+  const id = String(record.id || record.transactionId || record.eventId || `purchase-${Date.now()}`).slice(0, 180);
+  await firestore.collection('users').doc(userId).collection('purchases').doc(id).set(purchase, { merge: true });
+}
+
 /* Legacy Lemon Squeezy webhook kept disabled on purpose.
    MogCheck billing now runs through Paddle only. */
 /* app.post(
@@ -593,16 +650,36 @@ app.post(
 
     try {
       if (eventName === 'transaction.completed') {
+        const isYearlyPurchase = PADDLE_PRICE_PRO_YEARLY && priceIds.includes(PADDLE_PRICE_PRO_YEARLY);
+        const purchasePlan = priceIds.includes(PADDLE_PRICE_SINGLE_SCAN)
+          ? 'two_scans'
+          : isYearlyPurchase
+            ? 'pro_yearly'
+            : 'pro';
+        const total = extractPaddleTotal(data);
+        await savePurchaseRecord(userId, {
+          id: String(data.id || event.event_id || `purchase-${Date.now()}`),
+          eventId: event.event_id || null,
+          transactionId: String(data.id || ''),
+          subscriptionId: String(data.subscription_id || ''),
+          plan: purchasePlan,
+          label: purchasePlan === 'two_scans' ? '2 Scans' : purchasePlan === 'pro_yearly' ? 'MogCheck Pro Annual' : 'MogCheck Pro Monthly',
+          priceIds,
+          amount: total.amount,
+          currency: total.currency,
+          status: String(data.status || 'completed'),
+        }).catch((purchaseErr) => console.warn('[webhook:paddle] Purchase record failed:', purchaseErr.message));
+
         if (priceIds.includes(PADDLE_PRICE_SINGLE_SCAN)) {
           await userRef.set(
             {
               plan: 'single_scan',
-              scanCredits: admin.firestore.FieldValue.increment(1),
+              scanCredits: admin.firestore.FieldValue.increment(2),
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             },
             { merge: true }
           );
-          console.log(`[webhook:paddle] User ${userId} -> single_scan (+1 credit)`);
+          console.log(`[webhook:paddle] User ${userId} -> single_scan (+2 credits)`);
         }
 
         if (
@@ -616,6 +693,7 @@ app.post(
               scanCredits: 999,
               subscriptionId: String(data.subscription_id || ''),
               subscriptionStatus: 'active',
+              subscriptionCurrentPeriodEnd: getPaddlePeriodEnd(data, isYearlyPurchase ? 'pro_yearly' : 'pro'),
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             },
             { merge: true }
@@ -634,6 +712,7 @@ app.post(
             scanCredits: 999,
             subscriptionId: String(data.id || ''),
             subscriptionStatus: status || 'active',
+            subscriptionCurrentPeriodEnd: getPaddlePeriodEnd(data, priceIds.includes(PADDLE_PRICE_PRO_YEARLY) ? 'pro_yearly' : 'pro'),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           },
           { merge: true }
@@ -674,6 +753,9 @@ const localCommunityBattles = []; // Array of community battles
 const localCommunityScans = [];
 const localNotifications = {}; // { uid: [{ id, title, body, url, read, createdAt }] }
 const localMogBattleFollows = {}; // { battleId: { uid: true } }
+const localActivityEvents = [];
+const localUserActivity = {};
+const localPurchases = {};
 const PROFILE_SCAN_HISTORY_LIMIT = 10;
 const MOG_BATTLE_FAKE_VOTES_ENABLED = process.env.MOG_BATTLE_FAKE_VOTES !== '0';
 const MOG_BATTLE_FAKE_VOTE_EPOCH = Date.parse(process.env.MOG_BATTLE_FAKE_VOTE_EPOCH || '2026-04-27T00:00:00.000Z');
@@ -684,6 +766,111 @@ const MOG_BATTLE_BANNED_NAME_TERMS = [
   'fuck', 'fucker', 'fucking', 'shit', 'bitch', 'cunt', 'whore', 'slut',
   'nigger', 'nigga', 'faggot', 'retard'
 ];
+
+function getClientPlatform(req) {
+  const ua = String(req.headers['user-agent'] || '').toLowerCase();
+  if (/(mobi|android|iphone|ipad|ipod|opera mini|opera mobi|iemobile|mobile safari)/i.test(ua)) {
+    return 'mobile';
+  }
+  return 'desktop';
+}
+
+function getClientIp(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return forwarded || req.socket?.remoteAddress || '';
+}
+
+function serializeActivityEvent(input = {}) {
+  return {
+    ...input,
+    timestamp:
+      input.timestamp?.toDate?.()?.toISOString?.() ||
+      (typeof input.timestamp?.seconds === 'number' ? new Date(input.timestamp.seconds * 1000).toISOString() : input.timestamp || null),
+  };
+}
+
+function serializePurchase(input = {}) {
+  return {
+    ...input,
+    purchasedAt:
+      input.purchasedAt?.toDate?.()?.toISOString?.() ||
+      (typeof input.purchasedAt?.seconds === 'number' ? new Date(input.purchasedAt.seconds * 1000).toISOString() : input.purchasedAt || null),
+  };
+}
+
+async function recordActivityEvent(req, event = {}) {
+  const uid = event.uid || req.uid || null;
+  const now = Date.now();
+  const base = {
+    type: String(event.type || 'page').slice(0, 80),
+    uid,
+    email: event.email || req.userEmail || null,
+    visitorId: String(event.visitorId || req.body?.visitorId || uid || getClientIp(req) || 'unknown').slice(0, 160),
+    platform: String(event.platform || req.body?.platform || getClientPlatform(req)).slice(0, 40),
+    userAgent: String(req.headers['user-agent'] || '').slice(0, 500),
+    ip: getClientIp(req),
+    timestamp: admin.firestore?.FieldValue?.serverTimestamp?.() || new Date(now).toISOString(),
+    timestampMs: now,
+    ...event,
+  };
+
+  if (!firestore) {
+    const localEvent = { id: `activity-${now}-${Math.random().toString(36).slice(2)}`, ...base, timestamp: new Date(now).toISOString() };
+    localActivityEvents.unshift(localEvent);
+    if (localActivityEvents.length > 5000) localActivityEvents.length = 5000;
+    if (uid) {
+      if (!localUserActivity[uid]) localUserActivity[uid] = [];
+      localUserActivity[uid].unshift(localEvent);
+      localUserActivity[uid] = localUserActivity[uid].slice(0, 300);
+    }
+    return localEvent;
+  }
+
+  const globalRef = firestore.collection('activityEvents').doc();
+  const writes = [globalRef.set(base)];
+  if (uid) {
+    writes.push(firestore.collection('users').doc(uid).collection('activity').doc(globalRef.id).set(base));
+    writes.push(firestore.collection('users').doc(uid).set({
+      lastActive: admin.firestore.FieldValue.serverTimestamp(),
+      lastIp: base.ip || null,
+      lastPlatform: base.platform || null,
+      email: base.email || null,
+    }, { merge: true }));
+  }
+  await Promise.all(writes);
+  return { id: globalRef.id, ...base };
+}
+
+function buildVisitorBuckets(range = '24h') {
+  const now = Date.now();
+  const configs = {
+    hour: { spanMs: 60 * 60 * 1000, bucketMs: 5 * 60 * 1000, label: 'Last hour' },
+    '6h': { spanMs: 6 * 60 * 60 * 1000, bucketMs: 30 * 60 * 1000, label: 'Last 6 hours' },
+    '24h': { spanMs: 24 * 60 * 60 * 1000, bucketMs: 60 * 60 * 1000, label: 'Last 24 hours' },
+    week: { spanMs: 7 * 24 * 60 * 60 * 1000, bucketMs: 24 * 60 * 60 * 1000, label: 'Last week' },
+  };
+  const config = configs[range] || configs['24h'];
+  const count = Math.ceil(config.spanMs / config.bucketMs);
+  const startMs = now - config.spanMs;
+  return {
+    range: configs[range] ? range : '24h',
+    label: config.label,
+    startMs,
+    bucketMs: config.bucketMs,
+    buckets: Array.from({ length: count }, (_, index) => {
+      const bucketStart = startMs + index * config.bucketMs;
+      return {
+        startMs: bucketStart,
+        endMs: bucketStart + config.bucketMs,
+        label:
+          range === 'week'
+            ? new Date(bucketStart).toLocaleDateString([], { weekday: 'short' })
+            : new Date(bucketStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        visitors: new Set(),
+      };
+    }),
+  };
+}
 const MOG_BATTLE_COMPACT_BANNED_NAME_TERMS = new Set([
   'porn', 'porno', 'xxx', 'nsfw', 'onlyfans', 'pornhub', 'xvideos', 'xnxx',
   'penis', 'pussy', 'vagina', 'boobs', 'fucker', 'fucking', 'cunt', 'whore', 'slut',
@@ -1534,6 +1721,16 @@ app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (
         nextA: localMogBattles[battleId].votesA,
         nextB: localMogBattles[battleId].votesB,
       });
+      await recordActivityEvent(req, {
+        type: 'mog_battle_vote',
+        uid,
+        email: decoded.email || null,
+        page: 'mog-battles',
+        battleId,
+        battleName: cb ? battleName(cb) : battleId,
+        side,
+        votedFor: side === 'a' ? (cb?.fighterA?.name || cb?.fighterA?.displayName || 'A') : (cb?.fighterB?.name || cb?.fighterB?.displayName || 'B'),
+      }).catch((activityErr) => console.warn('[activity] local vote log failed:', activityErr.message));
       
       const displayedVotes = getDisplayedMogBattleVotes(battleId, localMogBattles[battleId].votesA, localMogBattles[battleId].votesB);
       return res.json({ success: true, ok: true, ...displayedVotes });
@@ -1678,6 +1875,26 @@ app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (
       console.warn('[notifications] vote notification lookup failed:', notifyErr.message);
     }
 
+    try {
+      const battleSnap = await firestore.collection('mogBattlesCommunity').doc(battleId).get();
+      const battle = battleSnap.exists ? (battleSnap.data() || {}) : null;
+      await recordActivityEvent(req, {
+        type: 'mog_battle_vote',
+        uid,
+        email,
+        page: 'mog-battles',
+        battleId,
+        battleName: battle ? battleName(battle) : battleId,
+        side,
+        votedFor:
+          side === 'a'
+            ? (battle?.fighterA?.name || battle?.fighterA?.displayName || 'A')
+            : (battle?.fighterB?.name || battle?.fighterB?.displayName || 'B'),
+      });
+    } catch (activityErr) {
+      console.warn('[activity] vote log failed:', activityErr.message);
+    }
+
     return res.json({ ok: true, ...displayedTallies });
   } catch (e) {
     console.error('[mog-battle] POST vote', e);
@@ -1710,6 +1927,26 @@ app.get('/api/health', (req, res) => {
 
 app.get('/health', (req, res) => {
   res.json(healthPayload());
+});
+
+app.post('/api/activity/page', extractUserOptional, async (req, res) => {
+  const page = String(req.body?.page || '').trim().slice(0, 120);
+  const pathValue = String(req.body?.path || '').trim().slice(0, 500);
+  if (!page && !pathValue) return res.status(400).json({ error: 'Missing page' });
+
+  try {
+    await recordActivityEvent(req, {
+      type: 'page',
+      page: page || pathValue,
+      path: pathValue || null,
+      visitorId: String(req.body?.visitorId || '').trim().slice(0, 160) || undefined,
+      platform: String(req.body?.platform || '').trim().slice(0, 40) || undefined,
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    console.warn('[activity] page log failed:', e.message || e);
+    res.json({ ok: false });
+  }
 });
 
 app.get('/api/notifications', extractUserOptional, async (req, res) => {
@@ -1805,12 +2042,18 @@ app.get('/api/user/plan', extractUserOptional, async (req, res) => {
     userEmail === 'laithabuamsheh@gmail.com';
   if (!firestore) {
     const fallbackPlan = isAdminEmail ? 'pro' : 'free';
+    const dailyLimit = fallbackPlan === 'pro' ? null : 1;
     return res.json({
       ok: true,
       plan: fallbackPlan,
       scanCredits: isAdminEmail ? 999 : 0,
       subscriptionId: null,
       subscriptionStatus: null,
+      subscriptionCurrentPeriodEnd: null,
+      proDaysLeft: null,
+      dailyFreeLimit: dailyLimit,
+      dailyScansToday: 0,
+      dailyScansRemaining: dailyLimit == null ? null : dailyLimit,
       fairUsage: await buildFairUsagePolicy(fallbackPlan, req.uid, { adminExempt: isAdminEmail }),
       warning: 'Firestore not available. Using fallback plan state.',
     });
@@ -1818,12 +2061,18 @@ app.get('/api/user/plan', extractUserOptional, async (req, res) => {
 
   if (isFirestoreQuotaCoolingDown()) {
     const fallbackPlan = isAdminEmail ? 'pro' : 'free';
+    const dailyLimit = fallbackPlan === 'pro' ? null : 1;
     return res.json({
       ok: true,
       plan: fallbackPlan,
       scanCredits: isAdminEmail ? 999 : 0,
       subscriptionId: null,
       subscriptionStatus: null,
+      subscriptionCurrentPeriodEnd: null,
+      proDaysLeft: null,
+      dailyFreeLimit: dailyLimit,
+      dailyScansToday: 0,
+      dailyScansRemaining: dailyLimit == null ? null : dailyLimit,
       fairUsage: await buildFairUsagePolicy(fallbackPlan, req.uid, { adminExempt: isAdminEmail }),
       warning: firestoreQuotaCooldownWarning(),
     });
@@ -1832,13 +2081,23 @@ app.get('/api/user/plan', extractUserOptional, async (req, res) => {
   try {
     const snap = await firestore.collection('users').doc(req.uid).get();
     const data = snap.exists ? snap.data() : {};
+    const plan = data.plan || 'free';
+    const isProPlan = plan === 'pro' || plan === 'pro_yearly' || isAdminEmail;
+    const dailyScansToday = await countSuccessfulScansToday(req.uid);
+    const dailyFreeLimit = isProPlan ? null : 1;
+    const subscriptionCurrentPeriodEnd = data.subscriptionCurrentPeriodEnd || null;
     return res.json({
       ok: true,
-      plan: data.plan || 'free',
+      plan,
       scanCredits: Number(data.scanCredits) || 0,
       subscriptionId: data.subscriptionId || null,
       subscriptionStatus: data.subscriptionStatus || null,
-      fairUsage: await buildFairUsagePolicy(data.plan || 'free', req.uid, { adminExempt: isAdminEmail }),
+      subscriptionCurrentPeriodEnd,
+      proDaysLeft: calculateDaysLeft(subscriptionCurrentPeriodEnd),
+      dailyFreeLimit,
+      dailyScansToday,
+      dailyScansRemaining: dailyFreeLimit == null ? null : Math.max(0, dailyFreeLimit - dailyScansToday),
+      fairUsage: await buildFairUsagePolicy(plan, req.uid, { adminExempt: isAdminEmail }),
       updatedAt:
         data.updatedAt?.toDate?.()?.toISOString?.() ||
         (typeof data.updatedAt?.seconds === 'number' ? new Date(data.updatedAt.seconds * 1000).toISOString() : data.updatedAt || null),
@@ -1847,12 +2106,18 @@ app.get('/api/user/plan', extractUserOptional, async (req, res) => {
     if (isQuotaExceededError(e)) {
       noteFirestoreQuotaExceeded('user/plan');
       const fallbackPlan = isAdminEmail ? 'pro' : 'free';
+      const dailyLimit = fallbackPlan === 'pro' ? null : 1;
       return res.json({
         ok: true,
         plan: fallbackPlan,
         scanCredits: isAdminEmail ? 999 : 0,
         subscriptionId: null,
         subscriptionStatus: null,
+        subscriptionCurrentPeriodEnd: null,
+        proDaysLeft: null,
+        dailyFreeLimit: dailyLimit,
+        dailyScansToday: 0,
+        dailyScansRemaining: dailyLimit == null ? null : dailyLimit,
         fairUsage: await buildFairUsagePolicy(fallbackPlan, req.uid, { adminExempt: isAdminEmail }),
         warning: firestoreQuotaCooldownWarning(),
       });
@@ -2745,6 +3010,7 @@ app.post(
   console.log('========== END PY ENGINE ==========\n');
 
   adminStore.parseKeyEventsFromStdout(pythonOutput);
+  const scanPlatform = getClientPlatform(req);
   adminStore.logAnalysis({
     model: modelChoice,
     durationMs: Date.now() - analysisStartTime,
@@ -2752,6 +3018,8 @@ app.post(
     rating: finalRating,
     sideRating,
     error: payload.error || null,
+    uid: req.uid || null,
+    platform: scanPlatform,
   });
 
   if (success && req.ultraContext && req.ultraContext.plan === 'single_scan' && firestore) {
@@ -2776,10 +3044,12 @@ app.post(
       payload.profileId = req.body.profileId || 'default';
       payload.selectedModel = String(modelChoice || payload.selectedModel || '').trim() || '1';
       payload.cohesiveFrontSide = false;
+      payload.platform = scanPlatform;
 
       savedScanBase = {
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         model: modelChoice,
+        platform: scanPlatform,
         cohesiveFrontSide: false,
         visibility: 'private',
         finalRating,
@@ -2803,6 +3073,7 @@ app.post(
           scanRequestId,
           selectedModel: payload.selectedModel,
           cohesiveFrontSide: false,
+          platform: scanPlatform,
         },
         profileId: payload.profileId,
       };
@@ -2833,6 +3104,7 @@ app.post(
       sideImageUrl: sideFallbackUrl || payload.sideImage || null,
       debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
       debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
+      platform: scanPlatform,
       payload: {
         ...payload,
         frontImage: frontFallbackUrl || payload.frontImage || null,
@@ -2842,6 +3114,7 @@ app.post(
         debugRatiosImage: debugRatiosUrl || payload.debugRatiosImage || null,
         debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
         scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
+        platform: scanPlatform,
       },
     });
   }
@@ -3035,6 +3308,51 @@ app.get('/api/admin/stats', (req, res) => {
   res.json(adminStore.getStats());
 });
 
+app.get('/api/admin/visitor-stats', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || req.query.pw || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+
+  const bucketData = buildVisitorBuckets(String(req.query.range || '24h'));
+  try {
+    const events = [];
+    if (!firestore) {
+      events.push(...localActivityEvents.filter((event) => Number(event.timestampMs) >= bucketData.startMs));
+    } else {
+      const snap = await firestore
+        .collection('activityEvents')
+        .where('timestampMs', '>=', bucketData.startMs)
+        .orderBy('timestampMs', 'asc')
+        .limit(5000)
+        .get();
+      snap.forEach((doc) => events.push({ id: doc.id, ...doc.data() }));
+    }
+
+    events.forEach((event) => {
+      const ts = Number(event.timestampMs) || timestampMs(event.timestamp);
+      if (!ts) return;
+      const index = bucketData.buckets.findIndex((bucket) => ts >= bucket.startMs && ts < bucket.endMs);
+      if (index < 0) return;
+      bucketData.buckets[index].visitors.add(String(event.visitorId || event.uid || event.ip || 'unknown'));
+    });
+
+    const buckets = bucketData.buckets.map((bucket) => ({
+      startMs: bucket.startMs,
+      label: bucket.label,
+      count: bucket.visitors.size,
+    }));
+    res.json({
+      range: bucketData.range,
+      label: bucketData.label,
+      totalUnique: new Set(events.map((event) => String(event.visitorId || event.uid || event.ip || 'unknown'))).size,
+      buckets,
+    });
+  } catch (e) {
+    if (isQuotaExceededError(e)) return res.json({ range: bucketData.range, label: bucketData.label, totalUnique: 0, buckets: bucketData.buckets.map((bucket) => ({ startMs: bucket.startMs, label: bucket.label, count: 0 })), warning: 'Firestore quota exceeded.' });
+    console.error('[admin] Failed to read visitor stats:', e);
+    res.status(500).json({ error: e.message || 'Failed to read visitor stats' });
+  }
+});
+
 app.post('/api/admin/notifications/announcement', async (req, res) => {
   const pw = req.headers['x-admin-password'] || '';
   if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
@@ -3118,7 +3436,11 @@ app.get('/api/admin/users', async (req, res) => {
         displayName: authUser?.displayName || fd.displayName || 'No Name',
         plan: fd.plan || 'free',
         scanCredits: fd.scanCredits || 0,
+        subscriptionStatus: fd.subscriptionStatus || null,
+        subscriptionCurrentPeriodEnd: fd.subscriptionCurrentPeriodEnd || null,
+        proDaysLeft: calculateDaysLeft(fd.subscriptionCurrentPeriodEnd),
         lastIp: fd.lastIp || 'Unknown',
+        lastPlatform: fd.lastPlatform || 'Unknown',
         lastActive:
           fd.lastActive && typeof fd.lastActive.toDate === 'function'
             ? fd.lastActive.toDate().toISOString()
@@ -3395,6 +3717,60 @@ app.get('/api/admin/users/:uid/mog-battles', async (req, res) => {
   }
 });
 
+app.get('/api/admin/users/:uid/activity', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  const uid = String(req.params.uid || '').trim();
+  if (!uid) return res.status(400).json({ error: 'Missing uid' });
+
+  try {
+    if (!firestore) {
+      return res.json({ events: (localUserActivity[uid] || []).slice(0, 150).map(serializeActivityEvent) });
+    }
+    let snap;
+    try {
+      snap = await firestore.collection('users').doc(uid).collection('activity').orderBy('timestampMs', 'desc').limit(150).get();
+    } catch (orderErr) {
+      console.warn('[admin] user activity orderBy failed, falling back:', orderErr.message);
+      snap = await firestore.collection('users').doc(uid).collection('activity').limit(150).get();
+    }
+    const events = [];
+    snap.forEach((doc) => events.push(serializeActivityEvent({ id: doc.id, ...doc.data() })));
+    events.sort((a, b) => (Number(b.timestampMs) || timestampMs(b.timestamp)) - (Number(a.timestampMs) || timestampMs(a.timestamp)));
+    res.json({ events });
+  } catch (e) {
+    if (isQuotaExceededError(e)) return res.json({ events: [], warning: 'Firestore quota exceeded.' });
+    res.status(500).json({ error: e.message || 'Failed to read activity' });
+  }
+});
+
+app.get('/api/admin/users/:uid/purchases', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || '';
+  if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
+  const uid = String(req.params.uid || '').trim();
+  if (!uid) return res.status(400).json({ error: 'Missing uid' });
+
+  try {
+    if (!firestore) {
+      return res.json({ purchases: (localPurchases[uid] || []).slice(0, 100).map(serializePurchase) });
+    }
+    let snap;
+    try {
+      snap = await firestore.collection('users').doc(uid).collection('purchases').orderBy('purchasedAtMs', 'desc').limit(100).get();
+    } catch (orderErr) {
+      console.warn('[admin] purchases orderBy failed, falling back:', orderErr.message);
+      snap = await firestore.collection('users').doc(uid).collection('purchases').limit(100).get();
+    }
+    const purchases = [];
+    snap.forEach((doc) => purchases.push(serializePurchase({ id: doc.id, ...doc.data() })));
+    purchases.sort((a, b) => (Number(b.purchasedAtMs) || timestampMs(b.purchasedAt)) - (Number(a.purchasedAtMs) || timestampMs(a.purchasedAt)));
+    res.json({ purchases });
+  } catch (e) {
+    if (isQuotaExceededError(e)) return res.json({ purchases: [], warning: 'Firestore quota exceeded.' });
+    res.status(500).json({ error: e.message || 'Failed to read purchases' });
+  }
+});
+
 // Delete specific scan
 app.delete('/api/admin/users/:uid/scans/:scanId', async (req, res) => {
   const pw = req.headers['x-admin-password'] || '';
@@ -3447,6 +3823,35 @@ app.get('/api/user/scans', extractUserOptional, async (req, res) => {
     }
     console.error('[user/scans] GET failed:', e.message || e);
     res.json({ scans: [], warning: 'Firestore failed. Scan history is temporarily unavailable.' });
+  }
+});
+
+app.get('/api/user/purchases', extractUserOptional, async (req, res) => {
+  if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    if (!firestore) {
+      return res.json({ purchases: (localPurchases[req.uid] || []).slice(0, 100).map(serializePurchase) });
+    }
+    if (isFirestoreQuotaCoolingDown()) {
+      return res.json({ purchases: [], warning: firestoreQuotaCooldownWarning() });
+    }
+    let snap;
+    try {
+      snap = await firestore.collection('users').doc(req.uid).collection('purchases').orderBy('purchasedAtMs', 'desc').limit(100).get();
+    } catch (orderErr) {
+      console.warn('[user/purchases] orderBy failed, falling back:', orderErr.message);
+      snap = await firestore.collection('users').doc(req.uid).collection('purchases').limit(100).get();
+    }
+    const purchases = [];
+    snap.forEach((doc) => purchases.push(serializePurchase({ id: doc.id, ...doc.data() })));
+    purchases.sort((a, b) => (Number(b.purchasedAtMs) || timestampMs(b.purchasedAt)) - (Number(a.purchasedAtMs) || timestampMs(a.purchasedAt)));
+    res.json({ purchases });
+  } catch (e) {
+    if (isQuotaExceededError(e)) {
+      noteFirestoreQuotaExceeded('user/purchases');
+      return res.json({ purchases: [], warning: firestoreQuotaCooldownWarning() });
+    }
+    res.status(500).json({ error: e.message || 'Failed to read purchases' });
   }
 });
 

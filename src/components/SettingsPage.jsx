@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Clock, User, Battery, Calendar, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Clock, User, Battery, Calendar, ChevronRight, Receipt } from 'lucide-react';
 import { getApiBase } from '../utils/apiBase';
 
 const API_BASE = getApiBase();
@@ -23,9 +23,11 @@ const timestampToMillis = (value) => {
 };
 
 const SettingsPage = ({ setCurrentPage, user, userPlan, dashboardData }) => {
-  const planName = userPlan?.plan === 'pro' ? 'Pro' : userPlan?.plan === 'single_scan' ? 'Single Scan' : 'Free';
+  const planName = userPlan?.plan === 'pro' || userPlan?.plan === 'pro_yearly' ? 'Pro' : userPlan?.plan === 'single_scan' ? 'Single Scan' : 'Free';
   const credits = userPlan?.scanCredits || 0;
   const [userScans, setUserScans] = useState([]);
+  const [purchaseHistory, setPurchaseHistory] = useState([]);
+  const [purchasesLoading, setPurchasesLoading] = useState(false);
   let timeStr = 'N/A';
   if (userPlan?.updatedAt) {
     const d = new Date(userPlan.updatedAt.seconds ? userPlan.updatedAt.seconds * 1000 : userPlan.updatedAt);
@@ -37,24 +39,35 @@ const SettingsPage = ({ setCurrentPage, user, userPlan, dashboardData }) => {
     const fetchScans = async () => {
       if (!user) {
         setUserScans([]);
+        setPurchaseHistory([]);
         return;
       }
       try {
         const token = await user.getIdToken();
-        const res = await fetch(`${API_BASE}/api/user/scans`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) return;
-        const data = await res.json();
+        const [scansRes, purchasesRes] = await Promise.all([
+          fetch(`${API_BASE}/api/user/scans`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${API_BASE}/api/user/purchases`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+        const data = await scansRes.json().catch(() => ({}));
+        const purchasesData = await purchasesRes.json().catch(() => ({}));
         if (!cancelled) {
-          setUserScans(Array.isArray(data.scans) ? data.scans : []);
+          setUserScans(scansRes.ok && Array.isArray(data.scans) ? data.scans : []);
+          setPurchaseHistory(purchasesRes.ok && Array.isArray(purchasesData.purchases) ? purchasesData.purchases : []);
         }
       } catch {
         if (!cancelled) {
           setUserScans([]);
+          setPurchaseHistory([]);
         }
+      } finally {
+        if (!cancelled) setPurchasesLoading(false);
       }
     };
+    setPurchasesLoading(!!user);
     fetchScans();
     return () => {
       cancelled = true;
@@ -136,6 +149,34 @@ const SettingsPage = ({ setCurrentPage, user, userPlan, dashboardData }) => {
               <p className="text-zinc-500 text-sm mt-1">
                 Scans Today: <span className="text-white font-bold">{scansToday}</span>
               </p>
+            </div>
+
+            <div className="mt-6 pt-6 border-t border-zinc-800/50">
+              <h3 className="text-xs uppercase tracking-widest text-zinc-400 font-bold mb-3 flex items-center gap-2">
+                <Receipt size={14} /> Purchase History
+              </h3>
+              {purchasesLoading ? (
+                <p className="text-zinc-500 text-sm">Loading purchases...</p>
+              ) : purchaseHistory.length === 0 ? (
+                <p className="text-zinc-500 text-sm">No purchases found yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {purchaseHistory.map((purchase) => (
+                    <div key={purchase.id} className="flex items-center justify-between gap-3 rounded-xl border border-zinc-800/70 bg-black/30 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-zinc-100">{purchase.label || purchase.plan || 'Purchase'}</p>
+                        <p className="mt-1 text-[10px] uppercase tracking-widest text-zinc-600">
+                          {purchase.purchasedAt ? new Date(purchase.purchasedAt).toLocaleString() : 'Date unavailable'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-emerald-300">{purchase.amount ? `${purchase.currency || 'USD'} ${purchase.amount}` : '-'}</p>
+                        <p className="text-[10px] uppercase tracking-widest text-zinc-600">{purchase.status || 'completed'}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
         </div>
