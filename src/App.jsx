@@ -2973,6 +2973,7 @@ const FaceScanOverlay = ({
   landmarksData,
   revealDurationSeconds = 36,
   scanLoopSeconds = 4,
+  fitMode = 'cover',
 }) => {
   const compactMotion = false;
   let mappedPoints = [];
@@ -3000,24 +3001,36 @@ const FaceScanOverlay = ({
     
     let scaleX, scaleY, offsetX, offsetY;
     
-    if (imgRatio > containerRatio) {
+    if (fitMode === 'contain') {
+      if (imgRatio > containerRatio) {
+        scaleX = C_w;
+        scaleY = C_w / imgRatio;
+        offsetX = 0;
+        offsetY = (C_h - scaleY) / 2;
+      } else {
+        scaleY = C_h;
+        scaleX = C_h * imgRatio;
+        offsetX = (C_w - scaleX) / 2;
+        offsetY = 0;
+      }
+    } else if (imgRatio > containerRatio) {
       scaleY = C_h;
       scaleX = C_h * imgRatio;
-      offsetX = (scaleX - C_w) / 2;
+      offsetX = -(scaleX - C_w) / 2;
       offsetY = 0;
     } else {
       scaleX = C_w;
       scaleY = C_w / imgRatio;
       offsetX = 0;
-      offsetY = (scaleY - C_h) / 2;
+      offsetY = -(scaleY - C_h) / 2;
     }
 
     const pointMap = new Map();
 
     Array.from(uniquePoints).forEach((idx) => {
       const pt = points[idx] || points[0];
-      const screenX = pt.x * scaleX - offsetX;
-      const screenY = pt.y * scaleY - offsetY;
+      const screenX = pt.x * scaleX + offsetX;
+      const screenY = pt.y * scaleY + offsetY;
       const mapped = { id: idx, x: screenX, y: screenY };
       mappedPoints.push(mapped);
       pointMap.set(idx, mapped);
@@ -3912,7 +3925,7 @@ const ScanningView = ({
         )}
       </div>
 
-      <div className="mog-scan-frame relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
+      <div className="mog-scan-frame mog-scan-frame--main relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
         {videoUrl ? (
            <video src={videoUrl} autoPlay loop muted playsInline className="mog-scan-media absolute inset-0 w-full h-full object-cover z-10" />
         ) : (
@@ -3927,6 +3940,7 @@ const ScanningView = ({
             landmarksData={landmarks}
             revealDurationSeconds={overlayRevealSeconds}
             scanLoopSeconds={overlayScanLoopSeconds}
+            fitMode={isCompactViewport ? 'contain' : 'cover'}
           />
         )}
 
@@ -4374,6 +4388,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
   const statusText = job.statusText || 'Preparing analysis... Estimated time left: calculating.';
   const elapsedMs = job.elapsedScanMs ?? Math.max(0, Date.now() - Number(job.startedAt || job.createdAt || Date.now()));
   const overlayLandmarks = job.landmarks || restoredLandmarks;
+  const isCompactViewport = typeof window !== 'undefined' && window.innerWidth < 768;
 
   return (
     <div className="flex-grow flex flex-col bg-[#0c0d0e] scroll-mt-20">
@@ -4412,7 +4427,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
             )}
           </div>
 
-          <div className="mog-scan-frame relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
+          <div className="mog-scan-frame mog-scan-frame--main relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
             {job.videoUrl ? (
               <video src={job.videoUrl} autoPlay loop muted playsInline className="mog-scan-media absolute inset-0 w-full h-full object-cover z-10" />
             ) : (
@@ -4431,6 +4446,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
                 landmarksData={overlayLandmarks}
                 revealDurationSeconds={overlayRevealSeconds}
                 scanLoopSeconds={overlayScanLoopSeconds}
+                fitMode={isCompactViewport ? 'contain' : 'cover'}
               />
             )}
 
