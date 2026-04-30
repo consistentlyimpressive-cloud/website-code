@@ -2976,8 +2976,100 @@ const FaceScanOverlay = ({
   fitMode = 'cover',
 }) => {
   const compactMotion = false;
+  const overlayRef = useRef(null);
+  const [displayBox, setDisplayBox] = useState(null);
   let mappedPoints = [];
   let mappedEdges = [];
+  const sourceImgW = landmarksData && landmarksData !== 'fallback' ? landmarksData.imgW : null;
+  const sourceImgH = landmarksData && landmarksData !== 'fallback' ? landmarksData.imgH : null;
+
+  useEffect(() => {
+    if (!sourceImgW || !sourceImgH) {
+      setDisplayBox(null);
+      return undefined;
+    }
+
+    let frameObserver;
+    let mediaObserver;
+
+    const updateDisplayBox = () => {
+      const overlay = overlayRef.current;
+      const frame = overlay?.parentElement;
+      const media = frame?.querySelector('.mog-scan-media');
+      if (!frame) return;
+
+      const frameRect = frame.getBoundingClientRect();
+      const frameW = frameRect.width || 0;
+      const frameH = frameRect.height || 0;
+      if (!frameW || !frameH) return;
+
+      const mediaStyle = media ? window.getComputedStyle(media) : null;
+      const objectFit = mediaStyle?.objectFit || fitMode || 'cover';
+      const objectPosition = mediaStyle?.objectPosition || '50% 50%';
+      const mediaW = media?.clientWidth || frameW;
+      const mediaH = media?.clientHeight || frameH;
+      const imgRatio = sourceImgW / sourceImgH;
+      const frameRatio = mediaW / mediaH;
+      const shouldContain = objectFit === 'contain' || objectFit === 'scale-down';
+      const useWidth = shouldContain ? imgRatio > frameRatio : imgRatio < frameRatio;
+      const renderedW = useWidth ? mediaW : mediaH * imgRatio;
+      const renderedH = useWidth ? mediaW / imgRatio : mediaH;
+      const [posXRaw = '50%', posYRaw = '50%'] = objectPosition.split(' ');
+      const parsePosition = (value) => {
+        if (value === 'left' || value === 'top') return 0;
+        if (value === 'right' || value === 'bottom') return 1;
+        if (value === 'center') return 0.5;
+        if (String(value).endsWith('%')) return Number.parseFloat(value) / 100;
+        return 0.5;
+      };
+      const posX = parsePosition(posXRaw);
+      const posY = parsePosition(posYRaw);
+      const offsetXPx = (mediaW - renderedW) * posX;
+      const offsetYPx = (mediaH - renderedH) * posY;
+      const C_w = 100;
+      const C_h = 133.33;
+      const nextBox = {
+        x: (offsetXPx / frameW) * C_w,
+        y: (offsetYPx / frameH) * C_h,
+        width: (renderedW / frameW) * C_w,
+        height: (renderedH / frameH) * C_h,
+      };
+
+      setDisplayBox((current) => {
+        if (
+          current &&
+          Math.abs(current.x - nextBox.x) < 0.05 &&
+          Math.abs(current.y - nextBox.y) < 0.05 &&
+          Math.abs(current.width - nextBox.width) < 0.05 &&
+          Math.abs(current.height - nextBox.height) < 0.05
+        ) {
+          return current;
+        }
+        return nextBox;
+      });
+    };
+
+    updateDisplayBox();
+    window.addEventListener('resize', updateDisplayBox);
+    const frame = overlayRef.current?.parentElement;
+    const media = frame?.querySelector('.mog-scan-media');
+    media?.addEventListener?.('load', updateDisplayBox);
+    media?.addEventListener?.('loadedmetadata', updateDisplayBox);
+    if (typeof ResizeObserver !== 'undefined') {
+      frameObserver = frame ? new ResizeObserver(updateDisplayBox) : null;
+      mediaObserver = media ? new ResizeObserver(updateDisplayBox) : null;
+      frameObserver?.observe(frame);
+      mediaObserver?.observe(media);
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateDisplayBox);
+      media?.removeEventListener?.('load', updateDisplayBox);
+      media?.removeEventListener?.('loadedmetadata', updateDisplayBox);
+      frameObserver?.disconnect();
+      mediaObserver?.disconnect();
+    };
+  }, [fitMode, sourceImgH, sourceImgW]);
 
   if (landmarksData && landmarksData !== 'fallback') {
     const { points, imgW, imgH } = landmarksData;
@@ -3001,7 +3093,12 @@ const FaceScanOverlay = ({
     
     let scaleX, scaleY, offsetX, offsetY;
     
-    if (fitMode === 'contain') {
+    if (displayBox) {
+      scaleX = displayBox.width;
+      scaleY = displayBox.height;
+      offsetX = displayBox.x;
+      offsetY = displayBox.y;
+    } else if (fitMode === 'contain') {
       if (imgRatio > containerRatio) {
         scaleX = C_w;
         scaleY = C_w / imgRatio;
@@ -3102,7 +3199,7 @@ const FaceScanOverlay = ({
   const scanSeconds = Math.max(compactMotion ? 2.2 : 2.8, Number(scanLoopSeconds) || 4);
 
   return (
-    <div className="absolute inset-0 z-20 overflow-hidden" style={{ perspective: '1000px' }}>
+    <div ref={overlayRef} className="absolute inset-0 z-20 overflow-hidden" style={{ perspective: '1000px' }}>
       <svg viewBox="0 0 100 133.33" className={`w-full h-full ${compactMotion ? '' : 'drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]'}`} preserveAspectRatio="none">
         {mappedEdges.map((edge, i) => {
           const length = Math.sqrt(Math.pow(edge[1].x - edge[0].x, 2) + Math.pow(edge[1].y - edge[0].y, 2));
@@ -3940,7 +4037,7 @@ const ScanningView = ({
             landmarksData={landmarks}
             revealDurationSeconds={overlayRevealSeconds}
             scanLoopSeconds={overlayScanLoopSeconds}
-            fitMode={isCompactViewport ? 'contain' : 'cover'}
+            fitMode="cover"
           />
         )}
 
@@ -4388,7 +4485,6 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
   const statusText = job.statusText || 'Preparing analysis... Estimated time left: calculating.';
   const elapsedMs = job.elapsedScanMs ?? Math.max(0, Date.now() - Number(job.startedAt || job.createdAt || Date.now()));
   const overlayLandmarks = job.landmarks || restoredLandmarks;
-  const isCompactViewport = typeof window !== 'undefined' && window.innerWidth < 768;
 
   return (
     <div className="flex-grow flex flex-col bg-[#0c0d0e] scroll-mt-20">
@@ -4446,7 +4542,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
                 landmarksData={overlayLandmarks}
                 revealDurationSeconds={overlayRevealSeconds}
                 scanLoopSeconds={overlayScanLoopSeconds}
-                fitMode={isCompactViewport ? 'contain' : 'cover'}
+                fitMode="cover"
               />
             )}
 

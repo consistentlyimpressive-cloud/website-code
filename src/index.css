@@ -109,10 +109,6 @@
     object-position: center center !important;
   }
 
-  .mog-mobile-compact .mog-scan-frame--main .mog-scan-media {
-    object-fit: contain !important;
-  }
-
   .mog-mobile-compact p,
   .mog-mobile-compact li {
     line-height: 1.45;
