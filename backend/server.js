@@ -157,6 +157,7 @@ function firestoreQuotaCooldownWarning() {
 const activeAnalysisByUser = new Map();
 const analysisRecoveryByUser = new Map();
 const ACTIVE_ANALYSIS_MAX_AGE_MS = Number(process.env.ACTIVE_ANALYSIS_MAX_AGE_MS || 35 * 60 * 1000);
+const ACTIVE_ANALYSIS_RECENT_DONE_MS = Number(process.env.ACTIVE_ANALYSIS_RECENT_DONE_MS || 35 * 60 * 1000);
 
 // Stale local scan fallbacks caused old parsed scores to reappear in dashboards.
 // Keep real Firestore persistence, but never read/write local cached scans.
@@ -2822,17 +2823,18 @@ async function handleAnalyzeRequest(req, res) {
     let earlySideUpload = null;
     let earlyFrontUrl = getLocalUploadUrl(req, imagePath);
     let earlySideUrl = getLocalUploadUrl(req, sideImagePath);
+    const analysisStartTime = Date.now();
 
     if (req.uid && firestore) {
       try {
         savedScanRef = firestore.collection('users').doc(req.uid).collection('scans').doc();
-        if (imagePath) earlyFrontUpload = await uploadImageToFirebase(imagePath, req.uid, 'front', { keepLocal: true });
-        if (sideImagePath) earlySideUpload = await uploadImageToFirebase(sideImagePath, req.uid, 'side', { keepLocal: true });
-        earlyFrontUrl = earlyFrontUpload?.url || earlyFrontUrl || null;
-        earlySideUrl = earlySideUpload?.url || earlySideUrl || null;
         savedScanBase = {
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAtMs: analysisStartTime,
+          startedAtMs: analysisStartTime,
+          updatedAtMs: analysisStartTime,
           model: modelChoice,
           platform: scanPlatform,
           cohesiveFrontSide: false,
@@ -2856,10 +2858,12 @@ async function handleAnalyzeRequest(req, res) {
             frontImage: earlyFrontUrl,
             sideImage: earlySideUrl,
             status: 'running',
+            createdAtMs: analysisStartTime,
+            startedAtMs: analysisStartTime,
           },
         };
         await savedScanRef.set(savedScanBase, { merge: true });
-        console.log(`[analyze] Active scan pre-saved before AI run: ${savedScanRef.id}`);
+        console.log(`[analyze] Active scan accepted by backend and pre-saved: ${savedScanRef.id}`);
       } catch (e) {
         savedScanRef = null;
         savedScanBase = null;
@@ -2871,7 +2875,6 @@ async function handleAnalyzeRequest(req, res) {
     console.log(`[api/analyze] image=${imagePath} sideImage=${sideImagePath || 'none'} model=${modelChoice}`);
     console.log('All Python stdout/stderr from final_engine.py appears below until "Python process closed".\n');
 
-    const analysisStartTime = Date.now();
     const scriptPath = path.join(__dirname, 'final_engine.py');
     const args = [scriptPath, imagePath, modelChoice];
     if (statsJson && String(statsJson).trim()) {
@@ -2906,6 +2909,7 @@ async function handleAnalyzeRequest(req, res) {
       res.status(202).json({
         success: true,
         state: 'running',
+        message: 'Scan reached backend. The server-owned analysis is running on your account.',
         scanRequestId,
         scanId: savedScanRef.id,
         profileId,
@@ -2917,6 +2921,32 @@ async function handleAnalyzeRequest(req, res) {
       });
     }
 
+    if (savedScanRef) {
+      try {
+        if (imagePath) earlyFrontUpload = await uploadImageToFirebase(imagePath, req.uid, 'front', { keepLocal: true });
+        if (sideImagePath) earlySideUpload = await uploadImageToFirebase(sideImagePath, req.uid, 'side', { keepLocal: true });
+        earlyFrontUrl = earlyFrontUpload?.url || earlyFrontUrl || null;
+        earlySideUrl = earlySideUpload?.url || earlySideUrl || null;
+        savedScanBase = {
+          ...(savedScanBase || {}),
+          frontImageUrl: earlyFrontUrl,
+          sideImageUrl: earlySideUrl,
+          frontImageDest: earlyFrontUpload?.dest || savedScanBase?.frontImageDest || null,
+          sideImageDest: earlySideUpload?.dest || savedScanBase?.sideImageDest || null,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAtMs: Date.now(),
+          payload: {
+            ...(savedScanBase?.payload || {}),
+            frontImage: earlyFrontUrl,
+            sideImage: earlySideUrl,
+          },
+        };
+        await savedScanRef.set(savedScanBase, { merge: true });
+      } catch (e) {
+        console.warn('[analyze] Image storage update failed; continuing with local upload URL:', e.message);
+      }
+    }
+
     const markSavedScanFailed = async (errorMessage) => {
       if (!savedScanRef) return;
       try {
@@ -2925,6 +2955,7 @@ async function handleAnalyzeRequest(req, res) {
           state: 'failed',
           error: errorMessage || 'Analysis failed',
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAtMs: Date.now(),
           payload: {
             ...(savedScanBase?.payload || {}),
             success: false,
@@ -3229,6 +3260,9 @@ async function handleAnalyzeRequest(req, res) {
       savedScanBase = {
         timestamp: savedScanBase?.timestamp || admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAtMs: Date.now(),
+        createdAtMs: savedScanBase?.createdAtMs || analysisStartTime,
+        startedAtMs: savedScanBase?.startedAtMs || analysisStartTime,
         model: modelChoice,
         platform: scanPlatform,
         cohesiveFrontSide: false,
@@ -3424,13 +3458,21 @@ app.get('/api/analyze/status/:scanRequestId', extractUserOptional, async (req, r
       const scans = [];
       snap.forEach((doc) => scans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
       if (scans.length) {
-        scans.sort((a, b) => storedTimestampMillis(b.timestamp || b.scannedAt || b.createdAt) - storedTimestampMillis(a.timestamp || a.scannedAt || a.createdAt));
+        scans.sort((a, b) => (
+          (b.updatedAtMs || b.startedAtMs || b.createdAtMs || storedTimestampMillis(b.updatedAt || b.timestamp || b.scannedAt || b.createdAt)) -
+          (a.updatedAtMs || a.startedAtMs || a.createdAtMs || storedTimestampMillis(a.updatedAt || a.timestamp || a.scannedAt || a.createdAt))
+        ));
         const scan = scans[0];
         if (scan.state === 'failed' || scan.success === false && scan.error) {
           return res.json({ state: 'failed', error: scan.error || scan.payload?.error || 'Analysis failed', scan });
         }
         if (scan.state === 'running' || scan.success === false) {
-          return res.json({ state: 'running', startedAt: storedTimestampMillis(scan.timestamp || scan.createdAt) || null, profileId: scan.profileId || null, scan });
+          return res.json({
+            state: 'running',
+            startedAt: scan.startedAtMs || scan.createdAtMs || storedTimestampMillis(scan.timestamp || scan.createdAt) || null,
+            profileId: scan.profileId || null,
+            scan,
+          });
         }
         return res.json({ state: 'completed', scan });
       }
@@ -3453,45 +3495,66 @@ app.get('/api/user/active-analyses', extractUserOptional, async (req, res) => {
   if (!firestore) return res.json({ analyses: [] });
 
   try {
-    let snap;
+    const scansById = new Map();
     try {
-      snap = await firestore
+      const runningSnap = await firestore
         .collection('users')
         .doc(req.uid)
         .collection('scans')
         .where('state', '==', 'running')
         .limit(10)
         .get();
+      runningSnap.forEach((doc) => scansById.set(doc.id, normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
+    } catch (runningErr) {
+      console.warn('[active-analyses] running query failed:', runningErr.message);
+    }
+
+    try {
+      const recentSnap = await firestore
+        .collection('users')
+        .doc(req.uid)
+        .collection('scans')
+        .orderBy('timestamp', 'desc')
+        .limit(50)
+        .get();
+      recentSnap.forEach((doc) => scansById.set(doc.id, normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
     } catch (queryErr) {
-      console.warn('[active-analyses] running query failed, falling back:', queryErr.message);
-      snap = await firestore
+      console.warn('[active-analyses] recent query failed, falling back:', queryErr.message);
+      const fallbackSnap = await firestore
         .collection('users')
         .doc(req.uid)
         .collection('scans')
         .limit(50)
         .get();
+      fallbackSnap.forEach((doc) => scansById.set(doc.id, normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
     }
 
     const analyses = [];
-    snap.forEach((doc) => {
-      const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
-      if (scan.state !== 'running') return;
-      const startedAt = storedTimestampMillis(scan.timestamp || scan.createdAt || scan.updatedAt) || Date.now();
-      if (Date.now() - startedAt > ACTIVE_ANALYSIS_MAX_AGE_MS) return;
+    scansById.forEach((scan) => {
+      const state = String(scan.state || scan.payload?.status || (scan.success ? 'completed' : '')).trim().toLowerCase();
+      if (!['running', 'completed', 'failed'].includes(state)) return;
+      const startedAt = Number(scan.startedAtMs || scan.createdAtMs) || storedTimestampMillis(scan.timestamp || scan.createdAt || scan.updatedAt) || Date.now();
+      const updatedAt = Number(scan.updatedAtMs) || storedTimestampMillis(scan.updatedAt || scan.timestamp || scan.scannedAt || scan.createdAt) || startedAt;
+      const ageBase = state === 'running' ? startedAt : updatedAt;
+      const maxAge = state === 'running' ? ACTIVE_ANALYSIS_MAX_AGE_MS : ACTIVE_ANALYSIS_RECENT_DONE_MS;
+      if (Date.now() - ageBase > maxAge) return;
       analyses.push({
         id: scan.id,
+        state,
         scanRequestId: scan.scanRequestId || scan.payload?.scanRequestId || null,
         choice: String(scan.model || scan.payload?.selectedModel || '3'),
         profileId: scan.profileId || scan.payload?.profileId || 'default',
-        analysisLabel: 'Restored scan',
+        analysisLabel: state === 'completed' ? 'Scan ready' : state === 'failed' ? 'Scan failed' : 'Restored scan',
         mainImageSrc: scan.frontImageUrl || scan.frontImage || scan.payload?.frontImage || null,
         sideImageUrl: scan.sideImageUrl || scan.sideImage || scan.payload?.sideImage || null,
         createdAt: startedAt,
         startedAt,
+        updatedAt,
+        error: scan.error || scan.payload?.error || null,
       });
     });
 
-    analyses.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+    analyses.sort((a, b) => (b.updatedAt || b.startedAt || 0) - (a.updatedAt || a.startedAt || 0));
     res.json({ analyses });
   } catch (e) {
     console.error('[active-analyses] Failed to fetch active analyses:', e);
