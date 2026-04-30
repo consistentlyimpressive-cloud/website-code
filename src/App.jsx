@@ -3339,6 +3339,16 @@ function writePersistedAnalysisJobs(jobs) {
     const activeJobs = (Array.isArray(jobs) ? jobs : [])
       .filter((job) => job?.userUid && job?.scanRequestId)
       .filter((job) => now - (Number(job.createdAt) || Number(job.startedAt) || now) < ACTIVE_ANALYSIS_MAX_AGE_MS)
+      .map((job) => ({
+        userUid: job.userUid,
+        scanRequestId: job.scanRequestId,
+        choice: job.choice || '3',
+        profileId: job.profileId || 'default',
+        analysisLabel: job.analysisLabel || 'Analysis',
+        createdAt: job.createdAt || job.startedAt || now,
+        startedAt: job.startedAt || job.createdAt || now,
+        updatedAt: job.updatedAt || now,
+      }))
       .slice(0, 4);
     if (activeJobs.length) {
       window.localStorage.setItem(ACTIVE_ANALYSIS_STORAGE_KEY, JSON.stringify(activeJobs));
@@ -3612,7 +3622,6 @@ const ScanningView = ({
             choice: choice || '3',
             profileId: profileId || 'default',
             analysisLabel,
-            mainImageSrc: mainImageSrc && !String(mainImageSrc).startsWith('blob:') ? mainImageSrc : null,
             createdAt: scanStartedAt,
             startedAt: scanStartedAt,
           });
@@ -3735,7 +3744,8 @@ const ScanningView = ({
       /** So the UI never sits on "Consulting AI" forever if Python/API hangs */
         const analyzeAbort = new AbortController();
         cancelAnalyzeRequest = () => analyzeAbort.abort();
-        const ANALYZE_CLIENT_MAX_MS = 14 * 60 * 1000;
+        const useBackgroundAnalyze = Boolean(activeUser?.uid);
+        const ANALYZE_CLIENT_MAX_MS = useBackgroundAnalyze ? 2 * 60 * 1000 : 14 * 60 * 1000;
         const analyzeHardStop = setTimeout(() => analyzeAbort.abort(), ANALYZE_CLIENT_MAX_MS);
 
         const buildProgressMessage = () => {
@@ -3757,7 +3767,7 @@ const ScanningView = ({
         }, 1000);
 
         const runAnalyzeRequest = async () => {
-          return fetch(`${API_BASE}/api/analyze`, {
+          return fetch(`${API_BASE}${useBackgroundAnalyze ? '/api/analyze/start' : '/api/analyze'}`, {
             method: "POST",
             headers,
             body: formData,
@@ -3820,6 +3830,35 @@ const ScanningView = ({
             )
           );
           setHasError(true);
+          return;
+        }
+
+        if (useBackgroundAnalyze && data?.state === 'running' && data?.scanRequestId) {
+          if (data?.fairUsage && active) {
+            currentFairUsage = data.fairUsage;
+            setFairUsageState(data.fairUsage);
+          }
+          upsertPersistedAnalysisJob({
+            userUid: activeUser.uid,
+            scanRequestId,
+            choice: choice || '3',
+            profileId: profileId || 'default',
+            analysisLabel,
+            createdAt: scanStartedAt,
+            startedAt: data.startedAt || scanStartedAt,
+          });
+          setStatusText('Scan is running on your account. You can leave this page and come back for the result.');
+          const recoveredScan = await pollForSavedScan();
+          if (!active) return;
+          if (recoveredScan) {
+            scanSucceeded = true;
+            clearPersistedAnalysisJob(activeUser?.uid, scanRequestId);
+            rememberScanDuration(choice, currentFairUsage, Date.now() - scanStartedAt);
+            setStatusText("Analysis Complete! Transitioning...");
+            onCompleteRef.current(recoveredScan);
+            return;
+          }
+          setStatusText('Scan is still running on your account. Check back in a moment.');
           return;
         }
 
@@ -7678,6 +7717,33 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     return ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(0)}s`;
   };
 
+  const fmtAgo = (value) => {
+    if (!value) return '-';
+    const ms = Date.now() - new Date(value).getTime();
+    if (!Number.isFinite(ms)) return '-';
+    if (ms < 60000) return 'just now';
+    if (ms < 3600000) return `${Math.floor(ms / 60000)}m ago`;
+    if (ms < 86400000) return `${Math.floor(ms / 3600000)}h ago`;
+    return `${Math.floor(ms / 86400000)}d ago`;
+  };
+
+  const keyStatusMeta = (status) => {
+    switch (status) {
+      case 'healthy':
+        return { label: 'Healthy', dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.55)]', text: 'text-emerald-300', border: 'border-emerald-500/20' };
+      case 'warning':
+        return { label: 'Warning', dot: 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.55)]', text: 'text-amber-300', border: 'border-amber-500/20' };
+      case 'quota':
+        return { label: 'Quota hit', dot: 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.55)]', text: 'text-red-300', border: 'border-red-500/20' };
+      case 'missing':
+        return { label: 'Missing', dot: 'bg-zinc-600', text: 'text-zinc-500', border: 'border-zinc-800' };
+      case 'untested':
+        return { label: 'Untested', dot: 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.45)]', text: 'text-sky-300', border: 'border-sky-500/20' };
+      default:
+        return { label: 'Idle', dot: 'bg-zinc-500', text: 'text-zinc-400', border: 'border-zinc-800' };
+    }
+  };
+
   const modelLabel = (m) => ({ '1': 'Premium', '2': 'Fun mode', '3': 'Free' }[m] || m);
 
   const handleDeleteUser = async (uid, email) => {
@@ -8134,31 +8200,67 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
             {/* API Key Health */}
             <div className="lg:col-span-2 bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex flex-wrap items-center gap-2 mb-4">
                 <Key size={14} className="text-cyan-400" />
                 <h3 className="font-sans text-xs uppercase tracking-widest text-zinc-300">Gemini API Key Health</h3>
+                <span className="ml-auto text-[9px] font-sans uppercase tracking-[0.2em] text-zinc-600">
+                  Today + lifetime usage
+                </span>
               </div>
-              <div className="space-y-3">
-                {(stats.keyHealth || []).map((k) => (
-                  <div key={k.key} className="flex items-center gap-3">
-                    <span className="text-[10px] font-sans text-zinc-500 w-12 shrink-0">KEY {k.key}</span>
-                    <div className="flex-grow h-2.5 bg-zinc-950 rounded-full overflow-hidden relative">
-                      <div
-                        className={`h-full rounded-full transition-all duration-700 ${k.exhausted ? 'bg-gradient-to-r from-red-600 to-red-400' : 'bg-gradient-to-r from-cyan-600 to-cyan-400'}`}
-                        style={{ width: `${k.exhausted ? 100 : Math.min(100, (k.attempts / 250) * 100)}%` }}
-                      />
+              <div className="grid gap-3 md:grid-cols-2">
+                {(stats.keyHealth || []).map((k) => {
+                  const meta = keyStatusMeta(k.status);
+                  const totalToday = Number(k.attempts || 0);
+                  const failures = Number(k.errors || 0);
+                  const successes = Number(k.successes || 0);
+                  const failurePct = totalToday > 0 ? Math.min(100, Math.round((failures / totalToday) * 100)) : 0;
+                  return (
+                    <div key={k.key} className={`rounded-xl border ${meta.border} bg-zinc-950/55 p-3`}>
+                      <div className="mb-3 flex items-center gap-2">
+                        <span className={`inline-block h-2.5 w-2.5 rounded-full ${meta.dot}`} />
+                        <span className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-200">GEMINI_KEY_{k.key}</span>
+                        <span className={`ml-auto text-[9px] font-bold uppercase tracking-[0.18em] ${meta.text}`}>{meta.label}</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-center">
+                        <div>
+                          <p className="text-sm font-black text-cyan-300">{totalToday}</p>
+                          <p className="text-[8px] font-sans uppercase tracking-[0.18em] text-zinc-600">Today</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-emerald-300">{successes}</p>
+                          <p className="text-[8px] font-sans uppercase tracking-[0.18em] text-zinc-600">OK</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-red-300">{failures}</p>
+                          <p className="text-[8px] font-sans uppercase tracking-[0.18em] text-zinc-600">Fail</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-violet-300">{fmtDuration(k.avgLatencyMs)}</p>
+                          <p className="text-[8px] font-sans uppercase tracking-[0.18em] text-zinc-600">Avg</p>
+                        </div>
+                      </div>
+                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-900">
+                        <div
+                          className={`h-full rounded-full ${failurePct >= 50 ? 'bg-red-500' : failurePct > 0 ? 'bg-amber-400' : 'bg-cyan-400'}`}
+                          style={{ width: `${totalToday > 0 ? Math.max(6, failurePct) : 0}%` }}
+                        />
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-[9px] font-sans text-zinc-500">
+                        <span>Last use: <span className="text-zinc-300">{fmtAgo(k.lastAttemptAt || k.lastSuccessAt)}</span></span>
+                        <span>Total: <span className="text-zinc-300">{k.totalAttempts || 0}</span></span>
+                        <span>High demand: <span className="text-zinc-300">{k.highDemandErrors || 0}</span></span>
+                        <span>Empty: <span className="text-zinc-300">{k.emptyResponses || 0}</span></span>
+                      </div>
+                      {k.lastError && (
+                        <p className="mt-2 truncate rounded-lg border border-red-500/10 bg-red-500/5 px-2 py-1 text-[9px] font-sans text-red-300" title={k.lastError}>
+                          {k.lastError}
+                        </p>
+                      )}
                     </div>
-                    <span className="text-[10px] font-sans text-zinc-500 w-16 text-right shrink-0">{k.attempts}/250</span>
-                    <span className="w-5 shrink-0 text-center">
-                      {k.exhausted
-                        ? <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-                        : <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                      }
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-              <p className="text-[9px] font-sans text-zinc-600 mt-3">Quota resets daily. Attempts tracked from Python stdout during this server session.</p>
+              <p className="text-[9px] font-sans text-zinc-600 mt-3">Parsed from live Gemma stdout. No key values are exposed.</p>
             </div>
 
             {/* Model Breakdown */}
@@ -9402,7 +9504,6 @@ const App = () => {
         choice: queuedJob.choice || '3',
         profileId: queuedJob.profileId || 'default',
         analysisLabel: queuedJob.analysisLabel || 'Analysis',
-        mainImageSrc: queuedJob.mainImageSrc && !String(queuedJob.mainImageSrc).startsWith('blob:') ? queuedJob.mainImageSrc : null,
         createdAt: queuedJob.createdAt,
         startedAt: queuedJob.createdAt,
       });
@@ -9425,7 +9526,6 @@ const App = () => {
             choice: nextJob.choice || '3',
             profileId: nextJob.profileId || 'default',
             analysisLabel: nextJob.analysisLabel || 'Analysis',
-            mainImageSrc: nextJob.mainImageSrc && !String(nextJob.mainImageSrc).startsWith('blob:') ? nextJob.mainImageSrc : null,
             createdAt: nextJob.createdAt || Date.now(),
             startedAt: nextJob.startedAt || nextJob.createdAt || Date.now(),
           });
@@ -9537,7 +9637,7 @@ const App = () => {
   };
   
   return (
-    <div className={`min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black ${mobileModeEnabled ? 'mog-mobile-compact' : ''}`}>
+    <div className={`min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black ${mobileModeEnabled && currentPage !== 'analysis' ? 'mog-mobile-compact' : ''}`}>
       <NoiseOverlay />
       <button
         type="button"

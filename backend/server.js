@@ -2759,21 +2759,28 @@ async function verifyUltraAccess(req, res, next) {
   }
 }
 
-app.post(
-  '/api/analyze',
-  (req, res, next) => {
-    analyzeUpload(req, res, (err) => {
-      if (err) {
-        console.error('Multer upload error:', err);
-        return res.status(400).json({ success: false, error: err.message || 'Upload error' });
-      }
-      next();
+const handleAnalyzeUpload = (req, res, next) => {
+  analyzeUpload(req, res, (err) => {
+    if (err) {
+      console.error('Multer upload error:', err);
+      return res.status(400).json({ success: false, error: err.message || 'Upload error' });
+    }
+    next();
+  });
+};
+
+const requireSignedInAnalyzeStart = (req, res, next) => {
+  if (!req.uid) {
+    return res.status(401).json({
+      success: false,
+      error: 'Sign in required to start a background scan.',
     });
-  },
-  analyzeLimiter,
-  extractUserOptional,
-  verifyUltraAccess,
-  async (req, res) => {
+  }
+  req.backgroundAnalyze = true;
+  next();
+};
+
+async function handleAnalyzeRequest(req, res) {
     // Check files immediately after upload parsing
     const frontFile = req.files && req.files['image'] && req.files['image'][0];
     if (!frontFile) {
@@ -2889,6 +2896,27 @@ app.post(
       modelChoice,
     });
 
+    if (req.backgroundAnalyze) {
+      if (!savedScanRef) {
+        return res.status(503).json({
+          success: false,
+          error: 'Could not store this scan on your account. Please try again in a moment.',
+        });
+      }
+      res.status(202).json({
+        success: true,
+        state: 'running',
+        scanRequestId,
+        scanId: savedScanRef.id,
+        profileId,
+        choice: modelChoice,
+        frontImage: earlyFrontUrl || null,
+        sideImage: earlySideUrl || null,
+        startedAt: analysisStartTime,
+        fairUsage,
+      });
+    }
+
     const markSavedScanFailed = async (errorMessage) => {
       if (!savedScanRef) return;
       try {
@@ -2984,7 +3012,7 @@ app.post(
         return;
       }
 
-      if (res.headersSent) return;
+      if (res.headersSent && !req.backgroundAnalyze) return;
 
       console.log(`\n[api/analyze] Python process closed with exit code ${code}`);
       if (/###\s*CONTENT_REJECTED/i.test(pythonOutput)) {
@@ -3001,11 +3029,14 @@ app.post(
           sideRating: null,
           error: 'Explicit or inappropriate image rejected.',
         });
-        return res.status(400).json({
-          success: false,
-          code: 'CONTENT_REJECTED',
-          error: 'This image cannot be analyzed. Please upload a non-explicit face photo.',
-        });
+        if (!res.headersSent) {
+          return res.status(400).json({
+            success: false,
+            code: 'CONTENT_REJECTED',
+            error: 'This image cannot be analyzed. Please upload a non-explicit face photo.',
+          });
+        }
+        return;
       }
 
       let parsed;
@@ -3283,7 +3314,9 @@ app.post(
     await new Promise((resolve) => setTimeout(resolve, fairUsage.minimumDurationMs));
   }
 
-  res.json(payload);
+  if (!res.headersSent) {
+    res.json(payload);
+  }
 
       setImmediate(async () => {
         if (!success || !req.uid || !firestore || !savedScanRef) return;
@@ -3348,7 +3381,25 @@ app.post(
         }
       });
     });
-  }
+}
+
+app.post(
+  '/api/analyze/start',
+  handleAnalyzeUpload,
+  analyzeLimiter,
+  extractUserOptional,
+  requireSignedInAnalyzeStart,
+  verifyUltraAccess,
+  handleAnalyzeRequest
+);
+
+app.post(
+  '/api/analyze',
+  handleAnalyzeUpload,
+  analyzeLimiter,
+  extractUserOptional,
+  verifyUltraAccess,
+  handleAnalyzeRequest
 );
 
 app.get('/api/analyze/status/:scanRequestId', extractUserOptional, async (req, res) => {
@@ -4069,6 +4120,7 @@ app.get('/api/user/scans', extractUserOptional, async (req, res) => {
     const scans = [];
     snap.forEach(doc => {
       const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
+      if (scan.state === 'running' || scan.payload?.status === 'running') return;
       scans.push(scan);
       upsertLocalCachedScan(req.uid, doc.id, scan);
     });
