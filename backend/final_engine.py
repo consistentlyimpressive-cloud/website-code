@@ -300,25 +300,18 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     """
     anti_diddy_prompt_rules = """
         ANTI DIDDY PROMPT ADD-ON:
-        Check for the following signe:
-        1. Slightly narrow mouth width.
-        2. Mild infraorbital puffiness.
-        3. Visible dark circles.
-        4. Slightly elongated philtrum.
-        5. fWHR slightly below ideal.
-        6. Mild nasolabial folds.
-        7. Slight midface length.
-        8. Minor under-eye volume loss.
-        9. Narrow nasal base.
-        10. Mild soft-tissue fatigue.
-        11. Lower lip could be fuller.
-        12. Slight orbital tiredness.
-        13. Midface ratio is acceptable but not elite.
-        14. Skin freshness slightly reduced by aging signs.
-        15. Lack of extreme bone projection.
+        Check for the following:
+        - Slightly narrow mouth width.
+        - Infraorbital puffiness.
+        - Elongated philtrum.
+        - Slight midface length.
+        - Slight orbital tiredness.
+        - Lack of facial definition.
+        - Almond eye shape with neutral/negative canthal tilt.
+        - Sparse eyebrows.
+        - Broad or bulbous nose shape.
 
-        If 6/15, cap score at 65.
-        If 9/15, cap score at 50.
+        If the subject has at least 7 of these, cap the score at 50.
     """ if choice == "1" else ""
     experimental_visual_only_prompt = """
 Act as a clinical maxillofacial analyst.
