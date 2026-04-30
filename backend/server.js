@@ -2799,6 +2799,7 @@ app.post(
     const scanRequestId =
       String(req.body.scanRequestId || '').trim() ||
       `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const profileId = String(req.body.profileId || 'default').trim() || 'default';
     const safeRunId = `${scanRequestId.replace(/[^a-z0-9_-]/gi, '-').slice(0, 60)}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
     const runOutputDir = path.join(__dirname, 'tmp-analysis', safeRunId);
     fs.mkdirSync(runOutputDir, { recursive: true });
@@ -2821,14 +2822,14 @@ app.post(
     if (req.uid && fairUsage.enabled) {
       markUserAnalysisStarted(req.uid, {
         scanRequestId,
-        profileId: req.body.profileId || 'default',
+        profileId,
         modelChoice,
       });
     }
     rememberAnalysisRecovery(req.uid, scanRequestId, {
       state: 'running',
       startedAt: Date.now(),
-      profileId: req.body.profileId || 'default',
+      profileId,
       modelChoice,
     });
 
@@ -3112,7 +3113,7 @@ app.post(
       savedScanRef = firestore.collection('users').doc(req.uid).collection('scans').doc();
       payload.scanId = savedScanRef.id;
       payload.scanRequestId = scanRequestId;
-      payload.profileId = req.body.profileId || 'default';
+      payload.profileId = profileId;
       payload.selectedModel = String(modelChoice || payload.selectedModel || '').trim() || '1';
       payload.cohesiveFrontSide = false;
       payload.platform = scanPlatform;
@@ -3194,7 +3195,7 @@ app.post(
     rememberAnalysisRecovery(req.uid, scanRequestId, {
       state: 'completed',
       payload,
-      profileId: payload.profileId || req.body.profileId || 'default',
+      profileId: payload.profileId || profileId,
       modelChoice,
     });
   }
@@ -3929,6 +3930,7 @@ app.get('/api/user/scans', extractUserOptional, async (req, res) => {
     const scans = [];
     snap.forEach(doc => {
       const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
+      if (scan.state === 'running' || scan.payload?.status === 'running') return;
       scans.push(scan);
       upsertLocalCachedScan(req.uid, doc.id, scan);
     });

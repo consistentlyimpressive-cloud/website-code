@@ -373,7 +373,20 @@ const mergeProfileHistory = (history, snapshot) => {
   return [...items, snapshot];
 };
 
-const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSignOut, setPendingUploadModel, setPendingUploadProfileId, analysisContent = null, hasActiveAnalysis = false, setDashboardData, renderCommunityDashboard = null }) => {
+const getSavedScanProfileId = (scan) => {
+  const payload = scan && typeof scan.payload === 'object' && scan.payload ? scan.payload : {};
+  return String(scan?.profileId || payload.profileId || 'default').trim() || 'default';
+};
+
+const isFinishedSavedScan = (scan) => (
+  scan && scan.state !== 'running' && scan.payload?.status !== 'running'
+);
+
+const filterFinishedSavedScans = (scans = []) => (
+  (Array.isArray(scans) ? scans : []).filter(isFinishedSavedScan)
+);
+
+const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSignOut, setPendingUploadModel, setPendingUploadProfileId, analysisContent = null, hasActiveAnalysis = false, setDashboardData, initialDashboardProfileId = null, renderCommunityDashboard = null }) => {
   const [profiles, setProfiles] = useState([]);
   const [allScans, setAllScans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -398,6 +411,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   const mogBattlesRef = useRef(null);
   const communityRef = useRef(null);
   const historyStripRef = useRef(null);
+  const autoOpenedProfileRef = useRef(null);
 
   useEffect(() => {
     setActiveSection(hasActiveAnalysis ? 'overview' : 'profiles');
@@ -483,7 +497,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         }
         if (scansRes.ok) {
           const data = await scansRes.json();
-          const fetchedScans = data.scans || [];
+          const fetchedScans = filterFinishedSavedScans(data.scans || []);
           setAllScans((prev) => (
             fetchedScans.length > 0 || prev.length === 0 || !data.warning
               ? fetchedScans
@@ -769,7 +783,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   const scansByProfile = useMemo(() => {
     const grouped = new Map();
     allScans.forEach((scan) => {
-      const profileId = scan?.profileId || 'default';
+      const profileId = getSavedScanProfileId(scan);
       if (!grouped.has(profileId)) grouped.set(profileId, []);
       grouped.get(profileId).push(scan);
     });
@@ -885,7 +899,8 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
   const latestScanProfile = useMemo(() => {
     if (!latestScanAcrossProfiles) return null;
-    return profiles.find((profile) => profile.id === latestScanAcrossProfiles.profileId) || null;
+    const latestProfileId = getSavedScanProfileId(latestScanAcrossProfiles);
+    return profiles.find((profile) => profile.id === latestProfileId) || null;
   }, [latestScanAcrossProfiles, profiles]);
   const dashboardScanOptions = [
     {
@@ -958,7 +973,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     });
   }, []);
 
-  const openProfile = async (profile) => {
+  const openProfile = useCallback(async (profile) => {
     if (!profile?.id || !setDashboardData) return;
     setOpeningProfileId(profile.id);
     try {
@@ -970,10 +985,10 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         });
         if (res.ok) {
           const data = await res.json();
-          const fetchedScans = data.scans || [];
+          const fetchedScans = filterFinishedSavedScans(data.scans || []);
           setAllScans(fetchedScans);
           scans = fetchedScans
-            .filter((scan) => (scan?.profileId || 'default') === profile.id)
+            .filter((scan) => getSavedScanProfileId(scan) === profile.id)
             .sort((a, b) => timestampToMillis(a.timestamp || a.scannedAt) - timestampToMillis(b.timestamp || b.scannedAt));
         }
       }
@@ -1012,7 +1027,15 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     } finally {
       setOpeningProfileId(null);
     }
-  };
+  }, [dashboardData, scansByProfile, setCurrentPage, setDashboardData, user]);
+
+  useEffect(() => {
+    if (!initialDashboardProfileId || loading || autoOpenedProfileRef.current === initialDashboardProfileId) return;
+    const targetProfile = profiles.find((profile) => profile.id === initialDashboardProfileId);
+    if (!targetProfile) return;
+    autoOpenedProfileRef.current = initialDashboardProfileId;
+    openProfile(targetProfile);
+  }, [initialDashboardProfileId, loading, openProfile, profiles]);
 
   const handleBackToProfiles = () => {
     try {
