@@ -3847,7 +3847,7 @@ const ScanningView = ({
             createdAt: scanStartedAt,
             startedAt: data.startedAt || scanStartedAt,
           });
-          setStatusText(data.message || 'Scan reached backend. The server-owned analysis is running on your account.');
+          setStatusText('Scan is running on your account. You can leave this page and come back for the result.');
           const recoveredScan = await pollForSavedScan();
           if (!active) return;
           if (recoveredScan) {
@@ -9200,7 +9200,6 @@ const App = () => {
     typeof window !== 'undefined' && window.matchMedia?.('(max-width: 768px)').matches
   );
   const analysisJobsRef = useRef([]);
-  const restoredAnalysisRequestIdsRef = useRef(new Set());
 
   useEffect(() => {
     analysisJobsRef.current = analysisJobs;
@@ -9595,13 +9594,9 @@ const App = () => {
       const existingRequestIds = new Set(
         analysisJobsRef.current.map((job) => String(job.scanRequestId || '')).filter(Boolean)
       );
-      const restored = jobsToRestore.filter((job) => {
-        const requestId = String(job?.scanRequestId || '');
-        return requestId && !existingRequestIds.has(requestId) && !restoredAnalysisRequestIdsRef.current.has(requestId);
-      });
+      const restored = jobsToRestore.filter((job) => job?.scanRequestId && !existingRequestIds.has(String(job.scanRequestId)));
       if (!restored.length) return;
       restored.forEach((job) => {
-        restoredAnalysisRequestIdsRef.current.add(String(job.scanRequestId));
         queueAnalysisJob({
           recoveryOnly: true,
           scanRequestId: job.scanRequestId,
@@ -9621,18 +9616,8 @@ const App = () => {
       }
     };
     restoreJobs();
-    const restoreInterval = window.setInterval(restoreJobs, 8000);
-    const handleVisibilityOrFocus = () => {
-      if (document.visibilityState === 'hidden') return;
-      restoreJobs();
-    };
-    window.addEventListener('focus', handleVisibilityOrFocus);
-    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
     return () => {
       cancelled = true;
-      window.clearInterval(restoreInterval);
-      window.removeEventListener('focus', handleVisibilityOrFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
     };
   }, [authResolved, currentPage, queueAnalysisJob, user]);
 
