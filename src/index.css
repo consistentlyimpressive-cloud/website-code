@@ -109,6 +109,12 @@
     object-position: center center !important;
   }
 
+  .mog-mobile-compact .mog-scan-frame--main {
+    aspect-ratio: 9 / 16 !important;
+    width: min(88vw, 430px) !important;
+    max-height: 68vh !important;
+  }
+
   .mog-mobile-compact p,
   .mog-mobile-compact li {
     line-height: 1.45;
