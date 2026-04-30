@@ -3507,7 +3507,9 @@ const ScanningView = ({
         console.error("MediaPipe failed", err);
       }
     };
-    initDetector();
+    if (!compact) {
+      initDetector();
+    }
 
     const startScan = async () => {
       const minScanMs = 3200;
@@ -3933,7 +3935,7 @@ const ScanningView = ({
       active = false;
       cancelAnalyzeRequest();
     };
-  }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, profileId, providedScanRequestId, analysisLabel]);
+  }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, profileId, providedScanRequestId, analysisLabel, compact]);
 
   if (compact) {
     return (
@@ -3963,14 +3965,6 @@ const ScanningView = ({
                 />
                 <div className="absolute inset-0 bg-blue-900/20 mix-blend-overlay" />
               </>
-            )}
-
-            {!videoUrl && (
-              <FaceScanOverlay
-                landmarksData={landmarks}
-                revealDurationSeconds={overlayRevealSeconds}
-                scanLoopSeconds={overlayScanLoopSeconds}
-              />
             )}
 
             <div className="absolute left-2 top-2 h-3 w-3 border-l-2 border-t-2 border-cyan-500/80" />
