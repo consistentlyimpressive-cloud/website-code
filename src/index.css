@@ -93,28 +93,6 @@
     object-fit: contain;
   }
 
-  .mog-mobile-compact .mog-scan-frame img,
-  .mog-mobile-compact .mog-scan-frame video {
-    max-height: none !important;
-    height: 100% !important;
-    object-fit: cover !important;
-  }
-
-  .mog-mobile-compact .mog-scan-frame .mog-scan-media {
-    width: 100% !important;
-    height: 100% !important;
-    max-width: none !important;
-    max-height: none !important;
-    object-fit: cover !important;
-    object-position: center center !important;
-  }
-
-  .mog-mobile-compact .mog-scan-frame--main {
-    aspect-ratio: 9 / 16 !important;
-    width: min(88vw, 430px) !important;
-    max-height: 68vh !important;
-  }
-
   .mog-mobile-compact p,
   .mog-mobile-compact li {
     line-height: 1.45;

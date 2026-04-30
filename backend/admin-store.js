@@ -141,36 +141,15 @@ function logAnalysis({ model, durationMs, success, rating, sideRating, error, ui
 function parseKeyEventsFromStdout(stdout) {
   const events = [];
   const now = new Date().toISOString();
-  let lastAttemptedKey = null;
 
   for (const m of stdout.matchAll(/\[.+?\] Consulting .+? \(Using Key (\d+)\)/g)) {
-    lastAttemptedKey = +m[1];
-    events.push({ ts: now, key: lastAttemptedKey, type: 'attempt' });
+    events.push({ ts: now, key: +m[1], type: 'attempt' });
   }
   for (const m of stdout.matchAll(/Key (\d+) failed: 429/g)) {
     events.push({ ts: now, key: +m[1], type: 'exhausted' });
   }
   for (const m of stdout.matchAll(/Key (\d+) failed: (?!429)(.+)/g)) {
     events.push({ ts: now, key: +m[1], type: 'error', detail: m[2].slice(0, 120) });
-  }
-  for (const m of stdout.matchAll(/Trying Google GenAI\/Gemma GEMINI_KEY_(\d+) \((\d+)\/(\d+)\)/g)) {
-    lastAttemptedKey = +m[1];
-    events.push({ ts: now, key: lastAttemptedKey, type: 'attempt', attemptNumber: +m[2], attemptTotal: +m[3] });
-  }
-  for (const m of stdout.matchAll(/GEMINI_KEY_(\d+) quota exhausted/gi)) {
-    events.push({ ts: now, key: +m[1], type: 'exhausted', detail: 'quota exhausted' });
-  }
-  for (const m of stdout.matchAll(/GEMINI_KEY_(\d+) failed: ([^\r\n]+)/g)) {
-    const detail = (m[2] || '').trim().slice(0, 180);
-    const type = /RESOURCE_EXHAUSTED|quota/i.test(detail) ? 'exhausted' : 'error';
-    events.push({ ts: now, key: +m[1], type, detail });
-  }
-  for (const m of stdout.matchAll(/GEMINI_KEY_(\d+): empty model response/g)) {
-    events.push({ ts: now, key: +m[1], type: 'empty', detail: 'empty model response' });
-  }
-  const successMatch = stdout.match(/\[Using: .+? \| Latency: ([\d.]+)s\]/);
-  if (successMatch && lastAttemptedKey) {
-    events.push({ ts: now, key: lastAttemptedKey, type: 'success', latencyMs: Math.round(Number(successMatch[1]) * 1000) });
   }
 
   if (events.length) {
@@ -183,125 +162,23 @@ function parseKeyEventsFromStdout(stdout) {
 
 function getKeyHealth() {
   const keys = {};
-  const now = Date.now();
   const todayStr = new Date().toDateString();
   const todayEvents = store.keyEvents.filter((e) => new Date(e.ts).toDateString() === todayStr);
-  const allEvents = Array.isArray(store.keyEvents) ? store.keyEvents : [];
-
-  const ensureKey = (key) => {
-    if (!keys[key]) {
-      keys[key] = {
-        attempts: 0,
-        successes: 0,
-        exhausted: false,
-        errors: 0,
-        emptyResponses: 0,
-        highDemandErrors: 0,
-        lastAttemptAt: null,
-        lastSuccessAt: null,
-        lastErrorAt: null,
-        lastExhaustedAt: null,
-        lastError: null,
-        avgLatencyMs: 0,
-        totalAttempts: 0,
-        totalSuccesses: 0,
-        configured: !!String(process.env[`GEMINI_KEY_${key}`] || '').trim(),
-      };
-    }
-    return keys[key];
-  };
 
   for (const ev of todayEvents) {
-    const key = ensureKey(ev.key);
-    if (ev.type === 'attempt') {
-      key.attempts++;
-      key.lastAttemptAt = ev.ts;
-    }
-    if (ev.type === 'success') {
-      key.successes++;
-      key.lastSuccessAt = ev.ts;
-    }
+    if (!keys[ev.key]) keys[ev.key] = { attempts: 0, exhausted: false, errors: 0, lastExhaustedAt: null };
+    if (ev.type === 'attempt') keys[ev.key].attempts++;
     if (ev.type === 'exhausted') {
-      key.exhausted = true;
-      key.errors++;
-      key.lastExhaustedAt = ev.ts;
-      key.lastErrorAt = ev.ts;
-      key.lastError = ev.detail || 'quota exhausted';
+      keys[ev.key].exhausted = true;
+      keys[ev.key].lastExhaustedAt = ev.ts;
     }
-    if (ev.type === 'error') {
-      key.errors++;
-      key.lastErrorAt = ev.ts;
-      key.lastError = ev.detail || 'provider error';
-      if (/503|high demand/i.test(ev.detail || '')) key.highDemandErrors++;
-    }
-    if (ev.type === 'empty') {
-      key.emptyResponses++;
-      key.errors++;
-      key.lastErrorAt = ev.ts;
-      key.lastError = ev.detail || 'empty response';
-    }
+    if (ev.type === 'error') keys[ev.key].errors++;
   }
-
-  for (const ev of allEvents) {
-    const key = ensureKey(ev.key);
-    if (ev.type === 'attempt') key.totalAttempts++;
-    if (ev.type === 'success') {
-      key.totalSuccesses++;
-      if (!key.lastSuccessAt || new Date(ev.ts).getTime() > new Date(key.lastSuccessAt).getTime()) {
-        key.lastSuccessAt = ev.ts;
-      }
-    }
-    if (ev.type === 'attempt' && (!key.lastAttemptAt || new Date(ev.ts).getTime() > new Date(key.lastAttemptAt).getTime())) {
-      key.lastAttemptAt = ev.ts;
-    }
-    if (['error', 'exhausted', 'empty'].includes(ev.type) && (!key.lastErrorAt || new Date(ev.ts).getTime() > new Date(key.lastErrorAt).getTime())) {
-      key.lastErrorAt = ev.ts;
-      key.lastError = ev.detail || ev.type;
-    }
-  }
-
-  allEvents
-    .filter((ev) => ev.type === 'success' && Number.isFinite(Number(ev.latencyMs)))
-    .forEach((ev) => {
-      const key = ensureKey(ev.key);
-      key._latencies = key._latencies || [];
-      key._latencies.push(Number(ev.latencyMs));
-    });
 
   const result = [];
   for (let i = 1; i <= 5; i++) {
-    const k = ensureKey(i);
-    const recentErrorMs = k.lastErrorAt ? now - new Date(k.lastErrorAt).getTime() : Infinity;
-    const latencies = k._latencies || [];
-    const avgLatencyMs = latencies.length
-      ? Math.round(latencies.reduce((sum, value) => sum + value, 0) / latencies.length)
-      : 0;
-    const status =
-      !k.configured ? 'missing' :
-      k.exhausted ? 'quota' :
-      recentErrorMs < 30 * 60 * 1000 ? 'warning' :
-      k.successes > 0 || k.totalSuccesses > 0 ? 'healthy' :
-      k.attempts > 0 || k.totalAttempts > 0 ? 'untested' :
-      'idle';
-    result.push({
-      key: i,
-      configured: k.configured,
-      attempts: k.attempts,
-      successes: k.successes,
-      errors: k.errors,
-      exhausted: k.exhausted,
-      emptyResponses: k.emptyResponses,
-      highDemandErrors: k.highDemandErrors,
-      lastAttemptAt: k.lastAttemptAt,
-      lastSuccessAt: k.lastSuccessAt,
-      lastErrorAt: k.lastErrorAt,
-      lastExhaustedAt: k.lastExhaustedAt,
-      lastError: k.lastError,
-      avgLatencyMs,
-      totalAttempts: k.totalAttempts,
-      totalSuccesses: k.totalSuccesses,
-      status,
-    });
+    const k = keys[i] || { attempts: 0, exhausted: false, errors: 0, lastExhaustedAt: null };
+    result.push({ key: i, ...k });
   }
   return result;
 }

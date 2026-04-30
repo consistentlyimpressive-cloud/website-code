@@ -188,7 +188,6 @@ module.exports = function(app, firestore, admin, extractUserOptional) {
       const scans = [];
       scansSnap.forEach(doc => {
         const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
-        if (scan.state === 'running' || scan.payload?.status === 'running') return;
         if (isOwner || isPublicScanVisibility(scan.visibility)) scans.push(scan);
       });
       

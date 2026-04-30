@@ -2861,59 +2861,8 @@ const PhotoGuidePage = ({ setCurrentPage }) => {
 };
 
 // --- Upload Photo Page ---
-const createPersistentImagePreview = (file) => new Promise((resolve) => {
-  if (!(file instanceof File)) {
-    resolve(null);
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    const source = typeof reader.result === 'string' ? reader.result : null;
-    if (!source) {
-      resolve(null);
-      return;
-    }
-
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const maxSide = 1200;
-        const largestSide = Math.max(img.naturalWidth || 0, img.naturalHeight || 0);
-        if (!largestSide || largestSide <= maxSide) {
-          resolve(source);
-          return;
-        }
-        const scale = maxSide / largestSide;
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round((img.naturalWidth || maxSide) * scale));
-        canvas.height = Math.max(1, Math.round((img.naturalHeight || maxSide) * scale));
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(source);
-          return;
-        }
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.88));
-      } catch {
-        resolve(source);
-      }
-    };
-    img.onerror = () => resolve(source);
-    img.src = source;
-  };
-  reader.onerror = () => resolve(null);
-  reader.readAsDataURL(file);
-});
-
 const FileDropzone = ({ label, file, setFile, isPulsing }) => {
   const [isDragging, setIsDragging] = useState(false);
-
-  const handleSelectedFile = async (selectedFile) => {
-    if (!selectedFile) return;
-    const previewUrl = await createPersistentImagePreview(selectedFile);
-    setFile(previewUrl || URL.createObjectURL(selectedFile), selectedFile);
-  };
 
   return (
     <div className="flex flex-col items-center w-full">
@@ -2927,7 +2876,7 @@ const FileDropzone = ({ label, file, setFile, isPulsing }) => {
           setIsDragging(false);
           if (e.dataTransfer.files && e.dataTransfer.files[0]) {
             const f = e.dataTransfer.files[0];
-            handleSelectedFile(f);
+            setFile(URL.createObjectURL(f), f);
           }
         }}
         className={`w-full aspect-[3/4] max-w-sm mx-auto rounded-3xl border transition-all duration-300 flex flex-col items-center justify-center cursor-pointer relative overflow-hidden group ${
@@ -2936,7 +2885,7 @@ const FileDropzone = ({ label, file, setFile, isPulsing }) => {
             : (isPulsing && !file ? 'border-zinc-500 bg-zinc-900/40 shadow-[0_0_30px_rgba(255,255,255,0.1)] animate-pulse hover:border-zinc-400' : 'border-zinc-800 bg-zinc-900/30 backdrop-blur-md hover:border-zinc-600 hover:bg-zinc-900/50 shadow-2xl')
         }`}
       >
-        <input type="file" className="hidden" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleSelectedFile(f); }} />
+        <input type="file" className="hidden" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(URL.createObjectURL(f), f); }} />
         {file ? (
           <>
             <img src={file} alt={label} className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-40 transition-opacity duration-300" />
@@ -2973,103 +2922,10 @@ const FaceScanOverlay = ({
   landmarksData,
   revealDurationSeconds = 36,
   scanLoopSeconds = 4,
-  fitMode = 'cover',
 }) => {
   const compactMotion = false;
-  const overlayRef = useRef(null);
-  const [displayBox, setDisplayBox] = useState(null);
   let mappedPoints = [];
   let mappedEdges = [];
-  const sourceImgW = landmarksData && landmarksData !== 'fallback' ? landmarksData.imgW : null;
-  const sourceImgH = landmarksData && landmarksData !== 'fallback' ? landmarksData.imgH : null;
-
-  useEffect(() => {
-    if (!sourceImgW || !sourceImgH) {
-      setDisplayBox(null);
-      return undefined;
-    }
-
-    let frameObserver;
-    let mediaObserver;
-
-    const updateDisplayBox = () => {
-      const overlay = overlayRef.current;
-      const frame = overlay?.parentElement;
-      const media = frame?.querySelector('.mog-scan-media');
-      if (!frame) return;
-
-      const frameRect = frame.getBoundingClientRect();
-      const frameW = frameRect.width || 0;
-      const frameH = frameRect.height || 0;
-      if (!frameW || !frameH) return;
-
-      const mediaStyle = media ? window.getComputedStyle(media) : null;
-      const objectFit = mediaStyle?.objectFit || fitMode || 'cover';
-      const objectPosition = mediaStyle?.objectPosition || '50% 50%';
-      const mediaW = media?.clientWidth || frameW;
-      const mediaH = media?.clientHeight || frameH;
-      const imgRatio = sourceImgW / sourceImgH;
-      const frameRatio = mediaW / mediaH;
-      const shouldContain = objectFit === 'contain' || objectFit === 'scale-down';
-      const useWidth = shouldContain ? imgRatio > frameRatio : imgRatio < frameRatio;
-      const renderedW = useWidth ? mediaW : mediaH * imgRatio;
-      const renderedH = useWidth ? mediaW / imgRatio : mediaH;
-      const [posXRaw = '50%', posYRaw = '50%'] = objectPosition.split(' ');
-      const parsePosition = (value) => {
-        if (value === 'left' || value === 'top') return 0;
-        if (value === 'right' || value === 'bottom') return 1;
-        if (value === 'center') return 0.5;
-        if (String(value).endsWith('%')) return Number.parseFloat(value) / 100;
-        return 0.5;
-      };
-      const posX = parsePosition(posXRaw);
-      const posY = parsePosition(posYRaw);
-      const offsetXPx = (mediaW - renderedW) * posX;
-      const offsetYPx = (mediaH - renderedH) * posY;
-      const C_w = 100;
-      const C_h = 133.33;
-      const nextBox = {
-        x: (offsetXPx / frameW) * C_w,
-        y: (offsetYPx / frameH) * C_h,
-        width: (renderedW / frameW) * C_w,
-        height: (renderedH / frameH) * C_h,
-      };
-
-      setDisplayBox((current) => {
-        if (
-          current &&
-          Math.abs(current.x - nextBox.x) < 0.05 &&
-          Math.abs(current.y - nextBox.y) < 0.05 &&
-          Math.abs(current.width - nextBox.width) < 0.05 &&
-          Math.abs(current.height - nextBox.height) < 0.05
-        ) {
-          return current;
-        }
-        return nextBox;
-      });
-    };
-
-    updateDisplayBox();
-    window.addEventListener('resize', updateDisplayBox);
-    const frame = overlayRef.current?.parentElement;
-    const media = frame?.querySelector('.mog-scan-media');
-    media?.addEventListener?.('load', updateDisplayBox);
-    media?.addEventListener?.('loadedmetadata', updateDisplayBox);
-    if (typeof ResizeObserver !== 'undefined') {
-      frameObserver = frame ? new ResizeObserver(updateDisplayBox) : null;
-      mediaObserver = media ? new ResizeObserver(updateDisplayBox) : null;
-      frameObserver?.observe(frame);
-      mediaObserver?.observe(media);
-    }
-
-    return () => {
-      window.removeEventListener('resize', updateDisplayBox);
-      media?.removeEventListener?.('load', updateDisplayBox);
-      media?.removeEventListener?.('loadedmetadata', updateDisplayBox);
-      frameObserver?.disconnect();
-      mediaObserver?.disconnect();
-    };
-  }, [fitMode, sourceImgH, sourceImgW]);
 
   if (landmarksData && landmarksData !== 'fallback') {
     const { points, imgW, imgH } = landmarksData;
@@ -3093,41 +2949,24 @@ const FaceScanOverlay = ({
     
     let scaleX, scaleY, offsetX, offsetY;
     
-    if (displayBox) {
-      scaleX = displayBox.width;
-      scaleY = displayBox.height;
-      offsetX = displayBox.x;
-      offsetY = displayBox.y;
-    } else if (fitMode === 'contain') {
-      if (imgRatio > containerRatio) {
-        scaleX = C_w;
-        scaleY = C_w / imgRatio;
-        offsetX = 0;
-        offsetY = (C_h - scaleY) / 2;
-      } else {
-        scaleY = C_h;
-        scaleX = C_h * imgRatio;
-        offsetX = (C_w - scaleX) / 2;
-        offsetY = 0;
-      }
-    } else if (imgRatio > containerRatio) {
+    if (imgRatio > containerRatio) {
       scaleY = C_h;
       scaleX = C_h * imgRatio;
-      offsetX = -(scaleX - C_w) / 2;
+      offsetX = (scaleX - C_w) / 2;
       offsetY = 0;
     } else {
       scaleX = C_w;
       scaleY = C_w / imgRatio;
       offsetX = 0;
-      offsetY = -(scaleY - C_h) / 2;
+      offsetY = (scaleY - C_h) / 2;
     }
 
     const pointMap = new Map();
 
     Array.from(uniquePoints).forEach((idx) => {
       const pt = points[idx] || points[0];
-      const screenX = pt.x * scaleX + offsetX;
-      const screenY = pt.y * scaleY + offsetY;
+      const screenX = pt.x * scaleX - offsetX;
+      const screenY = pt.y * scaleY - offsetY;
       const mapped = { id: idx, x: screenX, y: screenY };
       mappedPoints.push(mapped);
       pointMap.set(idx, mapped);
@@ -3199,8 +3038,8 @@ const FaceScanOverlay = ({
   const scanSeconds = Math.max(compactMotion ? 2.2 : 2.8, Number(scanLoopSeconds) || 4);
 
   return (
-    <div ref={overlayRef} className="absolute inset-0 z-20 overflow-hidden" style={{ perspective: '1000px' }}>
-      <svg viewBox="0 0 100 133.33" className={`w-full h-full ${compactMotion ? '' : 'drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]'}`} preserveAspectRatio="none">
+    <div className="absolute inset-0 z-20 overflow-hidden" style={{ perspective: '1000px' }}>
+      <svg viewBox="0 0 100 133.33" className={`w-full h-full ${compactMotion ? '' : 'drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]'}`} preserveAspectRatio="xMidYMid slice">
         {mappedEdges.map((edge, i) => {
           const length = Math.sqrt(Math.pow(edge[1].x - edge[0].x, 2) + Math.pow(edge[1].y - edge[0].y, 2));
           const avgY = (edge[0].y + edge[1].y) / 2;
@@ -3312,66 +3151,6 @@ const formatElapsedMinutes = (ms) => {
   return `${minutes}.${String(Math.floor(seconds / 6)).padStart(1, '0')}m elapsed`;
 };
 
-const ACTIVE_ANALYSIS_STORAGE_KEY = 'mogcheck_active_analysis_jobs_v1';
-const ACTIVE_ANALYSIS_MAX_AGE_MS = 35 * 60 * 1000;
-
-function readPersistedAnalysisJobs(userUid) {
-  if (typeof window === 'undefined' || !userUid) return [];
-  try {
-    const raw = window.localStorage.getItem(ACTIVE_ANALYSIS_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(parsed)) return [];
-    const now = Date.now();
-    return parsed.filter((job) =>
-      job?.userUid === userUid &&
-      job?.scanRequestId &&
-      now - (Number(job.createdAt) || Number(job.startedAt) || now) < ACTIVE_ANALYSIS_MAX_AGE_MS
-    );
-  } catch {
-    return [];
-  }
-}
-
-function writePersistedAnalysisJobs(jobs) {
-  if (typeof window === 'undefined') return;
-  try {
-    const now = Date.now();
-    const activeJobs = (Array.isArray(jobs) ? jobs : [])
-      .filter((job) => job?.userUid && job?.scanRequestId)
-      .filter((job) => now - (Number(job.createdAt) || Number(job.startedAt) || now) < ACTIVE_ANALYSIS_MAX_AGE_MS)
-      .map((job) => ({
-        userUid: job.userUid,
-        scanRequestId: job.scanRequestId,
-        choice: job.choice || '3',
-        profileId: job.profileId || 'default',
-        analysisLabel: job.analysisLabel || 'Analysis',
-        createdAt: job.createdAt || job.startedAt || now,
-        startedAt: job.startedAt || job.createdAt || now,
-        updatedAt: job.updatedAt || now,
-      }))
-      .slice(0, 4);
-    if (activeJobs.length) {
-      window.localStorage.setItem(ACTIVE_ANALYSIS_STORAGE_KEY, JSON.stringify(activeJobs));
-    } else {
-      window.localStorage.removeItem(ACTIVE_ANALYSIS_STORAGE_KEY);
-    }
-  } catch {
-    // Best-effort recovery only.
-  }
-}
-
-function upsertPersistedAnalysisJob(job) {
-  if (!job?.userUid || !job?.scanRequestId) return;
-  const existing = readPersistedAnalysisJobs(job.userUid).filter((entry) => entry.scanRequestId !== job.scanRequestId);
-  writePersistedAnalysisJobs([{ ...job, updatedAt: Date.now() }, ...existing]);
-}
-
-function clearPersistedAnalysisJob(userUid, scanRequestId) {
-  if (!userUid || !scanRequestId) return;
-  const next = readPersistedAnalysisJobs(userUid).filter((job) => job.scanRequestId !== scanRequestId);
-  writePersistedAnalysisJobs(next);
-}
-
 const isTransientMobileScanError = (error) => {
   const message = String(error?.message || error || '').toLowerCase();
   return (
@@ -3421,12 +3200,9 @@ const ScanningView = ({
   onDismiss,
   onOpen,
   onStatusChange,
-  scanRequestId: providedScanRequestId,
 }) => {
   const [statusText, setStatusText] = useState('Connecting to Backend Bridge...');
   const [elapsedScanMs, setElapsedScanMs] = useState(0);
-  const [activeScanRequestId, setActiveScanRequestId] = useState(providedScanRequestId || null);
-  const [scanStartedAtMs, setScanStartedAtMs] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
   const [landmarks, setLandmarks] = useState(null);
   const [hasError, setHasError] = useState(false);
@@ -3465,11 +3241,8 @@ const ScanningView = ({
       fairUsageState,
       overlayRevealSeconds,
       overlayScanLoopSeconds,
-      scanRequestId: activeScanRequestId,
-      startedAt: scanStartedAtMs,
-      elapsedScanMs,
     });
-  }, [activeScanRequestId, elapsedScanMs, fairUsageState, hasError, landmarks, overlayRevealSeconds, overlayScanLoopSeconds, scanStartedAtMs, statusText, videoUrl]);
+  }, [fairUsageState, hasError, landmarks, overlayRevealSeconds, overlayScanLoopSeconds, statusText, videoUrl]);
 
   useEffect(() => {
     let active = true;
@@ -3507,21 +3280,16 @@ const ScanningView = ({
         console.error("MediaPipe failed", err);
       }
     };
-    if (!compact) {
-      initDetector();
-    }
+    initDetector();
 
     const startScan = async () => {
       const minScanMs = 3200;
       const scanStartedAt = Date.now();
-      setScanStartedAtMs(scanStartedAt);
       setElapsedScanMs(0);
       const scanRequestId =
-        providedScanRequestId ||
-        ((typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+        (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
           ? crypto.randomUUID()
-          : `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
-      setActiveScanRequestId(scanRequestId);
+          : `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       let scanSucceeded = false;
       let currentFairUsage = null;
       let authToken = null;
@@ -3617,17 +3385,6 @@ const ScanningView = ({
       try {
         const isUltra = choice === "1" || choice === "2";
         activeUser = userRef.current;
-        if (activeUser?.uid) {
-          upsertPersistedAnalysisJob({
-            userUid: activeUser.uid,
-            scanRequestId,
-            choice: choice || '3',
-            profileId: profileId || 'default',
-            analysisLabel,
-            createdAt: scanStartedAt,
-            startedAt: scanStartedAt,
-          });
-        }
         if (activeUser) {
           try {
             authToken = await activeUser.getIdToken();
@@ -3746,8 +3503,7 @@ const ScanningView = ({
       /** So the UI never sits on "Consulting AI" forever if Python/API hangs */
         const analyzeAbort = new AbortController();
         cancelAnalyzeRequest = () => analyzeAbort.abort();
-        const useBackgroundAnalyze = Boolean(activeUser?.uid);
-        const ANALYZE_CLIENT_MAX_MS = useBackgroundAnalyze ? 2 * 60 * 1000 : 14 * 60 * 1000;
+        const ANALYZE_CLIENT_MAX_MS = 14 * 60 * 1000;
         const analyzeHardStop = setTimeout(() => analyzeAbort.abort(), ANALYZE_CLIENT_MAX_MS);
 
         const buildProgressMessage = () => {
@@ -3769,7 +3525,7 @@ const ScanningView = ({
         }, 1000);
 
         const runAnalyzeRequest = async () => {
-          return fetch(`${API_BASE}${useBackgroundAnalyze ? '/api/analyze/start' : '/api/analyze'}`, {
+          return fetch(`${API_BASE}/api/analyze`, {
             method: "POST",
             headers,
             body: formData,
@@ -3798,7 +3554,6 @@ const ScanningView = ({
               if (!active) return;
               if (recoveredScan) {
                 scanSucceeded = true;
-                clearPersistedAnalysisJob(activeUser?.uid, scanRequestId);
                 rememberScanDuration(choice, currentFairUsage, Date.now() - scanStartedAt);
                 setStatusText("Analysis Complete! Transitioning...");
                 onCompleteRef.current(recoveredScan);
@@ -3835,35 +3590,6 @@ const ScanningView = ({
           return;
         }
 
-        if (useBackgroundAnalyze && data?.state === 'running' && data?.scanRequestId) {
-          if (data?.fairUsage && active) {
-            currentFairUsage = data.fairUsage;
-            setFairUsageState(data.fairUsage);
-          }
-          upsertPersistedAnalysisJob({
-            userUid: activeUser.uid,
-            scanRequestId,
-            choice: choice || '3',
-            profileId: profileId || 'default',
-            analysisLabel,
-            createdAt: scanStartedAt,
-            startedAt: data.startedAt || scanStartedAt,
-          });
-          setStatusText('Scan is running on your account. You can leave this page and come back for the result.');
-          const recoveredScan = await pollForSavedScan();
-          if (!active) return;
-          if (recoveredScan) {
-            scanSucceeded = true;
-            clearPersistedAnalysisJob(activeUser?.uid, scanRequestId);
-            rememberScanDuration(choice, currentFairUsage, Date.now() - scanStartedAt);
-            setStatusText("Analysis Complete! Transitioning...");
-            onCompleteRef.current(recoveredScan);
-            return;
-          }
-          setStatusText('Scan is still running on your account. Check back in a moment.');
-          return;
-        }
-
         const elapsed = Date.now() - scanStartedAt;
         if (elapsed < minScanMs) {
           await new Promise((r) => setTimeout(r, minScanMs - elapsed));
@@ -3877,7 +3603,6 @@ const ScanningView = ({
            }
            rememberScanDuration(choice, currentFairUsage, Date.now() - scanStartedAt);
            scanSucceeded = true;
-           clearPersistedAnalysisJob(activeUser?.uid, scanRequestId);
            setStatusText("Analysis Complete! Transitioning...");
            setVideoUrl(data.videoUrl);
            if (active) onCompleteRef.current(data);
@@ -3905,7 +3630,6 @@ const ScanningView = ({
           if (!active) return;
           if (recoveredScan) {
             scanSucceeded = true;
-            clearPersistedAnalysisJob(activeUser?.uid, scanRequestId);
             rememberScanDuration(choice, currentFairUsage, Date.now() - scanStartedAt);
             setStatusText("Analysis Complete! Transitioning...");
             onCompleteRef.current(recoveredScan);
@@ -3935,7 +3659,7 @@ const ScanningView = ({
       active = false;
       cancelAnalyzeRequest();
     };
-  }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, profileId, providedScanRequestId, analysisLabel, compact]);
+  }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, profileId]);
 
   if (compact) {
     return (
@@ -3955,16 +3679,24 @@ const ScanningView = ({
         <div className="flex items-center gap-3 px-3 py-2.5">
           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-cyan-500/25 bg-zinc-950">
             {videoUrl ? (
-              <video src={videoUrl} autoPlay loop muted playsInline className="mog-scan-media absolute inset-0 h-full w-full object-cover" />
+              <video src={videoUrl} autoPlay loop muted playsInline className="absolute inset-0 h-full w-full object-cover" />
             ) : (
               <>
                 <img
                   src={mainImageSrc}
                   alt="Scan target"
-                  className="mog-scan-media absolute inset-0 h-full w-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%]"
+                  className="absolute inset-0 h-full w-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%]"
                 />
                 <div className="absolute inset-0 bg-blue-900/20 mix-blend-overlay" />
               </>
+            )}
+
+            {!videoUrl && (
+              <FaceScanOverlay
+                landmarksData={landmarks}
+                revealDurationSeconds={overlayRevealSeconds}
+                scanLoopSeconds={overlayScanLoopSeconds}
+              />
             )}
 
             <div className="absolute left-2 top-2 h-3 w-3 border-l-2 border-t-2 border-cyan-500/80" />
@@ -4055,12 +3787,12 @@ const ScanningView = ({
         )}
       </div>
 
-      <div className="mog-scan-frame mog-scan-frame--main relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
+      <div className="relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
         {videoUrl ? (
-           <video src={videoUrl} autoPlay loop muted playsInline className="mog-scan-media absolute inset-0 w-full h-full object-cover z-10" />
+           <video src={videoUrl} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover z-10" />
         ) : (
            <>
-             <img src={mainImageSrc} alt="Scan target" className="mog-scan-media absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%] z-0" />
+             <img src={mainImageSrc} alt="Scan target" className="absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%] z-0" />
              <div className="absolute inset-0 bg-blue-900/30 mix-blend-overlay z-0" />
            </>
         )}
@@ -4070,7 +3802,6 @@ const ScanningView = ({
             landmarksData={landmarks}
             revealDurationSeconds={overlayRevealSeconds}
             scanLoopSeconds={overlayScanLoopSeconds}
-            fitMode="cover"
           />
         )}
 
@@ -4144,174 +3875,6 @@ const AnalysisDockSummaryCard = ({ job, onOpenResult, onDismiss }) => (
   </div>
 );
 
-const RecoveredAnalysisJobCard = ({ job, onOpen, onStatusChange, onComplete, onDismiss }) => {
-  const [statusText, setStatusText] = useState(job.statusText || 'Restoring scan session...');
-  const [hasError, setHasError] = useState(false);
-  const startedAt = Number(job.startedAt || job.createdAt || Date.now());
-  const elapsedMs = Math.max(0, Date.now() - startedAt);
-
-  useEffect(() => {
-    let active = true;
-    let tick = null;
-
-    const fetchWithTimeout = async (url, options = {}) => {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), options.timeoutMs || 12000);
-      try {
-        return await fetch(url, {
-          cache: 'no-store',
-          ...options,
-          signal: ctrl.signal,
-        });
-      } finally {
-        clearTimeout(timer);
-      }
-    };
-
-    const poll = async () => {
-      if (!job?.user || !job?.scanRequestId) {
-        setHasError(true);
-        setStatusText('Could not restore this scan. Please start a new scan.');
-        return;
-      }
-
-      try {
-        const token = await job.user.getIdToken();
-        const elapsed = Math.max(0, Date.now() - startedAt);
-        const expectedMs = getAdaptiveScanTotalMs(job.choice, job.fairUsageState);
-        const nextStatus =
-          elapsed > expectedMs
-            ? 'Taking longer than usual. The scan is still running and we are waiting for the result...'
-            : 'Scan restored. Waiting for the result...';
-        if (active) {
-          setStatusText(nextStatus);
-          onStatusChange?.({
-            statusText: nextStatus,
-            hasError: false,
-            scanRequestId: job.scanRequestId,
-            startedAt,
-            elapsedScanMs: elapsed,
-          });
-        }
-
-        const statusRes = await fetchWithTimeout(`${API_BASE}/api/analyze/status/${encodeURIComponent(job.scanRequestId)}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (statusRes.ok) {
-          const statusData = await statusRes.json().catch(() => ({}));
-          if (statusData.state === 'completed') {
-            const payload = statusData.payload?.success
-              ? statusData.payload
-              : statusData.scan
-                ? buildRecoveredScanPayload(statusData.scan)
-                : null;
-            if (payload) {
-              clearPersistedAnalysisJob(job.user.uid, job.scanRequestId);
-              onComplete?.(payload);
-              return;
-            }
-          }
-          if (statusData.state === 'failed') {
-            clearPersistedAnalysisJob(job.user.uid, job.scanRequestId);
-            setHasError(true);
-            setStatusText(statusData.error || 'Analysis did not complete successfully.');
-            return;
-          }
-        }
-
-        const scansRes = await fetchWithTimeout(`${API_BASE}/api/user/scans`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (scansRes.ok) {
-          const scansData = await scansRes.json().catch(() => ({}));
-          const scans = Array.isArray(scansData.scans) ? scansData.scans : [];
-          const recovered = scans.find((scan) => {
-            const payload = scan && typeof scan.payload === 'object' && scan.payload ? scan.payload : {};
-            return String(scan.scanRequestId || payload.scanRequestId || '').trim() === String(job.scanRequestId).trim();
-          });
-          if (recovered) {
-            clearPersistedAnalysisJob(job.user.uid, job.scanRequestId);
-            onComplete?.(buildRecoveredScanPayload(recovered));
-            return;
-          }
-        }
-      } catch (err) {
-        if (!active) return;
-        console.warn('Restored scan poll failed', err);
-        setStatusText('Connection briefly dropped. The scan is still running...');
-      }
-    };
-
-    poll();
-    tick = setInterval(poll, 5000);
-    return () => {
-      active = false;
-      if (tick) clearInterval(tick);
-    };
-  }, [job, onComplete, onStatusChange, startedAt]);
-
-  return (
-    <div
-      className={`overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#0c0d0e]/95 shadow-[0_0_28px_rgba(34,211,238,0.12)] backdrop-blur-xl ${onOpen ? 'cursor-pointer transition-transform hover:scale-[1.01]' : ''}`}
-      onClick={onOpen}
-      role={onOpen ? 'button' : undefined}
-      tabIndex={onOpen ? 0 : undefined}
-      onKeyDown={(event) => {
-        if (!onOpen) return;
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onOpen();
-        }
-      }}
-    >
-      <div className="flex items-center gap-3 px-3 py-2.5">
-        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-cyan-500/25 bg-zinc-950">
-          {job.mainImageSrc ? (
-            <img src={job.mainImageSrc} alt="Scan target" className="mog-scan-media absolute inset-0 h-full w-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%]" />
-          ) : (
-            <div className="absolute inset-0 bg-cyan-500/10" />
-          )}
-          <div className="absolute inset-0 bg-blue-900/20 mix-blend-overlay" />
-          <div className="absolute left-2 top-2 h-3 w-3 border-l-2 border-t-2 border-cyan-500/80" />
-          <div className="absolute right-2 top-2 h-3 w-3 border-r-2 border-t-2 border-cyan-500/80" />
-          <div className="absolute bottom-2 left-2 h-3 w-3 border-b-2 border-l-2 border-cyan-500/80" />
-          <div className="absolute bottom-2 right-2 h-3 w-3 border-b-2 border-r-2 border-cyan-500/80" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className={`inline-flex h-2.5 w-2.5 rounded-full ${hasError ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.85)]' : 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.85)] animate-pulse'}`} />
-            <p className={`truncate text-[10px] font-black uppercase tracking-[0.28em] ${hasError ? 'text-red-300/85' : 'text-cyan-300/85'}`}>
-              {hasError ? 'Scan paused' : 'Scan in progress'}
-            </p>
-          </div>
-          <p className="mt-1 truncate text-[11px] font-black uppercase tracking-[0.22em] text-white">
-            {job.analysisLabel || 'Profile'}
-          </p>
-          <p className="mt-0.5 truncate text-[10px] font-sans uppercase tracking-[0.2em] text-zinc-500">
-            {getAnalysisModelLabel(job.choice)}
-          </p>
-          <p className="mt-1 truncate text-[10px] leading-relaxed text-zinc-400">{statusText}</p>
-          <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-400">
-            {formatElapsedMinutes(elapsedMs)}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            clearPersistedAnalysisJob(job.user?.uid, job.scanRequestId);
-            onDismiss?.();
-          }}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-500 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
-          aria-label="Dismiss analysis"
-        >
-          <X size={14} />
-        </button>
-      </div>
-    </div>
-  );
-};
-
 const AnalysisDock = ({
   jobs,
   collapsed,
@@ -4329,10 +3892,10 @@ const AnalysisDock = ({
   const visibleJobs = jobs.slice(0, 4);
   const hiddenJobsCount = Math.max(0, jobs.length - visibleJobs.length);
 
-  return (
-    <>
+  if (collapsed) {
+    return (
       <div
-        className={collapsed ? "fixed bottom-5 z-[240] flex flex-col items-end gap-2" : "hidden"}
+        className="fixed bottom-5 z-[240] flex flex-col items-end gap-2"
         style={{ right: '1.6rem' }}
       >
         {jobs.slice(0, 4).map((job) => (
@@ -4360,8 +3923,12 @@ const AnalysisDock = ({
           </button>
         )}
       </div>
+    );
+  }
+
+  return (
     <div
-      className={`fixed bottom-5 z-[240] flex max-w-[92vw] flex-col items-end gap-2 transition-opacity ${collapsed ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
+      className="fixed bottom-5 z-[240] flex max-w-[92vw] flex-col items-end gap-2"
       style={{ right: '2.35rem' }}
     >
       <div className="inline-flex items-center justify-between gap-5 rounded-full border border-zinc-800 bg-[#0c0d0e]/95 px-4 py-2 shadow-[0_0_35px_rgba(34,211,238,0.08)] backdrop-blur-xl">
@@ -4405,14 +3972,6 @@ const AnalysisDock = ({
                 onOpenResult={onOpenResult}
                 onDismiss={onDismiss}
               />
-            ) : job.recoveryOnly ? (
-              <RecoveredAnalysisJobCard
-                job={job}
-                onOpen={() => onOpenRunning(job.id)}
-                onStatusChange={(status) => onJobStatusChange(job.id, status)}
-                onComplete={job.onComplete}
-                onDismiss={() => onDismiss(job.id)}
-              />
             ) : (
               <ScanningView
                 compact
@@ -4430,69 +3989,17 @@ const AnalysisDock = ({
                 onScanFailed={() => onDismiss(job.id)}
                 user={job.user}
                 profileId={job.profileId}
-                scanRequestId={job.scanRequestId}
               />
             )}
           </div>
         )}
       </div>
     </div>
-    </>
   );
 };
 
 const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
   const [scanningCeleb, setScanningCeleb] = useState(null);
-  const [restoredLandmarks, setRestoredLandmarks] = useState(null);
-
-  useEffect(() => {
-    if (!job?.mainImageSrc || job.landmarks) {
-      setRestoredLandmarks(null);
-      return undefined;
-    }
-
-    let active = true;
-    const detectRestoredLandmarks = async () => {
-      try {
-        const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
-        );
-        const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-            delegate: "GPU"
-          },
-          outputFaceBlendshapes: false,
-          runningMode: "IMAGE",
-          numFaces: 1
-        });
-
-        const img = new Image();
-        if (!String(job.mainImageSrc).startsWith('data:')) {
-          img.crossOrigin = 'anonymous';
-        }
-        img.onload = () => {
-          if (!active) return;
-          const result = faceLandmarker.detect(img);
-          if (result.faceLandmarks && result.faceLandmarks.length > 0) {
-            setRestoredLandmarks({
-              points: result.faceLandmarks[0],
-              imgW: img.naturalWidth,
-              imgH: img.naturalHeight
-            });
-          }
-        };
-        img.src = job.mainImageSrc;
-      } catch (err) {
-        console.warn('Restored scan MediaPipe detection failed', err);
-      }
-    };
-
-    detectRestoredLandmarks();
-    return () => {
-      active = false;
-    };
-  }, [job?.mainImageSrc, job?.landmarks]);
 
   if (!job) {
     return (
@@ -4516,8 +4023,6 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
     ? (job.fairUsageState.badgeText || 'High usage detected, you have been placed on low-priority queue.')
     : '';
   const statusText = job.statusText || 'Preparing analysis... Estimated time left: calculating.';
-  const elapsedMs = job.elapsedScanMs ?? Math.max(0, Date.now() - Number(job.startedAt || job.createdAt || Date.now()));
-  const overlayLandmarks = job.landmarks || restoredLandmarks;
 
   return (
     <div className="flex-grow flex flex-col bg-[#0c0d0e] scroll-mt-20">
@@ -4546,9 +4051,6 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
             <p className="font-sans text-xs sm:text-sm text-zinc-400 normal-case tracking-normal max-w-lg mx-auto px-4 leading-relaxed">
               {statusText}
             </p>
-            <p className="mt-2 text-[10px] font-black uppercase tracking-[0.24em] text-emerald-400">
-              {formatElapsedMinutes(elapsedMs)}
-            </p>
             {lowPriorityBadge && (
               <div className="mt-4 inline-flex max-w-[min(92vw,720px)] rounded-full border border-red-500/35 bg-red-500/12 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-red-300">
                 <span className="truncate">{lowPriorityBadge}</span>
@@ -4556,26 +4058,21 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
             )}
           </div>
 
-          <div className="mog-scan-frame mog-scan-frame--main relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
+          <div className="relative aspect-[3/4] w-[88vw] max-w-md mx-auto bg-zinc-900 border border-cyan-500/50 rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(34,211,238,0.2)] sm:scale-[1.02] transform-gpu">
             {job.videoUrl ? (
-              <video src={job.videoUrl} autoPlay loop muted playsInline className="mog-scan-media absolute inset-0 w-full h-full object-cover z-10" />
+              <video src={job.videoUrl} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover z-10" />
             ) : (
               <>
-                {job.mainImageSrc ? (
-                  <img src={job.mainImageSrc} alt="Scan target" className="mog-scan-media absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%] z-0" />
-                ) : (
-                  <div className="absolute inset-0 z-0 bg-cyan-500/10" />
-                )}
+                <img src={job.mainImageSrc} alt="Scan target" className="absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%] z-0" />
                 <div className="absolute inset-0 bg-blue-900/30 mix-blend-overlay z-0" />
               </>
             )}
 
             {!job.videoUrl && (
               <FaceScanOverlay
-                landmarksData={overlayLandmarks}
+                landmarksData={job.landmarks}
                 revealDurationSeconds={overlayRevealSeconds}
                 scanLoopSeconds={overlayScanLoopSeconds}
-                fitMode="cover"
               />
             )}
 
@@ -4913,7 +4410,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
              user={activeAnalysisJob.user || user}
              profileId={activeAnalysisJob.profileId || activeScanProfileId}
              analysisLabel={activeAnalysisJob.analysisLabel || 'Analysis'}
-             scanRequestId={activeAnalysisJob.scanRequestId}
              onScanFailed={() => {
                setIsScanning(false);
                setActiveAnalysisJob(null);
@@ -7711,33 +7207,6 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     return ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(0)}s`;
   };
 
-  const fmtAgo = (value) => {
-    if (!value) return '-';
-    const ms = Date.now() - new Date(value).getTime();
-    if (!Number.isFinite(ms)) return '-';
-    if (ms < 60000) return 'just now';
-    if (ms < 3600000) return `${Math.floor(ms / 60000)}m ago`;
-    if (ms < 86400000) return `${Math.floor(ms / 3600000)}h ago`;
-    return `${Math.floor(ms / 86400000)}d ago`;
-  };
-
-  const keyStatusMeta = (status) => {
-    switch (status) {
-      case 'healthy':
-        return { label: 'Healthy', dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.55)]', text: 'text-emerald-300', border: 'border-emerald-500/20' };
-      case 'warning':
-        return { label: 'Warning', dot: 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.55)]', text: 'text-amber-300', border: 'border-amber-500/20' };
-      case 'quota':
-        return { label: 'Quota hit', dot: 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.55)]', text: 'text-red-300', border: 'border-red-500/20' };
-      case 'missing':
-        return { label: 'Missing', dot: 'bg-zinc-600', text: 'text-zinc-500', border: 'border-zinc-800' };
-      case 'untested':
-        return { label: 'Untested', dot: 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.45)]', text: 'text-sky-300', border: 'border-sky-500/20' };
-      default:
-        return { label: 'Idle', dot: 'bg-zinc-500', text: 'text-zinc-400', border: 'border-zinc-800' };
-    }
-  };
-
   const modelLabel = (m) => ({ '1': 'Premium', '2': 'Fun mode', '3': 'Free' }[m] || m);
 
   const handleDeleteUser = async (uid, email) => {
@@ -8194,67 +7663,31 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
             {/* API Key Health */}
             <div className="lg:col-span-2 bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
-              <div className="flex flex-wrap items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-4">
                 <Key size={14} className="text-cyan-400" />
                 <h3 className="font-sans text-xs uppercase tracking-widest text-zinc-300">Gemini API Key Health</h3>
-                <span className="ml-auto text-[9px] font-sans uppercase tracking-[0.2em] text-zinc-600">
-                  Today + lifetime usage
-                </span>
               </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                {(stats.keyHealth || []).map((k) => {
-                  const meta = keyStatusMeta(k.status);
-                  const totalToday = Number(k.attempts || 0);
-                  const failures = Number(k.errors || 0);
-                  const successes = Number(k.successes || 0);
-                  const failurePct = totalToday > 0 ? Math.min(100, Math.round((failures / totalToday) * 100)) : 0;
-                  return (
-                    <div key={k.key} className={`rounded-xl border ${meta.border} bg-zinc-950/55 p-3`}>
-                      <div className="mb-3 flex items-center gap-2">
-                        <span className={`inline-block h-2.5 w-2.5 rounded-full ${meta.dot}`} />
-                        <span className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-200">GEMINI_KEY_{k.key}</span>
-                        <span className={`ml-auto text-[9px] font-bold uppercase tracking-[0.18em] ${meta.text}`}>{meta.label}</span>
-                      </div>
-                      <div className="grid grid-cols-4 gap-2 text-center">
-                        <div>
-                          <p className="text-sm font-black text-cyan-300">{totalToday}</p>
-                          <p className="text-[8px] font-sans uppercase tracking-[0.18em] text-zinc-600">Today</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-emerald-300">{successes}</p>
-                          <p className="text-[8px] font-sans uppercase tracking-[0.18em] text-zinc-600">OK</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-red-300">{failures}</p>
-                          <p className="text-[8px] font-sans uppercase tracking-[0.18em] text-zinc-600">Fail</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-violet-300">{fmtDuration(k.avgLatencyMs)}</p>
-                          <p className="text-[8px] font-sans uppercase tracking-[0.18em] text-zinc-600">Avg</p>
-                        </div>
-                      </div>
-                      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-900">
-                        <div
-                          className={`h-full rounded-full ${failurePct >= 50 ? 'bg-red-500' : failurePct > 0 ? 'bg-amber-400' : 'bg-cyan-400'}`}
-                          style={{ width: `${totalToday > 0 ? Math.max(6, failurePct) : 0}%` }}
-                        />
-                      </div>
-                      <div className="mt-3 grid grid-cols-2 gap-2 text-[9px] font-sans text-zinc-500">
-                        <span>Last use: <span className="text-zinc-300">{fmtAgo(k.lastAttemptAt || k.lastSuccessAt)}</span></span>
-                        <span>Total: <span className="text-zinc-300">{k.totalAttempts || 0}</span></span>
-                        <span>High demand: <span className="text-zinc-300">{k.highDemandErrors || 0}</span></span>
-                        <span>Empty: <span className="text-zinc-300">{k.emptyResponses || 0}</span></span>
-                      </div>
-                      {k.lastError && (
-                        <p className="mt-2 truncate rounded-lg border border-red-500/10 bg-red-500/5 px-2 py-1 text-[9px] font-sans text-red-300" title={k.lastError}>
-                          {k.lastError}
-                        </p>
-                      )}
+              <div className="space-y-3">
+                {(stats.keyHealth || []).map((k) => (
+                  <div key={k.key} className="flex items-center gap-3">
+                    <span className="text-[10px] font-sans text-zinc-500 w-12 shrink-0">KEY {k.key}</span>
+                    <div className="flex-grow h-2.5 bg-zinc-950 rounded-full overflow-hidden relative">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${k.exhausted ? 'bg-gradient-to-r from-red-600 to-red-400' : 'bg-gradient-to-r from-cyan-600 to-cyan-400'}`}
+                        style={{ width: `${k.exhausted ? 100 : Math.min(100, (k.attempts / 250) * 100)}%` }}
+                      />
                     </div>
-                  );
-                })}
+                    <span className="text-[10px] font-sans text-zinc-500 w-16 text-right shrink-0">{k.attempts}/250</span>
+                    <span className="w-5 shrink-0 text-center">
+                      {k.exhausted
+                        ? <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                        : <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                      }
+                    </span>
+                  </div>
+                ))}
               </div>
-              <p className="text-[9px] font-sans text-zinc-600 mt-3">Parsed from live Gemma stdout. No key values are exposed.</p>
+              <p className="text-[9px] font-sans text-zinc-600 mt-3">Quota resets daily. Attempts tracked from Python stdout during this server session.</p>
             </div>
 
             {/* Model Breakdown */}
@@ -9459,15 +8892,9 @@ const App = () => {
       (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
         ? crypto.randomUUID()
         : `analysis-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    const scanRequestId =
-      jobInput.scanRequestId ||
-      ((typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
-        ? crypto.randomUUID()
-        : `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
 
     const baseJob = {
       id: jobId,
-      scanRequestId,
       state: 'running',
       createdAt: Date.now(),
       ...jobInput,
@@ -9483,7 +8910,6 @@ const App = () => {
             : job
         )
       );
-      clearPersistedAnalysisJob(latestJob.user?.uid, latestJob.scanRequestId);
       if (!options?.skipDashboardUpdate) {
         setDashboardData(completedScan);
         setCurrentPage('dashboard');
@@ -9491,17 +8917,6 @@ const App = () => {
     };
 
     const queuedJob = { ...baseJob, onComplete };
-    if (queuedJob.user?.uid && queuedJob.scanRequestId) {
-      upsertPersistedAnalysisJob({
-        userUid: queuedJob.user.uid,
-        scanRequestId: queuedJob.scanRequestId,
-        choice: queuedJob.choice || '3',
-        profileId: queuedJob.profileId || 'default',
-        analysisLabel: queuedJob.analysisLabel || 'Analysis',
-        createdAt: queuedJob.createdAt,
-        startedAt: queuedJob.createdAt,
-      });
-    }
     setFocusedAnalysisJobId(jobId);
     setAnalysisDockCollapsed(false);
     setAnalysisJobs((prev) => [queuedJob, ...prev]);
@@ -9510,28 +8925,15 @@ const App = () => {
 
   const updateAnalysisJobStatus = useCallback((jobId, status = {}) => {
     setAnalysisJobs((prev) =>
-      prev.map((job) => {
-        if (job.id !== jobId || job.state !== 'running') return job;
-        const nextJob = { ...job, ...status };
-        if (nextJob.user?.uid && nextJob.scanRequestId) {
-          upsertPersistedAnalysisJob({
-            userUid: nextJob.user.uid,
-            scanRequestId: nextJob.scanRequestId,
-            choice: nextJob.choice || '3',
-            profileId: nextJob.profileId || 'default',
-            analysisLabel: nextJob.analysisLabel || 'Analysis',
-            createdAt: nextJob.createdAt || Date.now(),
-            startedAt: nextJob.startedAt || nextJob.createdAt || Date.now(),
-          });
-        }
-        return nextJob;
-      })
+      prev.map((job) =>
+        job.id === jobId && job.state === 'running'
+          ? { ...job, ...status }
+          : job
+      )
     );
   }, []);
 
   const dismissAnalysisJob = useCallback((jobId) => {
-    const job = analysisJobsRef.current.find((entry) => entry.id === jobId);
-    clearPersistedAnalysisJob(job?.user?.uid, job?.scanRequestId);
     setAnalysisJobs((prev) => prev.filter((job) => job.id !== jobId));
   }, []);
 
@@ -9558,42 +8960,6 @@ const App = () => {
   const focusedAnalysisJob = analysisJobs.find((job) => job.id === focusedAnalysisJobId) || null;
 
   useEffect(() => {
-    if (!authResolved || !user?.uid) return;
-    let cancelled = false;
-    const restoreJobs = async () => {
-      const jobsToRestore = readPersistedAnalysisJobs(user.uid);
-      if (cancelled || !jobsToRestore.length) return;
-      const existingRequestIds = new Set(
-        analysisJobsRef.current.map((job) => String(job.scanRequestId || '')).filter(Boolean)
-      );
-      const restored = jobsToRestore.filter((job) => job?.scanRequestId && !existingRequestIds.has(String(job.scanRequestId)));
-      if (!restored.length) return;
-      restored.forEach((job) => {
-        queueAnalysisJob({
-          recoveryOnly: true,
-          scanRequestId: job.scanRequestId,
-          choice: job.choice || '3',
-          profileId: job.profileId || 'default',
-          analysisLabel: job.analysisLabel || 'Restored scan',
-          mainImageSrc: job.mainImageSrc || null,
-          sideImageUrl: job.sideImageUrl || null,
-          createdAt: job.createdAt || job.startedAt || Date.now(),
-          startedAt: job.startedAt || job.createdAt || Date.now(),
-          statusText: 'Scan restored. Waiting for the result...',
-          user,
-        });
-      });
-      if (currentPage === 'analysis') {
-        setAnalysisDockCollapsed(false);
-      }
-    };
-    restoreJobs();
-    return () => {
-      cancelled = true;
-    };
-  }, [authResolved, currentPage, queueAnalysisJob, user]);
-
-  useEffect(() => {
     if (currentPage !== 'dashboard') return;
     if (!authResolved) return;
     // Fresh scan results (guest or signed-in): always show dashboard when we have payload/images
@@ -9609,7 +8975,7 @@ const App = () => {
   };
   
   return (
-    <div className={`min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black ${mobileModeEnabled && currentPage !== 'analysis' ? 'mog-mobile-compact' : ''}`}>
+    <div className={`min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black ${mobileModeEnabled ? 'mog-mobile-compact' : ''}`}>
       <NoiseOverlay />
       <button
         type="button"

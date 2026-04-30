@@ -468,13 +468,11 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       try {
         const token = await user.getIdToken();
         const headers = { Authorization: `Bearer ${token}` };
-        const [profilesResult, scansResult] = await Promise.allSettled([
+        const [profilesRes, scansRes] = await Promise.all([
           fetch(`${API_BASE}/api/user/profiles`, { headers }),
           fetch(`${API_BASE}/api/user/scans`, { headers }),
         ]);
-        const profilesRes = profilesResult.status === 'fulfilled' ? profilesResult.value : null;
-        const scansRes = scansResult.status === 'fulfilled' ? scansResult.value : null;
-        if (profilesRes?.ok) {
+        if (profilesRes.ok) {
           const data = await profilesRes.json();
           const fetchedProfiles = data.profiles || [];
           setProfiles((prev) => (
@@ -482,19 +480,15 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
               ? fetchedProfiles
               : prev
           ));
-        } else if (profilesResult.status === 'rejected') {
-          console.error('Failed to fetch profiles', profilesResult.reason);
         }
-        if (scansRes?.ok) {
+        if (scansRes.ok) {
           const data = await scansRes.json();
-          const fetchedScans = (data.scans || []).filter((scan) => scan?.state !== 'running' && scan?.payload?.status !== 'running');
+          const fetchedScans = data.scans || [];
           setAllScans((prev) => (
             fetchedScans.length > 0 || prev.length === 0 || !data.warning
               ? fetchedScans
               : prev
           ));
-        } else if (scansResult.status === 'rejected') {
-          console.error('Failed to fetch profile scans', scansResult.reason);
         }
       } catch (e) {
         console.error('Failed to fetch profiles', e);
@@ -976,7 +970,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         });
         if (res.ok) {
           const data = await res.json();
-          const fetchedScans = (data.scans || []).filter((scan) => scan?.state !== 'running' && scan?.payload?.status !== 'running');
+          const fetchedScans = data.scans || [];
           setAllScans(fetchedScans);
           scans = fetchedScans
             .filter((scan) => (scan?.profileId || 'default') === profile.id)
