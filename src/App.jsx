@@ -9561,29 +9561,7 @@ const App = () => {
     if (!authResolved || !user?.uid) return;
     let cancelled = false;
     const restoreJobs = async () => {
-      let jobsToRestore = readPersistedAnalysisJobs(user.uid);
-      try {
-        const token = await user.getIdToken();
-        const res = await fetch(`${API_BASE}/api/user/active-analyses`, {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store',
-        });
-        if (res.ok) {
-          const data = await res.json().catch(() => ({}));
-          const serverJobs = Array.isArray(data.analyses) ? data.analyses : [];
-          const byRequestId = new Map(jobsToRestore.map((job) => [String(job.scanRequestId), job]));
-          serverJobs.forEach((job) => {
-            if (!job?.scanRequestId) return;
-            byRequestId.set(String(job.scanRequestId), {
-              ...(byRequestId.get(String(job.scanRequestId)) || {}),
-              ...job,
-            });
-          });
-          jobsToRestore = Array.from(byRequestId.values());
-        }
-      } catch (err) {
-        console.warn('Active analysis restore fetch failed', err);
-      }
+      const jobsToRestore = readPersistedAnalysisJobs(user.uid);
       if (cancelled || !jobsToRestore.length) return;
       const existingRequestIds = new Set(
         analysisJobsRef.current.map((job) => String(job.scanRequestId || '')).filter(Boolean)

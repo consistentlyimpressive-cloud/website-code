@@ -3448,57 +3448,6 @@ app.get('/api/analyze/status/:scanRequestId', extractUserOptional, async (req, r
   return res.json({ state: 'pending' });
 });
 
-app.get('/api/user/active-analyses', extractUserOptional, async (req, res) => {
-  if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
-  if (!firestore) return res.json({ analyses: [] });
-
-  try {
-    let snap;
-    try {
-      snap = await firestore
-        .collection('users')
-        .doc(req.uid)
-        .collection('scans')
-        .where('state', '==', 'running')
-        .limit(10)
-        .get();
-    } catch (queryErr) {
-      console.warn('[active-analyses] running query failed, falling back:', queryErr.message);
-      snap = await firestore
-        .collection('users')
-        .doc(req.uid)
-        .collection('scans')
-        .limit(50)
-        .get();
-    }
-
-    const analyses = [];
-    snap.forEach((doc) => {
-      const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
-      if (scan.state !== 'running') return;
-      const startedAt = storedTimestampMillis(scan.timestamp || scan.createdAt || scan.updatedAt) || Date.now();
-      if (Date.now() - startedAt > ACTIVE_ANALYSIS_MAX_AGE_MS) return;
-      analyses.push({
-        id: scan.id,
-        scanRequestId: scan.scanRequestId || scan.payload?.scanRequestId || null,
-        choice: String(scan.model || scan.payload?.selectedModel || '3'),
-        profileId: scan.profileId || scan.payload?.profileId || 'default',
-        analysisLabel: 'Restored scan',
-        mainImageSrc: scan.frontImageUrl || scan.frontImage || scan.payload?.frontImage || null,
-        sideImageUrl: scan.sideImageUrl || scan.sideImage || scan.payload?.sideImage || null,
-        createdAt: startedAt,
-        startedAt,
-      });
-    });
-
-    analyses.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
-    res.json({ analyses });
-  } catch (e) {
-    console.error('[active-analyses] Failed to fetch active analyses:', e);
-    res.json({ analyses: [], warning: e.message || 'Failed to fetch active analyses' });
-  }
-});
-
 app.post('/api/unlock-potential', unlockLimiter, extractUserOptional, upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No image provided' });
