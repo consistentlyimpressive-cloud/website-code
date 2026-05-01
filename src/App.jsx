@@ -8632,6 +8632,7 @@ const App = () => {
   const [mobileModeEnabled, setMobileModeEnabled] = useState(() =>
     typeof window !== 'undefined' && window.matchMedia?.('(max-width: 768px)').matches
   );
+  const mobileCompactActive = mobileModeEnabled && currentPage !== 'analysis';
   const analysisJobsRef = useRef([]);
 
   useEffect(() => {
@@ -8639,9 +8640,9 @@ const App = () => {
   }, [analysisJobs]);
 
   useEffect(() => {
-    document.body.classList.toggle('mog-mobile-compact', mobileModeEnabled);
+    document.body.classList.toggle('mog-mobile-compact', mobileCompactActive);
     return () => document.body.classList.remove('mog-mobile-compact');
-  }, [mobileModeEnabled]);
+  }, [mobileCompactActive]);
 
   const setCurrentPage = useCallback((page, pathOverride = null) => {
     const newPath = pathOverride || (page === 'home' ? '/' : `/${page}`);
@@ -8981,7 +8982,7 @@ const App = () => {
   };
   
   return (
-    <div className={`min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black ${mobileModeEnabled ? 'mog-mobile-compact' : ''}`}>
+    <div className={`min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black ${mobileCompactActive ? 'mog-mobile-compact' : ''}`}>
       <NoiseOverlay />
       <button
         type="button"
