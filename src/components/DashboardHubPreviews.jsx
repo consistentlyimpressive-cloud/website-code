@@ -245,7 +245,7 @@ function DashboardHubCommunityScanCard({ scan, compact = false, onOpen }) {
       >
         <div className="relative overflow-hidden rounded-[30px] bg-zinc-950">
           {scanImage ? (
-            <img
+            <img loading="lazy" decoding="async"
               src={scanImage}
               className="w-full aspect-[3/4] object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.065]"
               alt="Community Scan"
@@ -390,7 +390,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
                       {[fighterA, fighterB].map((fighter, index) => (
                         <div key={index} className="relative flex-1">
                           {getBattleImage(fighter) ? (
-                            <img src={getBattleImage(fighter)} alt="" className="absolute inset-0 h-full w-full object-cover object-top grayscale-[35%]" />
+                            <img loading="lazy" decoding="async" src={getBattleImage(fighter)} alt="" className="absolute inset-0 h-full w-full object-cover object-top grayscale-[35%]" />
                           ) : (
                             <div className="absolute inset-0 bg-zinc-950" />
                           )}
@@ -483,7 +483,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
                     <div className="flex -space-x-2">
                       {[getBattleImage(fighterA), getBattleImage(fighterB)].map((img, index) => (
                         <div key={index} className="h-9 w-9 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950">
-                          {img ? <img src={img} alt="" className="h-full w-full object-cover object-top" /> : null}
+                          {img ? <img loading="lazy" decoding="async" src={img} alt="" className="h-full w-full object-cover object-top" /> : null}
                         </div>
                       ))}
                     </div>
@@ -524,7 +524,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
                   className="group relative flex-1 aspect-[3/4] rounded-lg overflow-hidden border border-zinc-700/50 text-left hover:border-emerald-400/40 transition-colors"
                 >
                   {getScanImage(scan) ? (
-                    <img src={getScanImage(scan)} alt="" className="w-full h-full object-cover object-top" />
+                    <img loading="lazy" decoding="async" src={getScanImage(scan)} alt="" className="w-full h-full object-cover object-top" />
                   ) : (
                     <div className="h-full w-full bg-zinc-950" />
                   )}

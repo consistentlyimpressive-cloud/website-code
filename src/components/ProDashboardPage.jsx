@@ -103,7 +103,7 @@ function DashboardCommunityScanCard({
       >
         <div className="relative overflow-hidden rounded-[30px] bg-zinc-950">
           {dd?.frontImage ? (
-            <img
+            <img loading="lazy" decoding="async"
               src={dd.frontImage}
               className="w-full aspect-[3/4] object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.065]"
               alt="Community Scan"
@@ -1359,10 +1359,10 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                         </span>
                       )}
                       <div className="relative flex-1 border-r border-zinc-900">
-                        <img src={scan.frontImage || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'} alt="Front profile" className="h-full w-full object-cover" />
+                        <img loading="lazy" decoding="async" src={scan.frontImage || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'} alt="Front profile" className="h-full w-full object-cover" />
                       </div>
                       <div className="relative flex-1">
-                        <img src={scan.sideImage || scan.frontImage || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'} alt="Side profile" className="h-full w-full object-cover object-top" />
+                        <img loading="lazy" decoding="async" src={scan.sideImage || scan.frontImage || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'} alt="Side profile" className="h-full w-full object-cover object-top" />
                       </div>
                     </button>
                   );
@@ -1530,7 +1530,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       <div key={b.id} className="rounded-xl overflow-hidden border border-zinc-800 bg-black/40 aspect-[4/3] relative">
                         <div className="absolute inset-0 flex">
                           <div className="flex-1 relative">
-                            <img
+                            <img loading="lazy" decoding="async"
                               src={b.fighterA?.frontImage || b.fighterA?.imgSrc}
                               alt=""
                               className="absolute inset-0 w-full h-full object-cover object-top"
@@ -1538,7 +1538,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                           </div>
                           <div className="w-px bg-zinc-800" />
                           <div className="flex-1 relative">
-                            <img
+                            <img loading="lazy" decoding="async"
                               src={b.fighterB?.frontImage || b.fighterB?.imgSrc}
                               alt=""
                               className="absolute inset-0 w-full h-full object-cover object-top"
@@ -1633,7 +1633,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-black/30">
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={resolveMediaUrl(latestScanAcrossProfiles.frontImageUrl || latestScanAcrossProfiles.payload?.frontImage) || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'}
                         alt=""
                         className="h-24 w-24 object-cover"
@@ -1776,7 +1776,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                     <div key={b.id} className="rounded-xl overflow-hidden border border-zinc-800 bg-black/40 aspect-[4/3] relative">
                       <div className="absolute inset-0 flex">
                         <div className="flex-1 relative">
-                          <img
+                          <img loading="lazy" decoding="async"
                             src={b.fighterA?.frontImage || b.fighterA?.imgSrc}
                             alt=""
                             className="absolute inset-0 w-full h-full object-cover object-top"
@@ -1784,7 +1784,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                         </div>
                         <div className="w-px bg-zinc-800" />
                         <div className="flex-1 relative">
-                          <img
+                          <img loading="lazy" decoding="async"
                             src={b.fighterB?.frontImage || b.fighterB?.imgSrc}
                             alt=""
                             className="absolute inset-0 w-full h-full object-cover object-top"
@@ -1927,7 +1927,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       <div key={scanId || scan.frontImageUrl} className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-3">
                         <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-zinc-900">
                           {resolveMediaUrl(scan.frontImageUrl || scan.payload?.frontImage) ? (
-                            <img src={resolveMediaUrl(scan.frontImageUrl || scan.payload?.frontImage)} alt="" className="h-full w-full object-cover object-top" />
+                            <img loading="lazy" decoding="async" src={resolveMediaUrl(scan.frontImageUrl || scan.payload?.frontImage)} alt="" className="h-full w-full object-cover object-top" />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center text-zinc-700"><Users size={18} /></div>
                           )}

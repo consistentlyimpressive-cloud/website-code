@@ -103,7 +103,7 @@ const HolographicCard = ({ celeb, onClick, compact = false }) => {
           className="absolute inset-0 pointer-events-none overflow-hidden rounded-[inherit]"
           style={{ borderRadius: 'inherit', clipPath: `inset(0 round ${CARD_RADIUS})` }}
         >
-          <img
+          <img loading="lazy" decoding="async"
             src={celeb.imgSrc}
             referrerPolicy="no-referrer"
             className={`w-full h-full object-cover rounded-[inherit] transition-all duration-700 transform-gpu [backface-visibility:hidden] ${isHovering ? 'scale-[1.15] brightness-110 opacity-100' : 'scale-105 brightness-95 opacity-100'}`}
@@ -133,7 +133,7 @@ const HolographicCard = ({ celeb, onClick, compact = false }) => {
               {celeb.flags && celeb.flags.length > 0 && (
                 <div className="flex items-center gap-0.5 ml-0.5 translate-y-[1px]">
                   {celeb.flags.map((code) => (
-                    <img key={code} src={`https://flagcdn.com/w20/${code}.png`} alt={`${code} flag`} className="w-3.5 h-[10px] object-cover rounded-[1px] opacity-90 shadow-sm border border-white/10" />
+                    <img loading="lazy" decoding="async" key={code} src={`https://flagcdn.com/w20/${code}.png`} alt={`${code} flag`} className="w-3.5 h-[10px] object-cover rounded-[1px] opacity-90 shadow-sm border border-white/10" />
                   ))}
                 </div>
               )}

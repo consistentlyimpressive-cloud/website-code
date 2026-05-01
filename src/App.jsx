@@ -1,13 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Sparkles, Bell, Trash2, Bug, Share2 } from 'lucide-react';
-import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
-import NewsPage from './components/NewsPage';
-import MogBattlePage from './components/MogBattlePage';
-import ProDashboardPage from './components/ProDashboardPage';
-import PublicProfilePage from './components/PublicProfilePage';
-import TermsOfServicePage from './components/TermsOfServicePage';
-import PrivacyPolicyPage from './components/PrivacyPolicyPage';
-import SettingsPage from './components/SettingsPage';
 import { ConfirmDialog, ImageLightbox, SiteModal } from './components/ui/SiteModal';
 import { DashboardHubPreviewsCompact } from './components/DashboardHubPreviews';
 import { getNavbarPlanChip, hasEffectiveProAccess, canAlwaysAccessDashboard, isProPlan, normalizePlanValue } from './utils/planAccess';
@@ -33,6 +25,14 @@ import {
 import { getFirestore, doc, onSnapshot } from 'firebase/firestore';
 import { getApiBase } from './utils/apiBase';
 import { resolveMediaUrl } from './utils/mediaUrl';
+
+const NewsPage = React.lazy(() => import('./components/NewsPage'));
+const MogBattlePage = React.lazy(() => import('./components/MogBattlePage'));
+const ProDashboardPage = React.lazy(() => import('./components/ProDashboardPage'));
+const PublicProfilePage = React.lazy(() => import('./components/PublicProfilePage'));
+const TermsOfServicePage = React.lazy(() => import('./components/TermsOfServicePage'));
+const PrivacyPolicyPage = React.lazy(() => import('./components/PrivacyPolicyPage'));
+const SettingsPage = React.lazy(() => import('./components/SettingsPage'));
 
 const GENERIC_ERROR = 'Something went wrong. Please try again later.';
 const EMPTY_ANALYSIS_RESPONSE_ERROR = 'Analysis finished but no usable text was parsed';
@@ -95,6 +95,14 @@ function parseAppLocation(pathname, userUid = null) {
     return {
       page: 'analysis',
       routeParams: {},
+      dashboardRoute: { slug: null, profileId: null },
+    };
+  }
+
+  if (parts[0] === 'animations' && parts.length >= 2) {
+    return {
+      page: 'animations',
+      routeParams: { animationId: parts[1] },
       dashboardRoute: { slug: null, profileId: null },
     };
   }
@@ -1046,6 +1054,15 @@ const FadeUp = ({ children, delay = 0 }) => {
     <div ref={domRef} className={`transition-all duration-1000 transform ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`} style={{ transitionDelay: `${delay}ms` }}>{children}</div>
   );
 };
+
+const PageLoadingFallback = () => (
+  <div className="flex min-h-[55vh] items-center justify-center px-6">
+    <div className="flex items-center gap-3 rounded-full border border-cyan-500/20 bg-black/40 px-5 py-3 text-[10px] font-black uppercase tracking-[0.28em] text-cyan-300 shadow-[0_0_24px_rgba(34,211,238,0.12)]">
+      <Loader2 size={14} className="animate-spin" />
+      Loading
+    </div>
+  </div>
+);
 
 const FlipIn = ({ children, delay = 0 }) => {
   const domRef = useRef();
@@ -2860,6 +2877,284 @@ const PhotoGuidePage = ({ setCurrentPage }) => {
   );
 };
 
+const extractMetricRawValue = (label = '') => {
+  const matches = [...String(label || '').matchAll(/\(([-+]?\d+(?:\.\d+)?)\s*(?:°|deg)?\)/gi)];
+  if (!matches.length) return null;
+  const value = Number(matches[matches.length - 1][1]);
+  return Number.isFinite(value) ? value : null;
+};
+
+const getMetricAnimationAxis = (label = '') => {
+  const low = String(label || '').toLowerCase();
+  const fallback = { left: 'Low', center: 'Ideal', right: 'High', ideal: [72, 92], domain: [0, 100], useScore: true };
+  const configs = [
+    { test: /bigonial|jaw.*width|mandibular/, left: 'Too narrow', center: 'Ideal', right: 'Too wide', ideal: [0.95, 1.05], domain: [0.75, 1.2] },
+    { test: /\bipd|interpupillary/, left: 'Too close', center: 'Ideal', right: 'Too wide', ideal: [0.44, 0.48], domain: [0.36, 0.56] },
+    { test: /mouth.*width/, left: 'Too narrow', center: 'Ideal', right: 'Too wide', ideal: [0.38, 0.44], domain: [0.28, 0.54] },
+    { test: /nose.*width|nasal.*base/, left: 'Too narrow', center: 'Ideal', right: 'Too wide', ideal: [0.20, 0.25], domain: [0.15, 0.34] },
+    { test: /upper.*third/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.32, 0.39], domain: [0.24, 0.5] },
+    { test: /middle.*third/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.40, 0.46], domain: [0.30, 0.58] },
+    { test: /lower.*third/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.39, 0.47], domain: [0.30, 0.60] },
+    { test: /eye.*height/, left: 'Too small', center: 'Ideal', right: 'Too tall', ideal: [0.06, 0.09], domain: [0.035, 0.13] },
+    { test: /brow.*compact/, left: 'Too compact', center: 'Ideal', right: 'Too tall', ideal: [0.08, 0.11], domain: [0.04, 0.16] },
+    { test: /philtrum/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.09, 0.12], domain: [0.055, 0.17] },
+    { test: /lip.*height|total.*lip/, left: 'Too thin', center: 'Ideal', right: 'Too full', ideal: [0.11, 0.16], domain: [0.06, 0.24] },
+    { test: /fwhr|facial.*width.*height/, left: 'Too narrow', center: 'Ideal', right: 'Too wide', ideal: [1.75, 2.05], domain: [1.40, 2.40] },
+    { test: /midface/, left: 'Too short', center: 'Ideal', right: 'Too long', ideal: [0.95, 1.05], domain: [0.75, 1.28] },
+    { test: /canthal|tilt/, left: 'Negative tilt', center: 'Ideal', right: 'Too steep', ideal: [4, 10], domain: [-6, 20] },
+    { test: /maxillary|cheekbone|projection|chin/, left: 'Too recessed', center: 'Ideal', right: 'Too projected', ideal: [72, 92], domain: [0, 100], useScore: true },
+    { test: /nasolabial|angle|gonial|plane|convexity/, left: 'Too low', center: 'Ideal', right: 'Too high', ideal: [72, 92], domain: [0, 100], useScore: true },
+  ];
+  return configs.find((config) => config.test.test(low)) || fallback;
+};
+
+const metricAnimationPosition = (metric = {}) => {
+  const axis = getMetricAnimationAxis(metric.label);
+  const rawValue = extractMetricRawValue(metric.label);
+  const score = Number(metric.score);
+  const value = axis.useScore || rawValue == null ? score : rawValue;
+  const [min, max] = axis.domain;
+  const position = Number.isFinite(value) && max > min
+    ? Math.max(4, Math.min(96, ((value - min) / (max - min)) * 100))
+    : 50;
+  const [idealMin, idealMax] = axis.ideal;
+  const status = Number.isFinite(value)
+    ? value < idealMin ? axis.left : value > idealMax ? axis.right : axis.center
+    : axis.center;
+  return {
+    ...axis,
+    rawValue,
+    score: Number.isFinite(score) ? score : null,
+    value: Number.isFinite(value) ? value : null,
+    position,
+    status,
+    severity: status === axis.center ? 'Ideal' : (Number.isFinite(score) && score >= 68 ? 'Slight Flaw' : 'Primary Flaw'),
+  };
+};
+
+const ScanAnimationsPage = ({ routeParams, setCurrentPage }) => {
+  const [payload, setPayload] = useState(null);
+  const [stepIndex, setStepIndex] = useState(0);
+
+  useEffect(() => {
+    try {
+      const store = JSON.parse(window.sessionStorage.getItem(ANIMATION_LINK_STORAGE_KEY) || '{}');
+      setPayload(store?.[routeParams?.animationId] || null);
+    } catch {
+      setPayload(null);
+    }
+  }, [routeParams?.animationId]);
+
+  const steps = useMemo(() => {
+    if (!payload) return [];
+    const metrics = (Array.isArray(payload.metrics) ? payload.metrics : [])
+      .filter((metric) => metric?.label)
+      .map((metric) => ({ type: 'metric', metric }));
+    const best = (Array.isArray(payload.bestFeatures) ? payload.bestFeatures : [])
+      .slice(0, 5)
+      .map((feature, index) => ({ type: 'best', feature, index }));
+    const flaws = (Array.isArray(payload.primaryFlaws) ? payload.primaryFlaws : [])
+      .slice(0, 5)
+      .map((feature, index) => ({ type: 'flaw', feature, index }));
+    return [...metrics, ...best, ...flaws];
+  }, [payload]);
+
+  useEffect(() => {
+    if (!steps.length) return undefined;
+    const interval = setInterval(() => {
+      setStepIndex((current) => (current + 1) % steps.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [steps.length]);
+
+  useEffect(() => {
+    if (stepIndex >= steps.length) setStepIndex(0);
+  }, [stepIndex, steps.length]);
+
+  if (!payload) {
+    return (
+      <div className="min-h-screen px-6 pt-28">
+        <div className="mx-auto max-w-3xl rounded-2xl border border-zinc-800 bg-zinc-950/70 p-8 text-center">
+          <h1 className="text-2xl font-black uppercase tracking-[0.24em] text-white">Animation link expired</h1>
+          <p className="mt-4 text-sm text-zinc-400">Open it again from the scan dashboard on this browser.</p>
+          <button type="button" onClick={() => setCurrentPage('dashboard')} className="mt-6 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-5 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-200">
+            Back to dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!steps.length) {
+    return (
+      <div className="min-h-screen px-6 pt-28">
+        <div className="mx-auto max-w-3xl rounded-2xl border border-zinc-800 bg-zinc-950/70 p-8 text-center">
+          <h1 className="text-2xl font-black uppercase tracking-[0.24em] text-white">No animation data</h1>
+          <p className="mt-4 text-sm text-zinc-400">This scan does not have ratios, best features, or flaws to animate yet.</p>
+          <button type="button" onClick={() => setCurrentPage('dashboard')} className="mt-6 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-5 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-200">
+            Back to dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const currentStep = steps[stepIndex] || null;
+  const isMetricStep = currentStep?.type === 'metric';
+  const metricAxis = isMetricStep ? metricAnimationPosition(currentStep.metric) : null;
+  const feature = currentStep?.feature || null;
+  const imageLabel = payload.profileView === 'side' ? 'Side profile' : 'Front profile';
+  const metricTitle = isMetricStep
+    ? String(currentStep.metric?.label || 'Measurement').replace(/\s*\([^)]*\)\s*/g, '').trim()
+    : '';
+  const scrubberPercent = steps.length > 1 ? (stepIndex / (steps.length - 1)) * 100 : 100;
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#020405] p-4 text-zinc-100">
+      <style>{`
+        @keyframes metricPointerWave {
+          0% { left: 50%; transform: translateX(-50%) translateY(0) scale(1); }
+          25% { left: 47.5%; transform: translateX(-50%) translateY(-0.35px) scale(1.002); }
+          50% { left: 52.5%; transform: translateX(-50%) translateY(0.35px) scale(1); }
+          75% { left: 49%; transform: translateX(-50%) translateY(-0.2px) scale(1.001); }
+          100% { left: var(--target); transform: translateX(-50%) translateY(0) scale(1); }
+        }
+        @keyframes featureCardIn {
+          0% { opacity: 0; transform: translateY(10px) scale(0.98); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animation-scrubber {
+          appearance: none;
+          -webkit-appearance: none;
+          height: 4px;
+          border-radius: 999px;
+          cursor: pointer;
+        }
+        .animation-scrubber::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 16px;
+          height: 16px;
+          border-radius: 999px;
+          background: #22d3ee;
+          border: 2px solid rgba(255,255,255,0.92);
+          box-shadow: 0 0 16px rgba(34,211,238,0.85);
+          cursor: grab;
+        }
+        .animation-scrubber:active::-webkit-slider-thumb {
+          cursor: grabbing;
+          transform: scale(1.08);
+        }
+        .animation-scrubber::-moz-range-thumb {
+          width: 16px;
+          height: 16px;
+          border-radius: 999px;
+          background: #22d3ee;
+          border: 2px solid rgba(255,255,255,0.92);
+          box-shadow: 0 0 16px rgba(34,211,238,0.85);
+          cursor: grab;
+        }
+      `}</style>
+      <div className="flex w-full max-w-[480px] flex-col gap-3">
+        <button
+          type="button"
+          onClick={() => setCurrentPage('dashboard')}
+          className="inline-flex w-fit items-center gap-2 rounded-full border border-cyan-400/40 bg-cyan-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.14)] transition-all hover:border-cyan-200/70 hover:bg-cyan-400/20 hover:text-white"
+        >
+          <ChevronLeft size={13} /> Back
+        </button>
+      <div className="flex w-full max-w-[480px] flex-col overflow-hidden border border-cyan-500/15 bg-[#050708] shadow-[0_24px_80px_rgba(0,0,0,0.75),0_0_34px_rgba(34,211,238,0.08)]">
+        <div className="border-b border-cyan-500/15 bg-[#080b0d] px-3 py-3">
+          <div className="mb-2 flex items-center justify-end gap-3">
+            <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-100">
+              {imageLabel}
+            </span>
+          </div>
+
+          {isMetricStep ? (
+            <div key={`metric-${stepIndex}`} className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300/70">Measurement</div>
+                  <h1 className="text-lg font-black tracking-tight text-white">{metricTitle}</h1>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-[11px] font-black ${
+                  metricAxis.status === metricAxis.center ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                }`}>
+                  {metricAxis.severity}
+                </span>
+              </div>
+              <div className="relative pt-5">
+                <div className="absolute top-0 flex flex-col items-center" style={{ '--target': `${metricAxis.position}%`, animation: 'metricPointerWave 1.8s cubic-bezier(0.65, 0, 0.35, 1) forwards' }}>
+                  <div className="rounded-full border border-cyan-400/25 bg-zinc-950 px-2 py-0.5 text-xs font-black text-white shadow-[0_0_16px_rgba(34,211,238,0.35)]">
+                    {metricAxis.rawValue != null ? metricAxis.rawValue : metricAxis.score ?? '-'}
+                  </div>
+                  <div className="-mt-px h-0 w-0 border-x-[5px] border-t-[6px] border-x-transparent border-t-zinc-950" />
+                </div>
+                <div className="h-2 rounded-full bg-[linear-gradient(90deg,#f43f5e_0%,#fb923c_22%,#34d399_50%,#fb923c_78%,#f43f5e_100%)]" />
+                <div className="mt-2 flex justify-between text-[11px] font-medium text-zinc-300">
+                  <span>{metricAxis.left}</span>
+                  <span className="font-black text-emerald-400">{metricAxis.center}</span>
+                  <span>{metricAxis.right}</span>
+                </div>
+                <div className="mt-1 text-[11px] text-zinc-300">
+                  Ideal: <span className="font-black text-emerald-400">{metricAxis.ideal[0]} - {metricAxis.ideal[1]}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div key={`feature-${stepIndex}`} className="space-y-2" style={{ animation: 'featureCardIn 0.45s ease both' }}>
+              <div className="flex items-center justify-between">
+                <h1 className={`text-base font-black uppercase tracking-[0.12em] ${currentStep?.type === 'best' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {currentStep?.type === 'best' ? `Best feature ${currentStep.index + 1}` : `Primary flaw ${currentStep.index + 1}`}
+                </h1>
+                <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${currentStep?.type === 'best' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                  {currentStep?.type === 'best' ? 'Positive' : 'Fix point'}
+                </span>
+              </div>
+              <h2 className="text-xl font-black tracking-tight text-white">{feature?.title || 'Feature'}</h2>
+              <p className="text-sm leading-relaxed text-zinc-300">{feature?.description || 'No description available.'}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="relative overflow-hidden bg-[#050708]">
+          <img src={payload.imageUrl} alt={imageLabel} className="block w-full max-h-[calc(100vh-214px)] object-cover object-top" />
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-4">
+            <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em] text-white/80">
+              <span>{stepIndex + 1}/{Math.max(steps.length, 1)}</span>
+              <span>{isMetricStep ? metricTitle : currentStep?.type === 'best' ? 'Best feature' : 'Primary flaw'}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max={Math.max(steps.length - 1, 0)}
+              step="1"
+              value={stepIndex}
+              onChange={(event) => setStepIndex(Number(event.target.value))}
+              className="animation-scrubber mt-3 block w-full"
+              aria-label="Animation timeline"
+              style={{
+                background: `linear-gradient(90deg, #22d3ee 0%, #22d3ee ${scrubberPercent}%, rgba(255,255,255,0.24) ${scrubberPercent}%, rgba(255,255,255,0.24) 100%)`,
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2 border-t border-cyan-500/20 bg-[#050708] p-3">
+          <button type="button" onClick={() => setStepIndex((current) => (current - 1 + steps.length) % steps.length)} className="flex-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,0.08)] transition-all hover:border-cyan-300/60 hover:bg-cyan-500/15 hover:text-white">
+            Previous
+          </button>
+          <button type="button" onClick={() => setStepIndex((current) => (current + 1) % steps.length)} className="flex-1 rounded-full border border-cyan-400/50 bg-cyan-400/15 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.18)] transition-all hover:border-cyan-200/80 hover:bg-cyan-400/25 hover:text-white">
+            Next
+          </button>
+        </div>
+      </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Upload Photo Page ---
 const FileDropzone = ({ label, file, setFile, isPulsing }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -2920,6 +3215,7 @@ const FileDropzone = ({ label, file, setFile, isPulsing }) => {
 // --- Scanning Components ---
 const FaceScanOverlay = ({
   landmarksData,
+  meshConnections = null,
   revealDurationSeconds = 36,
   scanLoopSeconds = 4,
 }) => {
@@ -2927,15 +3223,15 @@ const FaceScanOverlay = ({
   let mappedPoints = [];
   let mappedEdges = [];
 
-  if (landmarksData && landmarksData !== 'fallback') {
+  if (landmarksData && landmarksData !== 'fallback' && meshConnections?.length) {
     const { points, imgW, imgH } = landmarksData;
     
     // Instead of simple contours, generate the fully detailed face tessellation matrix
     const uniquePoints = new Set();
     const connections = [];
 
-    if (FaceLandmarker?.FACE_LANDMARKS_TESSELATION) {
-      FaceLandmarker.FACE_LANDMARKS_TESSELATION.forEach(conn => {
+    if (meshConnections?.length) {
+      meshConnections.forEach(conn => {
         uniquePoints.add(conn.start);
         uniquePoints.add(conn.end);
         connections.push([conn.start, conn.end]);
@@ -3097,6 +3393,7 @@ const getEstimatedScanTotalMs = (choice, fairUsageState) => {
 };
 
 const SCAN_DURATION_HISTORY_KEY = 'mogcheck.scanDurationHistory.v1';
+const ANIMATION_LINK_STORAGE_KEY = 'mogcheck.animationLinks.v1';
 
 const getScanDurationHistory = () => {
   if (typeof window === 'undefined') return {};
@@ -3205,6 +3502,7 @@ const ScanningView = ({
   const [elapsedScanMs, setElapsedScanMs] = useState(0);
   const [videoUrl, setVideoUrl] = useState(null);
   const [landmarks, setLandmarks] = useState(null);
+  const [meshConnections, setMeshConnections] = useState(null);
   const [hasError, setHasError] = useState(false);
   const [fairUsageState, setFairUsageState] = useState(null);
   const isUltra31 = choice === "1";
@@ -3238,11 +3536,12 @@ const ScanningView = ({
       hasError,
       videoUrl,
       landmarks,
+      meshConnections,
       fairUsageState,
       overlayRevealSeconds,
       overlayScanLoopSeconds,
     });
-  }, [fairUsageState, hasError, landmarks, overlayRevealSeconds, overlayScanLoopSeconds, statusText, videoUrl]);
+  }, [fairUsageState, hasError, landmarks, meshConnections, overlayRevealSeconds, overlayScanLoopSeconds, statusText, videoUrl]);
 
   useEffect(() => {
     let active = true;
@@ -3250,6 +3549,9 @@ const ScanningView = ({
 
     const initDetector = async () => {
       try {
+        const { FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision');
+        if (!active) return;
+        setMeshConnections(FaceLandmarker.FACE_LANDMARKS_TESSELATION || null);
         const vision = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
         );
@@ -3694,6 +3996,7 @@ const ScanningView = ({
             {!videoUrl && (
               <FaceScanOverlay
                 landmarksData={landmarks}
+                meshConnections={meshConnections}
                 revealDurationSeconds={overlayRevealSeconds}
                 scanLoopSeconds={overlayScanLoopSeconds}
               />
@@ -3800,6 +4103,7 @@ const ScanningView = ({
         {!videoUrl && (
           <FaceScanOverlay
             landmarksData={landmarks}
+            meshConnections={meshConnections}
             revealDurationSeconds={overlayRevealSeconds}
             scanLoopSeconds={overlayScanLoopSeconds}
           />
@@ -4071,6 +4375,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
             {!job.videoUrl && (
               <FaceScanOverlay
                 landmarksData={job.landmarks}
+                meshConnections={job.meshConnections}
                 revealDurationSeconds={overlayRevealSeconds}
                 scanLoopSeconds={overlayScanLoopSeconds}
               />
@@ -5440,9 +5745,26 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
   const [landmarks, setLandmarks] = useState(null);
   const imgRef = useRef(null);
 
+  const detectCurrentImage = useCallback(() => {
+    if (!landmarker || !imgRef.current || !imgRef.current.complete || imgRef.current.naturalWidth === 0) {
+      return;
+    }
+    try {
+      const result = landmarker.detect(imgRef.current);
+      if (result.faceLandmarks && result.faceLandmarks.length > 0) {
+        setLandmarks(result.faceLandmarks[0]);
+      }
+    } catch (e) {
+      console.error("Error during structure map detection:", e);
+    }
+  }, [landmarker]);
+
   useEffect(() => {
+    let active = true;
     const initializeLandmarker = async () => {
       try {
+        const { FaceLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision');
+        if (!active) return;
         const filesetResolver = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
         );
@@ -5455,26 +5777,21 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
           runningMode: "IMAGE",
           numFaces: 1
         });
-        setLandmarker(faceLandmarker);
+        if (active) setLandmarker(faceLandmarker);
       } catch (error) {
         console.error("Error initializing landmarker:", error);
       }
     };
     initializeLandmarker();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
-    if (landmarker && imgRef.current && imgRef.current.complete && imgRef.current.naturalWidth !== 0) {
-      try {
-        const result = landmarker.detect(imgRef.current);
-        if (result.faceLandmarks && result.faceLandmarks.length > 0) {
-          setLandmarks(result.faceLandmarks[0]);
-        }
-      } catch (e) {
-        console.error("Error during initial detection:", e);
-      }
-    }
-  }, [landmarker, activeImageUrl]);
+    setLandmarks(null);
+    detectCurrentImage();
+  }, [detectCurrentImage, activeImageUrl]);
 
   const mapKeywordToLandmark = (title, description) => {
     const t = (title + " " + description).toLowerCase();
@@ -5709,19 +6026,9 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
       <img 
         ref={imgRef}
         src={activeImageUrl} 
-        crossOrigin="anonymous"
-        onLoad={() => {
-          if (landmarker && imgRef.current) {
-            try {
-              const result = landmarker.detect(imgRef.current);
-              if (result.faceLandmarks && result.faceLandmarks.length > 0) {
-                setLandmarks(result.faceLandmarks[0]);
-              }
-            } catch (e) {
-              console.error("Error during load detection:", e);
-            }
-          }
-        }}
+        loading="eager"
+        decoding="async"
+        onLoad={detectCurrentImage}
         className="absolute inset-0 w-full h-full object-cover object-center scale-[1.14] duration-700"
         alt="face map"
       />
@@ -6024,6 +6331,36 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   const displayedFinalRating = isFreeModelResult
     ? freeRatingLoop
     : (numericDisplayedFinalRating ?? 85);
+  const openAnimationsViewer = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const animationId =
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `animation-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const payload = {
+      id: animationId,
+      createdAt: new Date().toISOString(),
+      profileView: effectiveProfileView,
+      imageUrl: activeImageUrl,
+      finalRating: numericDisplayedFinalRating ?? dashboardData?.finalRating ?? null,
+      metrics: metricData,
+      bestFeatures: activeBestFeatures.slice(0, 5),
+      primaryFlaws: activePrimaryFlaws.slice(0, 5),
+    };
+    try {
+      const store = JSON.parse(window.sessionStorage.getItem(ANIMATION_LINK_STORAGE_KEY) || '{}');
+      store[animationId] = payload;
+      const keys = Object.keys(store);
+      if (keys.length > 12) {
+        keys.slice(0, keys.length - 12).forEach((key) => delete store[key]);
+      }
+      window.sessionStorage.setItem(ANIMATION_LINK_STORAGE_KEY, JSON.stringify(store));
+    } catch (error) {
+      console.error('Failed to create animation link', error);
+      return;
+    }
+    setCurrentPage('animations', `/animations/${animationId}`);
+  }, [activeBestFeatures, activeImageUrl, activePrimaryFlaws, dashboardData?.finalRating, effectiveProfileView, metricData, numericDisplayedFinalRating, setCurrentPage]);
   const cohesiveExperimentToggle = hasBothProfileViews && !isFreeModelResult ? (
     <button
       type="button"
@@ -6209,10 +6546,10 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                         {scanIsFree ? freeRatingLoop.toFixed(1) : (Number.isFinite(numericRating) ? numericRating.toFixed(1) : '-')}
                       </div>
                       <div className="relative flex-1 border-r border-zinc-900">
-                        <img src={scan.frontImage || placeholderProfileImage} alt="Front profile" className="h-full w-full object-cover" />
+                        <img loading="lazy" decoding="async" src={scan.frontImage || placeholderProfileImage} alt="Front profile" className="h-full w-full object-cover" />
                       </div>
                       <div className="relative flex-1">
-                        <img src={scan.sideImage || scan.frontImage || placeholderProfileImage} alt="Side profile" className="h-full w-full object-cover object-top" />
+                        <img loading="lazy" decoding="async" src={scan.sideImage || scan.frontImage || placeholderProfileImage} alt="Side profile" className="h-full w-full object-cover object-top" />
                       </div>
                     </button>
                   );
@@ -6228,7 +6565,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
               <div className="bg-zinc-900/35 px-4 py-3 rounded-3xl border border-zinc-800 shadow-2xl backdrop-blur-xl flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full border border-cyan-500/30 p-1 shrink-0">
                   <div className="w-full h-full bg-zinc-800 rounded-full overflow-hidden grayscale">
-                    <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} alt="Avatar" className="w-full h-full object-cover scale-150 origin-top" />
+                    <img loading="lazy" decoding="async" src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} alt="Avatar" className="w-full h-full object-cover scale-150 origin-top" />
                   </div>
                 </div>
                 <div className="min-w-0">
@@ -6253,14 +6590,14 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                   className={`flex-1 border-r border-zinc-900 relative cursor-pointer overflow-hidden group ${activeProfileView === 'front' ? 'ring-2 ring-inset ring-cyan-500 z-10' : ''}`}
                   onClick={() => setActiveProfileView('front')}
                 >
-                  <img src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className={`w-full h-full object-cover transition-all duration-300 ${activeProfileView === 'front' ? 'opacity-100 grayscale-0 scale-105' : 'opacity-40 grayscale group-hover:opacity-70 group-hover:grayscale-0'}`} alt="Front Profile" />
+                  <img loading="lazy" decoding="async" src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className={`w-full h-full object-cover transition-all duration-300 ${activeProfileView === 'front' ? 'opacity-100 grayscale-0 scale-105' : 'opacity-40 grayscale group-hover:opacity-70 group-hover:grayscale-0'}`} alt="Front Profile" />
                   <div className={`absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-cyan-900/50 to-transparent pointer-events-none transition-opacity duration-300 ${activeProfileView === 'front' ? 'opacity-100' : 'opacity-0'}`} />
                 </div>
                 <div 
                   className={`flex-1 relative cursor-pointer overflow-hidden group ${activeProfileView === 'side' ? 'ring-2 ring-inset ring-cyan-500 z-10' : ''}`}
                   onClick={() => setActiveProfileView('side')}
                 >
-                  <img src={dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className={`w-full h-full object-cover transition-all duration-300 ${activeProfileView === 'side' ? 'opacity-100 grayscale-0 scale-105' : 'opacity-40 grayscale group-hover:opacity-70 group-hover:grayscale-0'}`} style={{objectPosition: 'top'}} alt="Side Profile" />
+                  <img loading="lazy" decoding="async" src={dashboardData?.sideImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className={`w-full h-full object-cover transition-all duration-300 ${activeProfileView === 'side' ? 'opacity-100 grayscale-0 scale-105' : 'opacity-40 grayscale group-hover:opacity-70 group-hover:grayscale-0'}`} style={{objectPosition: 'top'}} alt="Side Profile" />
                   <div className={`absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-cyan-900/50 to-transparent pointer-events-none transition-opacity duration-300 ${activeProfileView === 'side' ? 'opacity-100' : 'opacity-0'}`} />
                 </div>
               </div>
@@ -6341,15 +6678,24 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                     <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest flex items-center gap-2">
                       <Target size={14} className="text-zinc-500" /> Structure
                     </h3>
-                    {debugAnchorsImage && (
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {debugAnchorsImage && (
+                        <button
+                          type="button"
+                          onClick={() => setScanLightbox({ src: debugAnchorsImage, subtitle: 'Debug anchors - landmark overlay' })}
+                          className="inline-flex items-center gap-2 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-cyan-200 transition-colors hover:border-cyan-300/50 hover:bg-cyan-500/15"
+                        >
+                          <Eye size={12} /> Debug
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => setScanLightbox({ src: debugAnchorsImage, subtitle: 'Debug anchors - landmark overlay' })}
-                        className="inline-flex items-center gap-2 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-cyan-200 transition-colors hover:border-cyan-300/50 hover:bg-cyan-500/15"
+                        onClick={openAnimationsViewer}
+                        className="inline-flex items-center gap-2 rounded-full border border-fuchsia-500/25 bg-fuchsia-500/10 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-fuchsia-100 transition-colors hover:border-fuchsia-300/50 hover:bg-fuchsia-500/15"
                       >
-                        <Eye size={12} /> Debug
+                        <Play size={12} /> View Animations
                       </button>
-                    )}
+                    </div>
                   </div>
                   <div className="flex flex-col md:flex-row gap-8 items-center justify-center flex-grow">
                     <StructureMap 
@@ -6363,13 +6709,13 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                        {!isRestrictedPreview && (
                        <div className={`flex gap-2 mb-1 w-full ${hasSideProfileImage ? 'max-w-[13rem]' : 'max-w-[8rem]'} mx-auto md:mx-0`}>
                          <div onClick={() => setActiveProfileView('front')} className={`relative ${hasSideProfileImage ? 'flex-1' : 'w-full'} aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
-                          <img src={dashboardData?.frontImage || placeholderProfileImage} className="w-full h-full object-cover object-center scale-[1.08]" alt="Front" />
+                          <img loading="lazy" decoding="async" src={dashboardData?.frontImage || placeholderProfileImage} className="w-full h-full object-cover object-center scale-[1.08]" alt="Front" />
                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                            <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${effectiveProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
                          </div>
                          {hasSideProfileImage && (
                            <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
-                            <img src={dashboardData?.sideImage || placeholderProfileImage} className="w-full h-full object-cover scale-[1.08]" style={{objectPosition: 'center top'}} alt="Side" />
+                            <img loading="lazy" decoding="async" src={dashboardData?.sideImage || placeholderProfileImage} className="w-full h-full object-cover scale-[1.08]" style={{objectPosition: 'center top'}} alt="Side" />
                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                              <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${effectiveProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
                            </div>
@@ -6437,15 +6783,24 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                     <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest flex items-center gap-2">
                       <Target size={14} className="text-zinc-500" /> Structure
                     </h3>
-                    {debugAnchorsImage && (
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {debugAnchorsImage && (
+                        <button
+                          type="button"
+                          onClick={() => setScanLightbox({ src: debugAnchorsImage, subtitle: 'Debug anchors - landmark overlay' })}
+                          className="inline-flex items-center gap-2 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-cyan-200 transition-colors hover:border-cyan-300/50 hover:bg-cyan-500/15"
+                        >
+                          <Eye size={12} /> Debug
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => setScanLightbox({ src: debugAnchorsImage, subtitle: 'Debug anchors - landmark overlay' })}
-                        className="inline-flex items-center gap-2 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-cyan-200 transition-colors hover:border-cyan-300/50 hover:bg-cyan-500/15"
+                        onClick={openAnimationsViewer}
+                        className="inline-flex items-center gap-2 rounded-full border border-fuchsia-500/25 bg-fuchsia-500/10 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-fuchsia-100 transition-colors hover:border-fuchsia-300/50 hover:bg-fuchsia-500/15"
                       >
-                        <Eye size={12} /> Debug
+                        <Play size={12} /> View Animations
                       </button>
-                    )}
+                    </div>
                   </div>
                   <div className="flex flex-col md:flex-row gap-8 items-center justify-center flex-grow">
                     <StructureMap 
@@ -6458,13 +6813,13 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                     <div className="flex-grow space-y-3 w-full flex flex-col justify-center max-w-[15rem]">
                        <div className={`flex gap-2 mb-1 w-full ${hasSideProfileImage ? 'max-w-[13rem]' : 'max-w-[8rem]'} mx-auto md:mx-0`}>
                          <div onClick={() => setActiveProfileView('front')} className={`relative ${hasSideProfileImage ? 'flex-1' : 'w-full'} aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
-                          <img src={dashboardData?.frontImage || placeholderProfileImage} className="w-full h-full object-cover object-center scale-[1.08]" alt="Front" />
+                          <img loading="lazy" decoding="async" src={dashboardData?.frontImage || placeholderProfileImage} className="w-full h-full object-cover object-center scale-[1.08]" alt="Front" />
                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                            <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${effectiveProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
                          </div>
                          {hasSideProfileImage && (
                            <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
-                            <img src={dashboardData?.sideImage || placeholderProfileImage} className="w-full h-full object-cover scale-[1.08]" style={{objectPosition: 'center top'}} alt="Side" />
+                            <img loading="lazy" decoding="async" src={dashboardData?.sideImage || placeholderProfileImage} className="w-full h-full object-cover scale-[1.08]" style={{objectPosition: 'center top'}} alt="Side" />
                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                              <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${effectiveProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
                            </div>
@@ -6645,10 +7000,10 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
 
               <div className="relative w-48 sm:w-64 aspect-square shrink-0 rounded-2xl overflow-hidden border border-zinc-800 p-6">
                 {isUnlocked && potentialImageUrl ? (
-                  <img src={potentialImageUrl} className="w-full h-full object-contain opacity-100 transition-all duration-1000 scale-90" alt="Max Potential" />
+                  <img loading="lazy" decoding="async" src={potentialImageUrl} className="w-full h-full object-contain opacity-100 transition-all duration-1000 scale-90" alt="Max Potential" />
                 ) : isUnlocking ? (
                   <>
-                    <img src={activeImageUrl} className="w-full h-full object-contain blur-[11.1px] opacity-20 transition-all duration-500 scale-90" alt="Generating" />
+                    <img loading="lazy" decoding="async" src={activeImageUrl} className="w-full h-full object-contain blur-[11.1px] opacity-20 transition-all duration-500 scale-90" alt="Generating" />
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/40 backdrop-blur-[3.7px]">
                       <div className="relative w-12 h-12">
                         <div className="absolute inset-0 border-2 border-cyan-500/30 rounded-full" />
@@ -6660,7 +7015,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                   </>
                 ) : (
                   <>
-                    <img src={activeImageUrl} className="w-full h-full object-contain blur-[3.7px] opacity-30 scale-90" alt="Locked Potential" />
+                    <img loading="lazy" decoding="async" src={activeImageUrl} className="w-full h-full object-contain blur-[3.7px] opacity-30 scale-90" alt="Locked Potential" />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <Lock className="text-zinc-500 drop-shadow-[0_0_15px_rgba(0,0,0,1)]" size={48} />
                     </div>
@@ -9006,9 +9361,11 @@ const App = () => {
         />
       )}
       <main className="flex flex-col min-h-screen">
+        <React.Suspense fallback={<PageLoadingFallback />}>
         {currentPage === 'home' && <HomePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'photo-guide' && <PhotoGuidePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'analysis' && <ConsultingStatusPage job={focusedAnalysisJob} setCurrentPage={setCurrentPage} user={user} />}
+        {currentPage === 'animations' && <ScanAnimationsPage routeParams={routeParams} setCurrentPage={setCurrentPage} />}
         {(currentPage === 'upload-photo' || currentPage === 'upload-ultra') && (
           <UploadPhotoPage
             key={`upload-${currentPage}-${pendingUploadModel ?? 'default'}`}
@@ -9120,6 +9477,7 @@ const App = () => {
           const proto = allProtos.find(p => p.id === pid) || { id: pid, name: `Protocol ${pid}`, description: '', impact: 'Medium Impact' };
           return <ProtocolDetailPage protocol={proto} allProtocols={allProtos} setCurrentPage={setCurrentPage} />;
         })()}
+        </React.Suspense>
       </main>
       <AnalysisDock
         jobs={analysisJobs}

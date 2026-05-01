@@ -358,7 +358,7 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, renderScanDash
               onClick={() => setSelectedScanId(s.id)}
               className={`shrink-0 w-32 h-40 rounded-xl overflow-hidden cursor-pointer border-2 transition-all relative group ${selectedScanId === s.id ? 'border-cyan-500' : 'border-zinc-800 hover:border-zinc-600'}`}
             >
-              <img src={resolveMediaUrl(s.frontImageUrl)} className="w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src={resolveMediaUrl(s.frontImageUrl)} className="w-full h-full object-cover" />
               {isOwner && (
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
@@ -403,7 +403,7 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, renderScanDash
                 })}
                 className="block w-full text-left"
               >
-                <img src={activeSide === 'side' && hasSideScan ? activeSideImage : activeFrontImage} className="w-full aspect-[3/4] object-cover" />
+                <img loading="lazy" decoding="async" src={activeSide === 'side' && hasSideScan ? activeSideImage : activeFrontImage} className="w-full aspect-[3/4] object-cover" />
               </button>
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 pt-24 flex justify-between items-end">
                 <div>

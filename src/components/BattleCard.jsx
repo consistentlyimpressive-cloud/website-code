@@ -602,7 +602,7 @@ const BattleCard = ({ battle, user, isActive }) => {
                 </div>
               )}
               <div className="absolute inset-0 z-[1] overflow-hidden rounded-2xl [transform:translateZ(0)] backface-hidden">
-                <img
+                <img loading="lazy" decoding="async"
                   src={fighterA.imgSrc}
                   className={`h-full w-full object-cover object-top rounded-2xl transition-[filter] duration-700 [transform:translateZ(0)] ${countDone && aLost && winnerSide !== 'tie' ? 'mog-loser-photo' : ''}`}
                   alt={fighterA.name}
@@ -753,7 +753,7 @@ const BattleCard = ({ battle, user, isActive }) => {
                 </div>
               )}
               <div className="absolute inset-0 z-[1] overflow-hidden rounded-2xl [transform:translateZ(0)] backface-hidden">
-                <img
+                <img loading="lazy" decoding="async"
                   src={fighterB.imgSrc}
                   className={`h-full w-full object-cover object-top rounded-2xl transition-[filter] duration-700 [transform:translateZ(0)] ${countDone && bLost && winnerSide !== 'tie' ? 'mog-loser-photo' : ''}`}
                   alt={fighterB.name}

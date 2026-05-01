@@ -395,14 +395,14 @@ const FighterMiniCard = ({ fighter, scoreTone = 'text-cyan-300', hidden = false,
     <div className="flex items-center gap-3">
       {analysisPath ? (
         <button type="button" onClick={() => openInternalPath(analysisPath)} className="shrink-0">
-          <img
+          <img loading="lazy" decoding="async"
             src={fighterImage(fighter)}
             alt={fighterLabel(fighter)}
             className="h-16 w-16 rounded-2xl border border-zinc-800 object-cover transition-transform duration-300 hover:scale-[1.04]"
           />
         </button>
       ) : (
-        <img
+        <img loading="lazy" decoding="async"
           src={fighterImage(fighter)}
           alt={fighterLabel(fighter)}
           className="h-16 w-16 rounded-2xl border border-zinc-800 object-cover"
@@ -448,10 +448,10 @@ const LeaderboardProfileModal = ({ row, onClose }) => {
           <div className="rounded-[28px] border border-zinc-800 bg-black/35 p-4">
             {analysisPath ? (
               <button type="button" onClick={() => openInternalPath(analysisPath)} className="block w-full text-left">
-                <img src={row.img} alt={row.name} className="aspect-[3/4] w-full rounded-[24px] border border-zinc-800 object-cover transition-transform duration-300 hover:scale-[1.01]" />
+                <img loading="lazy" decoding="async" src={row.img} alt={row.name} className="aspect-[3/4] w-full rounded-[24px] border border-zinc-800 object-cover transition-transform duration-300 hover:scale-[1.01]" />
               </button>
             ) : (
-              <img src={row.img} alt={row.name} className="aspect-[3/4] w-full rounded-[24px] border border-zinc-800 object-cover" />
+              <img loading="lazy" decoding="async" src={row.img} alt={row.name} className="aspect-[3/4] w-full rounded-[24px] border border-zinc-800 object-cover" />
             )}
             <div className="mt-4 grid grid-cols-3 gap-2">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-3 text-center">
@@ -496,7 +496,7 @@ const LeaderboardProfileModal = ({ row, onClose }) => {
                 key={`${entry.battleId}-${index}`}
                 className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/75 px-3 py-3"
               >
-                <img
+                <img loading="lazy" decoding="async"
                   src={entry.opponentImage}
                   alt={entry.opponentName}
                   className="h-14 w-14 rounded-2xl border border-zinc-800 object-cover"
@@ -1029,7 +1029,7 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
                             : 'border-zinc-800 hover:border-zinc-700'
                         }`}
                       >
-                        <img src={scan.frontImage} alt="" className="aspect-[4/5] w-full object-cover" />
+                        <img loading="lazy" decoding="async" src={scan.frontImage} alt="" className="aspect-[4/5] w-full object-cover" />
                         <div className="p-3">
                           <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-white">
                             {scan.name || `Scan ${idx + 1}`}
@@ -1153,7 +1153,7 @@ const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, isFollowed
       <div className="grid gap-6 pt-4 lg:grid-cols-[minmax(0,0.9fr)_260px_minmax(0,0.9fr)] lg:items-center">
         <div className="space-y-4">
           <div className="overflow-hidden rounded-[16px] border border-white/10 bg-black/40 shadow-[inset_0_0_0_1px_rgba(0,240,255,0.05)]">
-            <img
+            <img loading="lazy" decoding="async"
               src={fighterImage(battle.fighterA)}
               alt={labelA}
               className="aspect-[4/4.1] w-full object-cover object-top"
@@ -1248,7 +1248,7 @@ const VoteFeedCard = ({ battle, isFeatured = false, hasVoted = false, isFollowed
 
         <div className="space-y-4">
           <div className="overflow-hidden rounded-[16px] border border-white/10 bg-black/40 shadow-[inset_0_0_0_1px_rgba(0,240,255,0.05)]">
-            <img
+            <img loading="lazy" decoding="async"
               src={fighterImage(battle.fighterB)}
               alt={labelB}
               className="aspect-[4/4.1] w-full object-cover object-top"
@@ -1291,10 +1291,10 @@ const LatestBattleCard = ({ battle, isFollowed = false, canDelete = false, onOpe
       <button type="button" onClick={() => onOpen(battle)} className="block w-full text-left">
       <div className="grid grid-cols-2">
         <div className="relative overflow-hidden border-r border-white/10">
-          <img src={fighterImage(battle.fighterA)} alt={labelA} className="aspect-[3/4] w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
+          <img loading="lazy" decoding="async" src={fighterImage(battle.fighterA)} alt={labelA} className="aspect-[3/4] w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
         </div>
         <div className="relative overflow-hidden">
-          <img src={fighterImage(battle.fighterB)} alt={labelB} className="aspect-[3/4] w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
+          <img loading="lazy" decoding="async" src={fighterImage(battle.fighterB)} alt={labelB} className="aspect-[3/4] w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
         </div>
       </div>
       <div className="flex items-center justify-between gap-3 border-t border-white/10 px-4 py-4">
@@ -1713,7 +1713,7 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                       <span className={`text-[32px] font-black leading-none ${idx < 3 ? 'bg-[linear-gradient(180deg,#ffffff_0%,#87e8ff_65%,#00F0FF_100%)] bg-clip-text text-transparent' : 'text-zinc-500'}`}>
                         {idx + 1}
                       </span>
-                      <img src={row.img} alt={row.name} className="h-11 w-11 rounded-2xl border border-white/10 object-cover object-top grayscale" />
+                      <img loading="lazy" decoding="async" src={row.img} alt={row.name} className="h-11 w-11 rounded-2xl border border-white/10 object-cover object-top grayscale" />
                       <div className="min-w-0">
                         <p className="truncate bg-[linear-gradient(180deg,#ffffff_0%,#c9f7ff_58%,#59ddff_100%)] bg-clip-text text-[14px] font-black uppercase tracking-[0.13em] text-transparent">{row.name}</p>
                         <p className="mt-1 font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-600">{fighterGenderLabel(row.fighter)}</p>
@@ -1955,8 +1955,8 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                     className="flex min-w-0 flex-1 items-center gap-3 text-left"
                   >
                     <div className="flex -space-x-3">
-                      <img src={fighterImage(battle.fighterA)} alt="" className="h-12 w-12 rounded-2xl border border-zinc-800 object-cover object-top grayscale" />
-                      <img src={fighterImage(battle.fighterB)} alt="" className="h-12 w-12 rounded-2xl border border-zinc-800 object-cover object-top grayscale" />
+                      <img loading="lazy" decoding="async" src={fighterImage(battle.fighterA)} alt="" className="h-12 w-12 rounded-2xl border border-zinc-800 object-cover object-top grayscale" />
+                      <img loading="lazy" decoding="async" src={fighterImage(battle.fighterB)} alt="" className="h-12 w-12 rounded-2xl border border-zinc-800 object-cover object-top grayscale" />
                     </div>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-black uppercase tracking-[0.14em] text-white">

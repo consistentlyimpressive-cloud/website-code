@@ -385,7 +385,7 @@ export default function NewsPage() {
       return (
         <a key={k} href={item.link} target="_blank" rel="noopener noreferrer" className={`${CARD_BASE} w-full`}>
           <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-zinc-950">
-            <img
+            <img loading="lazy" decoding="async"
               src={item.thumbnail}
               alt=""
               referrerPolicy="no-referrer"
@@ -425,7 +425,7 @@ export default function NewsPage() {
       return (
         <a key={k} href={item.link} target="_blank" rel="noopener noreferrer" className={`${CARD_BASE} w-full`}>
           <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden bg-zinc-950">
-            <img
+            <img loading="lazy" decoding="async"
               key={thumbUrl}
               src={thumbUrl}
               alt=""
