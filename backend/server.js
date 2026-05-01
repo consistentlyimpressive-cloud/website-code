@@ -2580,7 +2580,7 @@ function guessContentType(filePath) {
   return 'image/jpeg';
 }
 
-async function uploadImageToFirebase(localPath, uid, prefix = 'front') {
+async function uploadImageToFirebase(localPath, uid, prefix = 'front', options = {}) {
   if (!localPath || !fs.existsSync(localPath)) return null;
   if (!firestore) return null; // require firebase admin
   if (shouldSkipFirebaseStorage()) {
@@ -2607,8 +2607,12 @@ async function uploadImageToFirebase(localPath, uid, prefix = 'front') {
     await file.makePublic();
     const publicUrl = `https://storage.googleapis.com/${bucket.name}/${dest}`;
     
-    fs.unlinkSync(localPath);
-    console.log(`[storage] Uploaded and removed local: ${dest}`);
+    if (options.deleteLocal !== false) {
+      fs.unlinkSync(localPath);
+      console.log(`[storage] Uploaded and removed local: ${dest}`);
+    } else {
+      console.log(`[storage] Uploaded and kept local fallback: ${dest}`);
+    }
     return { dest, url: publicUrl };
   } catch (e) {
     console.error('[storage] Upload failed (local file kept):', e.message);
@@ -3212,8 +3216,8 @@ app.post(
         let frontUpload = null;
         let sideUpload = null;
 
-        if (imagePath) frontUpload = await uploadImageToFirebase(imagePath, req.uid, 'front');
-        if (sideImagePath) sideUpload = await uploadImageToFirebase(sideImagePath, req.uid, 'side');
+        if (imagePath) frontUpload = await uploadImageToFirebase(imagePath, req.uid, 'front', { deleteLocal: false });
+        if (sideImagePath) sideUpload = await uploadImageToFirebase(sideImagePath, req.uid, 'side', { deleteLocal: false });
 
         try {
           const persistedFrontImage = frontUpload ? frontUpload.url : (savedScanBase?.frontImageUrl || frontFallbackUrl);
