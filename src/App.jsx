@@ -885,6 +885,42 @@ function openPaddleCheckout(plan, user) {
 const API_BASE = getApiBase();
 const PROFILE_SCAN_HISTORY_LIMIT = 10;
 
+const normalizeDashboardMedia = (data, includeHistory = true) => {
+  if (!data || typeof data !== 'object') return data;
+  const payload = data.payload && typeof data.payload === 'object' ? data.payload : null;
+  const frontImage = resolveMediaUrl(data.frontImage || data.frontImageUrl || payload?.frontImage || payload?.frontImageUrl || null);
+  const sideImage = resolveMediaUrl(data.sideImage || data.sideImageUrl || payload?.sideImage || payload?.sideImageUrl || null);
+  const debugAnchorsImage = resolveMediaUrl(data.debugAnchorsImage || data.debugAnchorsImageUrl || payload?.debugAnchorsImage || payload?.debugAnchorsImageUrl || null);
+  const debugRatiosImage = resolveMediaUrl(data.debugRatiosImage || data.debugRatiosImageUrl || payload?.debugRatiosImage || payload?.debugRatiosImageUrl || null);
+  const normalized = {
+    ...data,
+    frontImage,
+    sideImage,
+    debugAnchorsImage,
+    debugAnchorsImageUrl: debugAnchorsImage,
+    debugRatiosImage,
+    debugRatiosImageUrl: debugRatiosImage,
+  };
+
+  if (data.frontImageUrl || frontImage) normalized.frontImageUrl = frontImage;
+  if (data.sideImageUrl || sideImage) normalized.sideImageUrl = sideImage;
+  if (payload) {
+    normalized.payload = {
+      ...payload,
+      frontImage,
+      sideImage,
+      debugAnchorsImage,
+      debugAnchorsImageUrl: debugAnchorsImage,
+      debugRatiosImage,
+      debugRatiosImageUrl: debugRatiosImage,
+    };
+  }
+  if (includeHistory && Array.isArray(data.scanHistory)) {
+    normalized.scanHistory = data.scanHistory.map((scan) => normalizeDashboardMedia(scan, false));
+  }
+  return normalized;
+};
+
 const ANALYSIS_MODEL_LABELS = {
   '1': 'Premium Ultra',
   '2': 'Fun Mode',
@@ -3463,7 +3499,7 @@ const isTransientMobileScanError = (error) => {
 
 const buildRecoveredScanPayload = (scan = {}) => {
   const payload = scan && typeof scan.payload === 'object' && scan.payload ? scan.payload : {};
-  return {
+  return normalizeDashboardMedia({
     ...payload,
     scanId: payload.scanId || scan.scanId || scan.id || null,
     scanRequestId: payload.scanRequestId || scan.scanRequestId || null,
@@ -3478,7 +3514,7 @@ const buildRecoveredScanPayload = (scan = {}) => {
     uncannyFlag: payload.uncannyFlag || scan.uncannyFlag || null,
     scannedAt: scan.scannedAt || scan.createdAt || payload.scannedAt || null,
     success: true,
-  };
+  });
 };
 
 const ScanningView = ({
@@ -4638,7 +4674,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const handleScanComplete = useCallback((data) => {
     const completedAt = new Date().toISOString();
     const targetProfileId = activeScanProfileId || selectedProfileId || 'default';
-    const completedScan = {
+    const completedScan = normalizeDashboardMedia({
       ...data,
       scanRequestId: data?.scanRequestId || null,
       frontImage: data?.frontImage || frontImage,
@@ -4651,7 +4687,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       profileId: targetProfileId && targetProfileId !== 'new' ? targetProfileId : 'default',
       scannedAt: data?.scannedAt || completedAt,
       _handoffSavedAt: completedAt,
-    };
+    });
 
     setScanningCeleb(null);
     setProfileScanCounts((prev) => ({
@@ -6037,6 +6073,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
 };
 
 const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback, forceFullAnalysis = false, onBackToProfiles = null, onOpenHistoryScan = null }) => {
+  dashboardData = useMemo(() => normalizeDashboardMedia(dashboardData), [dashboardData]);
   const selectedModel = String(dashboardData?.selectedModel || '').trim();
   const isFreeModelResult = !forceFullAnalysis && ['3', '4', '5'].includes(selectedModel);
   const hasFullProUnlock = isProPlan(userPlan);
@@ -9199,7 +9236,7 @@ const App = () => {
   const registerCompletedScan = useCallback((data, meta = {}, options = {}) => {
     const completedAt = new Date().toISOString();
     const usesSideProfile = Boolean(meta.sideImageUrl || meta.sideImageFile);
-    const completedScan = {
+    const completedScan = normalizeDashboardMedia({
       ...data,
       scanRequestId: data?.scanRequestId || meta.scanRequestId || null,
       frontImage: data?.frontImage || meta.mainImageSrc || null,
@@ -9212,7 +9249,7 @@ const App = () => {
       profileId: meta.profileId && meta.profileId !== 'new' ? meta.profileId : 'default',
       scannedAt: data?.scannedAt || completedAt,
       _handoffSavedAt: completedAt,
-    };
+    });
 
     if (!options?.skipDashboardUpdate) {
       setDashboardData((prev) => {
