@@ -194,7 +194,7 @@ const FreeScanShiftingScore = ({ className = '' }) => {
 
   return (
     <span
-      className={`inline-block select-none font-black italic tabular-nums text-emerald-300 blur-[5px] drop-shadow-[0_0_18px_rgba(16,185,129,0.8)] ${className}`}
+      className={`inline-block select-none font-black italic tabular-nums text-emerald-300 blur-[4.625px] drop-shadow-[0_0_18px_rgba(16,185,129,0.8)] ${className}`}
       aria-label="Free scan score hidden"
     >
       {score.toFixed(1)}
@@ -284,7 +284,7 @@ const hydrateScanForDashboard = (scan) => {
   return {
     ...payload,
     scanId: scan.id,
-    profileId: scan.profileId || null,
+    profileId: scan.profileId || payload.profileId || null,
     visibility: scan.visibility || payload.visibility || 'private',
     frontImage: resolveMediaUrl(scan.frontImageUrl || payload.frontImage || null),
     sideImage: resolveMediaUrl(scan.sideImageUrl || payload.sideImage || null),
@@ -949,12 +949,16 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
   const handleSelectScan = (scan) => {
     if (!scan || !setDashboardData) return;
-    setDashboardData((prev) => ({
-      ...(prev || {}),
+    const selectedScanModel = String(scan.selectedModel || scan.model || scan.payload?.selectedModel || '').trim();
+    const nextScanHistory = historyCards.slice().reverse();
+    setDashboardData({
       ...scan,
-      scanHistory: Array.isArray(prev?.scanHistory) ? prev.scanHistory : historyCards.slice().reverse(),
-      ratingHistory: Array.isArray(prev?.ratingHistory) ? prev.ratingHistory : [],
-    }));
+      selectedModel: selectedScanModel,
+      scanHistory: nextScanHistory,
+      ratingHistory: nextScanHistory
+        .map((item) => Number(item?.finalRating))
+        .filter((rating) => Number.isFinite(rating)),
+    });
     setActiveSection('analysis');
     if (analysisRef.current) {
       analysisRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1328,7 +1332,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                     >
                       <div className={`absolute left-2 top-2 z-10 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold ${
                         scanIsFree
-                          ? 'text-emerald-300 blur-[3px] drop-shadow-[0_0_10px_rgba(16,185,129,0.75)]'
+                          ? 'text-emerald-300 blur-[2.775px] drop-shadow-[0_0_10px_rgba(16,185,129,0.75)]'
                           : 'text-cyan-300'
                       }`}>
                         {scanIsFree ? <FreeScanShiftingScore /> : (Number.isFinite(numericRating) ? numericRating.toFixed(1) : '-')}

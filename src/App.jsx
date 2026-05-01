@@ -5229,12 +5229,18 @@ const DashboardOverview = ({ dashboardData, isRestrictedPreview, activeProfileVi
 
   const isSide = activeProfileView === 'side';
   const displayFlaws = useMemo(
-    () => resolveNormalizedFeatures(dashboardData, 'flaw', isSide),
-    [dashboardData, isSide]
+    () => {
+      const features = resolveNormalizedFeatures(dashboardData, 'flaw', isSide);
+      return isRestrictedPreview ? features.slice(0, 1) : features;
+    },
+    [dashboardData, isRestrictedPreview, isSide]
   );
   const displayFeatures = useMemo(
-    () => resolveNormalizedFeatures(dashboardData, 'best', isSide),
-    [dashboardData, isSide]
+    () => {
+      const features = resolveNormalizedFeatures(dashboardData, 'best', isSide);
+      return isRestrictedPreview ? features.slice(0, 1) : features;
+    },
+    [dashboardData, isRestrictedPreview, isSide]
   );
   const shouldExpand = isRestrictedPreview || !showFeatureLists || (displayFlaws.length > 0 || displayFeatures.length > 0);
   const [isExpanded, setIsExpanded] = useState(shouldExpand);
@@ -5274,7 +5280,7 @@ const DashboardOverview = ({ dashboardData, isRestrictedPreview, activeProfileVi
           
           {/* Left Column: Primary Flaws */}
           <div className="flex flex-col gap-4">
-            <h4 className="text-red-400 font-bold uppercase tracking-widest text-xs mb-2">PRIMARY FLAWS</h4>
+            <h4 className="text-red-400 font-bold uppercase tracking-widest text-xs mb-2">{isRestrictedPreview ? 'PRIMARY FLAW' : 'PRIMARY FLAWS'}</h4>
             <div className="flex flex-col gap-4 z-10 w-full relative">
               {displayFlaws.length > 0 ? (
                 displayFlaws.map((flaw, idx) => (
@@ -5293,7 +5299,7 @@ const DashboardOverview = ({ dashboardData, isRestrictedPreview, activeProfileVi
 
           {/* Right Column: Best Features */}
           <div className="flex flex-col gap-4">
-            <h4 className="text-green-400 font-bold uppercase tracking-widest text-xs mb-2">BEST FEATURES</h4>
+            <h4 className="text-green-400 font-bold uppercase tracking-widest text-xs mb-2">{isRestrictedPreview ? 'BEST FEATURE' : 'BEST FEATURES'}</h4>
             <div className="flex flex-col gap-4 z-10 w-full relative">
               {displayFeatures.length > 0 ? (
                 displayFeatures.map((feature, idx) => (
@@ -5760,7 +5766,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   }, [getCommunityScanShareUrl]);
 
   const renderBlurredOverlay = (title, compact = false) => (
-    <div className={`absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a0a0b]/60 backdrop-blur-[6px] rounded-3xl border border-zinc-800/50 group transition-all select-none ${compact ? 'py-3' : ''}`}>
+    <div className={`absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a0a0b]/60 backdrop-blur-[5.55px] rounded-3xl border border-zinc-800/50 group transition-all select-none ${compact ? 'py-3' : ''}`}>
       <Lock size={compact ? 14 : 32} className={`text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)] ${compact ? 'mb-2' : 'mb-3'}`} />
       <span className={`text-white font-black italic uppercase tracking-widest mb-1 drop-shadow-md ${compact ? 'text-base' : 'text-lg'}`}>PRO FEATURE</span>
       <span className={`text-zinc-300 font-sans text-[10px] uppercase tracking-widest text-center px-4 max-w-[min(100%,280px)] leading-relaxed ${compact ? 'mb-4' : 'mb-6'}`}>{title} requires a premium model</span>
@@ -6117,10 +6123,10 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
       )}
       <style>{`
         @keyframes freeRatingFlicker {
-          0%, 100% { opacity: 0.92; filter: blur(10px); }
-          25% { opacity: 0.82; filter: blur(8px); }
-          50% { opacity: 1; filter: blur(12px); }
-          75% { opacity: 0.88; filter: blur(9px); }
+          0%, 100% { opacity: 0.92; filter: blur(9.25px); }
+          25% { opacity: 0.82; filter: blur(7.4px); }
+          50% { opacity: 1; filter: blur(11.1px); }
+          75% { opacity: 0.88; filter: blur(8.325px); }
         }
       `}</style>
       <FadeUp>
@@ -6197,7 +6203,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                     >
                       <div className={`absolute left-2 top-2 z-10 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold ${
                         scanIsFree
-                          ? 'text-emerald-300 blur-[3px] drop-shadow-[0_0_10px_rgba(16,185,129,0.75)]'
+                          ? 'text-emerald-300 blur-[2.775px] drop-shadow-[0_0_10px_rgba(16,185,129,0.75)]'
                           : 'text-cyan-300'
                       }`}>
                         {scanIsFree ? freeRatingLoop.toFixed(1) : (Number.isFinite(numericRating) ? numericRating.toFixed(1) : '-')}
@@ -6300,10 +6306,10 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                       <span className="font-sans text-[10px] uppercase tracking-[0.45em] mb-4 text-green-300/80">Final Rating</span>
                       <div className="relative leading-none">
                         <>
-                          <span className="absolute inset-0 block text-6xl font-black italic tracking-tighter text-green-400/90 blur-[28px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none">
+                          <span className="absolute inset-0 block text-6xl font-black italic tracking-tighter text-green-400/90 blur-[25.9px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none">
                             {displayedFinalRating}
                           </span>
-                          <span className="relative block text-6xl font-black italic tracking-tighter text-green-400 blur-[20px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_rgba(74,222,128,0.4)]">
+                          <span className="relative block text-6xl font-black italic tracking-tighter text-green-400 blur-[18.5px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_rgba(74,222,128,0.4)]">
                             {displayedFinalRating}
                           </span>
                         </>
@@ -6323,7 +6329,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                   <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg group hover:border-zinc-700 transition-colors p-4">
                     {renderBlurredOverlay("Category Scores")}
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(74,222,128,0.05)_0%,transparent_70%)] pointer-events-none" />
-                    <div className="w-[85%] max-w-[200px] opacity-10 blur-[14px] pointer-events-none select-none relative z-10">
+                    <div className="w-[85%] max-w-[200px] opacity-10 blur-[12.95px] pointer-events-none select-none relative z-10">
                       <RadarChart data={radarData} finalScore={radarFinalScore} />
                     </div>
                   </div>
@@ -6518,7 +6524,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           {(isRestrictedPreview || !isFreeModelResult) && (
           <div className="relative bg-[#0c0d0e] p-6 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
             {isRestrictedPreview && renderBlurredOverlay("Detailed Ratios")}
-            <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
+            <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[5.55px] pointer-events-none select-none' : ''}`}>
               <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2"><Activity size={14} className="text-zinc-500" /> Detailed Morphometric Ratios</h3>
               <div className="flex flex-col gap-6">
               {Object.entries(
@@ -6553,7 +6559,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           {(isRestrictedPreview || !isFreeModelResult) && !hideActionableProtocols && (
             <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 shadow-lg group hover:border-zinc-700 transition-colors">
               {isRestrictedPreview && renderBlurredOverlay("Actionable Protocol")}
-              <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
+              <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[5.55px] pointer-events-none select-none' : ''}`}>
                 <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-zinc-800 pb-4"><Target size={14} className="text-zinc-500" /> Actionable Protocol</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {(dashboardData?.protocols && dashboardData.protocols.length > 0
@@ -6606,7 +6612,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           {(isRestrictedPreview || !isFreeModelResult) && !hidePersonalizedFeedback && (
             <div className="relative bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 shadow-lg group hover:border-zinc-700 transition-colors">
               {isRestrictedPreview && renderBlurredOverlay("Personalized Feedback", true)}
-              <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
+              <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[5.55px] pointer-events-none select-none' : ''}`}>
                 <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-zinc-800 pb-4">
                   <Sparkles size={14} className="text-zinc-500" /> Personalized Feedback
                 </h3>
@@ -6632,18 +6638,18 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
           {(isRestrictedPreview || !isFreeModelResult) && !hideUnlockPotential && (
           <div className="bg-gradient-to-br from-zinc-900/80 to-black p-1 rounded-2xl overflow-hidden mt-4 relative shadow-[0_10px_50px_rgba(0,0,0,0.5)] border border-zinc-800/50 group hover:border-zinc-700 transition-colors">
             {isRestrictedPreview && renderBlurredOverlay("Analyze Potential")}
-            <div className={`bg-[#0a0a0b] p-8 md:p-12 rounded-[14px] flex flex-col md:flex-row items-center gap-12 relative overflow-hidden ${isRestrictedPreview ? 'opacity-30 blur-[6px] pointer-events-none select-none' : ''}`}>
+            <div className={`bg-[#0a0a0b] p-8 md:p-12 rounded-[14px] flex flex-col md:flex-row items-center gap-12 relative overflow-hidden ${isRestrictedPreview ? 'opacity-30 blur-[5.55px] pointer-events-none select-none' : ''}`}>
               
               {/* Glow effect behind the image */}
-              {isUnlocked && <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-64 h-64 bg-cyan-500/20 blur-[100px] rounded-full pointer-events-none" />}
+              {isUnlocked && <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-64 h-64 bg-cyan-500/20 blur-[92.5px] rounded-full pointer-events-none" />}
 
               <div className="relative w-48 sm:w-64 aspect-square shrink-0 rounded-2xl overflow-hidden border border-zinc-800 p-6">
                 {isUnlocked && potentialImageUrl ? (
                   <img src={potentialImageUrl} className="w-full h-full object-contain opacity-100 transition-all duration-1000 scale-90" alt="Max Potential" />
                 ) : isUnlocking ? (
                   <>
-                    <img src={activeImageUrl} className="w-full h-full object-contain blur-md opacity-20 transition-all duration-500 scale-90" alt="Generating" />
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/40 backdrop-blur-sm">
+                    <img src={activeImageUrl} className="w-full h-full object-contain blur-[11.1px] opacity-20 transition-all duration-500 scale-90" alt="Generating" />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/40 backdrop-blur-[3.7px]">
                       <div className="relative w-12 h-12">
                         <div className="absolute inset-0 border-2 border-cyan-500/30 rounded-full" />
                         <div className="absolute inset-0 border-2 border-transparent border-t-cyan-400 rounded-full animate-spin" />
@@ -6654,7 +6660,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                   </>
                 ) : (
                   <>
-                    <img src={activeImageUrl} className="w-full h-full object-contain blur-sm opacity-30 scale-90" alt="Locked Potential" />
+                    <img src={activeImageUrl} className="w-full h-full object-contain blur-[3.7px] opacity-30 scale-90" alt="Locked Potential" />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <Lock className="text-zinc-500 drop-shadow-[0_0_15px_rgba(0,0,0,1)]" size={48} />
                     </div>
