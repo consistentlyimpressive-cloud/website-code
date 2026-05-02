@@ -2465,6 +2465,62 @@ function formatTerminalList(items, fallback = 'none') {
     .join(' | ');
 }
 
+const UNCANNY_DEDUCTION_POINTS = 15;
+
+function collectFeatureText(items) {
+  if (!Array.isArray(items)) return [];
+  return items.flatMap((item) => {
+    if (!item) return [];
+    if (typeof item === 'string') return [item];
+    if (typeof item === 'object') {
+      return [
+        item.title,
+        item.name,
+        item.description,
+      ].filter(Boolean);
+    }
+    return [String(item)];
+  });
+}
+
+function hasSyntheticUncannyDetection(payload) {
+  const haystack = [
+    payload?.uncannyFlag,
+    ...collectFeatureText(payload?.primaryFlaws),
+    ...collectFeatureText(payload?.sidePrimaryFlaws),
+  ]
+    .filter(Boolean)
+    .join('\n')
+    .toLowerCase();
+
+  return /synthetic\s+uncanny|uncanny\s+face|synthetic\s*\/\s*uncanny|uncanny\s*\/\s*synthetic/.test(haystack);
+}
+
+function subtractRatingPoints(value, points) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return value;
+  return Math.max(1, Math.min(100, Math.round((numeric - points) * 10) / 10));
+}
+
+function applyUncannyDeduction(payload) {
+  if (!payload || payload.uncannyDeductionApplied || !hasSyntheticUncannyDetection(payload)) return payload;
+
+  payload.uncannyDeductionApplied = true;
+  payload.uncannyDeductionPoints = UNCANNY_DEDUCTION_POINTS;
+
+  if (payload.finalRating != null && Number.isFinite(Number(payload.finalRating))) {
+    payload.finalRatingBeforeUncannyDeduction = Number(payload.finalRating);
+    payload.finalRating = subtractRatingPoints(payload.finalRating, UNCANNY_DEDUCTION_POINTS);
+  }
+
+  if (payload.sideRating != null && Number.isFinite(Number(payload.sideRating))) {
+    payload.sideRatingBeforeUncannyDeduction = Number(payload.sideRating);
+    payload.sideRating = subtractRatingPoints(payload.sideRating, UNCANNY_DEDUCTION_POINTS);
+  }
+
+  return payload;
+}
+
 function formatHexagonForTerminal(hexagon) {
   if (!hexagon || typeof hexagon !== 'object') return 'n/a';
   const parts = [
@@ -2993,9 +3049,9 @@ app.post(
               )
         );
 
-  const finalRating =
+  let finalRating =
     parsed.finalRating != null && !Number.isNaN(parsed.finalRating) ? parsed.finalRating : null;
-  const sideRating =
+  let sideRating =
     parsed.sideRating != null && !Number.isNaN(parsed.sideRating) ? parsed.sideRating : null;
   const payload = {
     success,
@@ -3043,6 +3099,12 @@ app.post(
   if (debugRatiosUrl) {
     payload.debugRatiosImage = debugRatiosUrl;
     payload.debugRatiosImageUrl = debugRatiosUrl;
+  }
+
+  if (success) {
+    applyUncannyDeduction(payload);
+    finalRating = payload.finalRating;
+    sideRating = payload.sideRating;
   }
 
   if (!success) {
@@ -3167,6 +3229,55 @@ app.post(
     }
   }
 
+  let frontUpload = null;
+  let sideUpload = null;
+  if (success && req.uid && firestore && savedScanRef) {
+    try {
+      if (imagePath) frontUpload = await uploadImageToFirebase(imagePath, req.uid, 'front', { deleteLocal: false });
+      if (sideImagePath) sideUpload = await uploadImageToFirebase(sideImagePath, req.uid, 'side', { deleteLocal: false });
+
+      const persistedFrontImage = frontUpload ? frontUpload.url : (payload.frontImage || savedScanBase?.frontImageUrl || frontFallbackUrl || null);
+      const persistedSideImage = sideUpload ? sideUpload.url : (payload.sideImage || savedScanBase?.sideImageUrl || sideFallbackUrl || null);
+
+      payload.frontImage = persistedFrontImage || payload.frontImage || null;
+      payload.frontImageUrl = persistedFrontImage || payload.frontImageUrl || null;
+      payload.sideImage = persistedSideImage || payload.sideImage || null;
+      payload.sideImageUrl = persistedSideImage || payload.sideImageUrl || null;
+
+      savedScanBase = {
+        ...(savedScanBase || {}),
+        frontImageUrl: persistedFrontImage || null,
+        sideImageUrl: persistedSideImage || null,
+        frontImageDest: frontUpload ? frontUpload.dest : null,
+        sideImageDest: sideUpload ? sideUpload.dest : null,
+        payload: {
+          ...(savedScanBase?.payload || {}),
+          ...payload,
+          frontImage: persistedFrontImage || payload.frontImage || null,
+          sideImage: persistedSideImage || payload.sideImage || null,
+          frontImageUrl: persistedFrontImage || payload.frontImageUrl || null,
+          sideImageUrl: persistedSideImage || payload.sideImageUrl || null,
+          selectedModel: String(modelChoice || payload.selectedModel || '').trim() || '1',
+          cohesiveFrontSide: false,
+          platform: scanPlatform,
+        },
+      };
+
+      await savedScanRef.set({
+        frontImageUrl: persistedFrontImage || null,
+        sideImageUrl: persistedSideImage || null,
+        frontImageDest: frontUpload ? frontUpload.dest : null,
+        sideImageDest: sideUpload ? sideUpload.dest : null,
+        scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        payload: savedScanBase.payload,
+      }, { merge: true });
+      console.log(`[analyze] Scan history image URLs finalized before response: ${savedScanRef.id}`);
+    } catch (e) {
+      console.error('[analyze] Failed to finalize scan history images before response:', e.message);
+    }
+  }
+
   if (success && req.uid) {
     const localScanId = payload.scanId || `local-scan-${Date.now()}`;
     payload.scanId = localScanId;
@@ -3176,15 +3287,15 @@ app.post(
       scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
       timestamp: new Date().toISOString(),
       scannedAt: new Date().toISOString(),
-      frontImageUrl: frontFallbackUrl || payload.frontImage || null,
-      sideImageUrl: sideFallbackUrl || payload.sideImage || null,
+      frontImageUrl: payload.frontImage || frontFallbackUrl || null,
+      sideImageUrl: payload.sideImage || sideFallbackUrl || null,
       debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
       debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
       platform: scanPlatform,
       payload: {
         ...payload,
-        frontImage: frontFallbackUrl || payload.frontImage || null,
-        sideImage: sideFallbackUrl || payload.sideImage || null,
+        frontImage: payload.frontImage || frontFallbackUrl || null,
+        sideImage: payload.sideImage || sideFallbackUrl || null,
         debugAnchorsImage: debugAnchorsUrl || payload.debugAnchorsImage || null,
         debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
         debugRatiosImage: debugRatiosUrl || payload.debugRatiosImage || null,
@@ -3209,67 +3320,6 @@ app.post(
   }
 
   res.json(payload);
-
-      setImmediate(async () => {
-        if (!success || !req.uid || !firestore || !savedScanRef) return;
-
-        let frontUpload = null;
-        let sideUpload = null;
-
-        if (imagePath) frontUpload = await uploadImageToFirebase(imagePath, req.uid, 'front', { deleteLocal: false });
-        if (sideImagePath) sideUpload = await uploadImageToFirebase(sideImagePath, req.uid, 'side', { deleteLocal: false });
-
-        try {
-          const persistedFrontImage = frontUpload ? frontUpload.url : (savedScanBase?.frontImageUrl || frontFallbackUrl);
-          const persistedSideImage = sideUpload ? sideUpload.url : (savedScanBase?.sideImageUrl || sideFallbackUrl);
-          await savedScanRef.set({
-            frontImageUrl: persistedFrontImage || null,
-            sideImageUrl: persistedSideImage || null,
-            debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
-            debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
-            frontImageDest: frontUpload ? frontUpload.dest : null,
-            sideImageDest: sideUpload ? sideUpload.dest : null,
-            scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            payload: {
-              ...payload,
-              frontImage: persistedFrontImage || payload.frontImage || null,
-              sideImage: persistedSideImage || payload.sideImage || null,
-              debugAnchorsImage: debugAnchorsUrl || payload.debugAnchorsImage || null,
-              debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
-              debugRatiosImage: debugRatiosUrl || payload.debugRatiosImage || null,
-              debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
-              scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
-              selectedModel: String(modelChoice || payload.selectedModel || '').trim() || '1',
-              cohesiveFrontSide: false,
-            },
-          }, { merge: true });
-          console.log(`[analyze] Scan history image URLs finalized: ${savedScanRef.id}`);
-        } catch (e) {
-          console.error('[analyze] Failed to finalize scan history images:', e.message);
-        }
-
-        if (req.uid && payload.scanId) {
-          upsertLocalCachedScan(req.uid, payload.scanId, {
-            scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
-            frontImageUrl: frontUpload ? frontUpload.url : (savedScanBase?.frontImageUrl || frontFallbackUrl || null),
-            sideImageUrl: sideUpload ? sideUpload.url : (savedScanBase?.sideImageUrl || sideFallbackUrl || null),
-            debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
-            debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
-            payload: {
-              ...payload,
-              frontImage: frontUpload ? frontUpload.url : (savedScanBase?.frontImageUrl || frontFallbackUrl || null),
-              sideImage: sideUpload ? sideUpload.url : (savedScanBase?.sideImageUrl || sideFallbackUrl || null),
-              debugAnchorsImage: debugAnchorsUrl || payload.debugAnchorsImage || null,
-              debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
-              debugRatiosImage: debugRatiosUrl || payload.debugRatiosImage || null,
-              debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
-              scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
-            },
-            updatedAt: new Date().toISOString(),
-          });
-        }
-      });
     });
   }
 );

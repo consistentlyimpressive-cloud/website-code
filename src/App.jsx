@@ -3296,6 +3296,17 @@ const FileDropzone = ({ label, file, setFile, isPulsing }) => {
 };
 
 // --- Scanning Components ---
+const AnalysisScanBand = () => (
+  <div
+    className="pointer-events-none absolute inset-x-0 top-0 z-[12] h-[28%] overflow-hidden mix-blend-screen will-change-transform"
+    style={{ animation: 'analysisScanBand 4.8s ease-in-out infinite alternate' }}
+    aria-hidden
+  >
+    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-300/18 to-transparent" />
+    <div className="absolute left-0 right-0 top-1/2 h-px bg-gradient-to-r from-transparent via-cyan-200/90 to-transparent shadow-[0_0_18px_rgba(34,211,238,0.85)]" />
+  </div>
+);
+
 const FaceScanOverlay = ({
   landmarksData,
   meshConnections = null,
@@ -4199,6 +4210,12 @@ const ScanningView = ({
           92% { opacity: 1; }
           100% { transform: translateY(620px); opacity: 0.24; }
         }
+        @keyframes analysisScanBand {
+          0% { transform: translate3d(0, -72%, 0); opacity: 0.38; }
+          12% { opacity: 0.72; }
+          88% { opacity: 0.72; }
+          100% { transform: translate3d(0, 360%, 0); opacity: 0.38; }
+        }
         @keyframes dash { to { stroke-dashoffset: 0; } }
         @keyframes fadeIn { to { opacity: 1; } }
         @keyframes meshPulse {
@@ -4232,6 +4249,7 @@ const ScanningView = ({
            <>
              <img src={mainImageSrc} alt="Scan target" className="absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%] z-0" />
              <div className="absolute inset-0 bg-blue-900/30 mix-blend-overlay z-0" />
+             <AnalysisScanBand />
            </>
         )}
         
@@ -4585,6 +4603,12 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
           92% { opacity: 1; }
           100% { transform: translateY(620px); opacity: 0.24; }
         }
+        @keyframes analysisScanBand {
+          0% { transform: translate3d(0, -72%, 0); opacity: 0.38; }
+          12% { opacity: 0.72; }
+          88% { opacity: 0.72; }
+          100% { transform: translate3d(0, 360%, 0); opacity: 0.38; }
+        }
         @keyframes dash { to { stroke-dashoffset: 0; } }
         @keyframes fadeIn { to { opacity: 1; } }
         @keyframes meshPulse {
@@ -4620,6 +4644,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
               <>
                 <img src={job.mainImageSrc} alt="Scan target" className="absolute inset-0 w-full h-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%] z-0" />
                 <div className="absolute inset-0 bg-blue-900/30 mix-blend-overlay z-0" />
+                <AnalysisScanBand />
               </>
             )}
 
@@ -4669,6 +4694,22 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
 
 
 // --- Upload Photo Page ---
+const UPLOAD_GUIDE_STORAGE_PREFIX = 'mogcheck_upload_guide_hidden_v1';
+const UPLOAD_GUIDE_SLIDES = [
+  {
+    src: '/images/upload-guide-1.jpg',
+    alt: 'Perfectly centered selfie guide',
+  },
+  {
+    src: '/images/upload-guide-2.jpg',
+    alt: 'Clear lighting versus harsh lighting guide',
+  },
+  {
+    src: '/images/upload-guide-3.jpg',
+    alt: 'Clean shaven versus obstructed facial hair guide',
+  },
+];
+
 const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrity, user, userPlan, initialModel = "3", isLockedToUltra = false, initialProfileId = null, queueAnalysisJob }) => {
   const [frontImage, setFrontImage] = useState(null);
   const [frontFile, setFrontFile] = useState(null);
@@ -4683,6 +4724,9 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [activeAnalysisJob, setActiveAnalysisJob] = useState(null);
   const [scanningCeleb, setScanningCeleb] = useState(null);
   const [uploadNotice, setUploadNotice] = useState('');
+  const [isUploadGuideOpen, setIsUploadGuideOpen] = useState(false);
+  const [uploadGuideIndex, setUploadGuideIndex] = useState(0);
+  const [dontShowUploadGuideAgain, setDontShowUploadGuideAgain] = useState(false);
   const modelMenuRef = useRef(null);
   const scanTopRef = useRef(null);
 
@@ -4818,6 +4862,37 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     ? (profileScanCounts[selectedProfileId] || 0)
     : 0;
   const selectedProfileFull = selectedProfileId !== 'new' && selectedProfileScanCount >= PROFILE_SCAN_HISTORY_LIMIT;
+  const uploadGuideStorageKey = useMemo(
+    () => `${UPLOAD_GUIDE_STORAGE_PREFIX}:${user?.uid || 'guest'}`,
+    [user?.uid]
+  );
+
+  useEffect(() => {
+    let hidden = false;
+    try {
+      hidden = window.localStorage.getItem(uploadGuideStorageKey) === '1';
+    } catch {
+      hidden = false;
+    }
+    setDontShowUploadGuideAgain(hidden);
+    setUploadGuideIndex(0);
+    if (!hidden) setIsUploadGuideOpen(true);
+  }, [uploadGuideStorageKey]);
+
+  const openUploadGuide = useCallback(() => {
+    setUploadGuideIndex(0);
+    setIsUploadGuideOpen(true);
+  }, []);
+
+  const setUploadGuideDismissed = useCallback((checked) => {
+    setDontShowUploadGuideAgain(checked);
+    try {
+      if (checked) window.localStorage.setItem(uploadGuideStorageKey, '1');
+      else window.localStorage.removeItem(uploadGuideStorageKey);
+    } catch {
+      // Best-effort only.
+    }
+  }, [uploadGuideStorageKey]);
 
   useEffect(() => {
     if (ultraAccessPending) return;
@@ -5022,7 +5097,16 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       `}</style>
       <FadeUp>
         <div className="w-full max-w-[1200px] flex flex-col items-center outline-none">
-          <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white mb-16 text-center drop-shadow-2xl">Upload Photo</h2>
+          <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white mb-6 text-center drop-shadow-2xl">Upload Photo</h2>
+
+          <button
+            type="button"
+            onClick={openUploadGuide}
+            className="mb-12 inline-flex items-center gap-2 rounded-full border border-cyan-500/35 bg-cyan-500/10 px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-300 transition-all hover:border-cyan-400/70 hover:bg-cyan-500/20 hover:text-cyan-100"
+          >
+            <Eye size={14} />
+            View Guide
+          </button>
 
           <div className="mb-10 flex w-full justify-center px-4">
             <button
@@ -5435,6 +5519,72 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
             <span className="relative z-10">Analyze Profiles</span>
             {justUnlocked ? <Unlock size={28} className="text-black relative z-10" style={{ animation: 'popOpen 0.5s ease-out forwards' }} /> : <ChevronRight size={28} className="text-black relative z-10" />}
           </button>
+          {isUploadGuideOpen && (
+            <SiteModal
+              title="Photo Guide"
+              subtitle={`${uploadGuideIndex + 1} / ${UPLOAD_GUIDE_SLIDES.length}`}
+              onClose={() => setIsUploadGuideOpen(false)}
+              maxWidth="max-w-3xl"
+            >
+              <div className="space-y-5">
+                <div className="relative overflow-hidden rounded-2xl border border-cyan-500/25 bg-black shadow-[0_0_40px_rgba(34,211,238,0.10)]">
+                  <img
+                    src={UPLOAD_GUIDE_SLIDES[uploadGuideIndex].src}
+                    alt={UPLOAD_GUIDE_SLIDES[uploadGuideIndex].alt}
+                    className="block max-h-[68vh] w-full object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setUploadGuideIndex((prev) => (prev + UPLOAD_GUIDE_SLIDES.length - 1) % UPLOAD_GUIDE_SLIDES.length)}
+                    className="absolute left-3 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-500/35 bg-black/70 text-cyan-200 backdrop-blur-md transition-all hover:border-cyan-300 hover:bg-cyan-500/15 hover:text-white"
+                    aria-label="Previous guide image"
+                  >
+                    <ChevronLeft size={22} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadGuideIndex((prev) => (prev + 1) % UPLOAD_GUIDE_SLIDES.length)}
+                    className="absolute right-3 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-cyan-500/35 bg-black/70 text-cyan-200 backdrop-blur-md transition-all hover:border-cyan-300 hover:bg-cyan-500/15 hover:text-white"
+                    aria-label="Next guide image"
+                  >
+                    <ChevronRight size={22} />
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex justify-center gap-2">
+                    {UPLOAD_GUIDE_SLIDES.map((slide, index) => (
+                      <button
+                        key={slide.src}
+                        type="button"
+                        onClick={() => setUploadGuideIndex(index)}
+                        className={[
+                          "h-2.5 rounded-full transition-all",
+                          index === uploadGuideIndex
+                            ? "w-9 bg-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.65)]"
+                            : "w-2.5 bg-zinc-700 hover:bg-zinc-500"
+                        ].join(' ')}
+                        aria-label={`Open guide image ${index + 1}`}
+                      />
+                    ))}
+                  </div>
+
+                  <label className="flex cursor-pointer items-center justify-center gap-3 rounded-full border border-zinc-800 bg-zinc-950/80 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-300 transition-colors hover:border-zinc-700 hover:text-white">
+                    <span className="relative inline-flex h-5 w-5 items-center justify-center rounded-md border border-zinc-700 bg-black">
+                      <input
+                        type="checkbox"
+                        checked={dontShowUploadGuideAgain}
+                        onChange={(event) => setUploadGuideDismissed(event.target.checked)}
+                        className="peer sr-only"
+                      />
+                      <Check size={14} className="scale-0 text-cyan-300 transition-transform peer-checked:scale-100" />
+                    </span>
+                    Don't show again
+                  </label>
+                </div>
+              </div>
+            </SiteModal>
+          )}
           {uploadNotice && (
             <SiteModal title="Scan Notice" onClose={() => setUploadNotice('')} maxWidth="max-w-lg">
               <p className="text-sm leading-relaxed text-zinc-300">{uploadNotice}</p>
