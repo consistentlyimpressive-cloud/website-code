@@ -20,7 +20,7 @@ const clampTextStyle = {
 
 const modelLabel = (model) => ({
   '1': 'Premium Ultra',
-  '2': 'Fun Mode',
+  '2': 'Premium Ultra',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
@@ -352,13 +352,9 @@ const communityScanToDashboardCard = (scan, index = 0) => {
 
 const mergeProfileHistory = (history, snapshot) => {
   const items = Array.isArray(history) ? [...history] : [];
-  if (!snapshot) return items;
+  if (!snapshot) return dedupeScanHistory(items);
 
-  const snapshotKey = snapshot.scanId || snapshot.scannedAt || `${snapshot.frontImage || ''}-${snapshot.finalRating || ''}`;
-  const existingIndex = items.findIndex((item) => {
-    const itemKey = item?.scanId || item?.scannedAt || `${item?.frontImage || ''}-${item?.finalRating || ''}`;
-    return itemKey && itemKey === snapshotKey;
-  });
+  const existingIndex = items.findIndex((item) => scansLookSame(item, snapshot));
 
   if (existingIndex >= 0) {
     items[existingIndex] = {
@@ -367,10 +363,34 @@ const mergeProfileHistory = (history, snapshot) => {
       frontImage: snapshot.frontImage || items[existingIndex].frontImage || null,
       sideImage: snapshot.sideImage || items[existingIndex].sideImage || null,
     };
-    return items;
+    return dedupeScanHistory(items);
   }
 
-  return [...items, snapshot];
+  return dedupeScanHistory([...items, snapshot]);
+};
+
+const scansLookSame = (a, b) => {
+  if (!a || !b) return false;
+  const aPayload = a.payload && typeof a.payload === 'object' ? a.payload : {};
+  const bPayload = b.payload && typeof b.payload === 'object' ? b.payload : {};
+  const aId = String(a.scanRequestId || aPayload.scanRequestId || a.scanId || a.id || '').trim();
+  const bId = String(b.scanRequestId || bPayload.scanRequestId || b.scanId || b.id || '').trim();
+  if (aId && bId && aId === bId) return true;
+  const sameFront = String(a.frontImage || a.frontImageUrl || aPayload.frontImage || '').trim() === String(b.frontImage || b.frontImageUrl || bPayload.frontImage || '').trim();
+  const sameSide = String(a.sideImage || a.sideImageUrl || aPayload.sideImage || '').trim() === String(b.sideImage || b.sideImageUrl || bPayload.sideImage || '').trim();
+  const sameProfile = String(a.profileId || aPayload.profileId || 'default').trim() === String(b.profileId || bPayload.profileId || 'default').trim();
+  const sameRating = String(a.finalRating ?? aPayload.finalRating ?? '').trim() === String(b.finalRating ?? bPayload.finalRating ?? '').trim();
+  return Boolean(sameFront && sameSide && sameProfile && sameRating);
+};
+
+const dedupeScanHistory = (history) => {
+  const unique = [];
+  (Array.isArray(history) ? history : []).forEach((scan) => {
+    if (scan && !unique.some((item) => scansLookSame(item, scan))) {
+      unique.push(scan);
+    }
+  });
+  return unique;
 };
 
 const getSavedScanProfileId = (scan) => {
@@ -839,15 +859,11 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       : null;
 
     if (currentSnapshot) {
-      const alreadyPresent = items.some((item) =>
-        item?.frontImage === currentSnapshot.frontImage &&
-        item?.sideImage === currentSnapshot.sideImage &&
-        item?.finalRating === currentSnapshot.finalRating
-      );
+      const alreadyPresent = items.some((item) => scansLookSame(item, currentSnapshot));
       if (!alreadyPresent) items.push(currentSnapshot);
     }
 
-    return items
+    return dedupeScanHistory(items)
       .filter((item) => item && (item.frontImage || item.finalRating != null))
       .slice(-PROFILE_SCAN_HISTORY_LIMIT)
       .reverse();
@@ -908,12 +924,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       label: 'Ultra Scan (Pro)',
       description: 'Highest-quality premium scan with the deepest structural pass.',
       buttonClass: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20',
-    },
-    {
-      id: '2',
-      label: 'Fun Mode',
-      description: 'Fast premium scan for lighter, quicker entertainment-focused output.',
-      buttonClass: 'bg-purple-500/10 border-purple-500/30 text-purple-400 hover:bg-purple-500/20',
     },
     {
       id: '3',

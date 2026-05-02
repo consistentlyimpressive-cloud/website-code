@@ -2636,17 +2636,17 @@ async function extractUserOptional(req, res, next) {
   next();
 }
 
-/** Ultra models (choice 1 / 2) require Firebase auth + Pro plan or Single Scan with credits. */
+/** Ultra models require Firebase auth + Pro plan or Single Scan with credits. */
 async function verifyUltraAccess(req, res, next) {
   const modelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
-  const allowedModelChoices = new Set(['1', '2', '3', '4', '5']);
+  const allowedModelChoices = new Set(['1', '3', '4', '5']);
   if (!allowedModelChoices.has(modelChoice)) {
     return res.status(400).json({
       success: false,
       error: 'Invalid AI model selected. Please choose an available scan model.',
     });
   }
-  const isUltra = modelChoice === '1' || modelChoice === '2';
+  const isUltra = modelChoice === '1';
   if (!isUltra) {
     req.ultraContext = null;
     return next();

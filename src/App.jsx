@@ -884,6 +884,19 @@ function openPaddleCheckout(plan, user) {
 
 const API_BASE = getApiBase();
 const PROFILE_SCAN_HISTORY_LIMIT = 10;
+const postedAnalyzeRequestIds = new Set();
+
+function createClientRequestId(prefix = 'scan') {
+  const safePrefix = String(prefix || 'scan').replace(/[^a-z0-9_-]/gi, '') || 'scan';
+  if (
+    typeof globalThis !== 'undefined' &&
+    globalThis.crypto &&
+    typeof globalThis.crypto.randomUUID === 'function'
+  ) {
+    return `${safePrefix}-${globalThis.crypto.randomUUID()}`;
+  }
+  return `${safePrefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 const normalizeDashboardMedia = (data, includeHistory = true) => {
   if (!data || typeof data !== 'object') return data;
@@ -923,7 +936,7 @@ const normalizeDashboardMedia = (data, includeHistory = true) => {
 
 const ANALYSIS_MODEL_LABELS = {
   '1': 'Premium Ultra',
-  '2': 'Fun Mode',
+  '2': 'Premium Ultra',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
@@ -933,6 +946,40 @@ const ANALYSIS_MODEL_LABELS = {
 function getAnalysisModelLabel(model) {
   const key = String(model || '').trim();
   return ANALYSIS_MODEL_LABELS[key] || (key ? `Model ${key}` : 'Unknown AI');
+}
+
+function isFreeScanModel(model) {
+  return ['3', '4', '5'].includes(String(model || '').trim());
+}
+
+const GOAT_USER_EMAILS = new Set([
+  'shliggawa@gmail.com',
+  'consistentlyimpressive@gmail.com',
+  'consistent.fein@gmail.com',
+  'ali.shahin.111015@gmail.com',
+  'doggu3rd@gmail.com',
+  'serenity.eyb@gmail.com',
+  'bernardomorais7@gmail.com',
+]);
+
+function scansLookSame(a, b) {
+  if (!a || !b) return false;
+  const aRequestId = String(a.scanRequestId || a.scanId || '').trim();
+  const bRequestId = String(b.scanRequestId || b.scanId || '').trim();
+  if (aRequestId && bRequestId && aRequestId === bRequestId) return true;
+  const sameFront = String(a.frontImage || a.frontImageUrl || '').trim() === String(b.frontImage || b.frontImageUrl || '').trim();
+  const sameSide = String(a.sideImage || a.sideImageUrl || '').trim() === String(b.sideImage || b.sideImageUrl || '').trim();
+  const sameProfile = String(a.profileId || 'default').trim() === String(b.profileId || 'default').trim();
+  const sameRating = String(a.finalRating ?? '').trim() === String(b.finalRating ?? '').trim();
+  return Boolean(sameFront && sameSide && sameProfile && sameRating);
+}
+
+function appendUniqueScan(items, scan) {
+  const next = Array.isArray(items) ? [...items] : [];
+  if (scan && !next.some((item) => scansLookSame(item, scan))) {
+    next.push(scan);
+  }
+  return next;
 }
 
 function getRatingToneClasses(score) {
@@ -3254,6 +3301,7 @@ const FaceScanOverlay = ({
   meshConnections = null,
   revealDurationSeconds = 36,
   scanLoopSeconds = 4,
+  freezeAfterReveal = true,
 }) => {
   const compactMotion = false;
   let mappedPoints = [];
@@ -3382,7 +3430,13 @@ const FaceScanOverlay = ({
               key={`e${i}`} x1={edge[0].x} y1={edge[0].y} x2={edge[1].x} y2={edge[1].y} 
               stroke="rgba(34, 211, 238, 0.45)" strokeWidth="0.2"
               strokeDasharray={length} strokeDashoffset={length}
-              style={{ animation: compactMotion ? `dash 0.58s cubic-bezier(0.22, 1, 0.36, 1) forwards ${delay}s` : `dash 0.82s cubic-bezier(0.22, 1, 0.36, 1) forwards ${delay}s, meshPulse 3.1s ease-in-out infinite ${delay + 0.82}s` }}
+              style={{
+                animation: freezeAfterReveal
+                  ? `dash 0.82s cubic-bezier(0.22, 1, 0.36, 1) forwards ${delay}s`
+                  : compactMotion
+                    ? `dash 0.58s cubic-bezier(0.22, 1, 0.36, 1) forwards ${delay}s`
+                    : `dash 0.82s cubic-bezier(0.22, 1, 0.36, 1) forwards ${delay}s, meshPulse 3.1s ease-in-out infinite ${delay + 0.82}s`,
+              }}
             />
           );
         })}
@@ -3397,7 +3451,13 @@ const FaceScanOverlay = ({
               r="0.4"
               fill="#67e8f9"
               className="opacity-0"
-              style={{ animation: compactMotion ? `fadeIn 0.18s ease-out forwards ${delay}s` : `fadeIn 0.28s ease-out forwards ${delay}s, pointPulse 2.8s ease-in-out infinite ${delay + 0.28}s` }}
+              style={{
+                animation: freezeAfterReveal
+                  ? `fadeIn 0.28s ease-out forwards ${delay}s`
+                  : compactMotion
+                    ? `fadeIn 0.18s ease-out forwards ${delay}s`
+                    : `fadeIn 0.28s ease-out forwards ${delay}s, pointPulse 2.8s ease-in-out infinite ${delay + 0.28}s`,
+              }}
             />
           );
         })}
@@ -3405,8 +3465,12 @@ const FaceScanOverlay = ({
         <path d="M 0 15 L 5 15 M 0 118 L 5 118 M 95 15 L 100 15 M 95 118 L 100 118" stroke="rgba(34, 211, 238, 0.8)" strokeWidth="0.5" />
       </svg>
       {/* Scanner laser lines */}
-      <div className={`absolute top-0 left-0 w-full ${compactMotion ? 'h-[1px]' : 'h-[2px]'} bg-gradient-to-r from-transparent via-[#22d3ee] to-transparent ${compactMotion ? '' : 'shadow-[0_0_15px_rgba(34,211,238,1)]'}`} style={{ animation: `scan ${scanSeconds}s linear infinite` }} />
-      <div className={`absolute top-0 left-0 w-full ${compactMotion ? 'h-20' : 'h-32'} bg-gradient-to-b from-[#22d3ee]/20 to-transparent`} style={{ animation: `scan ${scanSeconds}s linear infinite` }} />
+      {!freezeAfterReveal && (
+        <>
+          <div className={`absolute top-0 left-0 w-full ${compactMotion ? 'h-[1px]' : 'h-[2px]'} bg-gradient-to-r from-transparent via-[#22d3ee] to-transparent ${compactMotion ? '' : 'shadow-[0_0_15px_rgba(34,211,238,1)]'}`} style={{ animation: `scan ${scanSeconds}s linear infinite` }} />
+          <div className={`absolute top-0 left-0 w-full ${compactMotion ? 'h-20' : 'h-32'} bg-gradient-to-b from-[#22d3ee]/20 to-transparent`} style={{ animation: `scan ${scanSeconds}s linear infinite` }} />
+        </>
+      )}
     </div>
   );
 };
@@ -3524,6 +3588,7 @@ const ScanningView = ({
   sideImageFile,
   sideMetricData,
   choice,
+  scanRequestId: suppliedScanRequestId,
   onComplete,
   onScanFailed,
   user,
@@ -3533,6 +3598,8 @@ const ScanningView = ({
   onDismiss,
   onOpen,
   onStatusChange,
+  runnerOnly = false,
+  startedAtMs = null,
 }) => {
   const [statusText, setStatusText] = useState('Connecting to Backend Bridge...');
   const [elapsedScanMs, setElapsedScanMs] = useState(0);
@@ -3548,6 +3615,11 @@ const ScanningView = ({
   const lowPriorityBadge = fairUsageState?.lowPriority
     ? (fairUsageState.badgeText || 'High usage detected, you have been placed on low-priority queue.')
     : '';
+  const fallbackScanRequestIdRef = useRef('');
+  if (!fallbackScanRequestIdRef.current) {
+    fallbackScanRequestIdRef.current = createClientRequestId('scan');
+  }
+  const scanRequestId = String(suppliedScanRequestId || fallbackScanRequestIdRef.current).trim();
   const getQuotaAwareScanMessage = useCallback((rawMessage, fallbackMessage = '') => {
     const source = `${rawMessage || ''} ${fallbackMessage || ''}`.trim();
     if (/RESOURCE_EXHAUSTED|quota exceeded|firestore quota/i.test(source)) {
@@ -3576,8 +3648,10 @@ const ScanningView = ({
       fairUsageState,
       overlayRevealSeconds,
       overlayScanLoopSeconds,
+      elapsedScanMs,
+      scanRequestId,
     });
-  }, [fairUsageState, hasError, landmarks, meshConnections, overlayRevealSeconds, overlayScanLoopSeconds, statusText, videoUrl]);
+  }, [elapsedScanMs, fairUsageState, hasError, landmarks, meshConnections, overlayRevealSeconds, overlayScanLoopSeconds, scanRequestId, statusText, videoUrl]);
 
   useEffect(() => {
     let active = true;
@@ -3622,12 +3696,9 @@ const ScanningView = ({
 
     const startScan = async () => {
       const minScanMs = 3200;
-      const scanStartedAt = Date.now();
-      setElapsedScanMs(0);
-      const scanRequestId =
-        (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
-          ? crypto.randomUUID()
-          : `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const providedStartedAt = Number(startedAtMs);
+      const scanStartedAt = Number.isFinite(providedStartedAt) && providedStartedAt > 0 ? providedStartedAt : Date.now();
+      setElapsedScanMs(Math.max(0, Date.now() - scanStartedAt));
       let scanSucceeded = false;
       let currentFairUsage = null;
       let authToken = null;
@@ -3751,7 +3822,7 @@ const ScanningView = ({
         }
 
         if (isUltra && !activeUser) {
-          setStatusText('Sign in required for Ultra / Fun mode scans. Use Basic scan while signed out, or log in and try again.');
+          setStatusText('Sign in required for Ultra scans. Use Basic scan while signed out, or log in and try again.');
           setHasError(true);
           return;
         }
@@ -3809,6 +3880,27 @@ const ScanningView = ({
           }
         }
 
+        if (postedAnalyzeRequestIds.has(scanRequestId)) {
+          setStatusText('This scan is already running. Reconnecting to the scan result...');
+          if (activeUser) {
+            try {
+              const recoveredScan = await pollForSavedScan();
+              if (!active) return;
+              if (recoveredScan) {
+                scanSucceeded = true;
+                rememberScanDuration(choice, currentFairUsage, Date.now() - scanStartedAt);
+                setStatusText("Analysis Complete! Transitioning...");
+                onCompleteRef.current(recoveredScan);
+              }
+            } catch (recoveryErr) {
+              if (!active) return;
+              setStatusText(friendlyAnalysisErrorMessage(recoveryErr?.message || 'Analysis failed. Please try again.'));
+              setHasError(true);
+            }
+          }
+          return;
+        }
+
         setStatusText("Uploading image to secure AI server...");
 
         const formData = new FormData();
@@ -3863,6 +3955,8 @@ const ScanningView = ({
         }, 1000);
 
         const runAnalyzeRequest = async () => {
+          if (!active) return null;
+          postedAnalyzeRequestIds.add(scanRequestId);
           return fetch(`${API_BASE}/api/analyze`, {
             method: "POST",
             headers,
@@ -3880,6 +3974,7 @@ const ScanningView = ({
           clearInterval(progressTick);
         }
 
+        if (!apiRes) return;
         if (!active) return;
         let data;
         try {
@@ -3997,7 +4092,11 @@ const ScanningView = ({
       active = false;
       cancelAnalyzeRequest();
     };
-  }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, profileId]);
+  }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, profileId, scanRequestId, startedAtMs]);
+
+  if (runnerOnly) {
+    return null;
+  }
 
   if (compact) {
     return (
@@ -4215,6 +4314,88 @@ const AnalysisDockSummaryCard = ({ job, onOpenResult, onDismiss }) => (
   </div>
 );
 
+const AnalysisDockRunningCard = ({ job, onOpen, onDismiss }) => {
+  const hasError = Boolean(job.hasError);
+  const lowPriorityBadge = job.fairUsageState?.lowPriority
+    ? (job.fairUsageState.badgeText || 'High usage detected, you have been placed on low-priority queue.')
+    : '';
+  const elapsedMs = Number(job.elapsedScanMs);
+
+  return (
+    <div
+      className={`overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#0c0d0e]/95 shadow-[0_0_28px_rgba(34,211,238,0.12)] backdrop-blur-xl ${onOpen ? 'cursor-pointer transition-transform hover:scale-[1.01]' : ''}`}
+      onClick={onOpen}
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onKeyDown={(event) => {
+        if (!onOpen) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+    >
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-cyan-500/25 bg-zinc-950">
+          <img
+            src={job.mainImageSrc}
+            alt="Scan target"
+            className="absolute inset-0 h-full w-full object-cover filter contrast-125 brightness-90 saturate-50 grayscale-[20%]"
+          />
+          <div className="absolute inset-0 bg-blue-900/20 mix-blend-overlay" />
+          <div className="absolute left-2 top-2 h-3 w-3 border-l-2 border-t-2 border-cyan-500/80" />
+          <div className="absolute right-2 top-2 h-3 w-3 border-r-2 border-t-2 border-cyan-500/80" />
+          <div className="absolute bottom-2 left-2 h-3 w-3 border-b-2 border-l-2 border-cyan-500/80" />
+          <div className="absolute bottom-2 right-2 h-3 w-3 border-b-2 border-r-2 border-cyan-500/80" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex h-2.5 w-2.5 rounded-full ${hasError ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.85)]' : 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.85)] animate-pulse'}`} />
+            <p className={`truncate text-[10px] font-black uppercase tracking-[0.28em] ${hasError ? 'text-red-300/85' : 'text-cyan-300/85'}`}>
+              {hasError ? 'Scan paused' : 'Scan in progress'}
+            </p>
+          </div>
+          <p className="mt-1 truncate text-[11px] font-black uppercase tracking-[0.22em] text-white">
+            {job.analysisLabel || 'Profile'}
+          </p>
+          <p className="mt-0.5 truncate text-[10px] font-sans uppercase tracking-[0.2em] text-zinc-500">
+            {hasError ? 'Action needed' : getAnalysisModelLabel(job.choice)}
+          </p>
+          {lowPriorityBadge && !hasError && (
+            <div className="mt-1 inline-flex max-w-full rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-red-300">
+              <span className="truncate">{lowPriorityBadge}</span>
+            </div>
+          )}
+          <p className="mt-1 truncate text-[10px] leading-relaxed text-zinc-400">
+            {job.statusText || 'Preparing analysis...'}
+          </p>
+          <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-400">
+            {formatElapsedMinutes(Number.isFinite(elapsedMs) ? elapsedMs : Math.max(0, Date.now() - Number(job.createdAt || Date.now())))}
+          </p>
+          {!hasError && (
+            <div className="mt-2 overflow-hidden rounded-full border border-cyan-500/15 bg-zinc-900/80 p-1">
+              <div className="h-1.5 rounded-full bg-gradient-to-r from-cyan-700/40 via-cyan-300 to-cyan-700/40 animate-pulse" />
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDismiss?.();
+          }}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/80 text-zinc-500 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
+          aria-label="Dismiss analysis"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const AnalysisDock = ({
   jobs,
   collapsed,
@@ -4227,50 +4408,79 @@ const AnalysisDock = ({
 }) => {
   if (!Array.isArray(jobs) || jobs.length === 0) return null;
 
-  const runningCount = jobs.filter((job) => job.state === 'running').length;
+  const runningJobs = jobs.filter((job) => job.state === 'running');
+  const runningCount = runningJobs.length;
   const completedCount = jobs.filter((job) => job.state === 'complete').length;
   const visibleJobs = jobs.slice(0, 4);
   const hiddenJobsCount = Math.max(0, jobs.length - visibleJobs.length);
+  const runnerElements = runningJobs.map((job) => (
+    <ScanningView
+      key={`runner-${job.id}`}
+      compact
+      runnerOnly
+      analysisLabel={job.analysisLabel}
+      onStatusChange={(status) => onJobStatusChange(job.id, status)}
+      startedAtMs={job.createdAt}
+      scanRequestId={job.scanRequestId}
+      mainImageSrc={job.mainImageSrc}
+      mainImageFile={job.mainImageFile}
+      sideImageUrl={job.sideImageUrl}
+      sideImageFile={job.sideImageFile}
+      sideMetricData={job.sideMetricData || sideMetricDataGlobal}
+      choice={job.choice}
+      onComplete={job.onComplete}
+      onScanFailed={() => onDismiss(job.id)}
+      user={job.user}
+      profileId={job.profileId}
+    />
+  ));
+
+  if (currentPage === 'analysis') return <>{runnerElements}</>;
 
   if (collapsed) {
     return (
-      <div
-        className="fixed bottom-5 z-[240] flex flex-col items-end gap-2"
-        style={{ right: '1.6rem' }}
-      >
-        {jobs.slice(0, 4).map((job) => (
-          <button
-            key={job.id}
-            type="button"
-            onClick={() => (job.state === 'complete' ? onOpenResult(job.id) : onOpenRunning(job.id))}
-            className="inline-flex min-w-[184px] items-center gap-3 rounded-full border border-cyan-500/25 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_35px_rgba(34,211,238,0.18)] backdrop-blur-xl transition-transform hover:scale-[1.01]"
-          >
-            <span className={`inline-flex h-2.5 w-2.5 rounded-full ${job.state === 'complete' ? 'bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.85)]' : 'bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse'}`} />
-            <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${job.state === 'complete' ? 'text-emerald-300' : 'text-cyan-300'}`}>
-              {job.state === 'complete' ? 'Ready' : '1 Running'}
-            </span>
-          </button>
-        ))}
-        {jobs.length > 4 && (
-          <button
-            type="button"
-            onClick={() => setCollapsed(false)}
-            className="inline-flex items-center gap-3 rounded-full border border-zinc-800 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_25px_rgba(255,255,255,0.05)] backdrop-blur-xl transition-transform hover:scale-[1.01]"
-          >
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300">
-              +{jobs.length - 4} more
-            </span>
-          </button>
-        )}
-      </div>
+      <>
+        {runnerElements}
+        <div
+          className="fixed bottom-5 z-[240] flex flex-col items-end gap-2"
+          style={{ right: '1.6rem' }}
+        >
+          {jobs.slice(0, 4).map((job) => (
+            <button
+              key={job.id}
+              type="button"
+              onClick={() => (job.state === 'complete' ? onOpenResult(job.id) : onOpenRunning(job.id))}
+              className="inline-flex min-w-[184px] items-center gap-3 rounded-full border border-cyan-500/25 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_35px_rgba(34,211,238,0.18)] backdrop-blur-xl transition-transform hover:scale-[1.01]"
+            >
+              <span className={`inline-flex h-2.5 w-2.5 rounded-full ${job.state === 'complete' ? 'bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.85)]' : 'bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse'}`} />
+              <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${job.state === 'complete' ? 'text-emerald-300' : 'text-cyan-300'}`}>
+                {job.state === 'complete' ? 'Ready' : '1 Running'}
+              </span>
+            </button>
+          ))}
+          {jobs.length > 4 && (
+            <button
+              type="button"
+              onClick={() => setCollapsed(false)}
+              className="inline-flex items-center gap-3 rounded-full border border-zinc-800 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_25px_rgba(255,255,255,0.05)] backdrop-blur-xl transition-transform hover:scale-[1.01]"
+            >
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300">
+                +{jobs.length - 4} more
+              </span>
+            </button>
+          )}
+        </div>
+      </>
     );
   }
 
   return (
-    <div
-      className="fixed bottom-5 z-[240] flex max-w-[92vw] flex-col items-end gap-2"
-      style={{ right: '2.35rem' }}
-    >
+    <>
+      {runnerElements}
+      <div
+        className="fixed bottom-5 z-[240] flex max-w-[92vw] flex-col items-end gap-2"
+        style={{ right: '2.35rem' }}
+      >
       <div className="inline-flex items-center justify-between gap-5 rounded-full border border-zinc-800 bg-[#0c0d0e]/95 px-4 py-2 shadow-[0_0_35px_rgba(34,211,238,0.08)] backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <span className="inline-flex h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse" />
@@ -4313,33 +4523,35 @@ const AnalysisDock = ({
                 onDismiss={onDismiss}
               />
             ) : (
-              <ScanningView
-                compact
-                analysisLabel={job.analysisLabel}
+              <AnalysisDockRunningCard
+                job={job}
                 onOpen={() => onOpenRunning(job.id)}
-                onStatusChange={(status) => onJobStatusChange(job.id, status)}
                 onDismiss={() => onDismiss(job.id)}
-                mainImageSrc={job.mainImageSrc}
-                mainImageFile={job.mainImageFile}
-                sideImageUrl={job.sideImageUrl}
-                sideImageFile={job.sideImageFile}
-                sideMetricData={job.sideMetricData || sideMetricDataGlobal}
-                choice={job.choice}
-                onComplete={job.onComplete}
-                onScanFailed={() => onDismiss(job.id)}
-                user={job.user}
-                profileId={job.profileId}
               />
             )}
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 
 const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
   const [scanningCeleb, setScanningCeleb] = useState(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  useEffect(() => {
+    const startedAt = Number(job?.createdAt);
+    if (!Number.isFinite(startedAt) || startedAt <= 0) {
+      setElapsedMs(0);
+      return undefined;
+    }
+    const updateElapsed = () => setElapsedMs(Math.max(0, Date.now() - startedAt));
+    updateElapsed();
+    const timer = setInterval(updateElapsed, 1000);
+    return () => clearInterval(timer);
+  }, [job?.createdAt]);
 
   if (!job) {
     return (
@@ -4388,6 +4600,9 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
         <div className="w-full h-full flex flex-col items-center justify-center animate-[fadeIn_0.5s_ease-out]">
           <div className="text-center mb-10 mt-10">
             <h2 className="text-2xl sm:text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-cyan-400 mb-2 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)] animate-pulse">Analysing Face</h2>
+            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.24em] text-emerald-400">
+              {formatElapsedMinutes(elapsedMs)}
+            </p>
             <p className="font-sans text-xs sm:text-sm text-zinc-400 normal-case tracking-normal max-w-lg mx-auto px-4 leading-relaxed">
               {statusText}
             </p>
@@ -4551,14 +4766,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       tier: "ultra",
       Icon: Crown
     },
-    {
-      id: "2",
-      name: "Fun mode",
-      description:
-        "Faster, lighter analysis for quick entertainment. Results can be inaccurate - don't treat scores as medical or professional advice.",
-      tier: "ultra",
-      Icon: Zap
-    },
     { id: "separator" },
     {
       id: "3",
@@ -4586,7 +4793,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     }
   ];
 
-  const isUltraModel = selectedModel === "1" || selectedModel === "2";
+  const isUltraModel = selectedModel === "1";
   const shouldUseSideProfile = isUltraModel && useSideProfile;
 
   // Check if current user is an admin by email domain or specific email
@@ -4713,12 +4920,12 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
         newRatingHistory.push(prev.finalRating);
       }
 
-      newScanHistory.push(completedScan);
+      const dedupedScanHistory = appendUniqueScan(newScanHistory, completedScan);
       if (completedScan.finalRating != null && !Number.isNaN(Number(completedScan.finalRating))) {
         newRatingHistory.push(Number(completedScan.finalRating));
       }
 
-      const cappedScanHistory = newScanHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT);
+      const cappedScanHistory = dedupedScanHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT);
       const cappedRatingHistory = newRatingHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT);
 
       return {
@@ -4748,6 +4955,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
              sideImageFile={activeAnalysisJob.sideImageFile}
              sideMetricData={activeAnalysisJob.sideMetricData || sideMetricDataGlobal}
              choice={activeAnalysisJob.choice}
+             scanRequestId={activeAnalysisJob.scanRequestId}
              user={activeAnalysisJob.user || user}
              profileId={activeAnalysisJob.profileId || activeScanProfileId}
              analysisLabel={activeAnalysisJob.analysisLabel || 'Analysis'}
@@ -6424,11 +6632,7 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
       : null;
 
     if (currentSnapshot) {
-      const alreadyPresent = items.some((item) =>
-        item?.frontImage === currentSnapshot.frontImage &&
-        item?.sideImage === currentSnapshot.sideImage &&
-        item?.finalRating === currentSnapshot.finalRating
-      );
+      const alreadyPresent = items.some((item) => scansLookSame(item, currentSnapshot));
       if (!alreadyPresent) items.push(currentSnapshot);
     }
 
@@ -6725,13 +6929,6 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                           <Eye size={12} /> Debug
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={openAnimationsViewer}
-                        className="inline-flex items-center gap-2 rounded-full border border-fuchsia-500/25 bg-fuchsia-500/10 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-fuchsia-100 transition-colors hover:border-fuchsia-300/50 hover:bg-fuchsia-500/15"
-                      >
-                        <Play size={12} /> View Animations
-                      </button>
                     </div>
                   </div>
                   <div className="flex flex-col md:flex-row gap-8 items-center justify-center flex-grow">
@@ -7605,7 +7802,20 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     return ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(0)}s`;
   };
 
-  const modelLabel = (m) => ({ '1': 'Premium', '2': 'Fun mode', '3': 'Free' }[m] || m);
+  const modelLabel = (m) => ({ '1': 'Premium', '2': 'Premium', '3': 'Free' }[m] || m);
+  const adminUserSections = useMemo(() => {
+    const newUsers = [];
+    const goatUsers = [];
+    users.forEach((user) => {
+      const email = String(user?.email || '').trim().toLowerCase();
+      if (GOAT_USER_EMAILS.has(email)) goatUsers.push(user);
+      else newUsers.push(user);
+    });
+    return [
+      { id: 'new-users', title: 'New Users', users: newUsers },
+      { id: 'the-goats', title: 'The Goats', users: goatUsers },
+    ];
+  }, [users]);
 
   const handleDeleteUser = async (uid, email) => {
     try {
@@ -8066,26 +8276,67 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                 <h3 className="font-sans text-xs uppercase tracking-widest text-zinc-300">Gemini API Key Health</h3>
               </div>
               <div className="space-y-3">
-                {(stats.keyHealth || []).map((k) => (
-                  <div key={k.key} className="flex items-center gap-3">
-                    <span className="text-[10px] font-sans text-zinc-500 w-12 shrink-0">KEY {k.key}</span>
-                    <div className="flex-grow h-2.5 bg-zinc-950 rounded-full overflow-hidden relative">
-                      <div
-                        className={`h-full rounded-full transition-all duration-700 ${k.exhausted ? 'bg-gradient-to-r from-red-600 to-red-400' : 'bg-gradient-to-r from-cyan-600 to-cyan-400'}`}
-                        style={{ width: `${k.exhausted ? 100 : Math.min(100, (k.attempts / 250) * 100)}%` }}
-                      />
+                {(stats.keyHealth || []).map((k) => {
+                  const remainingMin = Math.ceil((Number(k.quarantineRemainingMs) || 0) / 60000);
+                  const disabledKey = k.disabled || k.key === 1 || k.key === 3;
+                  const statusLabel = disabledKey
+                    ? 'Disabled'
+                    : k.quarantined
+                      ? `Quarantined ${remainingMin}m`
+                      : k.status === 'quota'
+                        ? 'Quota hit'
+                        : k.status === 'errors'
+                        ? 'Errors'
+                          : 'Healthy';
+                  const notInUse = disabledKey || k.quarantined || k.status === 'quota';
+                  const barClass = disabledKey
+                    ? 'bg-gradient-to-r from-zinc-700 to-zinc-500'
+                    : k.quarantined || k.status === 'quota'
+                      ? 'bg-gradient-to-r from-red-600 to-red-400'
+                      : k.status === 'errors'
+                        ? 'bg-gradient-to-r from-amber-600 to-amber-300'
+                        : 'bg-gradient-to-r from-cyan-600 to-cyan-400';
+                  const dotClass = disabledKey
+                    ? 'bg-zinc-500 shadow-[0_0_8px_rgba(113,113,122,0.45)]'
+                    : k.quarantined || k.status === 'quota'
+                      ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]'
+                      : k.status === 'errors'
+                        ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]'
+                        : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]';
+                  return (
+                    <div key={k.key} className="space-y-1">
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-sans text-zinc-500 w-12 shrink-0">KEY {k.key}</span>
+                        <div className="flex-grow h-2.5 bg-zinc-950 rounded-full overflow-hidden relative">
+                          <div
+                            className={`h-full rounded-full transition-all duration-700 ${barClass}`}
+                            style={{ width: `${disabledKey || k.quarantined ? 100 : Math.min(100, (k.attempts / 250) * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-sans text-zinc-500 w-16 text-right shrink-0">{k.attempts}/250</span>
+                        <span className="w-5 shrink-0 text-center">
+                          {notInUse ? (
+                            <X size={14} strokeWidth={3} className="inline-block text-red-400 drop-shadow-[0_0_7px_rgba(248,113,113,0.55)]" />
+                          ) : (
+                            <span className={`inline-block w-2.5 h-2.5 rounded-full ${dotClass}`} />
+                          )}
+                        </span>
+                      </div>
+                      <div className="ml-[60px] flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] font-sans uppercase tracking-[0.16em]">
+                        <span className={disabledKey || k.quarantined ? 'text-red-300' : k.status === 'errors' ? 'text-amber-300' : 'text-emerald-300'}>
+                          {statusLabel}
+                        </span>
+                        {(k.quarantineReason || k.quarantineDetail) && (
+                          <span className="max-w-[min(100%,440px)] truncate text-zinc-600 normal-case tracking-normal">
+                            {k.quarantineReason || k.quarantineDetail}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-[10px] font-sans text-zinc-500 w-16 text-right shrink-0">{k.attempts}/250</span>
-                    <span className="w-5 shrink-0 text-center">
-                      {k.exhausted
-                        ? <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-                        : <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                      }
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-              <p className="text-[9px] font-sans text-zinc-600 mt-3">Quota resets daily. Attempts tracked from Python stdout during this server session.</p>
+              <p className="text-[9px] font-sans text-zinc-600 mt-3">Keys 1 and 3 are disabled. Failed keys are auto-quarantined before the next randomized scan attempt.</p>
             </div>
 
             {/* Model Breakdown */}
@@ -8353,7 +8604,26 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {users.map((u) => {
+                    {adminUserSections.map((section) => (
+                      <React.Fragment key={section.id}>
+                        <tr className="border-b border-zinc-800/50 bg-black/35">
+                          <td colSpan={4} className="px-4 py-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-300">{section.title}</span>
+                              <span className="text-[9px] font-sans uppercase tracking-[0.22em] text-zinc-600">
+                                {section.users.length} user{section.users.length === 1 ? '' : 's'}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        {section.users.length === 0 && (
+                          <tr className="border-b border-zinc-800/30">
+                            <td colSpan={4} className="px-4 py-5 text-center text-xs font-sans text-zinc-600">
+                              No users in this category.
+                            </td>
+                          </tr>
+                        )}
+                        {section.users.map((u) => {
                       const isActive = u.lastActive && (new Date() - new Date(u.lastActive)) < 5 * 60 * 1000;
                       const isExpanded = expandedUserId === u.uid;
                       const isPlanExpanded = expandedPlanUserId === u.uid;
@@ -8682,7 +8952,9 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                           )}
                         </React.Fragment>
                       );
-                    })}
+                        })}
+                      </React.Fragment>
+                    ))}
                   </tbody>
                 </table>
                 {users.length === 0 && (
@@ -9021,20 +9293,11 @@ const App = () => {
   const [analysisJobs, setAnalysisJobs] = useState([]);
   const [analysisDockCollapsed, setAnalysisDockCollapsed] = useState(false);
   const [focusedAnalysisJobId, setFocusedAnalysisJobId] = useState(null);
-  const [mobileModeEnabled, setMobileModeEnabled] = useState(() =>
-    typeof window !== 'undefined' && window.matchMedia?.('(max-width: 768px)').matches
-  );
-  const mobileCompactActive = mobileModeEnabled && currentPage !== 'analysis';
   const analysisJobsRef = useRef([]);
 
   useEffect(() => {
     analysisJobsRef.current = analysisJobs;
   }, [analysisJobs]);
-
-  useEffect(() => {
-    document.body.classList.toggle('mog-mobile-compact', mobileCompactActive);
-    return () => document.body.classList.remove('mog-mobile-compact');
-  }, [mobileCompactActive]);
 
   const setCurrentPage = useCallback((page, pathOverride = null) => {
     const newPath = pathOverride || (page === 'home' ? '/' : `/${page}`);
@@ -9270,14 +9533,14 @@ const App = () => {
           newRatingHistory.push(prev.finalRating);
         }
 
-        newScanHistory.push(completedScan);
+        const dedupedScanHistory = appendUniqueScan(newScanHistory, completedScan);
         if (completedScan.finalRating != null && !Number.isNaN(Number(completedScan.finalRating))) {
           newRatingHistory.push(Number(completedScan.finalRating));
         }
 
         return {
           ...completedScan,
-          scanHistory: newScanHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT),
+          scanHistory: dedupedScanHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT),
           ratingHistory: newRatingHistory.slice(-PROFILE_SCAN_HISTORY_LIMIT),
         };
       });
@@ -9288,15 +9551,18 @@ const App = () => {
 
   const queueAnalysisJob = useCallback((jobInput = {}) => {
     const jobId =
-      (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
-        ? crypto.randomUUID()
-        : `analysis-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      createClientRequestId('analysis');
+    const scanRequestId =
+      String(jobInput.scanRequestId || '').trim() ||
+      createClientRequestId('scan');
 
     const baseJob = {
       id: jobId,
+      scanRequestId,
       state: 'running',
       createdAt: Date.now(),
       ...jobInput,
+      scanRequestId,
     };
 
     const onComplete = (data, options = {}) => {
@@ -9374,19 +9640,8 @@ const App = () => {
   };
   
   return (
-    <div className={`min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black ${mobileCompactActive ? 'mog-mobile-compact' : ''}`}>
+    <div className="min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black">
       <NoiseOverlay />
-      <button
-        type="button"
-        onClick={() => setMobileModeEnabled((prev) => !prev)}
-        className={`fixed bottom-4 left-4 z-[230] inline-flex items-center gap-2 rounded-full border px-3 py-2 font-mono text-[9px] font-black uppercase tracking-[0.18em] shadow-[0_14px_44px_rgba(0,0,0,0.45)] backdrop-blur ${
-          mobileModeEnabled
-            ? 'border-cyan-400/35 bg-cyan-400/15 text-cyan-100'
-            : 'border-zinc-700 bg-black/80 text-zinc-400'
-        }`}
-      >
-        Mobile mode {mobileModeEnabled ? 'on' : 'off'}
-      </button>
       {!isScanOnlyPage && (
         <Navbar
           currentPage={currentPage}
@@ -9490,17 +9745,20 @@ const App = () => {
             routeParams={routeParams}
             user={user}
             scanOnly
-            renderScanDashboard={(scanDashboardData) => (
-              <DashboardPage
-                dashboardData={scanDashboardData}
-                setCurrentPage={setCurrentPage}
-                userPlan={userPlan}
-                user={user}
-                hideTopSection
-                isEmbedded
-                forceFullAnalysis
-              />
-            )}
+            renderScanDashboard={(scanDashboardData) => {
+              const scanModel = scanDashboardData?.selectedModel || scanDashboardData?.model || scanDashboardData?.payload?.selectedModel;
+              return (
+                <DashboardPage
+                  dashboardData={scanDashboardData}
+                  setCurrentPage={setCurrentPage}
+                  userPlan={userPlan}
+                  user={user}
+                  hideTopSection
+                  isEmbedded
+                  forceFullAnalysis={!isFreeScanModel(scanModel)}
+                />
+              );
+            }}
           />
         )}
         {currentPage === 'admin' && <AdminDashboardPage setCurrentPage={setCurrentPage} />}

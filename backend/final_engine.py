@@ -59,9 +59,93 @@ GOOGLE_GENAI_KEYS = [
     for index in range(1, 6)
 ]
 GOOGLE_GENAI_KEYS = [(index, key) for index, key in GOOGLE_GENAI_KEYS if key]
-GEMMA_PER_KEY_TIMEOUT_MS = int(os.getenv("GEMMA_PER_KEY_TIMEOUT_MS") or "210000")
+GEMMA_PER_KEY_TIMEOUT_MS = int(os.getenv("GEMMA_PER_KEY_TIMEOUT_MS") or "186000")
+_raw_disabled_keys = os.getenv("GEMINI_DISABLED_KEYS") or "1,3"
+GEMINI_DISABLED_KEYS = {
+    int(part)
+    for part in _raw_disabled_keys.replace(" ", "").split(",")
+    if part.isdigit()
+}
+KEY_HEALTH_STATE_PATH = Path(__file__).resolve().parent / "key-health-state.json"
 
 BENCHMARK_CALIBRATION_PATH = Path(__file__).resolve().parent / "gemini-benchmark-calibration.json"
+
+
+def _utc_now_ms():
+    return int(time.time() * 1000)
+
+
+def _load_key_health_state():
+    try:
+        if KEY_HEALTH_STATE_PATH.exists():
+            data = json.loads(KEY_HEALTH_STATE_PATH.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return {}
+
+
+def _save_key_health_state(state):
+    try:
+        state["disabledKeys"] = sorted(GEMINI_DISABLED_KEYS)
+        state["updatedAt"] = int(time.time() * 1000)
+        KEY_HEALTH_STATE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    except Exception as error:
+        print(f"[KEY_HEALTH] Failed to save key state: {error}")
+
+
+def _quarantine_key(key_index, reason, detail, duration_ms):
+    state = _load_key_health_state()
+    quarantines = state.get("quarantines")
+    if not isinstance(quarantines, dict):
+        quarantines = {}
+    until_ms = _utc_now_ms() + int(duration_ms)
+    quarantines[str(key_index)] = {
+        "untilMs": until_ms,
+        "reason": reason,
+        "detail": str(detail or "")[:260],
+        "updatedAtMs": _utc_now_ms(),
+    }
+    state["quarantines"] = quarantines
+    _save_key_health_state(state)
+    minutes = max(1, round(duration_ms / 60000))
+    print(f"[KEY_HEALTH] GEMINI_KEY_{key_index} quarantined for ~{minutes}m: {reason}")
+
+
+def _healthy_key_attempts():
+    state = _load_key_health_state()
+    _save_key_health_state(state)
+    quarantines = state.get("quarantines") if isinstance(state.get("quarantines"), dict) else {}
+    now_ms = _utc_now_ms()
+    attempts = []
+    skipped = []
+
+    for key_index, key in GOOGLE_GENAI_KEYS:
+        if key_index in GEMINI_DISABLED_KEYS:
+            skipped.append(f"GEMINI_KEY_{key_index}:disabled")
+            continue
+        quarantine = quarantines.get(str(key_index))
+        if quarantine and int(quarantine.get("untilMs") or 0) > now_ms:
+            skipped.append(f"GEMINI_KEY_{key_index}:quarantined")
+            continue
+        attempts.append((key_index, key))
+
+    if skipped:
+        print(f"[KEY_HEALTH] Skipping keys this scan: {', '.join(skipped)}")
+    return attempts
+
+
+def _quarantine_for_error(error_text):
+    text = str(error_text or "")
+    low = text.lower()
+    if "permission_denied" in low or "project has been denied access" in low or "403" in low:
+        return ("permission_denied", 24 * 60 * 60 * 1000)
+    if "resource_exhausted" in low or "quota" in low or "429" in low:
+        return ("quota_exhausted", 45 * 60 * 1000)
+    if "read operation timed out" in low or "timed out" in low or "503" in low or "unavailable" in low or "high demand" in low:
+        return ("provider_unavailable", 10 * 60 * 1000)
+    return (None, 0)
 
 
 def _mean(values):
@@ -119,7 +203,6 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
         # --- MODEL MAPPING ---
         mapping = {
             "1": ("gemma-4-31b-it", "ULTRA - Highest Quality"),
-            "2": ("gemma-4-26b-a4b-it", "ULTRA - Fast"),
             "3": ("gemma-4-26b-a4b-it", "OPTIC"),
             "4": ("gemma-4-26b-a4b-it", "CORE"),
             "5": ("gemma-4-26b-a4b-it", "GENEVA")
@@ -139,8 +222,14 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             )
 
         provider_errors = []
-        key_attempts = GOOGLE_GENAI_KEYS.copy()
+        key_attempts = _healthy_key_attempts()
         random.shuffle(key_attempts)
+        if not key_attempts:
+            return (
+                "Error: No healthy Google GenAI/Gemma keys are available. All keys are disabled or quarantined.",
+                friendly_name,
+                0,
+            )
         print(f"[DEBUG] Gemma key order this scan: {', '.join(f'GEMINI_KEY_{index}' for index, _ in key_attempts)}")
         for attempt_number, (key_index, key) in enumerate(key_attempts, start=1):
             if not key:
@@ -167,6 +256,7 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
                     duration = round(time.time() - start_time, 2)
                     return res.text, friendly_name, duration
                 provider_errors.append(f"GEMINI_KEY_{key_index}: empty model response")
+                _quarantine_key(key_index, "empty_response", "empty model response", 10 * 60 * 1000)
             except Exception as e:
                 if "User interrupted" in str(e):
                     raise
@@ -174,6 +264,9 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
                 short_error = error_text[:260] if error_text else "Unknown provider error"
                 provider_errors.append(f"GEMINI_KEY_{key_index}: {short_error}")
                 quota_hit = "RESOURCE_EXHAUSTED" in error_text or "quota" in error_text.lower()
+                quarantine_reason, quarantine_ms = _quarantine_for_error(error_text)
+                if quarantine_reason:
+                    _quarantine_key(key_index, quarantine_reason, short_error, quarantine_ms)
                 if quota_hit:
                     print(f"      [!] {friendly_name} Google GenAI GEMINI_KEY_{key_index} quota exhausted. Trying next key...")
                 else:
@@ -200,7 +293,6 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("      MODEL SELECTOR")
     print("=" * 30)
     print("1. ULTRA - Highest Quality")
-    print("2. ULTRA - Fast")
     print("-" * 30)
     print("3. OPTIC (Balance & Alignment)")
     print("4. CORE (Objective Attractiveness)")
@@ -211,18 +303,18 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         print(f"\n[DEBUG] Model selected via API args: {choice}")
     else:
         try:
-            choice = input("\nSelect Model [1-5]: ").strip()
+            choice = input("\nSelect Model [1, 3-5]: ").strip()
         except KeyboardInterrupt:
             print("\nExiting script...")
             return
 
-    if choice not in {"1", "2", "3", "4", "5"}:
+    if choice not in {"1", "3", "4", "5"}:
         print(f"[ERROR] Invalid model choice: {choice}")
         return "Error: Model selection failed."
 
     # --- SIDE PROFILE DATA COLLECTION ---
     side_data = "IGNORE_SIDE_ANALYSIS"
-    if choice in ["1", "2"]:
+    if choice == "1":
         print("[ðŸš€] Gathering Lateral Data from engineside.py...")
         if side_img_path and os.path.exists(side_img_path):
             try:
@@ -232,7 +324,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         else:
             side_data = "IGNORE_SIDE_ANALYSIS"
     has_side_profile = bool(
-        choice in ["1", "2"] and side_img_path and os.path.exists(side_img_path) and side_data != "IGNORE_SIDE_ANALYSIS"
+        choice == "1" and side_img_path and os.path.exists(side_img_path) and side_data != "IGNORE_SIDE_ANALYSIS"
     )
     side_prompt_policy = """
         FRONT-ONLY MODE:
@@ -339,7 +431,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
     prompt_side_data = side_data
 
     # --- PROMPT SELECTION LOGIC ---
-    if choice in ["1", "2"]:
+    if choice == "1":
         active_prompt = f"""
         MANDATE: Conduct a DUAL-INPUT structural evaluation (FRONTAL + LATERAL).
         INPUT A (Frontal Metadata): {prompt_clinical_data}

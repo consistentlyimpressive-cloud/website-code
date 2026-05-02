@@ -170,7 +170,7 @@ const buildSectionCommunityScans = (scans = []) => {
 
 const modelLabel = (model) => ({
   '1': 'Premium Ultra',
-  '2': 'Fun Mode',
+  '2': 'Premium Ultra',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
