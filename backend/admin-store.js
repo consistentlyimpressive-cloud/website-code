@@ -122,12 +122,27 @@ function save() {
   saveToFirestore().catch(() => {});
 }
 
-function logAnalysis({ model, durationMs, success, rating, sideRating, error, uid, platform }) {
+function logAnalysis({
+  model,
+  durationMs,
+  coreDurationMs,
+  coreAiDurationMs,
+  scanRequestId,
+  success,
+  rating,
+  sideRating,
+  error,
+  uid,
+  platform,
+}) {
   store.analyses.unshift({
     id: Date.now(),
     ts: new Date().toISOString(),
     model: String(model),
     durationMs: durationMs || null,
+    coreDurationMs: coreDurationMs || durationMs || null,
+    coreAiDurationMs: coreAiDurationMs || null,
+    scanRequestId: scanRequestId || null,
     success: !!success,
     rating: rating ?? null,
     sideRating: sideRating ?? null,
@@ -251,7 +266,7 @@ function getStats() {
 
   const modelCounts = { ultra: 0, free: 0 };
   store.analyses.forEach((a) => {
-    if (['1', '2'].includes(a.model)) modelCounts.ultra++;
+    if (['1', '2', '6'].includes(a.model)) modelCounts.ultra++;
     else modelCounts.free++;
   });
 

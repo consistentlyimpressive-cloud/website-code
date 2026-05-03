@@ -19,8 +19,9 @@ const clampTextStyle = {
 };
 
 const modelLabel = (model) => ({
-  '1': 'Premium Ultra',
-  '2': 'Premium Ultra',
+  '1': 'Legacy Premium',
+  '2': 'Backup Model',
+  '6': 'Expert Mode (Very Accurate)',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
@@ -538,7 +539,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     if (setPendingUploadProfileId) {
       setPendingUploadProfileId(dashboardData?.profileId || null);
     }
-    if (model === '1' || model === '2') {
+    if (model === '1' || model === '2' || model === '6') {
       setCurrentPage('upload-ultra');
     } else {
       setCurrentPage('upload-photo');
@@ -920,9 +921,9 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   }, [latestScanAcrossProfiles, profiles]);
   const dashboardScanOptions = [
     {
-      id: '1',
-      label: 'Ultra Scan (Pro)',
-      description: 'Highest-quality premium scan with the deepest structural pass.',
+      id: '6',
+      label: 'Expert Mode (Pro)',
+      description: 'Very accurate premium scan with fast calibrated expert scoring.',
       buttonClass: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20',
     },
     {

@@ -169,8 +169,9 @@ const buildSectionCommunityScans = (scans = []) => {
 };
 
 const modelLabel = (model) => ({
-  '1': 'Premium Ultra',
-  '2': 'Premium Ultra',
+  '1': 'Legacy Premium',
+  '2': 'Backup Model',
+  '6': 'Expert Mode (Very Accurate)',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',

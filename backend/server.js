@@ -156,6 +156,8 @@ function firestoreQuotaCooldownWarning() {
 
 const activeAnalysisByUser = new Map();
 const analysisRecoveryByUser = new Map();
+const detailedReportContextByScan = new Map();
+const detailedReportInFlight = new Set();
 
 // Stale local scan fallbacks caused old parsed scores to reappear in dashboards.
 // Keep real Firestore persistence, but never read/write local cached scans.
@@ -389,6 +391,33 @@ function rememberAnalysisRecovery(uid, scanRequestId, patch = {}) {
 function readAnalysisRecovery(uid, scanRequestId) {
   const key = getAnalysisRecoveryKey(uid, scanRequestId);
   return key ? analysisRecoveryByUser.get(key) || null : null;
+}
+
+function getDetailedReportContextKey(uid, scanRequestId) {
+  return getAnalysisRecoveryKey(uid, scanRequestId);
+}
+
+function rememberDetailedReportContext(context = {}) {
+  const key = getDetailedReportContextKey(context.uid, context.scanRequestId);
+  if (!key) return;
+  const previous = detailedReportContextByScan.get(key) || {};
+  detailedReportContextByScan.set(key, {
+    ...previous,
+    ...context,
+    updatedAt: Date.now(),
+  });
+
+  const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+  for (const [entryKey, entry] of detailedReportContextByScan.entries()) {
+    if ((entry?.updatedAt || 0) < cutoff && !detailedReportInFlight.has(entryKey)) {
+      detailedReportContextByScan.delete(entryKey);
+    }
+  }
+}
+
+function readDetailedReportContext(uid, scanRequestId) {
+  const key = getDetailedReportContextKey(uid, scanRequestId);
+  return key ? detailedReportContextByScan.get(key) || null : null;
 }
 
 /** Process start time for /api/health uptime */
@@ -2587,6 +2616,321 @@ function copyDebugArtifactToUploads(req, sourceName, label = 'debug') {
   }
 }
 
+function formatPythonRunOutput(stdout = '', stderr = '') {
+  const cleanStderr = String(stderr || '').trim();
+  return cleanStderr.length > 0
+    ? `${stdout}\n\n--- Python stderr ---\n${stderr}`
+    : stdout;
+}
+
+async function persistDetailedReportPayload({
+  uid,
+  scanRequestId,
+  profileId,
+  modelChoice,
+  savedScanRef,
+  savedScanBase,
+  payload,
+}) {
+  const existingContext = readDetailedReportContext(uid, scanRequestId);
+  const existingAttemptId = existingContext?.payload?.reportAttemptId || null;
+  const payloadAttemptId = payload?.reportAttemptId || null;
+  if (existingAttemptId && payloadAttemptId && existingAttemptId !== payloadAttemptId) {
+    console.log(`[analyze/report] Ignoring stale report attempt ${payloadAttemptId}; latest is ${existingAttemptId}`);
+    return;
+  }
+
+  rememberAnalysisRecovery(uid, scanRequestId, {
+    state: 'completed',
+    payload,
+    profileId: payload.profileId || profileId,
+    modelChoice,
+  });
+
+  if (savedScanRef) {
+    try {
+      const nextSavedPayload = {
+        ...(savedScanBase?.payload || {}),
+        ...payload,
+      };
+      await savedScanRef.set({
+        reportStatus: payload.reportStatus || null,
+        reportCompletedAt: payload.reportCompletedAt || null,
+        reportError: payload.reportError || null,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        payload: nextSavedPayload,
+      }, { merge: true });
+    } catch (error) {
+      console.error('[analyze/report] Failed to update saved scan:', error.message);
+    }
+  }
+
+  if (existingContext) {
+    rememberDetailedReportContext({
+      ...existingContext,
+      savedScanBase: savedScanBase
+        ? {
+            ...savedScanBase,
+            payload: {
+              ...(savedScanBase.payload || {}),
+              ...payload,
+            },
+          }
+        : existingContext.savedScanBase,
+      payload,
+    });
+  }
+
+  if (uid && payload.scanId) {
+    upsertLocalCachedScan(uid, payload.scanId, {
+      ...(savedScanBase || {}),
+      ...payload,
+      payload: {
+        ...(savedScanBase?.payload || {}),
+        ...payload,
+      },
+      updatedAt: new Date().toISOString(),
+    });
+  }
+}
+
+async function runDetailedReportGeneration({
+  uid,
+  scanRequestId,
+  profileId,
+  modelChoice,
+  pythonExecutable,
+  scriptPath,
+  imagePath,
+  sideImagePath,
+  runOutputDir,
+  savedScanRef,
+  savedScanBase,
+  payload,
+}) {
+  const reportOutputDir = path.join(runOutputDir, 'report');
+  fs.mkdirSync(reportOutputDir, { recursive: true });
+
+  const coreOutputPath = path.join(runOutputDir, 'core_output.txt');
+  const clinicalPath = path.join(runOutputDir, 'mog_report.txt');
+  let clinicalData = '';
+  try {
+    clinicalData = fs.existsSync(clinicalPath) ? fs.readFileSync(clinicalPath, 'utf8') : '';
+  } catch (error) {
+    console.warn('[analyze/report] Could not read core biometrics:', error.message);
+  }
+
+  const args = [scriptPath, imagePath, modelChoice, clinicalData || '', sideImagePath || ''];
+  console.log(`[analyze/report] Starting detailed report for scanRequestId=${scanRequestId}`);
+
+  const result = await new Promise((resolve) => {
+    const py = spawn(pythonExecutable, args, {
+      cwd: __dirname,
+      detached: process.platform !== 'win32',
+      env: {
+          ...process.env,
+          MOGCHECK_ANALYSIS_PHASE: 'report',
+          MOGCHECK_CORE_ANALYSIS_PATH: coreOutputPath,
+          MOGCHECK_SCAN_REQUEST_ID: scanRequestId,
+          MOGCHECK_RUN_OUTPUT_DIR: reportOutputDir,
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONUTF8: '1',
+        PYTHONUNBUFFERED: '1',
+      },
+    });
+
+    const PYTHON_MAX_MS = Number(process.env.ANALYZE_REPORT_TIMEOUT_MS || 540000);
+    let timedOut = false;
+    let stdout = '';
+    let stderr = '';
+    const killTimer = setTimeout(() => {
+      timedOut = true;
+      console.error(`[analyze/report] Python exceeded ${PYTHON_MAX_MS}ms - terminating process tree`);
+      terminateProcessTree(py, 'detailed report Python');
+    }, PYTHON_MAX_MS);
+
+    py.stdout.on('data', (data) => {
+      const text = data.toString();
+      process.stdout.write(text);
+      stdout += text;
+    });
+
+    py.stderr.on('data', (data) => {
+      const text = data.toString();
+      process.stderr.write(text);
+      stderr += text;
+    });
+
+    py.on('error', (error) => {
+      clearTimeout(killTimer);
+      resolve({ code: -1, stdout, stderr: `${stderr}\n${error.message}`, timedOut: false });
+    });
+
+    py.on('close', (code) => {
+      clearTimeout(killTimer);
+      resolve({ code, stdout, stderr, timedOut });
+    });
+  });
+
+  const reportRawOutput = formatPythonRunOutput(result.stdout, result.stderr);
+  let nextPayload = payload;
+
+  if (result.timedOut || result.code !== 0) {
+    const error = result.timedOut
+      ? 'Detailed report timed out. The score is saved, but the longer advice did not finish.'
+      : `Detailed report exited with code ${result.code}.`;
+    nextPayload = {
+      ...payload,
+      reportStatus: 'failed',
+      reportError: error,
+      reportCompletedAt: new Date().toISOString(),
+      rawReportOutput: reportRawOutput,
+    };
+    await persistDetailedReportPayload({ uid, scanRequestId, profileId, modelChoice, savedScanRef, savedScanBase, payload: nextPayload });
+    console.warn(`[analyze/report] ${error}`);
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = parseAnalysisOutput(result.stdout, reportOutputDir);
+  } catch (error) {
+    console.error('[analyze/report] Error parsing detailed report:', error.message);
+    parsed = {};
+  }
+
+  const personalizedFeedback = Array.isArray(parsed.personalizedFeedback) ? parsed.personalizedFeedback : [];
+  const protocols = Array.isArray(parsed.protocols) ? parsed.protocols : [];
+  const hasDetailedReport = personalizedFeedback.length > 0 || protocols.length > 0;
+
+  nextPayload = {
+    ...payload,
+    personalizedFeedback,
+    protocols,
+    debugJustification: payload.debugJustification || null,
+    reportDebugJustification: parsed.debugJustification || payload.reportDebugJustification || null,
+    reportStatus: hasDetailedReport ? 'complete' : 'failed',
+    reportError: hasDetailedReport ? null : 'Detailed report finished, but no personalized report text was parsed.',
+    reportCompletedAt: new Date().toISOString(),
+    rawReportOutput: reportRawOutput,
+    rawOutput: `${payload.rawOutput || ''}\n\n--- Detailed report ---\n${reportRawOutput}`,
+  };
+
+  adminStore.parseKeyEventsFromStdout(result.stdout);
+  await persistDetailedReportPayload({ uid, scanRequestId, profileId, modelChoice, savedScanRef, savedScanBase, payload: nextPayload });
+  console.log(`[analyze/report] Finished detailed report for scanRequestId=${scanRequestId} feedback=${personalizedFeedback.length} protocols=${protocols.length}`);
+}
+
+function startDetailedReportGeneration(context = {}, options = {}) {
+  const key = getDetailedReportContextKey(context.uid, context.scanRequestId);
+  if (!key) {
+    return { started: false, error: 'Missing detailed report context key.' };
+  }
+  if (detailedReportInFlight.has(key) && !options.force) {
+    return { started: false, alreadyRunning: true };
+  }
+
+  detailedReportInFlight.add(key);
+  rememberDetailedReportContext(context);
+  runDetailedReportGeneration(context)
+    .catch((error) => {
+      console.error('[analyze/report] Background detailed report failed:', error);
+      const failedPayload = {
+        ...(context.payload || {}),
+        reportStatus: 'failed',
+        reportError: error?.message || 'Detailed report failed unexpectedly.',
+        reportCompletedAt: new Date().toISOString(),
+      };
+      return persistDetailedReportPayload({
+        uid: context.uid,
+        scanRequestId: context.scanRequestId,
+        profileId: context.profileId,
+        modelChoice: context.modelChoice,
+        savedScanRef: context.savedScanRef,
+        savedScanBase: context.savedScanBase,
+        payload: failedPayload,
+      });
+    })
+    .catch((persistError) => {
+      console.error('[analyze/report] Failed to persist report failure:', persistError.message);
+    })
+    .finally(() => {
+      detailedReportInFlight.delete(key);
+    });
+
+  return { started: true };
+}
+
+function parseTokenUsageEventsFromStdout(stdout) {
+  const events = [];
+  const text = String(stdout || '');
+  for (const match of text.matchAll(/^\[TOKEN_USAGE\]\s+({.+})\s*$/gm)) {
+    try {
+      const parsed = JSON.parse(match[1]);
+      if (parsed && typeof parsed === 'object') events.push(parsed);
+    } catch (_) {
+      // Ignore malformed diagnostic lines; they should not affect scan success.
+    }
+  }
+  return events;
+}
+
+function localUploadPathFromUrl(value) {
+  const text = String(value || '').trim();
+  const match = text.match(/\/uploads\/([^?#]+)/i);
+  if (!match) return '';
+  try {
+    const filename = decodeURIComponent(match[1]);
+    const localPath = path.join(__dirname, 'uploads', filename);
+    return fs.existsSync(localPath) ? localPath : '';
+  } catch {
+    return '';
+  }
+}
+
+function formatBiometricsForReportRetry(payload = {}) {
+  const lines = ['MOG-CHECK RETRY BIOMETRICS'];
+  const biometrics = Array.isArray(payload.biometrics) ? payload.biometrics : [];
+  for (const metric of biometrics) {
+    const label = metric?.label || metric?.name;
+    const value = metric?.displayValue ?? metric?.value ?? metric?.score;
+    if (label && value != null) lines.push(`- ${label}: ${value}`);
+  }
+  return lines.join('\n');
+}
+
+function buildDetailedReportContextFromPayload(uid, scanRequestId, payload = {}) {
+  const frontImage = payload.frontImage || payload.frontImageUrl || payload.payload?.frontImage || payload.payload?.frontImageUrl || '';
+  const sideImage = payload.sideImage || payload.sideImageUrl || payload.payload?.sideImage || payload.payload?.sideImageUrl || '';
+  const imagePath = localUploadPathFromUrl(frontImage);
+  if (!imagePath) return null;
+
+  const safeRunId = `${String(scanRequestId || 'report-retry').replace(/[^a-z0-9_-]/gi, '-').slice(0, 60)}-report-retry-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+  const runOutputDir = path.join(__dirname, 'tmp-analysis', safeRunId);
+  fs.mkdirSync(runOutputDir, { recursive: true });
+  try {
+    fs.writeFileSync(path.join(runOutputDir, 'core_output.txt'), String(payload.rawOutput || ''), 'utf8');
+    fs.writeFileSync(path.join(runOutputDir, 'mog_report.txt'), formatBiometricsForReportRetry(payload), 'utf8');
+  } catch (error) {
+    console.warn('[analyze/report] Failed to create retry context files:', error.message);
+  }
+
+  return {
+    uid,
+    scanRequestId,
+    profileId: payload.profileId || 'default',
+    modelChoice: String(payload.selectedModel || payload.model || '1'),
+    pythonExecutable: getPythonExecutable(),
+    scriptPath: path.join(__dirname, 'final_engine.py'),
+    imagePath,
+    sideImagePath: localUploadPathFromUrl(sideImage),
+    runOutputDir,
+    savedScanRef: null,
+    savedScanBase: null,
+    payload,
+  };
+}
+
 function publicizeStoredUploadUrl(value) {
   if (typeof value !== 'string' || !value.includes('/uploads/')) return value || null;
   const rawBase = (process.env.PUBLIC_BACKEND_URL || '').trim().replace(/\/$/, '');
@@ -2694,15 +3038,20 @@ async function extractUserOptional(req, res, next) {
 
 /** Ultra models require Firebase auth + Pro plan or Single Scan with credits. */
 async function verifyUltraAccess(req, res, next) {
-  const modelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
-  const allowedModelChoices = new Set(['1', '3', '4', '5']);
+  const requestedModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
+  const modelChoice = requestedModelChoice === '1' ? '6' : requestedModelChoice;
+  if (req.body && requestedModelChoice === '1') {
+    req.body.choice = '6';
+    req.body.model = '6';
+  }
+  const allowedModelChoices = new Set(['1', '2', '3', '4', '5', '6']);
   if (!allowedModelChoices.has(modelChoice)) {
     return res.status(400).json({
       success: false,
       error: 'Invalid AI model selected. Please choose an available scan model.',
     });
   }
-  const isUltra = modelChoice === '1';
+  const isUltra = modelChoice === '1' || modelChoice === '2' || modelChoice === '6';
   if (!isUltra) {
     req.ultraContext = null;
     return next();
@@ -2855,7 +3204,9 @@ app.post(
     const sideFile = req.files && req.files['sideImage'] && req.files['sideImage'][0];
     const sideImagePath = sideFile ? sideFile.path : '';
     const statsJson = req.body.stats;
-    const modelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
+    const requestedModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
+    const modelChoice = requestedModelChoice === '1' ? '6' : requestedModelChoice;
+    const shouldRunSplitReport = modelChoice === '1' || modelChoice === '2' || modelChoice === '6';
     const scanRequestId =
       String(req.body.scanRequestId || '').trim() ||
       `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -2898,6 +3249,8 @@ app.post(
       detached: process.platform !== 'win32',
       env: {
         ...process.env,
+        MOGCHECK_ANALYSIS_PHASE: shouldRunSplitReport ? 'core' : 'full',
+        MOGCHECK_SCAN_REQUEST_ID: scanRequestId,
         MOGCHECK_RUN_OUTPUT_DIR: runOutputDir,
         PYTHONIOENCODING: 'utf-8',
         PYTHONUTF8: '1',
@@ -2977,6 +3330,9 @@ app.post(
         adminStore.logAnalysis({
           model: modelChoice,
           durationMs: Date.now() - analysisStartTime,
+          coreDurationMs: Date.now() - analysisStartTime,
+          coreAiDurationMs: null,
+          scanRequestId,
           success: false,
           rating: null,
           sideRating: null,
@@ -3079,12 +3435,26 @@ app.post(
     protocols: parsed.protocols || [],
     videoUrl: getLoadingVideoUrl(req),
     scanRequestId,
-    rawOutput:
-      pythonStderr.trim().length > 0
-        ? `${pythonOutput}\n\n--- Python stderr ---\n${pythonStderr}`
-        : pythonOutput,
+    rawOutput: formatPythonRunOutput(pythonOutput, pythonStderr),
     fairUsage,
   };
+
+  if (success && shouldRunSplitReport) {
+    payload.personalizedFeedback = [];
+    payload.protocols = [];
+    payload.reportStatus = 'generating';
+    payload.reportStartedAt = new Date().toISOString();
+    payload.reportAttemptId = `${scanRequestId}-report-1`;
+    payload.reportRetryCount = 0;
+    payload.reportError = null;
+    try {
+      fs.writeFileSync(path.join(runOutputDir, 'core_output.txt'), pythonOutput, 'utf8');
+    } catch (error) {
+      console.warn('[analyze/report] Failed to save core output for report phase:', error.message);
+    }
+  } else if (success) {
+    payload.reportStatus = 'complete';
+  }
 
   const frontFallbackUrl = getLocalUploadUrl(req, imagePath);
   const sideFallbackUrl = getLocalUploadUrl(req, sideImagePath);
@@ -3110,6 +3480,12 @@ app.post(
   if (!success) {
     if (code !== 0) {
       payload.error = `Python exited with code ${code}. Check this terminal for [FATAL] or API errors above.`;
+    } else if (/No healthy Google GenAI\/Gemma keys are available/i.test(pythonOutput)) {
+      payload.code = 'GEMMA_KEYS_UNAVAILABLE';
+      payload.error = 'All Google/Gemma API keys are temporarily cooling down after provider timeouts. Please wait a few minutes and try again.';
+    } else if (/All configured Google GenAI\/Gemma keys failed or hit quota/i.test(pythonOutput)) {
+      payload.code = 'GEMMA_KEYS_FAILED';
+      payload.error = 'All Google/Gemma API keys failed or hit quota during this scan. Please wait a moment and try again.';
     } else if (!parsed.hasSubstantiveParse) {
       payload.error =
         'Analysis finished but no usable text was parsed (empty model response, wrong format, or API key/model issue). Check the PY ENGINE block above.';
@@ -3148,10 +3524,20 @@ app.post(
   console.log('========== END PY ENGINE ==========\n');
 
   adminStore.parseKeyEventsFromStdout(pythonOutput);
+  const coreTokenUsageEvents = parseTokenUsageEventsFromStdout(pythonOutput)
+    .filter((event) => String(event.request_type || '').toLowerCase() === 'core');
+  const successfulCoreTokenEvent =
+    coreTokenUsageEvents.find((event) => event.success && Number.isFinite(Number(event.duration_ms))) ||
+    coreTokenUsageEvents.find((event) => Number.isFinite(Number(event.duration_ms))) ||
+    null;
+  const coreDurationMs = Date.now() - analysisStartTime;
   const scanPlatform = getClientPlatform(req);
   adminStore.logAnalysis({
     model: modelChoice,
-    durationMs: Date.now() - analysisStartTime,
+    durationMs: coreDurationMs,
+    coreDurationMs,
+    coreAiDurationMs: successfulCoreTokenEvent ? Number(successfulCoreTokenEvent.duration_ms) : null,
+    scanRequestId,
     success,
     rating: finalRating,
     sideRating,
@@ -3319,7 +3705,42 @@ app.post(
     await new Promise((resolve) => setTimeout(resolve, fairUsage.minimumDurationMs));
   }
 
+  if (success && shouldRunSplitReport) {
+    rememberDetailedReportContext({
+      uid: req.uid,
+      scanRequestId,
+      profileId: payload.profileId || profileId,
+      modelChoice,
+      pythonExecutable,
+      scriptPath,
+      imagePath,
+      sideImagePath,
+      runOutputDir,
+      savedScanRef,
+      savedScanBase,
+      payload,
+    });
+  }
+
   res.json(payload);
+  if (success && shouldRunSplitReport) {
+    setImmediate(() => {
+      startDetailedReportGeneration({
+        uid: req.uid,
+        scanRequestId,
+        profileId: payload.profileId || profileId,
+        modelChoice,
+        pythonExecutable,
+        scriptPath,
+        imagePath,
+        sideImagePath,
+        runOutputDir,
+        savedScanRef,
+        savedScanBase,
+        payload,
+      });
+    });
+  }
     });
   }
 );
@@ -3361,6 +3782,85 @@ app.get('/api/analyze/status/:scanRequestId', extractUserOptional, async (req, r
     return res.json({ state: 'running', startedAt: recovery.startedAt || null, profileId: recovery.profileId || null });
   }
   return res.json({ state: 'pending' });
+});
+
+app.post('/api/analyze/report/retry/:scanRequestId', extractUserOptional, async (req, res) => {
+  if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
+  const scanRequestId = String(req.params.scanRequestId || '').trim();
+  if (!scanRequestId) return res.status(400).json({ error: 'Missing scan request id' });
+
+  let payload = readAnalysisRecovery(req.uid, scanRequestId)?.payload || null;
+  let savedScanRef = null;
+  let savedScanBase = null;
+
+  if (!payload && firestore) {
+    try {
+      const snap = await firestore
+        .collection('users')
+        .doc(req.uid)
+        .collection('scans')
+        .where('scanRequestId', '==', scanRequestId)
+        .limit(1)
+        .get();
+      if (!snap.empty) {
+        const doc = snap.docs[0];
+        savedScanRef = doc.ref;
+        savedScanBase = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
+        payload = savedScanBase.payload || savedScanBase || null;
+      }
+    } catch (error) {
+      console.warn('[analyze/report/retry] scan lookup failed:', error.message);
+    }
+  }
+
+  if (!payload) {
+    return res.status(404).json({ error: 'No completed core scan was found for this report retry.' });
+  }
+
+  const existingContext = readDetailedReportContext(req.uid, scanRequestId);
+  const context = existingContext || buildDetailedReportContextFromPayload(req.uid, scanRequestId, payload);
+  if (!context) {
+    return res.status(409).json({
+      error: 'This report cannot be retried because the local source image is no longer available.',
+    });
+  }
+
+  const retryCount = Number(payload.reportRetryCount || 0) + 1;
+  const retryPayload = {
+    ...payload,
+    reportStatus: 'generating',
+    reportStartedAt: new Date().toISOString(),
+    reportRetryStartedAt: new Date().toISOString(),
+    reportRetryCount: retryCount,
+    reportAttemptId: `${scanRequestId}-report-${retryCount + 1}-${Date.now()}`,
+    reportError: null,
+  };
+
+  const retryContext = {
+    ...context,
+    uid: req.uid,
+    scanRequestId,
+    profileId: retryPayload.profileId || context.profileId || 'default',
+    modelChoice: String(retryPayload.selectedModel || context.modelChoice || '1'),
+    pythonExecutable: context.pythonExecutable || getPythonExecutable(),
+    scriptPath: context.scriptPath || path.join(__dirname, 'final_engine.py'),
+    savedScanRef: context.savedScanRef || savedScanRef,
+    savedScanBase: context.savedScanBase || savedScanBase,
+    payload: retryPayload,
+  };
+
+  rememberDetailedReportContext(retryContext);
+  await persistDetailedReportPayload({
+    uid: req.uid,
+    scanRequestId,
+    profileId: retryContext.profileId,
+    modelChoice: retryContext.modelChoice,
+    savedScanRef: retryContext.savedScanRef,
+    savedScanBase: retryContext.savedScanBase,
+    payload: retryPayload,
+  });
+  startDetailedReportGeneration(retryContext, { force: true });
+  return res.json({ state: 'running', payload: retryPayload });
 });
 
 app.post('/api/unlock-potential', unlockLimiter, extractUserOptional, upload.single('image'), (req, res) => {

@@ -136,6 +136,220 @@ function normalizeImpactLabel(rawImpact) {
   return text;
 }
 
+function extractJsonObjects(raw) {
+  const text = String(raw || '');
+  const objects = [];
+  for (let start = text.indexOf('{'); start !== -1; start = text.indexOf('{', start + 1)) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = start; i < text.length; i += 1) {
+      const ch = text[i];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (ch === '\\') {
+          escaped = true;
+        } else if (ch === '"') {
+          inString = false;
+        }
+        continue;
+      }
+      if (ch === '"') {
+        inString = true;
+      } else if (ch === '{') {
+        depth += 1;
+      } else if (ch === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          try {
+            objects.push(JSON.parse(text.slice(start, i + 1)));
+          } catch (_) {
+            // Keep scanning; stdout can contain braces from provider errors.
+          }
+          break;
+        }
+      }
+    }
+  }
+  return objects;
+}
+
+function compactString(value, fallback = '') {
+  return String(value ?? fallback).replace(/\s+/g, ' ').trim();
+}
+
+function jsonFeatureArray(items, limit = 5) {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item) => {
+      if (typeof item === 'string') {
+        return { title: compactString(item).slice(0, 80), description: compactString(item).slice(0, 240) };
+      }
+      if (!item || typeof item !== 'object') return null;
+      const title = compactString(item.title || item.name || item.label || 'Feature').slice(0, 80);
+      const description = compactString(item.description || item.body || item.text || title).slice(0, 280);
+      return title ? { title, description } : null;
+    })
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function normalizeMetricScore(scoreValue) {
+  const score = Number(scoreValue);
+  if (!Number.isFinite(score)) return null;
+  const score100 = score <= 10 ? score * 10 : score;
+  return applyOffset100(score100);
+}
+
+function jsonBiometricArray(items, limit = 20) {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const label = compactString(item.label || item.name || item.metric);
+      if (!label) return null;
+      const score = normalizeMetricScore(item.score ?? item.rating);
+      const value = item.value ?? item.rawValue ?? item.val;
+      const displayValue = Number.isFinite(score)
+        ? `${Math.round(score)}/100`
+        : compactString(value || '');
+      return {
+        label: value != null && value !== '' ? `${label} (${value})` : label,
+        displayValue,
+        score: Number.isFinite(score) ? score : null,
+        impact: compactString(item.impact || ''),
+        note: compactString(item.note || item.description || '').slice(0, 220),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function normalizeScoreMap(map, applyOffset = true) {
+  if (!map || typeof map !== 'object' || Array.isArray(map)) return null;
+  const out = {};
+  for (const [key, value] of Object.entries(map)) {
+    if (value == null || value === 'N/A' || Number.isNaN(Number(value))) {
+      out[key] = null;
+    } else {
+      out[key] = applyOffset ? applyOffset100(Number(value)) : Number(value);
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function isGemini31ProOutput(rawOutput) {
+  return /\[Using:\s*(?:Gemini\s+3\.1\s+Pro|Expert\s+Mode\s*\(Very\s+Accurate\))(?=\s|\|)/i.test(String(rawOutput || ''));
+}
+
+function buildGeminiJsonScoreCalibration(rawOutput, backendDir, rawFinalRating) {
+  if (!isGemini31ProOutput(rawOutput) || !Number.isFinite(Number(rawFinalRating)) || !backendDir) return null;
+  const rawValues = readMogReportRawValues(rawOutput, backendDir);
+  const metrics = extractCalibrationMetrics(rawValues);
+  const calibration = computeBenchmarkCalibrationAnalysis(metrics, Number(rawFinalRating));
+  if (!calibration || !Number.isFinite(Number(calibration.rating))) return null;
+
+  const modelRating = Number(rawFinalRating);
+  const benchmarkRating = Number(calibration.rating);
+  if (benchmarkRating >= modelRating) {
+    return { adjustedRating: modelRating, calibration, applied: false };
+  }
+
+  const confidence = Number(calibration.confidence) || 0;
+  const isAnchorBand = modelRating >= 66 && modelRating <= 69;
+  const weight = isAnchorBand ? clamp(0.62 + confidence * 0.22, 0.62, 0.82) : clamp(0.35 + confidence * 0.25, 0.35, 0.65);
+  const adjustedRating = Math.round((modelRating * (1 - weight) + benchmarkRating * weight) * 10) / 10;
+  return {
+    adjustedRating: Math.min(modelRating, adjustedRating),
+    calibration,
+    applied: true,
+  };
+}
+
+function parseExperimentalJsonOutput(rawOutput, backendDir) {
+  const candidates = extractJsonObjects(rawOutput).filter((obj) => obj && typeof obj === 'object');
+  const data = candidates.find((obj) =>
+    Object.prototype.hasOwnProperty.call(obj, 'finalRating') ||
+    Array.isArray(obj.personalizedFeedback) ||
+    Array.isArray(obj.protocols)
+  );
+  if (!data) return null;
+
+  const rawFinalRating = data.finalRating == null || Number.isNaN(Number(data.finalRating))
+    ? null
+    : Number(data.finalRating);
+  const geminiScoreCalibration = buildGeminiJsonScoreCalibration(rawOutput, backendDir, rawFinalRating);
+  const calibratedRawFinalRating = geminiScoreCalibration?.adjustedRating ?? rawFinalRating;
+  const finalRating = calibratedRawFinalRating == null || Number.isNaN(Number(calibratedRawFinalRating))
+    ? null
+    : applyOffset100(Number(calibratedRawFinalRating));
+  const sideRating = data.sideRating == null || data.sideRating === 'N/A' || Number.isNaN(Number(data.sideRating))
+    ? null
+    : applyOffset100(Number(data.sideRating));
+  const personalizedFeedback = jsonFeatureArray(data.personalizedFeedback, 5);
+  const protocols = Array.isArray(data.protocols)
+    ? data.protocols.map((item, index) => {
+        if (!item || typeof item !== 'object') return null;
+        const name = compactString(item.name || item.title || `Protocol ${index + 1}`).slice(0, 90);
+        const description = compactString(item.description || item.body || item.text).slice(0, 320);
+        if (!name || !description) return null;
+        return {
+          id: index + 1,
+          name,
+          description,
+          impact: normalizeImpactLabel(item.impact),
+          research: item.research ? compactString(item.research).slice(0, 180) : null,
+        };
+      }).filter(Boolean).slice(0, 25)
+    : [];
+  const bestFeatures = jsonFeatureArray(data.bestFeatures || data.strongestFeatures || data.pros, 5);
+  const primaryFlaws = jsonFeatureArray(data.primaryFlaws || data.weakestFeatures || data.cons, 5);
+  const biometrics = jsonBiometricArray(data.keyRatios || data.metrics || data.facialMetrics || data.ratios || data.biometrics, 20);
+  const technicalSummary = compactString(data.technicalSummary || data.summary || data.mainLimitingFactor, DEFAULT_SUMMARY) || DEFAULT_SUMMARY;
+  const interpretation = compactString(data.personalizedInterpretation || data.interpretation || '');
+  const appealAssessment = compactString(data.appealAssessment || interpretation || data.tier || data.mainLimitingFactor);
+  let debugJustification = compactString(data.debugJustification || data.reportDebugJustification || data.mainLimitingFactor);
+  if (geminiScoreCalibration?.applied) {
+    const calibration = geminiScoreCalibration.calibration;
+    const calibrationNote = `Gemini parser anti-anchor: raw ${rawFinalRating} lowered toward local metric benchmark ${calibration.rating} (nearest ${calibration.nearestFolder || 'benchmark'} target ${calibration.nearestTarget}).`;
+    debugJustification = compactString(`${debugJustification} ${calibrationNote}`).slice(0, 1200);
+  }
+
+  return {
+    sex: compactString(data.sex || 'unknown') || null,
+    finalRating,
+    sideRating,
+    maxNaturalPotential: null,
+    maxPotentialWithSurgery: null,
+    authenticityFlag: compactString(data.authenticityFlag || ''),
+    uncannyFlag: compactString(data.uncannyFlag || ''),
+    technicalSummary,
+    appealAssessment,
+    debugJustification,
+    facialFatRead: null,
+    bestFeatures,
+    primaryFlaws,
+    sideBestFeatures: jsonFeatureArray(data.sideBestFeatures, 5),
+    sidePrimaryFlaws: jsonFeatureArray(data.sidePrimaryFlaws, 5),
+    categories: normalizeScoreMap(data.categories),
+    sideCategories: normalizeScoreMap(data.sideCategories),
+    hexagonFront: normalizeScoreMap(data.hexagonFront, false),
+    hexagonSide: normalizeScoreMap(data.hexagonSide, false),
+    personalizedFeedback,
+    biometrics,
+    sideBiometrics: jsonBiometricArray(data.sideKeyRatios || data.sideMetrics || data.sideBiometrics, 20),
+    protocols,
+    hasSubstantiveParse:
+      finalRating != null ||
+      bestFeatures.length > 0 ||
+      primaryFlaws.length > 0 ||
+      biometrics.length > 0 ||
+      personalizedFeedback.length > 0 ||
+      protocols.length > 0,
+  };
+}
+
 function scoreMapFromBiometrics(biometrics) {
   const map = {};
   for (const item of biometrics || []) {
@@ -882,6 +1096,7 @@ function readMogReportRawValues(rawOutput, backendDir) {
     if (Object.keys(parsed).length) return parsed;
   }
 
+  if (!backendDir) return {};
   const p = path.join(backendDir, 'mog_report.txt');
   if (!fs.existsSync(p)) return {};
   try {
@@ -1301,37 +1516,30 @@ function parsePersonalizedFeedback(raw) {
 
   const text = match[1].trim();
   const feedback = [];
-  
-  // Split by numbered list items "1. TITLE"
-  const parts = text.split(/(?=\n\s*\d+\.\s+[A-Z\s]+(?:\n|$))/i);
-  
-  // Handle case where split doesn't work perfectly on first item
-  const firstMatch = text.match(/^\s*(\d+)\.\s+([A-Z\s]+)(?:\r?\n|$)/i);
-  let processParts = parts;
-  if (firstMatch && parts[0] && !parts[0].match(/^\s*\d+\.\s+[A-Z\s]+/)) {
-      // The first split chunk might just be the whole text if regex failed, or preamble
-      // Better robust parsing: find all "1. TITLE \n body"
-      const itemsRegex = /(?:^|\n)\s*(\d+)\.\s+([^\n]+)\n([\s\S]*?)(?=(?:\n\s*\d+\.\s+[^\n]+)|$)/gi;
-      let itemMatch;
-      while ((itemMatch = itemsRegex.exec(text)) !== null) {
-          feedback.push({
-              id: parseInt(itemMatch[1]),
-              title: itemMatch[2].trim(),
-              description: itemMatch[3].trim()
-          });
-      }
-      return feedback;
-  }
 
-  for (let p of parts) {
-    const m = p.match(/^\s*(\d+)\.\s+([^\n]+)\n([\s\S]*)$/i);
-    if (m) {
-      feedback.push({
-        id: parseInt(m[1]),
-        title: m[2].trim(),
-        description: m[3].trim()
-      });
+  const itemRegex = /(?:^|\n)\s*(\d+)\.\s+([\s\S]*?)(?=(?:\n\s*\d+\.\s+)|$)/g;
+  let itemMatch;
+  while ((itemMatch = itemRegex.exec(text)) !== null) {
+    const body = itemMatch[2].trim();
+    if (!body) continue;
+    const firstLineBreak = body.search(/\r?\n/);
+    let title = firstLineBreak >= 0 ? body.slice(0, firstLineBreak).trim() : body;
+    let description = firstLineBreak >= 0 ? body.slice(firstLineBreak).trim() : '';
+    const titleSentence = title.match(/^(.{4,80}?)\.\s+(.+)$/);
+    if (titleSentence) {
+      title = titleSentence[1].trim();
+      description = `${titleSentence[2].trim()}\n\n${description}`.trim();
     }
+    if (!description && title.length > 100) {
+      description = title;
+      title = `Feedback ${feedback.length + 1}`;
+    }
+    if (!description) continue;
+    feedback.push({
+      id: parseInt(itemMatch[1], 10),
+      title,
+      description
+    });
   }
   return feedback;
 }
@@ -1366,6 +1574,11 @@ function parseRatingsUseThis(raw, rawValues) {
 }
 
 function parseAnalysisOutput(rawOutput, backendDir) {
+  const experimentalJson = parseExperimentalJsonOutput(rawOutput, backendDir);
+  if (experimentalJson) {
+    return experimentalJson;
+  }
+
   let finalRating = parseFinalRating(rawOutput);
   let sideRating = parseSideRating(rawOutput);
   let maxNaturalPotential = parsePotentialRating(rawOutput, 'Max Natural Potential');

@@ -14,6 +14,7 @@ export function SiteModal({ title, subtitle = '', onClose, children, maxWidth = 
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close modal"
             className="rounded-full border border-zinc-800 p-2 text-zinc-400 transition-all hover:border-zinc-700 hover:text-white"
           >
             <X size={16} />

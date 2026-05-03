@@ -40,6 +40,9 @@ const FRIENDLY_FRONTAL_IMAGE_ERROR = "Analysis failed. Are you sure you're using
 
 function friendlyAnalysisErrorMessage(message) {
   const text = String(message || '').trim();
+  if (/No healthy Google GenAI\/Gemma keys are available|temporarily cooling down|disabled or quarantined|All Google\/Gemma API keys/i.test(text)) {
+    return 'The AI provider timed out on all available keys, so they are cooling down. Please wait a few minutes and try again.';
+  }
   if (text.includes(EMPTY_ANALYSIS_RESPONSE_ERROR)) return FRIENDLY_FRONTAL_IMAGE_ERROR;
   return text;
 }
@@ -935,8 +938,9 @@ const normalizeDashboardMedia = (data, includeHistory = true) => {
 };
 
 const ANALYSIS_MODEL_LABELS = {
-  '1': 'Premium Ultra',
-  '2': 'Premium Ultra',
+  '1': 'Legacy Premium',
+  '2': 'Backup Model',
+  '6': 'Expert Mode (Very Accurate)',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
@@ -2478,7 +2482,7 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-sm font-black text-zinc-100">{scan.finalRating ?? '-'}/100</span>
-                          {(scan.model === '1' || scan.model === '2') && <span className="bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Premium</span>}
+                          {(['1', '2', '6'].includes(String(scan.model || '').trim())) && <span className="bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Premium</span>}
                           {scan.success === false && <span className="bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Failed</span>}
                         </div>
                         <div className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest">
@@ -3498,7 +3502,8 @@ const SCAN_PROGRESS_MESSAGES = [
 
 const getEstimatedScanTotalMs = (choice, fairUsageState) => {
   if (fairUsageState?.lowPriority) return 5 * 60 * 1000;
-  if (choice === '1' || choice === '6' || choice === '7' || choice === '8') return 3.5 * 60 * 1000;
+  if (choice === '6') return 55 * 1000;
+  if (choice === '1' || choice === '7' || choice === '8') return 3.5 * 60 * 1000;
   if (choice === '2') return 2.5 * 60 * 1000;
   return 90 * 1000;
 };
@@ -3620,9 +3625,10 @@ const ScanningView = ({
   const [hasError, setHasError] = useState(false);
   const [fairUsageState, setFairUsageState] = useState(null);
   const isUltra31 = choice === "1";
+  const isGemini31Pro = choice === "6";
   const isCompactViewport = typeof window !== 'undefined' && window.innerWidth < 768;
-  const overlayRevealSeconds = isUltra31 ? 34 : choice === "2" ? 24 : 36;
-  const overlayScanLoopSeconds = isUltra31 ? 4 : choice === "2" ? 4.5 : 4;
+  const overlayRevealSeconds = isUltra31 ? 34 : isGemini31Pro ? 18 : choice === "2" ? 24 : 36;
+  const overlayScanLoopSeconds = isUltra31 ? 4 : isGemini31Pro ? 3.5 : choice === "2" ? 4.5 : 4;
   const lowPriorityBadge = fairUsageState?.lowPriority
     ? (fairUsageState.badgeText || 'High usage detected, you have been placed on low-priority queue.')
     : '';
@@ -3802,8 +3808,35 @@ const ScanningView = ({
         return null;
       };
 
+      const recoverCompletedScanOnce = async () => {
+        if (!activeUser || !scanRequestId) return null;
+        let token = authToken;
+        if (!token) {
+          try {
+            token = await activeUser.getIdToken();
+          } catch {
+            return null;
+          }
+        }
+
+        const statusRes = await fetchWithTimeoutRetry(`${API_BASE}/api/analyze/status/${encodeURIComponent(scanRequestId)}`, {
+          timeoutMs: 12000,
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!statusRes.ok) return null;
+        const statusData = await statusRes.json().catch(() => ({}));
+        if (statusData.state === 'completed') {
+          if (statusData.payload?.success) return statusData.payload;
+          if (statusData.scan) return buildRecoveredScanPayload(statusData.scan);
+        }
+        if (statusData.state === 'failed') {
+          throw new Error(statusData.error || 'Analysis failed. Please try again with a clear frontal image.');
+        }
+        return null;
+      };
+
       try {
-        const isUltra = choice === "1" || choice === "2";
+        const isUltra = choice === "1" || choice === "2" || choice === "6";
         activeUser = userRef.current;
         if (activeUser) {
           try {
@@ -3944,7 +3977,7 @@ const ScanningView = ({
       /** So the UI never sits on "Consulting AI" forever if Python/API hangs */
         const analyzeAbort = new AbortController();
         cancelAnalyzeRequest = () => analyzeAbort.abort();
-        const ANALYZE_CLIENT_MAX_MS = 14 * 60 * 1000;
+        const ANALYZE_CLIENT_MAX_MS = choice === "6" ? 4 * 60 * 1000 : 14 * 60 * 1000;
         const analyzeHardStop = setTimeout(() => analyzeAbort.abort(), ANALYZE_CLIENT_MAX_MS);
 
         const buildProgressMessage = () => {
@@ -3964,6 +3997,31 @@ const ScanningView = ({
           setElapsedScanMs(Date.now() - scanStartedAt);
           setStatusText(buildProgressMessage());
         }, 1000);
+        const recoveryProbeDelayMs = choice === "6" ? 25000 : isUltra ? 45000 : 30000;
+        let recoveryProbeRunning = false;
+        const recoveryTick = activeUser ? setInterval(async () => {
+          if (!active || scanSucceeded || recoveryProbeRunning) return;
+          if (Date.now() - scanStartedAt < recoveryProbeDelayMs) return;
+          recoveryProbeRunning = true;
+          try {
+            const recoveredScan = await recoverCompletedScanOnce();
+            if (!active || scanSucceeded || !recoveredScan) return;
+            scanSucceeded = true;
+            rememberScanDuration(choice, currentFairUsage, Date.now() - scanStartedAt);
+            clearTimeout(analyzeHardStop);
+            clearInterval(progressTick);
+            clearInterval(recoveryTick);
+            setStatusText("Analysis Complete! Transitioning...");
+            cancelAnalyzeRequest();
+            onCompleteRef.current(recoveredScan);
+          } catch (recoveryErr) {
+            if (!isTransientMobileScanError(recoveryErr) && recoveryErr?.name !== 'AbortError') {
+              console.warn('Live scan recovery probe failed', recoveryErr);
+            }
+          } finally {
+            recoveryProbeRunning = false;
+          }
+        }, 5000) : null;
 
         const runAnalyzeRequest = async () => {
           if (!active) return null;
@@ -3983,8 +4041,10 @@ const ScanningView = ({
         } finally {
           clearTimeout(analyzeHardStop);
           clearInterval(progressTick);
+          if (recoveryTick) clearInterval(recoveryTick);
         }
 
+        if (scanSucceeded) return;
         if (!apiRes) return;
         if (!active) return;
         let data;
@@ -4060,6 +4120,7 @@ const ScanningView = ({
            setHasError(true);
         }
       } catch (err) {
+        if (scanSucceeded) return;
         console.error("API failed", err);
         if (isTransientMobileScanError(err) && activeUser) {
           let recoveredScan = null;
@@ -4587,8 +4648,9 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
   }
 
   const isUltra31 = job.choice === "1";
-  const overlayRevealSeconds = job.overlayRevealSeconds || (isUltra31 ? 34 : job.choice === "2" ? 24 : 36);
-  const overlayScanLoopSeconds = job.overlayScanLoopSeconds || (isUltra31 ? 4 : job.choice === "2" ? 4.5 : 4);
+  const isGemini31Pro = job.choice === "6";
+  const overlayRevealSeconds = job.overlayRevealSeconds || (isUltra31 ? 34 : isGemini31Pro ? 18 : job.choice === "2" ? 24 : 36);
+  const overlayScanLoopSeconds = job.overlayScanLoopSeconds || (isUltra31 ? 4 : isGemini31Pro ? 3.5 : job.choice === "2" ? 4.5 : 4);
   const lowPriorityBadge = job.fairUsageState?.lowPriority
     ? (job.fairUsageState.badgeText || 'High usage detected, you have been placed on low-priority queue.')
     : '';
@@ -4716,7 +4778,8 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [sideImage, setSideImage] = useState(null);
   const [sideFile, setSideFile] = useState(null);
   const [useSideProfile, setUseSideProfile] = useState(true);
-  const [selectedModel, setSelectedModel] = useState(initialModel);
+  const normalizeSelectableModel = (model) => (String(model || '').trim() === '1' ? '6' : String(model || '3').trim());
+  const [selectedModel, setSelectedModel] = useState(normalizeSelectableModel(initialModel));
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [dropdownAnimOpen, setDropdownAnimOpen] = useState(false);
   const [justUnlocked, setJustUnlocked] = useState(false);
@@ -4803,12 +4866,20 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
   const models = [
     {
-      id: "1",
-      name: "Premium - highest quality",
+      id: "2",
+      name: "Backup Model",
       description:
-        "Our most powerful analysis engine. Provides the highest level of accuracy and detail, though processing may take longer.",
+        "Fallback premium model for times when Expert Mode is unavailable or behaving inconsistently.",
       tier: "ultra",
-      Icon: Crown
+      Icon: Zap
+    },
+    {
+      id: "6",
+      name: "Expert Mode (Very Accurate)",
+      description:
+        "Fast, calibrated premium analysis with detailed image reading and strict expert scoring.",
+      tier: "ultra",
+      Icon: Sparkles
     },
     { id: "separator" },
     {
@@ -4837,7 +4908,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     }
   ];
 
-  const isUltraModel = selectedModel === "1";
+  const isUltraModel = selectedModel === "1" || selectedModel === "2" || selectedModel === "6";
   const shouldUseSideProfile = isUltraModel && useSideProfile;
 
   // Check if current user is an admin by email domain or specific email
@@ -4896,7 +4967,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
   useEffect(() => {
     if (ultraAccessPending) return;
-    if (!canUseUltra && (selectedModel === '1' || selectedModel === '2')) {
+    if (!canUseUltra && (selectedModel === '1' || selectedModel === '2' || selectedModel === '6')) {
       setSelectedModel('3');
     }
   }, [canUseUltra, selectedModel, ultraAccessPending]);
@@ -4945,7 +5016,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   }, [isModelMenuOpen]);
 
   useEffect(() => {
-    setSelectedModel(initialModel);
+    setSelectedModel(normalizeSelectableModel(initialModel));
   }, [initialModel]);
 
   useEffect(() => {
@@ -6430,7 +6501,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
   );
 };
 
-const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback, forceFullAnalysis = false, onBackToProfiles = null, onOpenHistoryScan = null }) => {
+const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback, forceFullAnalysis = false, onBackToProfiles = null, onOpenHistoryScan = null }) => {
   dashboardData = useMemo(() => normalizeDashboardMedia(dashboardData), [dashboardData]);
   const selectedModel = String(dashboardData?.selectedModel || '').trim();
   const isFreeModelResult = !forceFullAnalysis && ['3', '4', '5'].includes(selectedModel);
@@ -6706,8 +6777,81 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
   const personalizedFeedback = Array.isArray(dashboardData?.personalizedFeedback)
     ? dashboardData.personalizedFeedback.filter((item) => item && (item.title || item.description))
     : [];
+  const detailedReportStatus = String(dashboardData?.reportStatus || dashboardData?.payload?.reportStatus || '').toLowerCase();
+  const isDetailedReportGenerating = detailedReportStatus === 'generating';
+  const hasDetailedReportFailed = detailedReportStatus === 'failed';
+  const detailedReportError = String(dashboardData?.reportError || dashboardData?.payload?.reportError || '').trim();
+  const detailedReportScanRequestId = String(dashboardData?.scanRequestId || dashboardData?.payload?.scanRequestId || '').trim();
+  const detailedReportStartedMs = Date.parse(dashboardData?.reportStartedAt || dashboardData?.payload?.reportStartedAt || '');
 
   const [activeHover, setActiveHover] = useState(null);
+  const [reportNowMs, setReportNowMs] = useState(Date.now());
+  const [reportRetrying, setReportRetrying] = useState(false);
+  const [reportRetryError, setReportRetryError] = useState('');
+
+  useEffect(() => {
+    if (!isDetailedReportGenerating) return;
+    const interval = setInterval(() => setReportNowMs(Date.now()), 5000);
+    return () => clearInterval(interval);
+  }, [isDetailedReportGenerating]);
+
+  const detailedReportHasWaitedTooLong =
+    isDetailedReportGenerating &&
+    Number.isFinite(detailedReportStartedMs) &&
+    reportNowMs - detailedReportStartedMs >= 120000;
+  const canRetryDetailedReport =
+    !isRestrictedPreview &&
+    !isFreeModelResult &&
+    Boolean(user && setDashboardData && detailedReportScanRequestId) &&
+    (hasDetailedReportFailed || detailedReportHasWaitedTooLong);
+
+  const retryDetailedReport = useCallback(async () => {
+    if (!canRetryDetailedReport || reportRetrying) return;
+    setReportRetrying(true);
+    setReportRetryError('');
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/api/analyze/report/retry/${encodeURIComponent(detailedReportScanRequestId)}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `Report retry failed (${res.status})`);
+      const nextPayload = body.payload || null;
+      if (nextPayload) {
+        setDashboardData((prev) => normalizeDashboardMedia({
+          ...(prev || {}),
+          ...nextPayload,
+          scanHistory: Array.isArray(prev?.scanHistory) ? prev.scanHistory : nextPayload.scanHistory,
+          ratingHistory: Array.isArray(prev?.ratingHistory) ? prev.ratingHistory : nextPayload.ratingHistory,
+        }));
+      }
+    } catch (error) {
+      setReportRetryError(error?.message || 'Could not retry the detailed report.');
+    } finally {
+      setReportRetrying(false);
+    }
+  }, [canRetryDetailedReport, detailedReportScanRequestId, reportRetrying, setDashboardData, user]);
+
+  const detailedReportRetryButton = canRetryDetailedReport ? (
+    <div className="mt-5 flex flex-col items-center gap-2 text-center">
+      <button
+        type="button"
+        onClick={retryDetailedReport}
+        disabled={reportRetrying}
+        className="inline-flex items-center gap-2 rounded-full border border-amber-400/35 bg-amber-400/10 px-5 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-200 transition-colors hover:border-amber-300/60 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {reportRetrying ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+        Retry Detailed Report
+      </button>
+      <p className="max-w-xl text-[10px] font-sans uppercase tracking-widest text-zinc-600">
+        Reruns only protocols and feedback. Your score is already saved.
+      </p>
+      {reportRetryError && (
+        <p className="max-w-xl text-xs font-sans text-amber-300/80">{reportRetryError}</p>
+      )}
+    </div>
+  ) : null;
 
   useEffect(() => {
     if (!isRestrictedPreview) return;
@@ -6863,6 +7007,12 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
             <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
               AI used: {getAnalysisModelLabel(selectedModel || dashboardData?.model)}
             </span>
+            {isDetailedReportGenerating && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-300">
+                <Loader2 size={12} className="animate-spin" />
+                Detailed report loading
+              </span>
+            )}
             {(dashboardData?.cohesiveFrontSide || effectiveCohesiveEnabled) && (
               <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">
                 Cohesive side/front enabled
@@ -7300,49 +7450,71 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
               {isRestrictedPreview && renderBlurredOverlay("Actionable Protocol")}
               <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[5.55px] pointer-events-none select-none' : ''}`}>
                 <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-zinc-800 pb-4"><Target size={14} className="text-zinc-500" /> Actionable Protocol</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {(dashboardData?.protocols && dashboardData.protocols.length > 0
-                    ? dashboardData.protocols
-                    : [
-                        { id: 1, name: 'Reduce Body Fat to 12%', description: 'Will vastly improve buccal framing and expose zygomatic arch', impact: 'Highest Impact' },
-                        { id: 2, name: 'Minoxidil for Brows', description: 'Increasing eyebrow density by 15% will heavily boost dimorphism score', impact: 'High Impact' },
-                        { id: 3, name: 'Volufiline under eyes', description: 'Will help mask negative canthal tilt and reduce orbital shadowing', impact: 'Medium Impact' },
-                      ]
-                  ).slice(0, showAllProtocols ? undefined : 3).map((p, i) => {
-                    const impactColor = /extreme|critical|highest/i.test(p.impact) ? 'text-red-400' : /high/i.test(p.impact) ? 'text-orange-400' : /medium/i.test(p.impact) ? 'text-yellow-400' : 'text-emerald-400';
-                    const protocolKey = String(p.id || i + 1);
-                    const isCompleted = Boolean(completedProtocolIds[protocolKey]);
-                    return (
-                      <div key={p.id || i} onClick={() => setCurrentPage(`protocol-${p.id || i+1}`)} className="flex bg-zinc-900/50 rounded-xl border border-zinc-800 overflow-hidden hover:border-cyan-500/40 hover:shadow-[0_0_20px_rgba(34,211,238,0.08)] transition-all cursor-pointer group">
-                        <div className="bg-zinc-800 flex items-center justify-center px-4 shrink-0"><span className="text-2xl font-black text-zinc-600 group-hover:text-cyan-400 transition-colors">{String(p.id || i+1).padStart(2, '0')}</span></div>
-                        <div className="p-4 flex flex-col gap-1 min-w-0 flex-1">
-                          <span className="text-white font-bold uppercase text-sm tracking-widest truncate">{p.name}</span>
-                          <span className="text-zinc-500 text-xs font-sans line-clamp-2">{p.description}</span>
-                          <span className={`text-[9px] font-sans uppercase tracking-widest mt-1 ${impactColor}`}>{p.impact}</span>
+                {isDetailedReportGenerating ? (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {[1, 2, 3].map((item) => (
+                      <div key={item} className="flex overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40">
+                        <div className="flex shrink-0 items-center justify-center bg-zinc-800 px-4">
+                          <Loader2 size={18} className="animate-spin text-amber-300" />
                         </div>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setCompletedProtocolIds((prev) => ({ ...prev, [protocolKey]: true }));
-                          }}
-                          className={`m-3 self-center rounded-lg border px-3 py-2 text-[9px] font-bold uppercase tracking-[0.18em] transition-colors ${isCompleted ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-zinc-700 bg-zinc-950/70 text-zinc-400 hover:border-cyan-500/35 hover:text-cyan-300'}`}
-                        >
-                          {isCompleted ? '100%' : 'Complete'}
-                        </button>
-                        <div className="flex items-center pr-4 shrink-0"><ChevronRight size={16} className="text-zinc-700 group-hover:text-cyan-400 transition-colors" /></div>
+                        <div className="flex min-w-0 flex-1 flex-col gap-3 p-4">
+                          <div className="h-3 w-2/3 rounded bg-zinc-700/70 animate-pulse" />
+                          <div className="h-2 w-full rounded bg-zinc-800 animate-pulse" />
+                          <div className="h-2 w-4/5 rounded bg-zinc-800 animate-pulse" />
+                          <span className="text-[9px] font-sans uppercase tracking-widest text-amber-300">Generating personalized protocol</span>
+                        </div>
                       </div>
-                    );
-                  })}
-                </div>
-                    {((dashboardData?.protocols && dashboardData.protocols.length > 3) || (!dashboardData?.protocols && 3 > 3)) && (
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {(dashboardData?.protocols && dashboardData.protocols.length > 0
+                      ? dashboardData.protocols
+                      : [
+                          { id: 1, name: 'Reduce Body Fat to 12%', description: 'Will vastly improve buccal framing and expose zygomatic arch', impact: 'Highest Impact' },
+                          { id: 2, name: 'Minoxidil for Brows', description: 'Increasing eyebrow density by 15% will heavily boost dimorphism score', impact: 'High Impact' },
+                          { id: 3, name: 'Volufiline under eyes', description: 'Will help mask negative canthal tilt and reduce orbital shadowing', impact: 'Medium Impact' },
+                        ]
+                    ).slice(0, showAllProtocols ? undefined : 3).map((p, i) => {
+                      const impactColor = /extreme|critical|highest/i.test(p.impact) ? 'text-red-400' : /high/i.test(p.impact) ? 'text-orange-400' : /medium/i.test(p.impact) ? 'text-yellow-400' : 'text-emerald-400';
+                      const protocolKey = String(p.id || i + 1);
+                      const isCompleted = Boolean(completedProtocolIds[protocolKey]);
+                      return (
+                        <div key={p.id || i} onClick={() => setCurrentPage(`protocol-${p.id || i+1}`)} className="flex bg-zinc-900/50 rounded-xl border border-zinc-800 overflow-hidden hover:border-cyan-500/40 hover:shadow-[0_0_20px_rgba(34,211,238,0.08)] transition-all cursor-pointer group">
+                          <div className="bg-zinc-800 flex items-center justify-center px-4 shrink-0"><span className="text-2xl font-black text-zinc-600 group-hover:text-cyan-400 transition-colors">{String(p.id || i+1).padStart(2, '0')}</span></div>
+                          <div className="p-4 flex flex-col gap-1 min-w-0 flex-1">
+                            <span className="text-white font-bold uppercase text-sm tracking-widest truncate">{p.name}</span>
+                            <span className="text-zinc-500 text-xs font-sans line-clamp-2">{p.description}</span>
+                            <span className={`text-[9px] font-sans uppercase tracking-widest mt-1 ${impactColor}`}>{p.impact}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCompletedProtocolIds((prev) => ({ ...prev, [protocolKey]: true }));
+                            }}
+                            className={`m-3 self-center rounded-lg border px-3 py-2 text-[9px] font-bold uppercase tracking-[0.18em] transition-colors ${isCompleted ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-zinc-700 bg-zinc-950/70 text-zinc-400 hover:border-cyan-500/35 hover:text-cyan-300'}`}
+                          >
+                            {isCompleted ? '100%' : 'Complete'}
+                          </button>
+                          <div className="flex items-center pr-4 shrink-0"><ChevronRight size={16} className="text-zinc-700 group-hover:text-cyan-400 transition-colors" /></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                    {detailedReportRetryButton}
+                    {!isDetailedReportGenerating && ((dashboardData?.protocols && dashboardData.protocols.length > 3) || (!dashboardData?.protocols && 3 > 3)) && (
                       <button onClick={() => setShowAllProtocols(!showAllProtocols)} className="mt-6 self-center px-6 py-2 border border-zinc-700 rounded-full text-zinc-400 text-[10px] font-sans uppercase tracking-widest hover:text-white hover:border-zinc-500 transition-colors flex items-center gap-2">
                         {showAllProtocols ? 'Show Less' : `Show All ${dashboardData?.protocols?.length || 3} Protocols`}
                         <ChevronDown size={14} className={`transition-transform duration-300 ${showAllProtocols ? 'rotate-180' : ''}`} />
                       </button>
                     )}
-                    {!dashboardData?.protocols?.length && !isRestrictedPreview && (
+                    {!dashboardData?.protocols?.length && !isRestrictedPreview && !isDetailedReportGenerating && !hasDetailedReportFailed && (
                       <p className="text-zinc-600 font-sans text-[10px] uppercase tracking-widest mt-4 text-center">Run a premium analysis to get personalized protocols based on your weak points</p>
+                    )}
+                    {hasDetailedReportFailed && !dashboardData?.protocols?.length && (
+                      <p className="text-amber-300/80 font-sans text-[10px] uppercase tracking-widest mt-4 text-center">{detailedReportError || 'Detailed protocols could not be generated for this scan.'}</p>
                     )}
               </div>
             </div>
@@ -7355,7 +7527,23 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                 <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-zinc-800 pb-4">
                   <Sparkles size={14} className="text-zinc-500" /> Personalized Feedback
                 </h3>
-                {personalizedFeedback.length > 0 ? (
+                {isDetailedReportGenerating ? (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {[1, 2, 3, 4].map((item) => (
+                      <div key={item} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
+                        <div className="mb-4 flex items-center gap-3">
+                          <Loader2 size={16} className="animate-spin text-amber-300" />
+                          <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-300">Generating feedback</span>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="h-3 w-3/4 rounded bg-zinc-700/70 animate-pulse" />
+                          <div className="h-2 w-full rounded bg-zinc-800 animate-pulse" />
+                          <div className="h-2 w-5/6 rounded bg-zinc-800 animate-pulse" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : personalizedFeedback.length > 0 ? (
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {personalizedFeedback.map((item, index) => (
                       <PersonalizedFeedbackCard
@@ -7365,6 +7553,10 @@ const DashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, hideTopS
                       />
                     ))}
                   </div>
+                ) : hasDetailedReportFailed ? (
+                  <p className="text-amber-300/80 text-sm font-sans leading-relaxed">
+                    {detailedReportError || 'The score is saved, but the detailed feedback did not finish for this scan.'}
+                  </p>
                 ) : (
                   <p className="text-zinc-500 text-sm font-sans leading-relaxed">
                     Personalized feedback will appear here once the scan returns individualized tips.
@@ -7575,6 +7767,16 @@ const PlansPage = ({ setCurrentPage, user }) => {
         <p className="text-zinc-500 font-sans text-xs leading-relaxed uppercase tracking-widest">
           Start free, try a single scan, or go all-in with Pro
         </p>
+        <div className="mt-8 inline-flex flex-wrap items-center justify-center gap-4 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-6 py-4 text-emerald-100 shadow-[0_0_45px_rgba(16,185,129,0.12)]">
+          <Shield size={20} className="text-emerald-400 shrink-0" />
+          <span className="font-sans text-[11px] font-black uppercase tracking-[0.24em]">
+            Payments verified by Paddle
+          </span>
+          <span className="hidden sm:block h-5 w-px bg-emerald-400/25" />
+          <span className="font-sans text-[11px] uppercase tracking-widest text-emerald-200/70">
+            Secure checkout, tax handled, instant access
+          </span>
+        </div>
       </div>
     </FadeUp>
 
@@ -7796,7 +7998,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
 
     <FadeUp delay={850}>
       <p className="mt-16 text-zinc-600 font-sans text-[10px] uppercase tracking-widest text-center relative z-10">
-        Secure payment via Paddle - Cancel anytime - Instant access
+        Payments verified by Paddle - Secure checkout - Cancel anytime
       </p>
     </FadeUp>
 
@@ -7952,7 +8154,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     return ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(0)}s`;
   };
 
-  const modelLabel = (m) => ({ '1': 'Premium', '2': 'Premium', '3': 'Free' }[m] || m);
+  const modelLabel = (m) => ({ '1': 'Legacy Premium', '2': 'Backup Model', '6': 'Expert Mode', '3': 'Free' }[m] || m);
   const adminUserSections = useMemo(() => {
     const newUsers = [];
     const goatUsers = [];
@@ -8627,7 +8829,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                 <table className="w-full text-left">
                   <thead>
                     <tr className="border-b border-zinc-800/50">
-                      {['Time', 'Model', 'Status', 'Rating', 'Duration', 'Details'].map(h => (
+                      {['Time', 'Model', 'Status', 'Rating', 'Score AI', 'Duration', 'Details'].map(h => (
                         <th key={h} className="text-[9px] font-sans text-zinc-500 uppercase tracking-widest pb-2 pr-4">{h}</th>
                       ))}
                     </tr>
@@ -8639,7 +8841,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                           {new Date(a.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </td>
                         <td className="py-2.5 pr-4">
-                          <span className={`text-[10px] font-sans px-2 py-0.5 rounded-full ${['1','2'].includes(a.model) ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}>
+                          <span className={`text-[10px] font-sans px-2 py-0.5 rounded-full ${['1','2','6'].includes(a.model) ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}>
                             {modelLabel(a.model)}
                           </span>
                         </td>
@@ -8653,6 +8855,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                           {a.rating != null ? `${a.rating}/100` : '-'}
                           {a.sideRating != null && <span className="text-zinc-600 ml-1">| {a.sideRating}</span>}
                         </td>
+                        <td className="py-2.5 pr-4 text-[11px] font-sans text-cyan-300">{fmtDuration(a.coreAiDurationMs)}</td>
                         <td className="py-2.5 pr-4 text-[11px] font-sans text-zinc-400">{fmtDuration(a.durationMs)}</td>
                         <td className="py-2.5 text-[10px] font-sans text-zinc-600 max-w-[200px] truncate">{a.error || '-'}</td>
                       </tr>
@@ -9640,8 +9843,78 @@ const App = () => {
 
   const isPremiumModelDashboard = useMemo(() => {
     const model = String(dashboardData?.selectedModel || '').trim();
-    return model === '1' || model === '2';
+    return model === '1' || model === '2' || model === '6';
   }, [dashboardData?.selectedModel]);
+
+  useEffect(() => {
+    const reportStatus = String(dashboardData?.reportStatus || dashboardData?.payload?.reportStatus || '').toLowerCase();
+    const scanRequestId = String(dashboardData?.scanRequestId || dashboardData?.payload?.scanRequestId || '').trim();
+    if (!user || reportStatus !== 'generating' || !scanRequestId) return;
+
+    let cancelled = false;
+    let inFlight = false;
+
+    const applyReportUpdate = (nextData) => {
+      if (!nextData || cancelled) return;
+      setDashboardData((prev) => {
+        if (!prev) return normalizeDashboardMedia(nextData);
+        return normalizeDashboardMedia({
+          ...prev,
+          ...nextData,
+          scanHistory: Array.isArray(prev.scanHistory) ? prev.scanHistory : nextData.scanHistory,
+          ratingHistory: Array.isArray(prev.ratingHistory) ? prev.ratingHistory : nextData.ratingHistory,
+        });
+      });
+      setAnalysisJobs((prev) =>
+        prev.map((job) => {
+          const jobScanRequestId = String(job.scanRequestId || job.result?.scanRequestId || '').trim();
+          if (jobScanRequestId !== scanRequestId || !job.result) return job;
+          return {
+            ...job,
+            result: normalizeDashboardMedia({
+              ...job.result,
+              ...nextData,
+            }),
+          };
+        })
+      );
+    };
+
+    const pollReportStatus = async () => {
+      if (inFlight || cancelled) return;
+      inFlight = true;
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch(`${API_BASE}/api/analyze/status/${encodeURIComponent(scanRequestId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || cancelled) return;
+        const nextData = body.payload || (body.scan ? buildRecoveredScanPayload(body.scan) : null);
+        const nextReportStatus = String(nextData?.reportStatus || nextData?.payload?.reportStatus || '').toLowerCase();
+        if (nextData && nextReportStatus && nextReportStatus !== 'generating') {
+          applyReportUpdate(nextData);
+        }
+      } catch (error) {
+        console.warn('Detailed report status poll failed', error);
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    pollReportStatus();
+    const interval = setInterval(pollReportStatus, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [
+    user,
+    dashboardData?.scanRequestId,
+    dashboardData?.payload?.scanRequestId,
+    dashboardData?.reportStatus,
+    dashboardData?.payload?.reportStatus,
+  ]);
 
   const useProDashboard = Boolean(user || hasScanData) && !isFreeModelDashboard;
   const isScanOnlyPage = currentPage === 'public-scan';
@@ -9816,7 +10089,7 @@ const App = () => {
             setSelectedCelebrity={setSelectedCelebrity}
             user={user}
             userPlan={userPlan}
-            initialModel={pendingUploadModel ?? (currentPage === 'upload-ultra' ? '1' : '3')}
+            initialModel={pendingUploadModel ?? (currentPage === 'upload-ultra' ? '6' : '3')}
             isLockedToUltra={currentPage === 'upload-ultra'}
             initialProfileId={pendingUploadProfileId}
             queueAnalysisJob={queueAnalysisJob}
@@ -9839,7 +10112,7 @@ const App = () => {
                 hasActiveAnalysis={hasScanData}
                 analysisContent={
                   hasScanData
-                    ? <DashboardPage dashboardData={dashboardData} setCurrentPage={setCurrentPage} userPlan={userPlan} user={user} hideTopSection isEmbedded />
+                    ? <DashboardPage dashboardData={dashboardData} setDashboardData={setDashboardData} setCurrentPage={setCurrentPage} userPlan={userPlan} user={user} hideTopSection isEmbedded />
                     : null
                 }
                 renderCommunityDashboard={(communityData) => (
@@ -9861,6 +10134,7 @@ const App = () => {
             : (
               <DashboardPage
                 dashboardData={dashboardData}
+                setDashboardData={setDashboardData}
                 setCurrentPage={setCurrentPage}
                 userPlan={userPlan}
                 user={user}

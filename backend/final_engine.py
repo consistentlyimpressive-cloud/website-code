@@ -23,6 +23,121 @@ RUN_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 def run_output_path(filename):
     return str(RUN_OUTPUT_DIR / filename)
 
+
+def read_text_context(path_value, max_chars=24000):
+    if not path_value:
+        return ""
+    try:
+        path = Path(path_value).resolve()
+        if not path.exists() or not path.is_file():
+            return ""
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        return text[-max_chars:]
+    except Exception:
+        return ""
+
+
+TOKEN_USAGE_LOG_PATH = Path(__file__).resolve().parent / "token-usage-log.jsonl"
+
+
+def parse_metric_lines(text):
+    metrics = {}
+    for line in str(text or "").splitlines():
+        if ":" not in line:
+            continue
+        clean = line.strip().lstrip("-").strip()
+        if not clean or clean.startswith("=") or clean.startswith("["):
+            continue
+        label, value_text = clean.split(":", 1)
+        label = " ".join(label.split())
+        try:
+            import re
+            match = re.search(r"-?\d+(?:\.\d+)?", value_text)
+        except Exception:
+            match = None
+        if not label or not match:
+            continue
+        try:
+            metrics[label] = float(match.group(0))
+        except Exception:
+            continue
+    return metrics
+
+
+def compact_metric_summary(clinical_data, side_data=None, max_side_chars=1800):
+    front_metrics = parse_metric_lines(clinical_data)
+    preferred_order = [
+        "Bigonial_Width_Index",
+        "IPD_Index (Geometric)",
+        "Mouth_Width_Index",
+        "Nose_Width_Index",
+        "Upper_Third_Length",
+        "Middle_Third_Length",
+        "Lower_Third_Length",
+        "Eye_Height_Index",
+        "Brow_Compactness_Index (distance from center of eye to bottom of brow)",
+        "Philtrum_Height_Index",
+        "Total_Lip_Height_Index",
+        "fWHR (Zygo / Upper_Face)",
+        "Midface_Ratio (Mid/IPD)",
+        "Canthal_Tilt_Degrees",
+    ]
+    compact_front = {}
+    for key in preferred_order:
+        if key in front_metrics:
+            compact_front[key] = front_metrics[key]
+    for key, value in front_metrics.items():
+        if key not in compact_front and len(compact_front) < 18:
+            compact_front[key] = value
+
+    payload = {"front_metrics": compact_front}
+    if side_data and side_data != "IGNORE_SIDE_ANALYSIS":
+        payload["side_profile_summary"] = str(side_data).strip()[:max_side_chars]
+    else:
+        payload["side_profile_summary"] = None
+    return json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
+
+
+def estimate_text_tokens(text):
+    return int(round(len(str(text or "")) / 4))
+
+
+def estimate_image_tokens(image_path):
+    if not image_path or not os.path.exists(image_path):
+        return 0
+    try:
+        img = cv2.imread(image_path)
+        if img is None:
+            return 258
+        height, width = img.shape[:2]
+        if width <= 384 and height <= 384:
+            return 258
+        tiles = max(1, int(np.ceil(width / 768))) * max(1, int(np.ceil(height / 768)))
+        return tiles * 258
+    except Exception:
+        return 258
+
+
+def usage_value(metadata, name):
+    if not metadata:
+        return None
+    if hasattr(metadata, name):
+        return getattr(metadata, name)
+    camel = "".join([name.split("_")[0], *[part.capitalize() for part in name.split("_")[1:]]])
+    if hasattr(metadata, camel):
+        return getattr(metadata, camel)
+    return None
+
+
+def log_token_usage(event):
+    try:
+        event["timestamp"] = int(time.time() * 1000)
+        with TOKEN_USAGE_LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(event, ensure_ascii=True, separators=(",", ":")) + "\n")
+        print("[TOKEN_USAGE] " + json.dumps(event, ensure_ascii=True, separators=(",", ":")))
+    except Exception as error:
+        print(f"[TOKEN_USAGE] Failed to write token usage: {error}")
+
 print("[DEBUG] Phase 1: Importing SDKs...")
 try:
     from google import genai
@@ -59,12 +174,23 @@ GOOGLE_GENAI_KEYS = [
     for index in range(1, 6)
 ]
 GOOGLE_GENAI_KEYS = [(index, key) for index, key in GOOGLE_GENAI_KEYS if key]
+GEMINI_31_PRO_MODEL_ID = (os.getenv("GEMINI_3_1_PRO_MODEL_ID") or "gemini-3.1-pro-preview").strip()
+GEMINI_31_PRO_KEYS = [
+    ("GEMINI_3_1_PRO_API_KEY", (os.getenv("GEMINI_3_1_PRO_API_KEY") or "").strip())
+]
+GEMINI_31_PRO_KEYS = [(label, key) for label, key in GEMINI_31_PRO_KEYS if key]
 GEMMA_PER_KEY_TIMEOUT_MS = int(os.getenv("GEMMA_PER_KEY_TIMEOUT_MS") or "186000")
 _raw_disabled_keys = os.getenv("GEMINI_DISABLED_KEYS") or "1,3"
 GEMINI_DISABLED_KEYS = {
     int(part)
     for part in _raw_disabled_keys.replace(" ", "").split(",")
     if part.isdigit()
+}
+GEMINI_ENABLE_KEY_QUARANTINE = (os.getenv("GEMINI_ENABLE_KEY_QUARANTINE") or "0").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
 }
 KEY_HEALTH_STATE_PATH = Path(__file__).resolve().parent / "key-health-state.json"
 
@@ -96,6 +222,9 @@ def _save_key_health_state(state):
 
 
 def _quarantine_key(key_index, reason, detail, duration_ms):
+    if not GEMINI_ENABLE_KEY_QUARANTINE:
+        print(f"[KEY_HEALTH] Quarantine disabled; keeping GEMINI_KEY_{key_index} available after: {reason}")
+        return
     state = _load_key_health_state()
     quarantines = state.get("quarantines")
     if not isinstance(quarantines, dict):
@@ -113,21 +242,33 @@ def _quarantine_key(key_index, reason, detail, duration_ms):
     print(f"[KEY_HEALTH] GEMINI_KEY_{key_index} quarantined for ~{minutes}m: {reason}")
 
 
-def _healthy_key_attempts():
+def _key_label(key_index):
+    if isinstance(key_index, int):
+        return f"GEMINI_KEY_{key_index}"
+    return str(key_index)
+
+
+def _healthy_key_attempts(keys=None):
+    keys = keys or GOOGLE_GENAI_KEYS
     state = _load_key_health_state()
     _save_key_health_state(state)
-    quarantines = state.get("quarantines") if isinstance(state.get("quarantines"), dict) else {}
+    quarantines = (
+        state.get("quarantines")
+        if GEMINI_ENABLE_KEY_QUARANTINE and isinstance(state.get("quarantines"), dict)
+        else {}
+    )
     now_ms = _utc_now_ms()
     attempts = []
     skipped = []
 
-    for key_index, key in GOOGLE_GENAI_KEYS:
-        if key_index in GEMINI_DISABLED_KEYS:
-            skipped.append(f"GEMINI_KEY_{key_index}:disabled")
+    for key_index, key in keys:
+        label = _key_label(key_index)
+        if isinstance(key_index, int) and key_index in GEMINI_DISABLED_KEYS:
+            skipped.append(f"{label}:disabled")
             continue
         quarantine = quarantines.get(str(key_index))
         if quarantine and int(quarantine.get("untilMs") or 0) > now_ms:
-            skipped.append(f"GEMINI_KEY_{key_index}:quarantined")
+            skipped.append(f"{label}:quarantined")
             continue
         attempts.append((key_index, key))
 
@@ -202,10 +343,12 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
     try:
         # --- MODEL MAPPING ---
         mapping = {
-            "1": ("gemma-4-31b-it", "ULTRA - Highest Quality"),
+            "1": ("gemma-4-31b-it", "Legacy Premium"),
+            "2": ("gemma-4-31b-it", "Backup Model"),
             "3": ("gemma-4-26b-a4b-it", "OPTIC"),
             "4": ("gemma-4-26b-a4b-it", "CORE"),
-            "5": ("gemma-4-26b-a4b-it", "GENEVA")
+            "5": ("gemma-4-26b-a4b-it", "GENEVA"),
+            "6": (GEMINI_31_PRO_MODEL_ID, "Expert Mode (Very Accurate)")
         }
 
         if choice not in mapping:
@@ -214,15 +357,17 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
         model_id, friendly_name = mapping[choice]
 
         print(f"[DEBUG] Consulting {friendly_name}... (Press Ctrl+C to Cancel)")
-        if not GOOGLE_GENAI_KEYS:
+        available_keys = GEMINI_31_PRO_KEYS if choice == "6" else GOOGLE_GENAI_KEYS
+        key_help = "GEMINI_3_1_PRO_API_KEY" if choice == "6" else "GEMINI_KEY_1 or more keys for Gemma"
+        if not available_keys:
             return (
-                "Error: No Google GenAI keys are configured in backend/.env. Add GEMINI_KEY_1 or more keys for Gemma.",
+                f"Error: No Google GenAI keys are configured in backend/.env. Add {key_help}.",
                 friendly_name,
                 0,
             )
 
         provider_errors = []
-        key_attempts = _healthy_key_attempts()
+        key_attempts = _healthy_key_attempts(available_keys)
         random.shuffle(key_attempts)
         if not key_attempts:
             return (
@@ -230,47 +375,124 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
                 friendly_name,
                 0,
             )
-        print(f"[DEBUG] Gemma key order this scan: {', '.join(f'GEMINI_KEY_{index}' for index, _ in key_attempts)}")
+        print(f"[DEBUG] Google GenAI key order this scan: {', '.join(_key_label(index) for index, _ in key_attempts)}")
+        analysis_phase = (os.getenv("MOGCHECK_ANALYSIS_PHASE") or "full").strip().lower()
+        request_type = "protocol" if analysis_phase == "report" else analysis_phase
+        scan_id = os.getenv("MOGCHECK_SCAN_REQUEST_ID") or None
+        include_image = not (choice in {"2", "6"} and analysis_phase == "report")
+        max_output_tokens = None
+        if choice == "2":
+            max_output_tokens = 1400 if analysis_phase == "report" else 1500
+        elif choice == "6":
+            # Gemini 3.x can spend a large part of maxOutputTokens on hidden thinking.
+            # Give it more visible room and cap thinking so the JSON is not truncated.
+            max_output_tokens = 2400 if analysis_phase == "report" else 4096
+        estimated_input_tokens = estimate_text_tokens(unified_prompt)
+        if include_image:
+            estimated_input_tokens += estimate_image_tokens(img_path)
+            if side_img_path and os.path.exists(side_img_path):
+                estimated_input_tokens += estimate_image_tokens(side_img_path)
+
         for attempt_number, (key_index, key) in enumerate(key_attempts, start=1):
             if not key:
                 continue
+            attempt_started_at = time.time()
             try:
-                print(f"[DEBUG] Trying Google GenAI/Gemma GEMINI_KEY_{key_index} ({attempt_number}/{len(key_attempts)})...")
-                client = genai.Client(api_key=key, http_options=types.HttpOptions(timeout=GEMMA_PER_KEY_TIMEOUT_MS))
-                with open(img_path, "rb") as f:
-                    image_bytes = f.read()
+                key_label = _key_label(key_index)
+                print(f"[DEBUG] Trying Google GenAI {key_label} ({attempt_number}/{len(key_attempts)})...")
+                http_options = {"timeout": GEMMA_PER_KEY_TIMEOUT_MS}
+                if model_id.startswith("gemini-3"):
+                    http_options["apiVersion"] = "v1alpha"
+                client = genai.Client(api_key=key, http_options=types.HttpOptions(**http_options))
                 contents = [
-                    types.Part.from_text(text=unified_prompt),
-                    types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg")
+                    types.Part.from_text(text=unified_prompt)
                 ]
-                if side_img_path and os.path.exists(side_img_path):
+                if include_image:
+                    with open(img_path, "rb") as f:
+                        image_bytes = f.read()
+                    contents.append(types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"))
+                if include_image and side_img_path and os.path.exists(side_img_path):
                     with open(side_img_path, "rb") as f:
                         side_image_bytes = f.read()
                     contents.append(types.Part.from_bytes(data=side_image_bytes, mime_type="image/jpeg"))
+                config_kwargs = {"temperature": 0}
+                if max_output_tokens:
+                    config_kwargs["max_output_tokens"] = max_output_tokens
+                if model_id.startswith("gemini-3"):
+                    config_kwargs["response_mime_type"] = "application/json"
+                    config_kwargs["thinking_config"] = types.ThinkingConfig(includeThoughts=False, thinkingBudget=256)
                 res = client.models.generate_content(
                     model=model_id,
-                    config=types.GenerateContentConfig(temperature=0),
+                    config=types.GenerateContentConfig(**config_kwargs),
                     contents=contents
                 )
+                usage = getattr(res, "usage_metadata", None)
+                prompt_tokens = usage_value(usage, "prompt_token_count")
+                output_tokens = usage_value(usage, "candidates_token_count")
+                total_tokens = usage_value(usage, "total_token_count")
                 if res.text:
                     duration = round(time.time() - start_time, 2)
+                    log_token_usage({
+                        "scan_id": scan_id,
+                        "request_type": request_type,
+                        "provider": "google-genai",
+                        "model": model_id,
+                        "key_index": key_index,
+                        "attempt_number": attempt_number,
+                        "success": True,
+                        "duration_ms": int((time.time() - attempt_started_at) * 1000),
+                        "input_token_count": prompt_tokens,
+                        "output_token_count": output_tokens,
+                        "total_token_count": total_tokens,
+                        "estimated_input_tokens": estimated_input_tokens,
+                        "max_output_tokens": max_output_tokens,
+                        "image_included": include_image,
+                    })
                     return res.text, friendly_name, duration
-                provider_errors.append(f"GEMINI_KEY_{key_index}: empty model response")
+                provider_errors.append(f"{_key_label(key_index)}: empty model response")
+                log_token_usage({
+                    "scan_id": scan_id,
+                    "request_type": request_type,
+                    "provider": "google-genai",
+                    "model": model_id,
+                    "key_index": key_index,
+                    "attempt_number": attempt_number,
+                    "success": False,
+                    "duration_ms": int((time.time() - attempt_started_at) * 1000),
+                    "error": "empty model response",
+                    "estimated_input_tokens": estimated_input_tokens,
+                    "max_output_tokens": max_output_tokens,
+                    "image_included": include_image,
+                })
                 _quarantine_key(key_index, "empty_response", "empty model response", 10 * 60 * 1000)
             except Exception as e:
                 if "User interrupted" in str(e):
                     raise
                 error_text = str(e).replace("\n", " ").strip()
                 short_error = error_text[:260] if error_text else "Unknown provider error"
-                provider_errors.append(f"GEMINI_KEY_{key_index}: {short_error}")
+                provider_errors.append(f"{_key_label(key_index)}: {short_error}")
+                log_token_usage({
+                    "scan_id": scan_id,
+                    "request_type": request_type,
+                    "provider": "google-genai",
+                    "model": model_id,
+                    "key_index": key_index,
+                    "attempt_number": attempt_number,
+                    "success": False,
+                    "duration_ms": int((time.time() - attempt_started_at) * 1000),
+                    "error": short_error,
+                    "estimated_input_tokens": estimated_input_tokens,
+                    "max_output_tokens": max_output_tokens,
+                    "image_included": include_image,
+                })
                 quota_hit = "RESOURCE_EXHAUSTED" in error_text or "quota" in error_text.lower()
                 quarantine_reason, quarantine_ms = _quarantine_for_error(error_text)
                 if quarantine_reason:
                     _quarantine_key(key_index, quarantine_reason, short_error, quarantine_ms)
                 if quota_hit:
-                    print(f"      [!] {friendly_name} Google GenAI GEMINI_KEY_{key_index} quota exhausted. Trying next key...")
+                    print(f"      [!] {friendly_name} Google GenAI {_key_label(key_index)} quota exhausted. Trying next key...")
                 else:
-                    print(f"      [!] {friendly_name} GEMINI_KEY_{key_index} failed: {short_error}")
+                    print(f"      [!] {friendly_name} {_key_label(key_index)} failed: {short_error}")
                 continue
 
     except KeyboardInterrupt:
@@ -292,29 +514,31 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("\n" + "=" * 30)
     print("      MODEL SELECTOR")
     print("=" * 30)
-    print("1. ULTRA - Highest Quality")
+    print("1. Legacy Premium")
+    print("2. Backup Model")
     print("-" * 30)
     print("3. OPTIC (Balance & Alignment)")
     print("4. CORE (Objective Attractiveness)")
     print("5. GENEVA (Mathematical Beauty)")
+    print("6. Expert Mode (Very Accurate)")
 
     if choice_override is not None and str(choice_override).strip():
         choice = str(choice_override).strip()
         print(f"\n[DEBUG] Model selected via API args: {choice}")
     else:
         try:
-            choice = input("\nSelect Model [1, 3-5]: ").strip()
+            choice = input("\nSelect Model [1, 2, 3-5]: ").strip()
         except KeyboardInterrupt:
             print("\nExiting script...")
             return
 
-    if choice not in {"1", "3", "4", "5"}:
+    if choice not in {"1", "2", "3", "4", "5", "6"}:
         print(f"[ERROR] Invalid model choice: {choice}")
         return "Error: Model selection failed."
 
     # --- SIDE PROFILE DATA COLLECTION ---
     side_data = "IGNORE_SIDE_ANALYSIS"
-    if choice == "1":
+    if choice in {"1", "2", "6"}:
         print("[ðŸš€] Gathering Lateral Data from engineside.py...")
         if side_img_path and os.path.exists(side_img_path):
             try:
@@ -324,7 +548,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         else:
             side_data = "IGNORE_SIDE_ANALYSIS"
     has_side_profile = bool(
-        choice == "1" and side_img_path and os.path.exists(side_img_path) and side_data != "IGNORE_SIDE_ANALYSIS"
+        choice in {"1", "2", "6"} and side_img_path and os.path.exists(side_img_path) and side_data != "IGNORE_SIDE_ANALYSIS"
     )
     side_prompt_policy = """
         FRONT-ONLY MODE:
@@ -404,7 +628,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         - Broad or bulbous nose shape.
 
         If the subject has at least 7 of these, cap the score at 50.
-    """ if choice == "1" else ""
+    """ if choice in {"1", "2", "6"} else ""
     experimental_visual_only_prompt = """
 Act as a clinical maxillofacial analyst.
 Rate the subject facially in terms of overall facial attractiveness and aesthetics.
@@ -429,9 +653,352 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
     """ if False else ""
     prompt_clinical_data = clinical_data
     prompt_side_data = side_data
+    benchmark_calibration_summary = load_benchmark_calibration_summary() if choice in {"2", "6"} else ""
 
     # --- PROMPT SELECTION LOGIC ---
-    if choice == "1":
+    if choice in {"2", "6"}:
+        compact_metrics = compact_metric_summary(prompt_clinical_data, prompt_side_data)
+        legacy_experimental_prompt = f"""
+        You are MogCheck Premium Backup Model.
+        Analyze the submitted face with the SAME strict scoring philosophy as the old Premium calibration, but use a compressed JSON dashboard result.
+        This is not a free/basic scan. It must feel premium, detailed, and specific while avoiding the old long markdown essay.
+
+        INPUT_METRICS_JSON: {compact_metrics}
+        VISUAL INPUT A: Frontal face image is provided.
+        {("VISUAL INPUT B: Side profile image is provided." if has_side_profile else "FRONT-ONLY MODE: no side profile image was provided; set sideRating and side-only fields to null.")}
+        {content_safety_rules}
+
+        CALIBRATION:
+        - Score 1-100 using MogCheck Premium calibration. Do not become more generous because this prompt is shorter.
+        - Judge visible appearance first; use MediaPipe metrics as supporting evidence, not as a blind override.
+        - 90+ is extremely rare: elite facial structure, harmony, skin, eye area, and no major limiting flaws.
+        - 80s: very strong / model-tier with only minor flaws.
+        - 70s: clearly attractive with one or two meaningful limitations.
+        - 60s: above average but visibly limited by structure, soft tissue, skin, harmony, or proportions.
+        - 50s: average to mildly below average; several limitations.
+        - 40s and below: severe disharmony, weak support, poor skin/aging, uncanny/synthetic, or bad image reliability.
+        - A single good metric cannot carry the score. Major visible flaws suppress the final rating even if ratios look good.
+        - Do not over-reward aggressive dimorphism if it looks uncanny, artificial, overbuilt, aged, or disharmonious.
+        - Penalize visible aging, nasolabial folds, skin laxity, recession/hairline imbalance, tired under-eyes, high upper eyelid exposure, weak orbital support, and soft jaw/neck transition when visible.
+        - Penalize synthetic/non-human or AI-generated cues. If authenticity is doubtful, explain in qualityFlags and keep the score conservative.
+
+        COMPACT PREMIUM SCORING GUIDE:
+        Use this guide to preserve Premium consistency without outputting the guide itself.
+        Harmony: judge whether all regions fit together naturally. A face with several individually decent parts can still score lower if thirds, eye area, nose, mouth, jaw, and soft tissue do not cohere. Do not call harmony high when one dominant flaw controls the read.
+        Bone: evaluate cheekbone projection, maxillary support, mandibular width, chin support, gonial/jaw angle impression, jaw-neck transition, and whether the face has crisp support or soft/blurred structure. Strong bone needs visible structure, not just one wide ratio.
+        Symmetry: reward balanced eye height, brow height, nose centering, mouth alignment, and jaw balance. Mild normal asymmetry is not a major flaw; obvious structural asymmetry is.
+        Skin: evaluate texture, acne, redness, pores, under-eye darkness, dullness, aging markers, and visible health/vitality. Skin can move a score meaningfully but should not erase severe structural flaws.
+        Dimorphism: reward sex-appropriate facial signal when it improves attractiveness. Male dimorphism should not become overbuilt or uncanny; female dimorphism should not be punished for softer harmony when it is attractive.
+        Eye area: heavily weight canthal tilt, eyelid exposure, orbital depth, brow compactness, scleral show, under-eye support, spacing, and shape. Strong eyes can lift the score; exposed/tired/droopy eyes can suppress it.
+        Nose: evaluate width, length, projection, bridge, tip, and how well it fits the midface. Slight width is minor if harmony is good; severe width, bulbosity, poor projection, or imbalance should be noted.
+        Mouth/lips/philtrum: evaluate mouth width, lip height, philtrum height, dental/lower-face balance, and whether the mouth supports or disrupts harmony. Do not over-focus unless visually limiting.
+        Facial thirds: use upper/middle/lower third balance. Hairline/forehead issues matter only when visible enough to judge. A long midface, overly long upper third, compressed lower third, or weak lower third should be flagged.
+        Soft tissue/facial fat: distinguish healthy softness from score-limiting blur. Penalize puffy cheeks, weak jaw reveal, submental fullness, or poor definition when they hide structure.
+        Aging/vitality: visible nasolabial folds, skin laxity, tired eyes, baldness/recession, or depleted soft tissue should reduce final score when present. Do not over-penalize lighting artifacts.
+        Side profile if provided: evaluate chin projection, maxilla, facial convexity, nose projection, cervicomental angle, hyoid/neck-jaw transition, and side harmony. If no side image exists, do not invent side metrics.
+        Authenticity/uncanny: if the face appears AI-generated, filtered, non-human, mannequin-like, over-smoothed, distorted, or biologically implausible, cap conservatively and explain in debugJustification/qualityFlags.
+
+        CORE RATING CONSISTENCY:
+        Before finalRating, internally compare the face against these anchors:
+        - 35-44: severe disharmony, non-human/uncanny, very poor image reliability, or major structural/skin problems.
+        - 45-54: below average to average with multiple visible limitations.
+        - 55-64: average to above average, but one or more clear limiting factors prevent high appeal.
+        - 65-74: attractive / strong base, with specific flaws still holding it back.
+        - 75-84: very attractive, strong harmony and features, minor-to-moderate limitations only.
+        - 85-92: rare elite facial read; nearly all major categories strong.
+        - 93+: exceptional and should almost never be used.
+        If the face has a severe primary flaw, do not place it in the 80s. If the face has several mid-tier weaknesses, do not inflate into the 70s just because one ratio is strong.
+
+        IMPORTANT METRIC NOTES:
+        fWHR around 1.85-2.00 is generally strong; extremely high can look blocky. Bigonial/jaw width must be judged against cheekbone width and visible jaw shape, not just width.
+        Midface ratio around balanced/compact is positive; a long midface is a meaningful appeal limiter. Canthal tilt is positive when natural and supported by eye shape; high upper eyelid exposure or poor orbital support can override a good measured tilt.
+        IPD/eye spacing should be judged with face width and eye shape. Mouth width should fit the lower face; overly wide or narrow can disrupt harmony. Nose width/projection is contextual; severe nose imbalance matters more than small numeric deviation.
+        Facial fat and jaw definition should be judged visually. A lean-looking face with crisp borders should score higher for definition; puffiness or submental fullness should lower facial fat/jaw metrics.
+        Cheekbone/maxillary projection should be judged from visible midface support, under-eye support, ogee curve, and side profile when available.
+
+        OUTPUT QUALITY REQUIREMENTS:
+        The dashboard must feel premium. Do not return only 2-5 metrics. Do not use generic notes like "good" or "bad".
+        Every keyRatios item should be useful to a dashboard card: label/name, value, numeric score, impact, and a short note that explains why it matters on this face.
+        bestFeatures and primaryFlaws should be concise but concrete: name the feature and explain the face-specific reason.
+        pros/cons should not duplicate the exact same text as bestFeatures/primaryFlaws; they can be shorter scan-specific bullets.
+        technicalSummary should summarize the structural read. appealAssessment/personalizedInterpretation should explain how the score feels in plain language.
+
+        FEATURE DETECTION CHECKLIST:
+        While looking at the image, actively inspect these visual-only or partly visual traits because MediaPipe ratios often miss them:
+        - eyelid exposure, sleepy/droopy eyes, scleral show, orbital hollowness, under-eye support, and brow compactness
+        - cheekbone visibility, ogee curve, midface flatness, maxillary support, and nasolabial depth
+        - jaw border visibility, ramus/gonial impression, chin height/projection, lower-face taper, and neck/submental softness
+        - nose bridge, nasal base width, bulbous tip, projection balance, and whether the nose dominates the midface
+        - mouth width relative to jaw/zygo width, lip height, philtrum length, and lower-third balance
+        - forehead height, hairline recession, temple recession, upper-third compression/length, and whether hair obscures judgment
+        - skin texture, acne, redness, pores, oiliness, dryness, wrinkles, folds, and general vitality
+        - lighting/angle/crop/blur/filter issues that make any metric uncertain
+        Convert these observations into metrics or strengths/flaws when they affect the score. Do not mention a trait if it is not visible or not relevant.
+
+        SCORE DRIVER RULES:
+        The final score should be driven by the strongest visible positives and strongest visible negatives, not by the average of every metric.
+        A face with one severe flaw plus many decent metrics should usually land lower than a face with no severe flaws and many modest positives.
+        Strengths should be things that actually lift the rating: strong symmetry, sharp jaw, compact midface, good eye area, clear skin, strong cheekbones, good harmony, attractive thirds, or clean side profile.
+        Weaknesses should be the real bottlenecks: soft tissue, weak chin, long midface, poor eye area, visible aging, poor skin, asymmetry, weak jaw, nose imbalance, flat cheekbones, poor harmony, or image unreliability.
+        If you are unsure whether a flaw is real because of lighting/angle, keep it as a quality/confidence flag and avoid over-penalizing.
+        If image quality is good, do not hide behind uncertainty flags; make a clear judgment.
+
+        COMPACT METRIC SCORING CURVES:
+        Use these as anchors, but still trust the visible face when the photo clearly contradicts a raw value.
+        - fWHR: 1.85-2.00 is usually strong; below roughly 1.70 can read narrow/long; above roughly 2.10 can become too wide/blocky.
+        - Bigonial/jaw width: balanced jaw width relative to cheekbones is positive; very narrow/tapered lower face is negative; excessive width can look blocky.
+        - Midface: compact/balanced midface is positive; clearly elongated midface is a meaningful limiter; overly compressed midface can also look off.
+        - Upper third: balanced forehead/hairline is positive. Long upper third or recession matters when visible; ignore hair-obscured measurements if the hairline cannot be judged.
+        - Middle/lower third: balanced thirds help harmony. Short lower third can weaken maturity; long lower third can look disharmonious.
+        - Eye height/shape: compact almond eye area is positive. Excessive roundness, high upper eyelid exposure, scleral show, or droopiness is negative.
+        - Brow compactness: low/compact brow support helps eye depth; high brows and exposed lids can weaken the eye area.
+        - Nose: balanced width and projection are positive. Severe width, bulbousness, length, or poor projection should reduce harmony/nose metrics.
+        - Mouth/lips/philtrum: score by fit with lower third and overall harmony. Do not over-penalize normal lips; do flag obvious width/philtrum imbalance.
+        - Cheekbones/maxilla: strong support shows as midface projection, under-eye support, and visible cheekbone contour; flatness or poor support is negative.
+        - Chin/profile: good chin support improves lower-face balance. Recession, short chin, or weak projection should be visible in the side profile or lower-face read.
+        - Skin/vitality: clear, even, healthy skin helps; acne, texture, folds, laxity, and dullness reduce the skin/vitality category.
+        - Symmetry: only score low when asymmetry is visible and appeal-limiting. Normal human asymmetry should not dominate.
+
+        PREMIUM DETAIL FLOOR:
+        The dashboard should contain enough structured detail that a user can understand why the score happened immediately after the core request.
+        If fewer than 12 metrics are truly measurable, include visual metrics with "estimated" in value or confidenceFlags.
+        Prefer 16 metrics for normal frontal images. Use 18-20 when a side profile gives profile-specific information.
+        Each metric note should be short but explanatory, for example: "Compact midface supports harmony" or "Soft jaw border limits lower-face sharpness."
+        Avoid vague notes like "looks good", "average", "not ideal", "could improve" unless paired with a specific feature reason.
+        Strength/weakness descriptions should be one sentence each, not one word and not a paragraph.
+        debugJustification should preserve the admin usefulness of Premium: summarize why the exact score is logical, what capped it, and what prevented a higher/lower score.
+
+        METRIC EVALUATION:
+        Return 12-20 facial metrics. Include the raw MediaPipe value when available; otherwise use a concise visual estimate.
+        Each metric must include:
+        - name
+        - value as a short string
+        - score from 0-100
+        - impact: "positive", "neutral", or "negative"
+        - note: one short, face-specific sentence
+
+        Required metric coverage when visible/available:
+        1. fWHR / facial width-to-height
+        2. jaw width ratio / bigonial width
+        3. chin projection or chin support
+        4. jaw angle / mandibular definition
+        5. facial thirds / forehead-midface-lower third balance
+        6. midface ratio
+        7. eye spacing / IPD
+        8. canthal tilt
+        9. eye shape / eye area / eyelid exposure
+        10. nose width
+        11. nose length or projection
+        12. cheekbone prominence / maxillary-cheekbone projection
+        13. facial symmetry
+        14. skin texture / skin clarity
+        15. facial fat / soft tissue definition
+        16. hairline or forehead balance when visible
+        Optional extras: mouth width, philtrum/lip height, brow compactness, side-profile convexity, neck-jaw transition, hyoid/cervicomental area.
+
+        DASHBOARD CONTENT:
+        - Return top 3-5 strengths and top 3-5 weaknesses. They must be specific and not generic.
+        - Return pros and cons as short scan-specific bullets.
+        - Return mainLimitingFactor as the single biggest reason the score is not higher.
+        - Return a short description summary and a brief personalizedInterpretation.
+        - Include qualityFlags/confidenceFlags for image quality, obstruction, angle, side profile availability, metric uncertainty, or synthetic/uncanny risk.
+        - Keep descriptions concise but meaningful. Do not output empty filler.
+
+        RETURN JSON ONLY. No markdown. No prose outside JSON.
+        Schema:
+        {{
+          "sex":"male|female|unknown",
+          "finalRating":0,
+          "sideRating":null,
+          "tier":"short tier label",
+          "technicalSummary":"2 concise sentences, under 360 chars total",
+          "appealAssessment":"brief personalized interpretation, under 320 chars",
+          "personalizedInterpretation":"1-2 concise sentences explaining the face-specific read",
+          "categories":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Maxillary/Cheekbone Projection":0,"Nose Projection":0,"Facial Fat":0,"Eye Depth":0,"Ear Shape":0}},
+          "hexagonFront":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Facial Fat":0}},
+          "hexagonSide":null,
+          "keyRatios":[{{"name":"fWHR","value":"1.92","score":81,"impact":"positive","note":"Strong width-to-height balance."}}],
+          "bestFeatures":[{{"title":"", "description":""}}],
+          "primaryFlaws":[{{"title":"", "description":""}}],
+          "pros":[""],
+          "cons":[""],
+          "mainLimitingFactor":"",
+          "qualityFlags":[""],
+          "confidenceFlags":[""],
+          "debugJustification":"admin-only compact reason for the score; mention main score drivers, biggest positives/negatives, and whether uncanny/authenticity cap applied"
+        }}
+        Limits: keyRatios exactly 16 unless impossible, max 20. bestFeatures 3-5. primaryFlaws 3-5. pros 3-5. cons 3-5. qualityFlags max 4. confidenceFlags max 4.
+        Output budget: stay compact, but do not under-fill metrics. Target 1000-1500 output tokens.
+        """
+        gemini_31_calibration_patch = """
+        EXPERT MODE CALIBRATION PATCH:
+        - You have a known failure mode: clustering many different faces around raw 66-68 / displayed mid-60s. Do not use 66-68 as a default safe answer.
+        - You must first select a score band from the visible face and metrics, then choose an exact score inside that band. If two scans have meaningfully different bottlenecks, their finalRating should usually differ.
+        - Do not overclassify faces as NATURAL/COHERENT HIGH-TIER. Most real submitted faces are average, lower-average, mildly above-average, or flawed-attractive. Use HIGH-TIER only when the photo clearly earns it across eyes, harmony, proportions, skin/soft tissue, and structure.
+        - Raw 65-72 is reserved for clearly attractive faces with a solid base. Do not place a face here just because it has broad width, fWHR near 1.9-2.05, masculine bones, fame/recognizability, or no single catastrophic flaw.
+        - If the face has visible aging, tired eyes, skin laxity, nasolabial/marionette folds, baldness/recession, soft tissue decline, thin lips, long lower third, disharmonious mouth/nose fit, weak freshness, or blocky over-width, treat those as ceiling caps before rewarding strong width.
+        - If the dominant read is only decent structure plus aging/soft tissue/skin/tiredness, cap the raw score around 58-66 unless the image has exceptional eye area and harmony. If there is a major bottleneck, cap around 50-58. Multiple major bottlenecks belong lower.
+        - Broad face / strong bigonial / high fWHR is not enough for 68+. Strong width can be neutral or negative when it creates a rough, blocky, aged, harsh, or unrefined read.
+        - Do not round everything to 68. Use the full old Premium distribution: 30s for very weak, 40s for low-tier, 50s for average/flawed, low-60s for decent, high-60s only for clearly attractive, 70s for genuinely strong, 80s for rare elite.
+        - Add a compact "Gemini anti-anchor check" inside debugJustification: name the chosen band, the main cap, and why the score is not simply defaulted to 66-68.
+        """
+        calibration_preserving_prompt = f"""
+        You are MogCheck Premium Experimental Calibration-Preserving Core.
+        {("This run uses Expert Mode (Very Accurate) as the reasoning model." if choice == "6" else "")}
+        {(gemini_31_calibration_patch if choice == "6" else "")}
+        Produce the first dashboard result only. This is a lower-token Premium core request, not a softer model.
+
+        INPUT A (Compact Frontal/Side Metrics JSON): {compact_metrics}
+        VISUAL INPUT A: High-resolution frontal face image is provided.
+        {("VISUAL INPUT B: High-resolution side profile image is provided." if has_side_profile else "FRONT-ONLY MODE: no side profile image was provided; set sideRating and side-only fields to null. Do not infer side-only weaknesses.")}
+        {content_safety_rules}
+        {feature_selection_rules}
+        {anti_diddy_prompt_rules}
+
+        CRITICAL CALIBRATION RULES:
+        - Preserve old Premium scoring behavior. The shorter prompt must not become more generous, flattering, vague, or comfort-oriented.
+        - Judge the actual photo first, with lighting/angle as-is. Use MediaPipe ratios as evidence, not as a blind override. If metadata and image conflict, use the clearer evidence and record uncertainty in confidenceFlags.
+        - Do NOT overrate based on celebrity familiarity, charisma, expression, fame, hairstyle, lighting, grooming, or recognizability. A familiar celebrity face with decent metrics and several flaws can belong in the high-50s/low-60s, not ultra-high-tier by default.
+        - Be harsh and grounded. Below 40 is valid when there are several major structural/aesthetic issues, poor definition, visible aging, weak harmony, and no standout positive features. Do not force average or below-average faces into the 50s/60s because they are recognizable, masculine, or not deformed.
+        - Do not let one strong feature, strong ratio, jaw width, fWHR, bigonial width, breadth, or brute dimorphism carry the final rating. Bigonial width and jaw width are supporting traits only when balanced, elegant, natural, and harmonious.
+        - Extreme width is not automatically attractive. If fWHR is roughly 2.10+ or the lower face looks blocky/brutish/over-dimorphic, subtract harmony rather than rewarding width. Above roughly 2.25 is severe.
+        - Never describe aggressive dimorphism, brutal masculinity, extreme breadth, or an overbuilt jaw/brow as required for high-tier appeal. Lack of aggressive dimorphism is not a flaw. Softer/youthful faces can score high when harmony, eyes, skin, ratios, and appeal are strong.
+        - Do NOT confuse striking with elite. Overbuilt, synthetic, uncanny, AI-looking, "gigachad", fantasy-model, mannequin-like, hyper-carved, glassy, or biologically implausible faces must be penalized hard even when local ratios look strong.
+        - Non-human/cartoon/drawn/anime/clearly AI-generated/mannequin/biologically impossible images are capped at 40 for finalRating and sideRating. Set authenticityFlag true and explain the cap in qualityFlags/debugJustification.
+        - Internally bucket the face before scoring: NATURAL/COHERENT HIGH-TIER, EXAGGERATED BUT COHERENT, UNCANNY/SYNTHETIC/OVERBUILT, LOW-TIER/4-RANGE, or VERY LOW-TIER/3-RANGE.
+        - UNCANNY CUES: count these from the image: oversized chin vs lips/mouth scale, hollow/gaunt cheeks, very low-set eyebrows that are positively tilted, over-defined/carved cheekbone/features, bigonial width visibly wider than bizygomatic width, very veiny face/temple vascularity. If 3+ are clearly present, the primary flaw must be synthetic/uncanny/overbuilt read and final score should drop far below a coherent high-tier face with similar ratios.
+        - If uncertain whether a face is merely striking or uncanny/synthetic, do not default to generosity. If it looks like an AI beauty edit, fantasy model render, hyper-optimized face, or too designed, bias toward uncanny. If it clearly reads as a normal real-world photograph with rare strong features, do not collapse it into uncanny.
+        - Exaggerated but coherent faces can still score well when believable, photoreal, internally harmonious, and not worn-down/soft-tissue compromised. Apply only a tiny/moderate deduction when the intensity remains natural; do not praise extremeness as elite natural appeal.
+        - Low-tier/4-range: weak aesthetics, weak harmony, soft definition, visible flaws, no standout redeeming structure. Do not inflate into 50s/60s.
+        - Very low-tier/3-range: multiple major issues together, especially low fWHR/very narrow width, elongated midface/vertical stretch, clear asymmetry, weak eye area, weak lower third, and no strong redeeming marker. Such faces often belong in 30-39.
+        - Female counterbalance: if sex is female and the internally computed score is above 70, deduct 10 points from finalRating and tier. Do not mention this deduction; make it appear as the natural result.
+        - Elite status requires exceptional symmetry plus elite markers and overall coherent harmony. 90+ is extremely rare; 93+ should almost never be used. Truly elite starts low-80s. Strong/high-tier usually 72-80. Above-average attractive usually 58-72. Obvious flaws with only decent structure usually 42-58.
+        - Exceptional eyes can noticeably lift a face when the rest is at least decent, but eyes alone must not rescue multiple obvious structural/skin/aging flaws into an inflated band.
+        - Penalize visible aging, nasolabial folds, marionette heaviness, skin laxity, sagging cheek tissue, under-eye aging, orbital tiredness, worn/non-fresh read, puffiness, and soft-tissue decline materially. Do not invent aging penalties when not visible.
+        - Penalize visible baldness, severe recession, diffuse thinning, or weak/high hairline when it worsens framing, youth, or harmony. Do not let strong bones fully rescue a visibly aged/bald presentation if the overall read is older/less fresh.
+        - Facial fat/definition must be visually classified as lean, normal, soft, puffy/high-fat, or unclear. Penalize soft/puffy/bloated/poorly defined faces strongly when fat/fullness hides structure. Do not call lean/normal faces high-fat; do not blame fat when lighting, blur, beard, bone, angle, or image quality explains weak definition.
+        - Do not include minor asymmetry as a flaw. Penalize asymmetry only when very obvious and structurally disruptive.
+        - Do not output soft comfort language, generic positivity, or flattering filler. Every strength/flaw must be face-specific and tied to visible evidence or a metric.
+
+        CRITICAL RATIO AND FEATURE RULES:
+        - Canthal tilt must not be ignored. Use both Canthal_Tilt_Degrees and visible tilt. Negative tilt below about -2 is a real eye-area flaw when visible/supported; below -6 is severe. Positive 3-8 degrees is ideal only when natural, balanced, and supported by eye shape. Above 12 can look unnatural.
+        - Eye area is heavily weighted: canthal tilt, eyelid exposure, orbital depth, brow compactness, scleral show, under-eye support, spacing, and shape. Penalize obvious lower scleral show, high upper eyelid exposure, droopiness, tired under-eyes, puffy undereyes, and poor orbital support. Do not hallucinate scleral show from highlights.
+        - fWHR: 1.85-2.00 is balanced strong. Around 1.60 is minor narrowness only; around 1.50 or below is clearly narrow/weak. Above 2.10 is too wide/blocky; above 2.25 is severe.
+        - Bigonial_Width_Index is jaw/gonion width normalized against bizygomatic width, not raw jaw power. 0.85-1.00 is acceptable-to-ideal, strongest near 0.98. Around 0.87 should score in the 80s. 0.75-0.85 is below preferred but not a major standalone flaw unless visually supported. Below 0.75 is narrow/weak. Above 1.05 deduct for over-width/blockiness. Never make it #1 best/worst unless it is below 0.75 or above 1.05 and visually dominant.
+        - IPD_Index: around 0.46 is ideal; 0.44-0.48 is acceptable/good. Below 0.44 can be close-set; above 0.48 can be wide-set. List as a flaw only if outside range and visually supported.
+        - Mouth_Width_Index: around 0.37 ideal; 0.36-0.38 acceptable/ideal. Below 0.36 narrow; above 0.38 overly wide, stronger the farther out and if visually disharmonious.
+        - Nose_Width_Index: 0.23-0.30 broad balanced, strongest near 0.265. Below 0.20 pinched/narrow. Above 0.32-0.34 becomes wide only if visually disruptive. Do not penalize slightly wide nasal bases unless very bad and balance-breaking.
+        - Midface_Ratio: 0.88-0.98 strongest, 0.98-1.07 acceptable/light concern, above 1.08 long, above 1.15 severe, below 0.82 overly compressed. Mildly long midface should not be #1 worst unless visually strong or combined with long-face signals.
+        - Upper_Third_Length: 0.34-0.43 balanced, above 0.46 long, above 0.52 severe, below 0.30 compressed. If hair/bangs/hat/hood/shadow/crop hides the hairline, ignore the raw number and visually estimate from forehead/temple/hair direction.
+        - Middle_Third_Length: 0.40-0.50 balanced, above 0.54 elongated, above 0.60 severe, below 0.36 compressed. Lower_Third_Length: 0.42-0.52 balanced, below 0.38 short, above 0.56 long, above 0.62 severe.
+        - Eye_Height_Index: 0.055-0.075 balanced, below 0.045 narrow/squinty, above 0.085 overly round/exposed. Brow_Compactness_Index: 0.08-0.12 balanced, above 0.14 high brow/poor compactness, below 0.06 overly compressed/heavy.
+        - Philtrum_Height_Index: 0.08-0.11 balanced, around 0.095 ideal, above 0.12 long, above 0.14 severe, below 0.07 short, below 0.055 very short. Do not mark balanced philtrums as long.
+        - Total_Lip_Height_Index: 0.12-0.18 balanced, below 0.10 thin, below 0.08 very thin, above 0.22 overly large only if visually disharmonious. Penalize thin/inconspicuous lips when obvious.
+        - Jaw/chin: tapered jawlines can be acceptable. Not every face needs a square jaw. Penalize irregular/weird shapes, weak chin support, weak jaw border, weak lower-third aesthetics, or blocky/brutish over-width when visible.
+        - Maxillary/cheekbone projection: judge from under-eye support, midface projection, ogee curve, cheekbone contour, and side profile if provided. Reward good maxillary development and cheekbones; penalize flatness or poor support.
+        - Side profile if provided: keep frontal and side final ratings separate. Reward a clean harmonious side look; a slightly weak chin is acceptable, but heavily/severely recessed chin must suppress sideRating. Evaluate maxilla, facial convexity, nose projection, cervicomental angle, hyoid/neck-jaw transition, and submental fullness. Side-only weaknesses must not drag down finalRating unless visible frontally.
+        - Shared front/side traits when side is provided: maxillary/cheekbone projection, nose projection, facial fat, eye depth, ear shape, and skin quality should be consistent across front/side evidence.
+        - Ethnicity/sex tolerance: apply global curves as baseline and adjust tolerance, not meaning. Be tolerant of harmonious East Asian eyelid/projection/midface/nose variations; African/Sub-Saharan wider nasal base/fuller lips; South Asian/Middle Eastern/North African stronger nose/deeper eyes/thicker brows/facial hair effects. Female faces tolerate softer jaw/lower fWHR/fuller lips/less aggression; male faces tolerate stronger fWHR/brow/jaw but not blockiness or overbuilt proportions.
+
+        OLD PREMIUM SCORE BEHAVIOR TO PRESERVE:
+        - Final score is not an average of metrics. It is a strict aesthetic judgment formed from the dominant visible positives, dominant visible negatives, feature harmony, and credibility of the face as a natural human photograph.
+        - The score must be decided before the JSON descriptions are written. Descriptions must explain the score; they must not rationalize a generous score after the fact.
+        - A high raw fWHR, wide bigonial value, strong cheekbone width, or sharp jaw can be a positive only when the face still looks balanced, fresh, and coherent. If those same traits create a harsh, blocky, over-carved, artificial, aged, or niche look, treat them as score limiters.
+        - Do not choose a primary strength purely from the highest numeric metric. Choose the visually most attractive trait. Do not choose a primary flaw purely from the lowest metric. Choose the trait that actually limits appeal most.
+        - If a face has one severe limiting flaw plus several decent traits, rate it lower than a face with no severe flaws and modest positives. Severe bottlenecks cap the ceiling.
+        - If the image quality is good, make a clear judgment. Do not hide behind uncertainty flags. If quality/angle/blur/crop/filtering is genuinely unreliable, lower confidence and avoid over-precise claims.
+        - Lighting can hide or exaggerate structure, but do not use flattering lighting to inflate facial structure. Judge the visible face as submitted.
+        - Grooming, beard, hairstyle, expression, smile, celebrity context, social status, age confidence, charisma, and familiarity are not substitutes for facial structure and harmony.
+        - Strong skin can raise a score when structure is already decent, but clear skin cannot rescue weak structure, poor harmony, tired eyes, or major aging. Poor skin/texture can materially suppress a score even when ratios are decent.
+        - A youthful/fresh face with clean harmony can outrank a more masculine or wider face that is aged, tired, puffy, soft-tissue-compromised, or overbuilt.
+        - Do not write "balanced", "harmonious", "elite", "model-tier", or "high-tier" unless the visible face actually earns that term across multiple regions.
+        - If the overall read is common/average, keep it common/average even when a couple of measurements look okay. If the overall read is weak, do not rescue it with minor positives.
+        - If the face reads naturally attractive but not elite, keep it in the attractive range rather than inflating into elite. If it reads elite, make sure there are no major limiting flaws before using low-80s or higher.
+        - Use "mainLimitingFactor" as the real cap on the score, not as a generic weakness. It should explain why the face did not score in the next higher band.
+
+        STRICT BAND ANCHORS:
+        - 0-29: unusable/non-face/very severe authenticity or visibility failure, or extreme non-human/biologically impossible input.
+        - 30-39: very low-tier natural face or capped synthetic/non-human style; multiple major structural flaws together, weak harmony, weak eye area, long/narrow/asymmetric layout, and no strong redeeming feature.
+        - 40-49: low-tier or heavily limited face; major disharmony, poor definition, aging/skin/soft tissue issues, weak structure, or uncanny/overbuilt read.
+        - 50-57: average/lower-average; some normal features but obvious limitations prevent above-average appeal.
+        - 58-64: mildly above average or decent; has positives, but at least one clear bottleneck such as tired eyes, long midface, soft tissue, weak jaw/chin, skin/aging, or harmony issue.
+        - 65-72: clearly attractive with a solid base, but still specific limitations. This range should not be handed out for merely recognizable or masculine faces.
+        - 73-80: strong/high-tier. Requires multiple strong visible traits, good harmony, controlled flaws, and no severe bottleneck. 75+ should feel clearly attractive in the actual photo.
+        - 81-88: elite/near-elite natural. Requires exceptional harmony, symmetry, eye area, skin/soft tissue, and structural balance. Minor flaws only.
+        - 89-92: extremely rare elite. The face should be exceptional across almost every major category.
+        - 93-100: almost never use. Reserve for near-perfect, natural, believable, highly harmonious faces with no meaningful visible weakness.
+
+        BUCKET IMPACT DETAILS:
+        - NATURAL/COHERENT HIGH-TIER: score normally from ratios plus visual harmony. Reward refined balance, healthy soft tissue, strong eyes, strong symmetry, good proportions, and believable human appeal.
+        - EXAGGERATED BUT COHERENT: can score well if it remains photoreal and integrated. Apply only a tiny deduction, usually about 0-3 points, unless the exaggeration harms harmony. Do not let extreme dimorphism itself be the reason it rates well.
+        - UNCANNY/SYNTHETIC/OVERBUILT: apply a major deduction. These faces should land far below natural high-tier faces with similar local ratios because artificiality/over-optimization is itself a major aesthetic flaw.
+        - LOW-TIER/4-RANGE: do not inflate weak overall aesthetics into average just because the person has one decent trait or normal skin.
+        - VERY LOW-TIER/3-RANGE: when long, narrow, asymmetric, weak-eyed, weak-lower-third, and lacking anchors, the rating should often be in the 30s instead of the 40s/50s.
+
+        VISUAL INSPECTION ORDER:
+        1. Authenticity: natural human photo vs synthetic/cartoon/mannequin/AI/edited/fantasy.
+        2. Image reliability: frontal angle, crop, blur, lighting, filters, obstruction, hairline visibility, side-profile availability.
+        3. Overall read: natural coherent, exaggerated coherent, uncanny/overbuilt, low-tier, or very low-tier.
+        4. Eye area: canthal tilt, compactness, eyelid exposure, scleral show, under-eye support, brow support, spacing, shape.
+        5. Midface and thirds: vertical balance, midface length, upper/middle/lower third proportionality, forehead/hairline.
+        6. Bone and soft tissue: cheekbones, maxilla, jaw border, chin support, gonial impression, facial fat/definition, neck-jaw transition when visible.
+        7. Nose/mouth/lips: width, length/projection, bridge/tip/base harmony, mouth width, philtrum, lip height, lower-third fit.
+        8. Skin/aging/vitality: texture, acne, pores, redness, folds, laxity, wrinkles, under-eye aging, freshness, baldness/recession.
+        9. Symmetry/harmony: only penalize asymmetry if obvious and disruptive; judge whether all regions fit together.
+        10. Final score band: choose the strict band, then exact score. Do not let JSON field filling drift the score upward.
+
+        ADMIN DEBUG EXPECTATIONS:
+        - debugJustification must be compact but useful for admin review. It should name the score band, strongest score drivers, strongest cap, any visual bucket/authenticity issue, and why the result did not move higher.
+        - If the score is low or harsh, explain it directly from visible bottlenecks. Do not soften it with apologies or generic reassurance.
+        - If the face has high metrics but a lower score, explicitly say which visible issues overrode the metrics, such as overbuilt width, tired soft tissue, aging, poor eye compactness, weak harmony, or synthetic read.
+        - If the face has a good score without brute dimorphism, explain the real positives: harmony, clean proportions, eye area, skin, youth/freshness, symmetry, and controlled structure.
+        - Do not expose internal rule names like "female counterbalance" in user-facing text. If such an adjustment applies, the score should simply read as naturally calibrated.
+
+        LOCAL BENCHMARK ANCHORS:
+        {benchmark_calibration_summary}
+
+        OUTPUT REQUIREMENTS:
+        - Return JSON only. No markdown. No prose outside JSON. No long essays.
+        - finalRating must be calibrated before writing any descriptions. The debugJustification should explain why the exact score is logical, what capped it, and why it is not higher/lower.
+        - Return 12-20 keyRatios; prefer exactly 16 for normal frontal images, 18-20 when side profile adds real information. If a metric is visual-only, set value to a concise visual estimate.
+        - Every keyRatios item must include name, value, score 0-100, impact, and a short face-specific note. Do not return only 2-5 metrics.
+        - Required metric coverage when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance. Add mouth width, philtrum/lips, brow compactness, side convexity, neck-jaw transition, or hyoid when relevant.
+        - Return top 3-5 strengths and 3-5 weaknesses. Weaknesses must identify real bottlenecks and not random minor flaws. If uncanny/overbuilt, at least one weakness and mainLimitingFactor must say so.
+        - pros/cons should be short scan-specific bullets and not duplicate strengths/flaws verbatim.
+        - technicalSummary, appealAssessment, and personalizedInterpretation should be concise but not empty or fake. Keep them dashboard-ready.
+
+        JSON schema:
+        {{
+          "sex":"male|female|unknown",
+          "finalRating":0,
+          "sideRating":null,
+          "tier":"short tier label",
+          "authenticityFlag":false,
+          "uncannyCueCount":0,
+          "uncannyCues":[],
+          "visualBucket":"NATURAL/COHERENT HIGH-TIER|EXAGGERATED BUT COHERENT|UNCANNY/SYNTHETIC/OVERBUILT|LOW-TIER/4-RANGE|VERY LOW-TIER/3-RANGE",
+          "facialFatDefinitionRead":"lean|normal|soft|puffy-high-fat|unclear",
+          "technicalSummary":"2 concise sentences, under 380 chars total",
+          "appealAssessment":"brief calibrated interpretation, under 340 chars",
+          "personalizedInterpretation":"1-2 concise sentences explaining the face-specific read",
+          "categories":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Maxillary/Cheekbone Projection":0,"Nose Projection":0,"Facial Fat":0,"Eye Depth":0,"Ear Shape":0}},
+          "hexagonFront":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Facial Fat":0}},
+          "hexagonSide":null,
+          "keyRatios":[{{"name":"fWHR","value":"1.92","score":81,"impact":"positive|neutral|negative","note":"Strong width-to-height balance without blockiness."}}],
+          "bestFeatures":[{{"title":"", "description":""}}],
+          "primaryFlaws":[{{"title":"", "description":""}}],
+          "pros":[""],
+          "cons":[""],
+          "mainLimitingFactor":"",
+          "qualityFlags":[""],
+          "confidenceFlags":[""],
+          "debugJustification":"admin-only compact reason for score; mention score drivers, cap/uncanny/authenticity/female counterbalance if internally applied without exposing forbidden wording"
+        }}
+        Limits: keyRatios 16-20 unless impossible. bestFeatures 3-5. primaryFlaws 3-5. pros 3-5. cons 3-5. qualityFlags max 4. confidenceFlags max 4. Target output 1100-1500 tokens.
+        """
+        experimental_prompt_variant = os.getenv("MOGCHECK_EXPERIMENTAL_PROMPT_VARIANT", "calibration").strip().lower()
+        active_prompt = legacy_experimental_prompt if experimental_prompt_variant in {"7k", "legacy", "current"} else calibration_preserving_prompt
+    elif choice == "1":
         active_prompt = f"""
         MANDATE: Conduct a DUAL-INPUT structural evaluation (FRONTAL + LATERAL).
         INPUT A (Frontal Metadata): {prompt_clinical_data}
@@ -919,6 +1486,101 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
             **#1 BEST FEATURE:** Actual feature name - Actual personalized reason from this face.
             **#1 WORST FEATURE:** Actual flaw name - Actual personalized reason from this face.
             """
+
+    analysis_phase = (os.getenv("MOGCHECK_ANALYSIS_PHASE") or "full").strip().lower()
+    if choice in {"2", "6"} and analysis_phase == "report":
+        core_analysis = read_text_context(os.getenv("MOGCHECK_CORE_ANALYSIS_PATH"), 9000)
+        active_prompt = f"""
+        You are MogCheck Premium Backup Model.
+        {("This run uses Expert Mode (Very Accurate) as the reasoning model." if choice == "6" else "")}
+        Generate ONLY the delayed protocols and personalized feedback for an already-scored scan.
+
+        LOCKED_CORE_RESULT:
+        {core_analysis}
+
+        RULES:
+        - Do not change or recalculate the score.
+        - Use the locked score, pros, cons, weakest features, key ratios, and main limiting factor.
+        - Do not ask for another image. Do not output dashboard ratings.
+        - Keep advice physical/structural and specific to the locked findings.
+
+        RETURN JSON ONLY. No markdown. No prose outside JSON.
+        Schema:
+        {{
+          "personalizedFeedback":[{{"title":"", "description":""}}],
+          "protocols":[{{"name":"", "description":"", "impact":"High Impact|Medium Impact|Low Impact"}}],
+          "reportDebugJustification":"one compact sentence confirming protocols align with locked core result"
+        }}
+        Limits: exactly 5 personalizedFeedback items, exactly 25 protocols. Each description max 26 words.
+        """
+    elif choice == "1" and analysis_phase == "core":
+        feedback_marker = "### Personalised feedback"
+        audit_marker = "### MOG_REPORT_REVISION"
+        if feedback_marker in active_prompt:
+            prompt_before_feedback = active_prompt.split(feedback_marker, 1)[0]
+            prompt_audit_tail = ""
+            if audit_marker in active_prompt:
+                prompt_audit_tail = f"{audit_marker}{active_prompt.split(audit_marker, 1)[1]}"
+            active_prompt = f"""{prompt_before_feedback}
+
+        CORE SCORING SELF-AUDIT:
+        Before writing the final score, internally perform the same strict full Premium reasoning you would have used in the old unsplit one-pass analysis.
+        Do not inflate the rating because the output is shorter.
+        Do not skip hidden consistency checks, score-driver checks, uncanny/synthetic checks, aging/soft-tissue checks, or flaw severity checks.
+        The Final Frontal Rating and Final Side Rating must match the score you would give if Personalised feedback and ACTIONABLE PROTOCOLS were also being generated in this same request.
+
+        {prompt_audit_tail}
+        """
+        active_prompt = f"""{active_prompt}
+
+        SPLIT DELIVERY MODE - CORE RESULT ONLY:
+        Do NOT output Personalised feedback or ACTIONABLE PROTOCOLS in this pass.
+        Keep the strict MOG_REPORT_REVISION and Debug Rating Justification audit if present.
+        The detailed report will be generated in a second background request after the dashboard score is already visible.
+        """
+    elif choice == "1" and analysis_phase == "report":
+        core_analysis = read_text_context(os.getenv("MOGCHECK_CORE_ANALYSIS_PATH"), 32000)
+        report_visual_inputs = "VISUAL INPUT A: High-resolution frontal image provided."
+        if side_img_path and os.path.exists(side_img_path):
+            report_visual_inputs += "\n        VISUAL INPUT B: High-resolution side profile image provided."
+        report_side_policy = """
+        REPORT FRONT-ONLY MODE:
+        No side profile image was provided. Keep all advice frontal-only and do not mention side-profile findings.
+        """ if not has_side_profile else """
+        REPORT SIDE PROFILE MODE:
+        A side profile image was provided. You may include side-profile advice when it matches the locked core analysis.
+        """
+        active_prompt = f"""
+        MANDATE: Generate ONLY the delayed detailed report for an already-scored Premium analysis.
+        INPUT A (Frontal Metadata): {prompt_clinical_data}
+        INPUT B (Side Profile Metadata): {prompt_side_data}
+        INPUT C (Core Analysis Already Returned): {core_analysis}
+        {report_visual_inputs}
+        {content_safety_rules}
+        {report_side_policy}
+
+        STRICT CONTINUITY RULES:
+        - Treat INPUT C as locked. Do not change, recalculate, or restate the final score, side score, categories, hexagon ratings, best features, primary flaws, or biometrics.
+        - Build all advice and protocols from the exact weaknesses and strengths already identified in INPUT C plus the submitted visuals.
+        - Do not output dashboard data, ratings, category tables, MOG_REPORT_REVISION, or new score sections.
+        - If a side profile was not provided, keep advice frontal-only and do not mention side-profile findings.
+
+        OUTPUT FORMAT:
+        ### Personalised feedback
+        Provide exactly 5 pieces of personalized advice based on the user's submitted images and INPUT C.
+        Format each as a numbered list item with a capitalized title. Each piece must be 1-3 paragraphs max.
+        Focus strictly on real-world, physical issues and changes rather than lighting, posing, or generic grooming.
+        Be explicit about what is causing the problem and what realistic fix or improvement path applies.
+
+        ### ACTIONABLE PROTOCOLS
+        List exactly 25 actionable protocols sorted from highest impact to lowest impact.
+        Address frontal and lateral structural issues only when the relevant image/profile was provided.
+        Format every protocol exactly:
+        1. [Protocol Name]: [Description].
+        [Impact Rating]
+
+        **Debug Rating Justification:** Explain why the already-returned score from INPUT C makes sense. Mention the biggest score drivers and whether any authenticity/uncanny cap was applied. Keep this aligned with INPUT C and do not invent a new score.
+        """
 
     result, model_used, duration = consult_ai_with_selection(
         active_prompt,
