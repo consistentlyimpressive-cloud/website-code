@@ -941,6 +941,9 @@ const ANALYSIS_MODEL_LABELS = {
   '1': 'Legacy Premium',
   '2': 'Backup Model',
   '6': 'Expert Mode (Very Accurate)',
+  '7': 'penis goat',
+  '8': 'PENIS GOAT 2',
+  '9': 'PENIS GOAT 3',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
@@ -2482,7 +2485,7 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-sm font-black text-zinc-100">{scan.finalRating ?? '-'}/100</span>
-                          {(['1', '2', '6'].includes(String(scan.model || '').trim())) && <span className="bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Premium</span>}
+                          {(['1', '2', '6', '7', '8', '9'].includes(String(scan.model || '').trim())) && <span className="bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Premium</span>}
                           {scan.success === false && <span className="bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Failed</span>}
                         </div>
                         <div className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest">
@@ -3502,8 +3505,8 @@ const SCAN_PROGRESS_MESSAGES = [
 
 const getEstimatedScanTotalMs = (choice, fairUsageState) => {
   if (fairUsageState?.lowPriority) return 5 * 60 * 1000;
-  if (choice === '6') return 55 * 1000;
-  if (choice === '1' || choice === '7' || choice === '8') return 3.5 * 60 * 1000;
+  if (choice === '6' || choice === '7' || choice === '8' || choice === '9') return 55 * 1000;
+  if (choice === '1') return 3.5 * 60 * 1000;
   if (choice === '2') return 2.5 * 60 * 1000;
   return 90 * 1000;
 };
@@ -3625,7 +3628,7 @@ const ScanningView = ({
   const [hasError, setHasError] = useState(false);
   const [fairUsageState, setFairUsageState] = useState(null);
   const isUltra31 = choice === "1";
-  const isGemini31Pro = choice === "6";
+  const isGemini31Pro = choice === "6" || choice === "7" || choice === "8" || choice === "9";
   const isCompactViewport = typeof window !== 'undefined' && window.innerWidth < 768;
   const overlayRevealSeconds = isUltra31 ? 34 : isGemini31Pro ? 18 : choice === "2" ? 24 : 36;
   const overlayScanLoopSeconds = isUltra31 ? 4 : isGemini31Pro ? 3.5 : choice === "2" ? 4.5 : 4;
@@ -3836,7 +3839,7 @@ const ScanningView = ({
       };
 
       try {
-        const isUltra = choice === "1" || choice === "2" || choice === "6";
+        const isUltra = choice === "1" || choice === "2" || choice === "6" || choice === "7" || choice === "8" || choice === "9";
         activeUser = userRef.current;
         if (activeUser) {
           try {
@@ -3977,7 +3980,7 @@ const ScanningView = ({
       /** So the UI never sits on "Consulting AI" forever if Python/API hangs */
         const analyzeAbort = new AbortController();
         cancelAnalyzeRequest = () => analyzeAbort.abort();
-        const ANALYZE_CLIENT_MAX_MS = choice === "6" ? 4 * 60 * 1000 : 14 * 60 * 1000;
+        const ANALYZE_CLIENT_MAX_MS = (choice === "6" || choice === "7" || choice === "8" || choice === "9") ? 4 * 60 * 1000 : 14 * 60 * 1000;
         const analyzeHardStop = setTimeout(() => analyzeAbort.abort(), ANALYZE_CLIENT_MAX_MS);
 
         const buildProgressMessage = () => {
@@ -3997,7 +4000,7 @@ const ScanningView = ({
           setElapsedScanMs(Date.now() - scanStartedAt);
           setStatusText(buildProgressMessage());
         }, 1000);
-        const recoveryProbeDelayMs = choice === "6" ? 25000 : isUltra ? 45000 : 30000;
+        const recoveryProbeDelayMs = (choice === "6" || choice === "7" || choice === "8" || choice === "9") ? 25000 : isUltra ? 45000 : 30000;
         let recoveryProbeRunning = false;
         const recoveryTick = activeUser ? setInterval(async () => {
           if (!active || scanSucceeded || recoveryProbeRunning) return;
@@ -4648,7 +4651,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
   }
 
   const isUltra31 = job.choice === "1";
-  const isGemini31Pro = job.choice === "6";
+  const isGemini31Pro = job.choice === "6" || job.choice === "7" || job.choice === "8" || job.choice === "9";
   const overlayRevealSeconds = job.overlayRevealSeconds || (isUltra31 ? 34 : isGemini31Pro ? 18 : job.choice === "2" ? 24 : 36);
   const overlayScanLoopSeconds = job.overlayScanLoopSeconds || (isUltra31 ? 4 : isGemini31Pro ? 3.5 : job.choice === "2" ? 4.5 : 4);
   const lowPriorityBadge = job.fairUsageState?.lowPriority
@@ -4881,6 +4884,33 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       tier: "ultra",
       Icon: Sparkles
     },
+    {
+      id: "7",
+      name: "penis goat",
+      description:
+        "Admin-only Expert Mode variant using the custom calibration prompt.",
+      tier: "ultra",
+      Icon: Crown,
+      adminOnly: true
+    },
+    {
+      id: "8",
+      name: "PENIS GOAT 2",
+      description:
+        "Admin-only elite-standards variant using the bimodal scaling prompt.",
+      tier: "ultra",
+      Icon: Crown,
+      adminOnly: true
+    },
+    {
+      id: "9",
+      name: "PENIS GOAT 3",
+      description:
+        "Admin-only modern modeling standards variant with angularity and texture gates.",
+      tier: "ultra",
+      Icon: Crown,
+      adminOnly: true
+    },
     { id: "separator" },
     {
       id: "3",
@@ -4908,7 +4938,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     }
   ];
 
-  const isUltraModel = selectedModel === "1" || selectedModel === "2" || selectedModel === "6";
+  const isUltraModel = selectedModel === "1" || selectedModel === "2" || selectedModel === "6" || selectedModel === "7" || selectedModel === "8" || selectedModel === "9";
   const shouldUseSideProfile = isUltraModel && useSideProfile;
 
   // Check if current user is an admin by email domain or specific email
@@ -4916,6 +4946,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     user.email === 'laithbu07@gmail.com' || 
     user.email === 'admin@looksmaxxing.com' ||
     user.email === 'serenity.eyb@gmail.com' ||
+    user.email === 'laithabuamsheh@gmail.com' ||
     user.email.endsWith('@looksmaxxing.com')
   );
 
@@ -4967,10 +4998,14 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
   useEffect(() => {
     if (ultraAccessPending) return;
-    if (!canUseUltra && (selectedModel === '1' || selectedModel === '2' || selectedModel === '6')) {
+    if (!isAdmin && (selectedModel === '7' || selectedModel === '8' || selectedModel === '9')) {
+      setSelectedModel('3');
+      return;
+    }
+    if (!canUseUltra && (selectedModel === '1' || selectedModel === '2' || selectedModel === '6' || selectedModel === '7' || selectedModel === '8' || selectedModel === '9')) {
       setSelectedModel('3');
     }
-  }, [canUseUltra, selectedModel, ultraAccessPending]);
+  }, [canUseUltra, isAdmin, selectedModel, ultraAccessPending]);
 
   useEffect(() => {
     if (!shouldUseSideProfile) {
@@ -8163,7 +8198,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     return ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(0)}s`;
   };
 
-  const modelLabel = (m) => ({ '1': 'Legacy Premium', '2': 'Backup Model', '6': 'Expert Mode', '3': 'Free' }[m] || m);
+  const modelLabel = (m) => ({ '1': 'Legacy Premium', '2': 'Backup Model', '6': 'Expert Mode', '7': 'penis goat', '8': 'PENIS GOAT 2', '9': 'PENIS GOAT 3', '3': 'Free' }[m] || m);
   const adminUserSections = useMemo(() => {
     const newUsers = [];
     const goatUsers = [];
@@ -9852,7 +9887,7 @@ const App = () => {
 
   const isPremiumModelDashboard = useMemo(() => {
     const model = String(dashboardData?.selectedModel || '').trim();
-    return model === '1' || model === '2' || model === '6';
+    return model === '1' || model === '2' || model === '6' || model === '7' || model === '8' || model === '9';
   }, [dashboardData?.selectedModel]);
 
   useEffect(() => {

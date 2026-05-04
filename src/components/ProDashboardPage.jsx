@@ -22,6 +22,9 @@ const modelLabel = (model) => ({
   '1': 'Legacy Premium',
   '2': 'Backup Model',
   '6': 'Expert Mode (Very Accurate)',
+  '7': 'penis goat',
+  '8': 'PENIS GOAT 2',
+  '9': 'PENIS GOAT 3',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
@@ -539,7 +542,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     if (setPendingUploadProfileId) {
       setPendingUploadProfileId(dashboardData?.profileId || null);
     }
-    if (model === '1' || model === '2' || model === '6') {
+    if (model === '1' || model === '2' || model === '6' || model === '7' || model === '8' || model === '9') {
       setCurrentPage('upload-ultra');
     } else {
       setCurrentPage('upload-photo');

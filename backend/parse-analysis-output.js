@@ -242,8 +242,106 @@ function normalizeScoreMap(map, applyOffset = true) {
   return Object.keys(out).length ? out : null;
 }
 
+function scoreNumber(value) {
+  if (value == null) return null;
+  const match = String(value).match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const score = Number(match[0]);
+  return Number.isFinite(score) ? score : null;
+}
+
+function splitPipeScore(value, side = false) {
+  const parts = String(value ?? '').split('|');
+  const selected = side ? (parts[1] ?? parts[0]) : parts[0];
+  if (/N\/A/i.test(selected || '')) return null;
+  return scoreNumber(selected);
+}
+
+function normalizeDualScoreMap(map, side = false) {
+  if (!map || typeof map !== 'object' || Array.isArray(map)) return null;
+  const out = {};
+  for (const [key, value] of Object.entries(map)) {
+    const score = splitPipeScore(value, side);
+    out[key.replace(/_/g, '/')] = Number.isFinite(score) ? score : null;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function featureStringsToEntries(items, start = 0, limit = 5) {
+  if (!Array.isArray(items)) return [];
+  return items.slice(start, start + limit).map((item) => {
+    const text = compactString(item);
+    if (!text) return null;
+    const [titlePart, ...descriptionParts] = text.split(/\s+-\s+/);
+    const title = compactString(titlePart || text).slice(0, 80);
+    const description = compactString(descriptionParts.join(' - ') || text).slice(0, 280);
+    return title ? { title, description } : null;
+  }).filter(Boolean);
+}
+
+function normalizeLegacyJsonDashboard(data) {
+  if (!data || typeof data !== 'object') return data;
+  if (!data.ANALYSIS && !data.DASHBOARD_DATA && !data.RATINGS) return data;
+
+  const analysis = data.ANALYSIS || {};
+  const dashboard = data.DASHBOARD_DATA || {};
+  const ratings = data.RATINGS || {};
+  const coreScores = analysis.CORE_CATEGORY_SCORES || {};
+  const critical = analysis.CRITICAL_MARKERS || {};
+  const best = Array.isArray(dashboard.BEST_FEATURES) ? dashboard.BEST_FEATURES : [];
+  const flaws = Array.isArray(dashboard.PRIMARY_FLAWS) ? dashboard.PRIMARY_FLAWS : [];
+  const biometrics = Object.entries(ratings).map(([name, score]) => ({
+    name: titleCaseKey(name),
+    score: scoreNumber(score),
+  }));
+  const protocols = Array.isArray(data.ACTIONABLE_PROTOCOLS)
+    ? data.ACTIONABLE_PROTOCOLS.map((item, index) => {
+        const text = compactString(item);
+        const match = text.match(/^\s*(?:\d+\.\s*)?([^:]+):\s*(.+)$/);
+        const name = compactString(match?.[1] || `Protocol ${index + 1}`);
+        const rest = compactString(match?.[2] || text);
+        return {
+          name,
+          description: rest || name,
+          impact: normalizeImpactLabel(rest),
+        };
+      })
+    : [];
+
+  const bestFeatures = featureStringsToEntries(best, 0, 5);
+  if (!bestFeatures.length && critical.BEST_FEATURE) {
+    bestFeatures.push(...jsonFeatureArray([critical.BEST_FEATURE], 1));
+  }
+  const primaryFlaws = featureStringsToEntries(flaws, 0, 5);
+  if (!primaryFlaws.length && critical.WORST_FEATURE) {
+    primaryFlaws.push(...jsonFeatureArray([critical.WORST_FEATURE], 1));
+  }
+
+  return {
+    sex: analysis.SEX,
+    finalRating: scoreNumber(analysis.Final_Frontal_Rating),
+    sideRating: scoreNumber(analysis.Final_Side_Rating),
+    maxNaturalPotential: scoreNumber(analysis.Max_Natural_Potential),
+    maxPotentialWithSurgery: scoreNumber(analysis.Max_Potential_with_Surgery),
+    technicalSummary: analysis.Technical_Summary,
+    appealAssessment: analysis.Appeal_Assessment,
+    debugJustification: data.JUSTIFICATION,
+    bestFeatures,
+    primaryFlaws,
+    sideBestFeatures: featureStringsToEntries(best, 5, 5),
+    sidePrimaryFlaws: featureStringsToEntries(flaws, 5, 5),
+    categories: normalizeDualScoreMap(coreScores, false),
+    sideCategories: normalizeDualScoreMap(coreScores, true),
+    hexagonFront: analysis.Hexagon_Chart_Ratings_front,
+    hexagonSide: analysis.Hexagon_Chart_Ratings_side,
+    personalizedFeedback: data.Personalised_feedback || data.Personalized_feedback,
+    protocols,
+    keyRatios: biometrics,
+  };
+}
+
 function isGemini31ProOutput(rawOutput) {
-  return /\[Using:\s*(?:Gemini\s+3\.1\s+Pro|Expert\s+Mode\s*\(Very\s+Accurate\))(?=\s|\|)/i.test(String(rawOutput || ''));
+  return /\[Using:\s*(?:Gemini\s+3\.1\s+Pro|Expert\s+Mode\s*\(Very\s+Accurate\)|penis\s+goat|PENIS\s+GOAT\s+2|PENIS\s+GOAT\s+3)(?=\s|\|)/i.test(String(rawOutput || ''));
 }
 
 function buildGeminiJsonScoreCalibration(rawOutput, backendDir, rawFinalRating) {
@@ -271,7 +369,9 @@ function buildGeminiJsonScoreCalibration(rawOutput, backendDir, rawFinalRating) 
 }
 
 function parseExperimentalJsonOutput(rawOutput, backendDir) {
-  const candidates = extractJsonObjects(rawOutput).filter((obj) => obj && typeof obj === 'object');
+  const candidates = extractJsonObjects(rawOutput)
+    .filter((obj) => obj && typeof obj === 'object')
+    .map(normalizeLegacyJsonDashboard);
   const data = candidates.find((obj) =>
     Object.prototype.hasOwnProperty.call(obj, 'finalRating') ||
     Array.isArray(obj.personalizedFeedback) ||
@@ -290,6 +390,12 @@ function parseExperimentalJsonOutput(rawOutput, backendDir) {
   const sideRating = data.sideRating == null || data.sideRating === 'N/A' || Number.isNaN(Number(data.sideRating))
     ? null
     : applyOffset100(Number(data.sideRating));
+  const maxNaturalPotential = data.maxNaturalPotential == null || Number.isNaN(Number(data.maxNaturalPotential))
+    ? null
+    : applyOffset100(Number(data.maxNaturalPotential));
+  const maxPotentialWithSurgery = data.maxPotentialWithSurgery == null || Number.isNaN(Number(data.maxPotentialWithSurgery))
+    ? null
+    : applyOffset100(Number(data.maxPotentialWithSurgery));
   const personalizedFeedback = jsonFeatureArray(data.personalizedFeedback, 5);
   const protocols = Array.isArray(data.protocols)
     ? data.protocols.map((item, index) => {
@@ -323,8 +429,8 @@ function parseExperimentalJsonOutput(rawOutput, backendDir) {
     sex: compactString(data.sex || 'unknown') || null,
     finalRating,
     sideRating,
-    maxNaturalPotential: null,
-    maxPotentialWithSurgery: null,
+    maxNaturalPotential,
+    maxPotentialWithSurgery,
     authenticityFlag: compactString(data.authenticityFlag || ''),
     uncannyFlag: compactString(data.uncannyFlag || ''),
     technicalSummary,

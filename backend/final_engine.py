@@ -6,6 +6,7 @@ import numpy as np
 import sys
 import json
 import random
+import re
 from pathlib import Path
 
 # Load .env if it exists
@@ -197,6 +198,19 @@ KEY_HEALTH_STATE_PATH = Path(__file__).resolve().parent / "key-health-state.json
 BENCHMARK_CALIBRATION_PATH = Path(__file__).resolve().parent / "gemini-benchmark-calibration.json"
 
 
+def remove_score_cap_rules_for_penis_goat(prompt):
+    cap_pattern = re.compile(
+        r"\b(?:cap|caps|capped|ceiling)\b|must\s+not\s+exceed\s+40|female\s+counterbalance|deduct\s+10\s+points",
+        re.IGNORECASE,
+    )
+    kept_lines = []
+    for line in str(prompt or "").splitlines():
+        if cap_pattern.search(line):
+            continue
+        kept_lines.append(line)
+    return "\n".join(kept_lines)
+
+
 def _utc_now_ms():
     return int(time.time() * 1000)
 
@@ -348,7 +362,10 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             "3": ("gemma-4-26b-a4b-it", "OPTIC"),
             "4": ("gemma-4-26b-a4b-it", "CORE"),
             "5": ("gemma-4-26b-a4b-it", "GENEVA"),
-            "6": (GEMINI_31_PRO_MODEL_ID, "Expert Mode (Very Accurate)")
+            "6": (GEMINI_31_PRO_MODEL_ID, "Expert Mode (Very Accurate)"),
+            "7": (GEMINI_31_PRO_MODEL_ID, "penis goat"),
+            "8": (GEMINI_31_PRO_MODEL_ID, "PENIS GOAT 2"),
+            "9": (GEMINI_31_PRO_MODEL_ID, "PENIS GOAT 3")
         }
 
         if choice not in mapping:
@@ -357,8 +374,8 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
         model_id, friendly_name = mapping[choice]
 
         print(f"[DEBUG] Consulting {friendly_name}... (Press Ctrl+C to Cancel)")
-        available_keys = GEMINI_31_PRO_KEYS if choice == "6" else GOOGLE_GENAI_KEYS
-        key_help = "GEMINI_3_1_PRO_API_KEY" if choice == "6" else "GEMINI_KEY_1 or more keys for Gemma"
+        available_keys = GEMINI_31_PRO_KEYS if choice in {"6", "7", "8", "9"} else GOOGLE_GENAI_KEYS
+        key_help = "GEMINI_3_1_PRO_API_KEY" if choice in {"6", "7", "8", "9"} else "GEMINI_KEY_1 or more keys for Gemma"
         if not available_keys:
             return (
                 f"Error: No Google GenAI keys are configured in backend/.env. Add {key_help}.",
@@ -379,11 +396,11 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
         analysis_phase = (os.getenv("MOGCHECK_ANALYSIS_PHASE") or "full").strip().lower()
         request_type = "protocol" if analysis_phase == "report" else analysis_phase
         scan_id = os.getenv("MOGCHECK_SCAN_REQUEST_ID") or None
-        include_image = not (choice in {"2", "6"} and analysis_phase == "report")
+        include_image = not (choice in {"2", "6", "7", "8", "9"} and analysis_phase == "report")
         max_output_tokens = None
         if choice == "2":
             max_output_tokens = 1400 if analysis_phase == "report" else 1500
-        elif choice == "6":
+        elif choice in {"6", "7", "8", "9"}:
             # Gemini 3.x can spend a large part of maxOutputTokens on hidden thinking.
             # Give it more visible room and cap thinking so the JSON is not truncated.
             max_output_tokens = 2400 if analysis_phase == "report" else 4096
@@ -521,6 +538,9 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("4. CORE (Objective Attractiveness)")
     print("5. GENEVA (Mathematical Beauty)")
     print("6. Expert Mode (Very Accurate)")
+    print("7. penis goat")
+    print("8. PENIS GOAT 2")
+    print("9. PENIS GOAT 3")
 
     if choice_override is not None and str(choice_override).strip():
         choice = str(choice_override).strip()
@@ -532,13 +552,13 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
             print("\nExiting script...")
             return
 
-    if choice not in {"1", "2", "3", "4", "5", "6"}:
+    if choice not in {"1", "2", "3", "4", "5", "6", "7", "8", "9"}:
         print(f"[ERROR] Invalid model choice: {choice}")
         return "Error: Model selection failed."
 
     # --- SIDE PROFILE DATA COLLECTION ---
     side_data = "IGNORE_SIDE_ANALYSIS"
-    if choice in {"1", "2", "6"}:
+    if choice in {"1", "2", "6", "7", "8", "9"}:
         print("[ðŸš€] Gathering Lateral Data from engineside.py...")
         if side_img_path and os.path.exists(side_img_path):
             try:
@@ -548,7 +568,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         else:
             side_data = "IGNORE_SIDE_ANALYSIS"
     has_side_profile = bool(
-        choice in {"1", "2", "6"} and side_img_path and os.path.exists(side_img_path) and side_data != "IGNORE_SIDE_ANALYSIS"
+        choice in {"1", "2", "6", "7", "8", "9"} and side_img_path and os.path.exists(side_img_path) and side_data != "IGNORE_SIDE_ANALYSIS"
     )
     side_prompt_policy = """
         FRONT-ONLY MODE:
@@ -653,10 +673,10 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
     """ if False else ""
     prompt_clinical_data = clinical_data
     prompt_side_data = side_data
-    benchmark_calibration_summary = load_benchmark_calibration_summary() if choice in {"2", "6"} else ""
+    benchmark_calibration_summary = load_benchmark_calibration_summary() if choice in {"2", "6", "7", "8", "9"} else ""
 
     # --- PROMPT SELECTION LOGIC ---
-    if choice in {"2", "6"}:
+    if choice in {"2", "6", "7", "8", "9"}:
         compact_metrics = compact_metric_summary(prompt_clinical_data, prompt_side_data)
         legacy_experimental_prompt = f"""
         You are MogCheck Premium Backup Model.
@@ -844,8 +864,8 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         """
         calibration_preserving_prompt = f"""
         You are MogCheck Premium Experimental Calibration-Preserving Core.
-        {("This run uses Expert Mode (Very Accurate) as the reasoning model." if choice == "6" else "")}
-        {(gemini_31_calibration_patch if choice == "6" else "")}
+        {("This run uses Expert Mode (Very Accurate) as the reasoning model." if choice in {"6", "7"} else "")}
+        {(gemini_31_calibration_patch if choice in {"6", "7"} else "")}
         Produce the first dashboard result only. This is a lower-token Premium core request, not a softer model.
 
         INPUT A (Compact Frontal/Side Metrics JSON): {compact_metrics}
@@ -998,6 +1018,134 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         """
         experimental_prompt_variant = os.getenv("MOGCHECK_EXPERIMENTAL_PROMPT_VARIANT", "calibration").strip().lower()
         active_prompt = legacy_experimental_prompt if experimental_prompt_variant in {"7k", "legacy", "current"} else calibration_preserving_prompt
+        if choice == "7":
+            active_prompt = remove_score_cap_rules_for_penis_goat(calibration_preserving_prompt)
+        elif choice == "8":
+            active_prompt = f"""
+        You are PENIS GOAT 2, a clinical maxillofacial analyst for ELITE standards.
+        Produce the first dashboard result in the same dashboard-compatible JSON shape as Expert Mode.
+        Preserve the scoring logic below exactly in spirit. Do not soften, average out, or replace it with generic Premium calibration.
+
+        INPUT A (Metadata): {prompt_clinical_data}
+        INPUT B (Visuals): High-resolution frontal image provided.
+        {("INPUT C (Side Profile Metadata): " + prompt_side_data if has_side_profile else "FRONT-ONLY MODE: no side profile image was provided; set sideRating and side-only fields to null. Do not infer side-only weaknesses.")}
+        {content_safety_rules}
+        {feature_selection_rules}
+
+        SCORING LOGIC TO PRESERVE:
+        STRICT RULE: HAIRLINE OCCLUSION OVERRIDE
+        - If hair blocks the forehead, DISREGARD 'Upper Third' data from INPUT A.
+        - Visually estimate skull structure. Do NOT penalize for a "large forehead" if it's just hair volume.
+
+        BIMODAL SCALING LOGIC:
+        1. THE "LEAN & YOUNG" BUFFER (Target: 68-75):
+           - Buffer subjects with high leanness, youthful skin (no nasolabial folds), and clear "pretty-boy" appeal.
+           - Prioritize bone-to-skin tightness over rigid vertical ratios.
+        2. THE "SOFT & AGED" PENALTY (Target: 40-48):
+           - Punish oiliness, nasolabial folds, skin laxity, facial fat, or unrefined wide noses.
+           - These subjects are DISQUALIFIED from elite status and must be rated in the 40s.
+
+        DASHBOARD OUTPUT ADAPTATION:
+        - Return JSON only. No markdown. No prose outside JSON.
+        - Keep the above scoring behavior; only adapt the output into dashboard fields.
+        - The delayed report request will generate ACTIONABLE PROTOCOLS and personalized feedback after the dashboard loads. For the core response, include concise dashboard fields only.
+        - finalRating must be decided before writing descriptions.
+        - technicalSummary should correspond to the requested STRUCTURAL OVERVIEW and mention the hairline override if applicable.
+        - appealAssessment should be about 40 words.
+        - bestFeatures should contain exactly 5 entries when possible.
+        - primaryFlaws should contain exactly 5 entries when possible.
+        - keyRatios should contain 12-20 relevant 1-100 ratings from INPUT A and visual interpretation using the bimodal scaling logic.
+
+        JSON schema:
+        {{
+          "sex":"male|female|unknown",
+          "finalRating":0,
+          "sideRating":null,
+          "tier":"short tier label",
+          "technicalSummary":"Bone vs soft tissue structural overview. Mention hairline override if applicable.",
+          "appealAssessment":"~40 word calibrated appeal assessment",
+          "personalizedInterpretation":"1-2 concise sentences summarizing the bimodal read",
+          "categories":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Maxillary/Cheekbone Projection":0,"Nose Projection":0,"Facial Fat":0,"Eye Depth":0,"Ear Shape":0}},
+          "hexagonFront":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Facial Fat":0}},
+          "hexagonSide":null,
+          "keyRatios":[{{"name":"fWHR","value":"1.92","score":81,"impact":"positive|neutral|negative","note":"Short face-specific note."}}],
+          "bestFeatures":[{{"title":"", "description":""}}],
+          "primaryFlaws":[{{"title":"", "description":""}}],
+          "pros":[""],
+          "cons":[""],
+          "mainLimitingFactor":"",
+          "qualityFlags":[""],
+          "confidenceFlags":[""],
+          "debugJustification":"admin-only reason for the score; explicitly mention whether Lean & Young Buffer or Soft & Aged Penalty drove the result"
+        }}
+        Limits: bestFeatures exactly 5 when possible. primaryFlaws exactly 5 when possible. keyRatios 12-20. pros 3-5. cons 3-5. Keep text concise.
+        """
+        elif choice == "9":
+            active_prompt = f"""
+        You are PENIS GOAT 3, an elite-tier aesthetic consultant and clinical maxillofacial analyst.
+        Your goal is to provide a brutally objective rating based on modern modeling standards, dimorphism, and facial harmony.
+        Produce the first dashboard result in the same dashboard-compatible JSON shape as Expert Mode.
+        Preserve the scoring logic below exactly in spirit. Do not replace it with generic Premium calibration.
+
+        DATA INPUTS:
+        1. METADATA (MediaPipe): {prompt_clinical_data}
+           - NOTE: Use these measurements as supplemental evidence only. Do NOT be limited by them. If the visual image contradicts a measurement, such as hair blocking a measurement point, trust the visual image.
+        2. VISUALS: High-resolution image provided. Analyze texture, angularity, and grooming.
+        {("3. SIDE PROFILE METADATA: " + prompt_side_data if has_side_profile else "FRONT-ONLY MODE: no side profile image was provided; set sideRating and side-only fields to null. Do not infer side-only weaknesses.")}
+        {content_safety_rules}
+        {feature_selection_rules}
+
+        CALIBRATION BENCHMARKS (1-100 SCALE):
+        - 80/100: Elite/Model Tier (Examples: Chico Lachowski, Cha Eun-woo).
+        - 70-80/100: High-tier attractiveness (Example: Jordan Barrett - varies due to uncanny features/lighting).
+        - 65-75/100: Clearly attractive, "pretty boy" or "masculine-sharp" appeal. Above average in any room.
+        - 50/100: Dead average.
+        - 40-45/100: Below average/Failing (Example: Diddy phenotype - due to soft tissue, aging, and unrefined features).
+
+        MANDATORY RATING LOGIC:
+        1. THE ANGULARITY GATE: No subject can score above 65 if they possess significant facial fat, lack a defined jawline, or lack sub-zygomatic hollowing. Angularity is the baseline for "attractive."
+        2. THE SKIN/TEXTURE TAX: Punish heavily for oily/greasy texture and visible large pores, active acne or significant scarring, nasolabial folds, and deep tear troughs as major age/vitality penalties.
+        3. ORBITAL & NASAL REFINEMENT:
+           - Penalize droopy eyelids (ptosis), significant scleral show, or lack of brow support.
+           - Critique nose shape based on refinement. For African phenotypes, penalize a lack of bridge definition or excessive alar flaring that disrupts harmony.
+        4. GROOMING & STYLING: Hairstyles and beard grooming contribute +/- 5 points. Punish patchy beards, neckbeards, or unkempt, greasy hair.
+        5. PHENOTYPE STANDARDS: For Asian phenotypes, use the "Cha Eun-woo" standard (80) - prioritize extreme skin clarity, orbital compactness, and elegant bone structure.
+
+        DASHBOARD OUTPUT ADAPTATION:
+        - Return JSON only. No markdown. No prose outside JSON.
+        - Keep the above scoring behavior; only adapt the output into dashboard fields.
+        - The delayed report request will generate ACTIONABLE PROTOCOLS and personalized feedback after the dashboard loads. For the core response, include concise dashboard fields only.
+        - finalRating must be decided before writing descriptions.
+        - appealAssessment should provide the requested ~50-word phenotype, dimorphism, and vibe analysis.
+        - technicalSummary should correspond to the requested STRUCTURAL OVERVIEW: detail bone-to-soft-tissue ratio, whether the subject passed the Angularity Gate, and whether grooming/hair helps or hurts the score.
+        - bestFeatures should contain exactly 5 entries when possible.
+        - primaryFlaws should contain exactly 5 entries when possible and should target facial fat, nasolabial folds, eyelid/brow issues, skin texture, or unrefined nasal structure when present.
+        - keyRatios should list corrected 1-100 ratings from METADATA plus visual reality.
+
+        JSON schema:
+        {{
+          "sex":"male|female|unknown",
+          "finalRating":0,
+          "sideRating":null,
+          "tier":"short tier label",
+          "technicalSummary":"Bone-to-soft-tissue overview. State Angularity Gate result and grooming/hair impact.",
+          "appealAssessment":"~50-word phenotype, dimorphism, and vibe analysis",
+          "personalizedInterpretation":"1-2 concise sentences summarizing the modern modeling-standard read",
+          "categories":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Maxillary/Cheekbone Projection":0,"Nose Projection":0,"Facial Fat":0,"Eye Depth":0,"Ear Shape":0}},
+          "hexagonFront":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Facial Fat":0}},
+          "hexagonSide":null,
+          "keyRatios":[{{"name":"fWHR","value":"1.92","score":81,"impact":"positive|neutral|negative","note":"Corrected visual-reality note."}}],
+          "bestFeatures":[{{"title":"", "description":""}}],
+          "primaryFlaws":[{{"title":"", "description":""}}],
+          "pros":[""],
+          "cons":[""],
+          "mainLimitingFactor":"",
+          "qualityFlags":[""],
+          "confidenceFlags":[""],
+          "debugJustification":"admin-only reason for the score; explicitly mention Angularity Gate, Skin/Texture Tax, orbital/nasal refinement, grooming adjustment, and phenotype benchmark when relevant"
+        }}
+        Limits: bestFeatures exactly 5 when possible. primaryFlaws exactly 5 when possible. keyRatios 12-20. pros 3-5. cons 3-5. Keep text concise.
+        """
     elif choice == "1":
         active_prompt = f"""
         MANDATE: Conduct a DUAL-INPUT structural evaluation (FRONTAL + LATERAL).
@@ -1488,11 +1636,11 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
             """
 
     analysis_phase = (os.getenv("MOGCHECK_ANALYSIS_PHASE") or "full").strip().lower()
-    if choice in {"2", "6"} and analysis_phase == "report":
+    if choice in {"2", "6", "7", "8", "9"} and analysis_phase == "report":
         core_analysis = read_text_context(os.getenv("MOGCHECK_CORE_ANALYSIS_PATH"), 9000)
         active_prompt = f"""
         You are MogCheck Premium Backup Model.
-        {("This run uses Expert Mode (Very Accurate) as the reasoning model." if choice == "6" else "")}
+        {("This run uses Expert Mode (Very Accurate) as the reasoning model." if choice in {"6", "7", "8", "9"} else "")}
         Generate ONLY the delayed protocols and personalized feedback for an already-scored scan.
 
         LOCKED_CORE_RESULT:

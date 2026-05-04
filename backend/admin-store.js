@@ -266,7 +266,7 @@ function getStats() {
 
   const modelCounts = { ultra: 0, free: 0 };
   store.analyses.forEach((a) => {
-    if (['1', '2', '6'].includes(a.model)) modelCounts.ultra++;
+    if (['1', '2', '6', '7', '8', '9'].includes(a.model)) modelCounts.ultra++;
     else modelCounts.free++;
   });
 

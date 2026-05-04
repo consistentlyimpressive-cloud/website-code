@@ -3044,14 +3044,14 @@ async function verifyUltraAccess(req, res, next) {
     req.body.choice = '6';
     req.body.model = '6';
   }
-  const allowedModelChoices = new Set(['1', '2', '3', '4', '5', '6']);
+  const allowedModelChoices = new Set(['1', '2', '3', '4', '5', '6', '7', '8', '9']);
   if (!allowedModelChoices.has(modelChoice)) {
     return res.status(400).json({
       success: false,
       error: 'Invalid AI model selected. Please choose an available scan model.',
     });
   }
-  const isUltra = modelChoice === '1' || modelChoice === '2' || modelChoice === '6';
+  const isUltra = modelChoice === '1' || modelChoice === '2' || modelChoice === '6' || modelChoice === '7' || modelChoice === '8' || modelChoice === '9';
   if (!isUltra) {
     req.ultraContext = null;
     return next();
@@ -3085,6 +3085,13 @@ async function verifyUltraAccess(req, res, next) {
     email === 'serenity.eyb@gmail.com' ||
     email === 'laithbu07@gmail.com' ||
     email === 'laithabuamsheh@gmail.com';
+
+  if ((modelChoice === '7' || modelChoice === '8' || modelChoice === '9') && !isAdminEmail) {
+    return res.status(403).json({
+      success: false,
+      error: 'This model is admin-only.',
+    });
+  }
 
   if (isAdminEmail) {
     req.ultraContext = { uid, plan: 'pro', source: 'admin-email-bypass' };
@@ -3206,7 +3213,7 @@ app.post(
     const statsJson = req.body.stats;
     const requestedModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
     const modelChoice = requestedModelChoice === '1' ? '6' : requestedModelChoice;
-    const shouldRunSplitReport = modelChoice === '1' || modelChoice === '2' || modelChoice === '6';
+    const shouldRunSplitReport = modelChoice === '1' || modelChoice === '2' || modelChoice === '6' || modelChoice === '7' || modelChoice === '8' || modelChoice === '9';
     const scanRequestId =
       String(req.body.scanRequestId || '').trim() ||
       `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
