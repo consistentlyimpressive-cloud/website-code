@@ -3871,6 +3871,24 @@ app.post('/api/unlock-potential', unlockLimiter, extractUserOptional, upload.sin
   const imagePath = req.file.path;
   const scriptPath = path.join(__dirname, 'unlock_potential.py');
   const pythonExecutable = getPythonExecutable();
+  const returnOriginalFallback = (statusCode = 200, reason = 'Potential renderer unavailable') => {
+    try {
+      const mime = req.file.mimetype || 'image/jpeg';
+      const b64 = fs.readFileSync(imagePath).toString('base64');
+      return res.status(statusCode).json({
+        success: true,
+        imageUrl: `data:${mime};base64,${b64}`,
+        fallback: true,
+        warning: reason,
+      });
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        error: reason,
+        details: error.message,
+      });
+    }
+  };
 
   console.log(`[api/unlock-potential] Started for image: ${imagePath}`);
 
@@ -3895,21 +3913,16 @@ app.post('/api/unlock-potential', unlockLimiter, extractUserOptional, upload.sin
     console.log(`[api/unlock-potential] Python process closed with exit code ${code}`);
 
     if (code !== 0) {
-      return res.status(500).json({
-        success: false,
-        error: `Process failed with code ${code}.`,
-        details: pythonStderr || pythonOutput,
-      });
+      console.warn(`[api/unlock-potential] Falling back to original image after renderer failure: ${pythonStderr || pythonOutput}`);
+      return returnOriginalFallback(200, `Potential renderer failed with code ${code}.`);
     }
 
     const outputLines = pythonOutput.trim().split('\n');
     const base64Data = outputLines[outputLines.length - 1].trim();
 
     if (!base64Data || base64Data.startsWith('Error:')) {
-      return res.status(500).json({
-        success: false,
-        error: base64Data || 'Unknown error occurred in Python script',
-      });
+      console.warn(`[api/unlock-potential] Falling back to original image: ${base64Data || 'empty renderer output'}`);
+      return returnOriginalFallback(200, base64Data || 'Potential renderer returned no image.');
     }
 
     res.json({

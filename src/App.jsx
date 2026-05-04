@@ -6613,8 +6613,11 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
       if (data.success && data.imageUrl) {
         setPotentialImageUrl(data.imageUrl);
         setIsUnlocked(true);
+        if (data.fallback) {
+          setUnlockError('Potential renderer unavailable. Showing original image for now.');
+        }
       } else {
-        setUnlockError(GENERIC_ERROR);
+        setUnlockError(data?.error || GENERIC_ERROR);
       }
     } catch (err) {
       console.error('Unlock potential failed:', err);
@@ -6743,8 +6746,14 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const activeImageUrl = effectiveProfileView === 'front'
     ? (dashboardData?.frontImage || placeholderProfileImage)
     : (dashboardData?.sideImage || dashboardData?.frontImage || placeholderProfileImage);
-  const maxNaturalPotential = Number(dashboardData?.maxNaturalPotential);
-  const maxPotentialWithSurgery = Number(dashboardData?.maxPotentialWithSurgery);
+  const rawMaxNaturalPotential = dashboardData?.maxNaturalPotential;
+  const rawMaxPotentialWithSurgery = dashboardData?.maxPotentialWithSurgery;
+  const maxNaturalPotential = rawMaxNaturalPotential == null || rawMaxNaturalPotential === ''
+    ? NaN
+    : Number(rawMaxNaturalPotential);
+  const maxPotentialWithSurgery = rawMaxPotentialWithSurgery == null || rawMaxPotentialWithSurgery === ''
+    ? NaN
+    : Number(rawMaxPotentialWithSurgery);
   const hasPotentialRatings =
     Number.isFinite(maxNaturalPotential) || Number.isFinite(maxPotentialWithSurgery);
   const formatPotentialScore = (value) =>

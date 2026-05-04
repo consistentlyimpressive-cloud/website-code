@@ -202,15 +202,18 @@ function normalizeMetricScore(scoreValue) {
   return applyOffset100(score100);
 }
 
-function jsonBiometricArray(items, limit = 20) {
+function jsonBiometricArray(items, limit = 20, rawOutput = '') {
   if (!Array.isArray(items)) return [];
   return items
     .map((item) => {
       if (!item || typeof item !== 'object') return null;
       const label = compactString(item.label || item.name || item.metric);
       if (!label) return null;
-      const score = normalizeMetricScore(item.score ?? item.rating);
       const value = item.value ?? item.rawValue ?? item.val;
+      const deterministicScore = value != null && value !== ''
+        ? deterministicBiometricScore(label, value, rawOutput)
+        : null;
+      const score = deterministicScore ?? normalizeMetricScore(item.score ?? item.rating);
       const displayValue = Number.isFinite(score)
         ? `${Math.round(score)}/100`
         : compactString(value || '');
@@ -305,7 +308,7 @@ function parseExperimentalJsonOutput(rawOutput, backendDir) {
     : [];
   const bestFeatures = jsonFeatureArray(data.bestFeatures || data.strongestFeatures || data.pros, 5);
   const primaryFlaws = jsonFeatureArray(data.primaryFlaws || data.weakestFeatures || data.cons, 5);
-  const biometrics = jsonBiometricArray(data.keyRatios || data.metrics || data.facialMetrics || data.ratios || data.biometrics, 20);
+  const biometrics = jsonBiometricArray(data.keyRatios || data.metrics || data.facialMetrics || data.ratios || data.biometrics, 20, rawOutput);
   const technicalSummary = compactString(data.technicalSummary || data.summary || data.mainLimitingFactor, DEFAULT_SUMMARY) || DEFAULT_SUMMARY;
   const interpretation = compactString(data.personalizedInterpretation || data.interpretation || '');
   const appealAssessment = compactString(data.appealAssessment || interpretation || data.tier || data.mainLimitingFactor);
@@ -338,7 +341,7 @@ function parseExperimentalJsonOutput(rawOutput, backendDir) {
     hexagonSide: normalizeScoreMap(data.hexagonSide, false),
     personalizedFeedback,
     biometrics,
-    sideBiometrics: jsonBiometricArray(data.sideKeyRatios || data.sideMetrics || data.sideBiometrics, 20),
+    sideBiometrics: jsonBiometricArray(data.sideKeyRatios || data.sideMetrics || data.sideBiometrics, 20, rawOutput),
     protocols,
     hasSubstantiveParse:
       finalRating != null ||
@@ -759,12 +762,13 @@ function scoreFwhrRatio(rawValue) {
 function scoreMidfaceRatio(rawValue) {
   const ratio = Number(rawValue);
   if (!Number.isFinite(ratio)) return null;
-  if (ratio >= 0.88 && ratio <= 0.98) return Math.round(94 + (1 - Math.abs(ratio - 0.93) / 0.05) * 6);
-  if (ratio < 0.82) return Math.round(clamp(60 - ((0.82 - ratio) / 0.08) * 35, 25, 60));
-  if (ratio < 0.88) return Math.round(60 + ((ratio - 0.82) / 0.06) * 34);
-  if (ratio <= 1.07) return Math.round(94 - ((ratio - 0.98) / 0.09) * 14);
-  if (ratio <= 1.15) return Math.round(80 - ((ratio - 1.07) / 0.08) * 35);
-  return Math.round(clamp(45 - ((ratio - 1.15) / 0.12) * 25, 20, 45));
+  if (ratio >= 0.95 && ratio <= 1.05) return Math.round(95 + (1 - Math.abs(ratio - 1) / 0.05) * 5);
+  if (ratio < 0.82) return Math.round(clamp(55 - ((0.82 - ratio) / 0.08) * 30, 25, 55));
+  if (ratio < 0.9) return Math.round(55 + ((ratio - 0.82) / 0.08) * 25);
+  if (ratio < 0.95) return Math.round(80 + ((ratio - 0.9) / 0.05) * 15);
+  if (ratio <= 1.1) return Math.round(95 - ((ratio - 1.05) / 0.05) * 15);
+  if (ratio <= 1.18) return Math.round(80 - ((ratio - 1.1) / 0.08) * 35);
+  return Math.round(clamp(45 - ((ratio - 1.18) / 0.12) * 25, 20, 45));
 }
 
 function scoreRangeRatio(rawValue, goodLow, peak, goodHigh, lowFlaw, lowSevere, highFlaw, highSevere) {

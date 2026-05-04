@@ -711,7 +711,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
 
         IMPORTANT METRIC NOTES:
         fWHR around 1.85-2.00 is generally strong; extremely high can look blocky. Bigonial/jaw width must be judged against cheekbone width and visible jaw shape, not just width.
-        Midface ratio around balanced/compact is positive; a long midface is a meaningful appeal limiter. Canthal tilt is positive when natural and supported by eye shape; high upper eyelid exposure or poor orbital support can override a good measured tilt.
+        Midface ratio around 1.00 is ideal and should be treated as a major strength, not a flaw. Roughly 0.95-1.05 should score very high, usually about 90-100. Only clearly long midfaces above about 1.10, or overly compressed midfaces below about 0.90, should become meaningful appeal limiters. Canthal tilt is positive when natural and supported by eye shape; high upper eyelid exposure or poor orbital support can override a good measured tilt.
         IPD/eye spacing should be judged with face width and eye shape. Mouth width should fit the lower face; overly wide or narrow can disrupt harmony. Nose width/projection is contextual; severe nose imbalance matters more than small numeric deviation.
         Facial fat and jaw definition should be judged visually. A lean-looking face with crisp borders should score higher for definition; puffiness or submental fullness should lower facial fat/jaw metrics.
         Cheekbone/maxillary projection should be judged from visible midface support, under-eye support, ogee curve, and side profile when available.
@@ -747,7 +747,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         Use these as anchors, but still trust the visible face when the photo clearly contradicts a raw value.
         - fWHR: 1.85-2.00 is usually strong; below roughly 1.70 can read narrow/long; above roughly 2.10 can become too wide/blocky.
         - Bigonial/jaw width: balanced jaw width relative to cheekbones is positive; very narrow/tapered lower face is negative; excessive width can look blocky.
-        - Midface: compact/balanced midface is positive; clearly elongated midface is a meaningful limiter; overly compressed midface can also look off.
+        - Midface: 1.00 is ideal; 0.95-1.05 is excellent/near-ideal and should usually score 90-100. Do not call 1.00-1.02 a flaw. Clearly elongated midface above about 1.10 is a limiter; overly compressed below about 0.90 can also look off.
         - Upper third: balanced forehead/hairline is positive. Long upper third or recession matters when visible; ignore hair-obscured measurements if the hairline cannot be judged.
         - Middle/lower third: balanced thirds help harmony. Short lower third can weaken maturity; long lower third can look disharmonious.
         - Eye height/shape: compact almond eye area is positive. Excessive roundness, high upper eyelid exposure, scleral show, or droopiness is negative.
@@ -888,7 +888,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - IPD_Index: around 0.46 is ideal; 0.44-0.48 is acceptable/good. Below 0.44 can be close-set; above 0.48 can be wide-set. List as a flaw only if outside range and visually supported.
         - Mouth_Width_Index: around 0.37 ideal; 0.36-0.38 acceptable/ideal. Below 0.36 narrow; above 0.38 overly wide, stronger the farther out and if visually disharmonious.
         - Nose_Width_Index: 0.23-0.30 broad balanced, strongest near 0.265. Below 0.20 pinched/narrow. Above 0.32-0.34 becomes wide only if visually disruptive. Do not penalize slightly wide nasal bases unless very bad and balance-breaking.
-        - Midface_Ratio: 0.88-0.98 strongest, 0.98-1.07 acceptable/light concern, above 1.08 long, above 1.15 severe, below 0.82 overly compressed. Mildly long midface should not be #1 worst unless visually strong or combined with long-face signals.
+        - Midface_Ratio: 0.95-1.05 strongest/near-ideal with 1.00 as the peak; this should usually score about 90-100. 1.00-1.02 must not be listed as a flaw. 0.90-0.95 or 1.05-1.10 is acceptable/light concern only if visually supported. Above 1.10 is long, above 1.18 severe, below 0.90 compressed.
         - Upper_Third_Length: 0.34-0.43 balanced, above 0.46 long, above 0.52 severe, below 0.30 compressed. If hair/bangs/hat/hood/shadow/crop hides the hairline, ignore the raw number and visually estimate from forehead/temple/hair direction.
         - Middle_Third_Length: 0.40-0.50 balanced, above 0.54 elongated, above 0.60 severe, below 0.36 compressed. Lower_Third_Length: 0.42-0.52 balanced, below 0.38 short, above 0.56 long, above 0.62 severe.
         - Eye_Height_Index: 0.055-0.075 balanced, below 0.045 narrow/squinty, above 0.085 overly round/exposed. Brow_Compactness_Index: 0.08-0.12 balanced, above 0.14 high brow/poor compactness, below 0.06 overly compressed/heavy.

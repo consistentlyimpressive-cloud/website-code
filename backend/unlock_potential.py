@@ -24,9 +24,12 @@ def _gemini_key_from_env(var_name: str) -> str:
     return s if s else ""
 
 GEMINI_KEYS = [
+    _gemini_key_from_env("GEMINI_3_1_PRO_API_KEY"),
     _gemini_key_from_env("GEMINI_KEY_1"),
     _gemini_key_from_env("GEMINI_KEY_2"),
     _gemini_key_from_env("GEMINI_KEY_3"),
+    _gemini_key_from_env("GEMINI_KEY_4"),
+    _gemini_key_from_env("GEMINI_KEY_5"),
 ]
 
 PROMPT = (
