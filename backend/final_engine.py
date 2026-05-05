@@ -1018,6 +1018,14 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         """
         experimental_prompt_variant = os.getenv("MOGCHECK_EXPERIMENTAL_PROMPT_VARIANT", "calibration").strip().lower()
         active_prompt = legacy_experimental_prompt if experimental_prompt_variant in {"7k", "legacy", "current"} else calibration_preserving_prompt
+        if choice == "2":
+            active_prompt += """
+
+        BACKUP MODEL OUTPUT COUNT OVERRIDE:
+        - Return exactly 5 bestFeatures when possible.
+        - Return exactly 5 primaryFlaws when possible.
+        - Do not return only 3 unless the image is unusable or content-rejected.
+        """
         if choice == "7":
             active_prompt = remove_score_cap_rules_for_penis_goat(calibration_preserving_prompt)
         elif choice == "8":
@@ -1104,9 +1112,12 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
 
         MANDATORY RATING LOGIC:
         1. THE ANGULARITY GATE: No subject can score above 65 if they possess significant facial fat, lack a defined jawline, or lack sub-zygomatic hollowing. Angularity is the baseline for "attractive."
+           - Allow subjects to still score up to 60 despite failing the Angularity Gate and having bad skin, as long as they are not severely obese, do not have severely bad skin, and the bone structure is decent.
         2. THE SKIN/TEXTURE TAX: Punish heavily for oily/greasy texture and visible large pores, active acne or significant scarring, nasolabial folds, and deep tear troughs as major age/vitality penalties.
         3. ORBITAL & NASAL REFINEMENT:
            - Penalize droopy eyelids (ptosis), significant scleral show, or lack of brow support.
+           - Only punish for obvious droopy eyelid plus upper eyelid exposure. Do not punish just because someone has almond shaped eyes.
+           - Deep brow support and low eyebrow setedness should not be required to reach 70/100, especially in faces with good harmony or faces whose appeal leans more toward good harmony than striking dimorphism. Examples: Cha Eun-woo, Haruma Miura.
            - Critique nose shape based on refinement. For African phenotypes, penalize a lack of bridge definition or excessive alar flaring that disrupts harmony.
         4. GROOMING & STYLING: Hairstyles and beard grooming contribute +/- 5 points. Punish patchy beards, neckbeards, or unkempt, greasy hair.
         5. PHENOTYPE STANDARDS: For Asian phenotypes, use the "Cha Eun-woo" standard (80) - prioritize extreme skin clarity, orbital compactness, and elegant bone structure.
@@ -1121,6 +1132,8 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - bestFeatures should contain exactly 5 entries when possible.
         - primaryFlaws should contain exactly 5 entries when possible and should target facial fat, nasolabial folds, eyelid/brow issues, skin texture, or unrefined nasal structure when present.
         - keyRatios should list corrected 1-100 ratings from METADATA plus visual reality.
+        - Required metric coverage should match Backup Model when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, mouth width, philtrum/lips, and brow compactness. Add side convexity, neck-jaw transition, and hyoid/cervicomental area when side profile exists.
+        - Do not stop at only fWHR, midface ratio, bigonial width, IPD index, canthal tilt, mouth width, and philtrum height. Fill 16-20 metrics unless impossible.
 
         JSON schema:
         {{
@@ -1144,7 +1157,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
           "confidenceFlags":[""],
           "debugJustification":"admin-only reason for the score; explicitly mention Angularity Gate, Skin/Texture Tax, orbital/nasal refinement, grooming adjustment, and phenotype benchmark when relevant"
         }}
-        Limits: bestFeatures exactly 5 when possible. primaryFlaws exactly 5 when possible. keyRatios 12-20. pros 3-5. cons 3-5. Keep text concise.
+        Limits: bestFeatures exactly 5 when possible. primaryFlaws exactly 5 when possible. keyRatios 16-20 unless impossible. pros 3-5. cons 3-5. Keep text concise.
         """
     elif choice == "1":
         active_prompt = f"""
@@ -1540,13 +1553,13 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         To fix this, you can try to compensate by *losing facial fat* which could bring your score up to about a 58-65 depending on lighting and angle.
         Surgical intervention would be needed to fix the rest of the issues completely.
         ### ACTIONABLE PROTOCOLS
-        [List exactly 25 actionable protocols.
+        [List exactly 20 actionable protocols.
         Sorted from HIGHEST IMPACT to LOWEST IMPACT.]
         [Address both Frontal and Lateral structural issues based on the dual analysis.]
         1. [Protocol Name]: [Description].
         [Impact Rating]
         ...
-        25. [Protocol Name]: [Description].
+        20. [Protocol Name]: [Description].
         [Impact Rating]
 
         ### MOG_REPORT_REVISION
@@ -1659,7 +1672,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
           "protocols":[{{"name":"", "description":"", "impact":"High Impact|Medium Impact|Low Impact"}}],
           "reportDebugJustification":"one compact sentence confirming protocols align with locked core result"
         }}
-        Limits: exactly 5 personalizedFeedback items, exactly 25 protocols. Each description max 26 words.
+        Limits: exactly 5 personalizedFeedback items, exactly 20 protocols. Each description max 26 words.
         """
     elif choice == "1" and analysis_phase == "core":
         feedback_marker = "### Personalised feedback"
@@ -1721,7 +1734,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         Be explicit about what is causing the problem and what realistic fix or improvement path applies.
 
         ### ACTIONABLE PROTOCOLS
-        List exactly 25 actionable protocols sorted from highest impact to lowest impact.
+        List exactly 20 actionable protocols sorted from highest impact to lowest impact.
         Address frontal and lateral structural issues only when the relevant image/profile was provided.
         Format every protocol exactly:
         1. [Protocol Name]: [Description].

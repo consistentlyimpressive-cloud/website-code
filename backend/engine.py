@@ -271,6 +271,8 @@ def get_clinical_biometrics(img_path):
         eye_dx = lms[p["eye_r_out"]][0] - lms[p["eye_r_in"]][0]
         eye_dy = lms[p["eye_r_in"]][1] - lms[p["eye_r_out"]][1]
         tilt_angle = round(np.degrees(np.arctan2(eye_dy, abs(eye_dx))), 2)
+        tilt_direction = "positive" if tilt_angle > 0 else "negative" if tilt_angle < 0 else "neutral"
+        tilt_display = f"{tilt_angle:+.2f}" if tilt_angle != 0 else "0.00"
 
         final_fwhr = round(zygo_w / upper_face_h, 3)
         # --- SWAPPED FOR COMPACTNESS RATIO (Vertical / Horizontal) ---
@@ -281,7 +283,7 @@ def get_clinical_biometrics(img_path):
         t, fs = 1, 0.35
 
         cv2.rectangle(img_r, (5, 5), (140, 75), (0,0,0), -1)
-        cv2.putText(img_r, f"Tilt: {tilt_angle}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, fs, (0,255,0), 1)
+        cv2.putText(img_r, f"Tilt: {tilt_display} {tilt_direction}", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, fs, (0,255,0), 1)
         cv2.putText(img_r, f"fWHR: {final_fwhr}", (10, 35), cv2.FONT_HERSHEY_SIMPLEX, fs, (255,255,255), 1)
         cv2.putText(img_r, f"Midface: {final_midface_ratio}", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, fs, (255,255,255), 1)
         cv2.putText(img_r, f"Sex: MALE (DET)", (10, 65), cv2.FONT_HERSHEY_SIMPLEX, fs, (0,200,255), 1)
@@ -359,7 +361,7 @@ METADATA:
 ------------------------------------------------------------
 - fWHR (Zygo / Upper_Face): {final_fwhr}
 - Midface_Ratio (Mid/IPD):  {final_midface_ratio}
-- Canthal_Tilt_Degrees:     {tilt_angle} (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+- Canthal_Tilt_Degrees:     {tilt_display} ({tilt_direction} tilt; Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
 ============================================================
 """
         print(report)
