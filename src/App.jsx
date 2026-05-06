@@ -1186,40 +1186,22 @@ const PremiumProofModal = ({ onClose, onContinue }) => (
       <div className="overflow-hidden rounded-2xl border border-yellow-500/25 bg-black shadow-[0_0_50px_rgba(234,179,8,0.10)]">
         <video
           src={PREMIUM_PROOF_VIDEO_SRC}
-          controls
+          autoPlay
           loop
+          muted
           playsInline
-          preload="metadata"
+          preload="auto"
           className="block max-h-[60vh] w-full bg-black object-contain"
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400 sm:grid-cols-3">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 py-3 text-center">
-          Secure checkout by Paddle
-        </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 py-3 text-center">
-          Premium scans saved to profile
-        </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 py-3 text-center">
-          Cancel anytime for Pro
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-xl border border-zinc-800 bg-zinc-900 px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] text-zinc-300 transition-colors hover:border-zinc-700 hover:text-white"
-        >
-          Maybe later
-        </button>
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={onContinue}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-600 to-yellow-400 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-black shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-transform hover:scale-[1.02]"
         >
-          <Crown size={14} /> View Premium Plans
+          <Crown size={14} /> Continue
         </button>
       </div>
     </div>
