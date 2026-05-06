@@ -2973,6 +2973,71 @@ function normalizeStoredScanUrls(scan) {
   };
 }
 
+const PREMIUM_DEMO_SCAN_ID = 'premium-demo-scan';
+const PREMIUM_DEMO_PROFILE_ID = 'premium-demo';
+const PREMIUM_DEMO_VERSION = 'henry-cavill-jpg-biometrics-feedback-v3';
+const PREMIUM_DEMO_PAYLOAD_PATH = path.join(__dirname, '..', 'public', 'premium-demo', 'henry-cavill-scan.json');
+
+function loadPremiumDemoPayload() {
+  try {
+    const raw = fs.readFileSync(PREMIUM_DEMO_PAYLOAD_PATH, 'utf8');
+    return JSON.parse(raw);
+  } catch (error) {
+    console.warn('[premium-demo] Failed to load payload:', error.message);
+    return null;
+  }
+}
+
+async function ensurePremiumDemoScan(uid) {
+  if (!uid || !firestore) return;
+  const payload = loadPremiumDemoPayload();
+  if (!payload) return;
+  const docRef = firestore.collection('users').doc(uid).collection('scans').doc(PREMIUM_DEMO_SCAN_ID);
+  const snap = await docRef.get();
+
+  const demoPayload = {
+    ...payload,
+    success: true,
+    scanId: PREMIUM_DEMO_SCAN_ID,
+    scanRequestId: PREMIUM_DEMO_SCAN_ID,
+    profileId: PREMIUM_DEMO_PROFILE_ID,
+    profileName: 'Premium Preview',
+    selectedModel: 'premium-demo',
+    model: 'premium-demo',
+    frontImage: '/premium-demo/henry-cavill.jpg',
+    frontImageUrl: '/premium-demo/henry-cavill.jpg',
+    sideImage: null,
+    sideImageUrl: null,
+    isPremiumDemo: true,
+    demoScan: true,
+    visibility: 'private',
+    reportStatus: 'complete',
+    title: 'Premium Preview Scan',
+    badge: 'Demo',
+    demoVersion: PREMIUM_DEMO_VERSION,
+  };
+  if (snap.exists && snap.data()?.payload?.demoVersion === PREMIUM_DEMO_VERSION) return;
+
+  await docRef.set({
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    model: 'premium-demo',
+    profileId: PREMIUM_DEMO_PROFILE_ID,
+    profileName: 'Premium Preview',
+    visibility: 'private',
+    finalRating: Number(demoPayload.finalRating) || null,
+    sideRating: null,
+    frontImageUrl: demoPayload.frontImage,
+    sideImageUrl: null,
+    success: true,
+    scanRequestId: PREMIUM_DEMO_SCAN_ID,
+    isPremiumDemo: true,
+    demoScan: true,
+    payload: demoPayload,
+  }, { merge: true });
+}
+
 function guessContentType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   if (ext === '.png') return 'image/png';
@@ -4500,6 +4565,7 @@ app.get('/api/user/scans', extractUserOptional, async (req, res) => {
     return res.json({ scans: [], warning: firestoreQuotaCooldownWarning() });
   }
   try {
+    await ensurePremiumDemoScan(req.uid);
     const snap = await firestore.collection('users').doc(req.uid).collection('scans').orderBy('timestamp', 'desc').get();
     const scans = [];
     snap.forEach(doc => {

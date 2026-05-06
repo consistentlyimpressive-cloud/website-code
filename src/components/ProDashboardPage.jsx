@@ -25,6 +25,7 @@ const modelLabel = (model) => ({
   '7': 'penis goat',
   '8': 'PENIS GOAT 2',
   '9': 'PENIS GOAT 3',
+  'premium-demo': 'Premium Preview',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
@@ -277,7 +278,7 @@ const formatDashboardDate = (value, fallback = '-') => {
 
 const modelUsesProDashboard = (model) => {
   const normalized = String(model || '').trim();
-  return normalized === '1' || normalized === '2';
+  return normalized === '1' || normalized === '2' || normalized === '6' || normalized === 'premium-demo';
 };
 
 const isFreeScanModel = (model) => ['3', '4', '5'].includes(String(model || '').trim());
@@ -991,6 +992,34 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     });
   }, []);
 
+  const openSavedScan = useCallback((scan) => {
+    if (!scan || !setDashboardData) return;
+    const profileId = getSavedScanProfileId(scan);
+    let history = (scansByProfile.get(profileId) || [])
+      .map(hydrateScanForDashboard)
+      .filter(Boolean);
+    if (history.length === 0) {
+      const hydrated = hydrateScanForDashboard(scan);
+      if (hydrated) history = [hydrated];
+    }
+    history.sort((a, b) => timestampToMillis(a?.scannedAt) - timestampToMillis(b?.scannedAt));
+    history = history.slice(-PROFILE_SCAN_HISTORY_LIMIT);
+    const selected = history.find((item) => scansLookSame(item, scan)) || history[history.length - 1];
+    if (!selected) return;
+    setDashboardData({
+      ...selected,
+      profileId,
+      profileName: scan.profileName || scan.payload?.profileName || selected.profileName || 'Saved Scan',
+      scanHistory: history,
+      ratingHistory: history
+        .map((item) => Number(item?.finalRating))
+        .filter((rating) => Number.isFinite(rating)),
+    });
+    setCurrentPage('dashboard');
+    setActiveSection('analysis');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [scansByProfile, setCurrentPage, setDashboardData]);
+
   const openProfile = useCallback(async (profile) => {
     if (!profile?.id || !setDashboardData) return;
     setOpeningProfileId(profile.id);
@@ -1639,10 +1668,10 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                   <div>
                     <p className="text-[10px] font-sans uppercase tracking-[0.3em] text-cyan-400/80">Latest Scan</p>
                     <h3 className="mt-2 text-2xl font-black uppercase tracking-tight text-white">
-                      {latestScanProfile?.name || 'Latest profile activity'}
+                      {latestScanProfile?.name || latestScanAcrossProfiles?.profileName || latestScanAcrossProfiles?.payload?.profileName || 'Latest profile activity'}
                     </h3>
                     <p className="mt-2 text-sm font-sans text-zinc-400">
-                      {latestScanAcrossProfiles?.model ? `Model ${latestScanAcrossProfiles.model}` : 'Saved scan'} - {formatDashboardDate(latestScanAcrossProfiles.timestamp || latestScanAcrossProfiles.scannedAt)}
+                      {modelLabel(latestScanAcrossProfiles?.model || latestScanAcrossProfiles?.payload?.selectedModel)} - {formatDashboardDate(latestScanAcrossProfiles.timestamp || latestScanAcrossProfiles.scannedAt)}
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
@@ -1663,7 +1692,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       )}
                       <button
                         type="button"
-                        onClick={() => latestScanProfile && openProfile(latestScanProfile)}
+                        onClick={() => latestScanProfile ? openProfile(latestScanProfile) : openSavedScan(latestScanAcrossProfiles)}
                         className="mt-2 inline-flex items-center gap-2 rounded-xl border border-cyan-500/35 bg-cyan-500/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300 transition-colors hover:bg-cyan-500/20"
                       >
                         Open Scan <ChevronRight size={14} />

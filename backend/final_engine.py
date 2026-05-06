@@ -181,7 +181,8 @@ GEMINI_31_PRO_KEYS = [
 ]
 GEMINI_31_PRO_KEYS = [(label, key) for label, key in GEMINI_31_PRO_KEYS if key]
 GEMMA_PER_KEY_TIMEOUT_MS = int(os.getenv("GEMMA_PER_KEY_TIMEOUT_MS") or "186000")
-_raw_disabled_keys = os.getenv("GEMINI_DISABLED_KEYS") or "1,3"
+EXPERT_31B_FALLBACK_AFTER_MS = int(os.getenv("EXPERT_31B_FALLBACK_AFTER_MS") or "200000")
+_raw_disabled_keys = os.getenv("GEMINI_DISABLED_KEYS") or ""
 GEMINI_DISABLED_KEYS = {
     int(part)
     for part in _raw_disabled_keys.replace(" ", "").split(",")
@@ -303,6 +304,23 @@ def _quarantine_for_error(error_text):
     return (None, 0)
 
 
+def _is_transient_provider_error(error_text):
+    low = str(error_text or "").lower()
+    return any(
+        marker in low
+        for marker in (
+            "500 internal",
+            "internal error encountered",
+            "empty model response",
+            "read operation timed out",
+            "timed out",
+            "503",
+            "unavailable",
+            "high demand",
+        )
+    )
+
+
 def _mean(values):
     values = [float(v) for v in values if isinstance(v, (int, float))]
     return round(sum(values) / len(values), 3) if values else None
@@ -372,10 +390,23 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             return "Error: Model selection failed.", "None", 0
 
         model_id, friendly_name = mapping[choice]
+        model_attempts = [(model_id, friendly_name, None)]
+        if choice == "6":
+            model_attempts = [
+                (model_id, friendly_name, EXPERT_31B_FALLBACK_AFTER_MS),
+                ("gemma-4-26b-a4b-it", f"{friendly_name} fallback", None),
+            ]
 
         print(f"[DEBUG] Consulting {friendly_name}... (Press Ctrl+C to Cancel)")
-        available_keys = GEMINI_31_PRO_KEYS if choice in {"7", "8"} else GOOGLE_GENAI_KEYS
-        key_help = "GEMINI_3_1_PRO_API_KEY" if choice in {"7", "8"} else "GEMINI_KEY_1 or more keys for Gemma"
+        if choice == "6":
+            available_keys = GOOGLE_GENAI_KEYS
+            key_help = "GEMINI_KEY_1 through GEMINI_KEY_5 for Gemma"
+        elif choice in {"7", "8"}:
+            available_keys = GEMINI_31_PRO_KEYS
+            key_help = "GEMINI_3_1_PRO_API_KEY"
+        else:
+            available_keys = GOOGLE_GENAI_KEYS
+            key_help = "GEMINI_KEY_1 or more keys for Gemma"
         if not available_keys:
             return (
                 f"Error: No Google GenAI keys are configured in backend/.env. Add {key_help}.",
@@ -384,6 +415,7 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             )
 
         provider_errors = []
+        provider_error_texts = []
         key_attempts = _healthy_key_attempts(available_keys)
         random.shuffle(key_attempts)
         if not key_attempts:
@@ -392,7 +424,8 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
                 friendly_name,
                 0,
             )
-        print(f"[DEBUG] Google GenAI key order this scan: {', '.join(_key_label(index) for index, _ in key_attempts)}")
+        key_pool_label = "Gemma" if choice not in {"7", "8"} else "Gemini 3.1 Pro"
+        print(f"[DEBUG] {key_pool_label} key order this scan: {', '.join(_key_label(index) for index, _ in key_attempts)}")
         analysis_phase = (os.getenv("MOGCHECK_ANALYSIS_PHASE") or "full").strip().lower()
         request_type = "protocol" if analysis_phase == "report" else analysis_phase
         scan_id = os.getenv("MOGCHECK_SCAN_REQUEST_ID") or None
@@ -410,107 +443,126 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             if side_img_path and os.path.exists(side_img_path):
                 estimated_input_tokens += estimate_image_tokens(side_img_path)
 
-        for attempt_number, (key_index, key) in enumerate(key_attempts, start=1):
-            if not key:
-                continue
-            attempt_started_at = time.time()
-            try:
-                key_label = _key_label(key_index)
-                print(f"[DEBUG] Trying Google GenAI {key_label} ({attempt_number}/{len(key_attempts)})...")
-                http_options = {"timeout": GEMMA_PER_KEY_TIMEOUT_MS}
-                if model_id.startswith("gemini-3"):
-                    http_options["apiVersion"] = "v1alpha"
-                client = genai.Client(api_key=key, http_options=types.HttpOptions(**http_options))
-                contents = [
-                    types.Part.from_text(text=unified_prompt)
-                ]
-                if include_image:
-                    with open(img_path, "rb") as f:
-                        image_bytes = f.read()
-                    contents.append(types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"))
-                if include_image and side_img_path and os.path.exists(side_img_path):
-                    with open(side_img_path, "rb") as f:
-                        side_image_bytes = f.read()
-                    contents.append(types.Part.from_bytes(data=side_image_bytes, mime_type="image/jpeg"))
-                config_kwargs = {"temperature": 0}
-                if max_output_tokens:
-                    config_kwargs["max_output_tokens"] = max_output_tokens
-                if model_id.startswith("gemini-3"):
-                    config_kwargs["response_mime_type"] = "application/json"
-                    config_kwargs["thinking_config"] = types.ThinkingConfig(includeThoughts=False, thinkingBudget=256)
-                res = client.models.generate_content(
-                    model=model_id,
-                    config=types.GenerateContentConfig(**config_kwargs),
-                    contents=contents
-                )
-                usage = getattr(res, "usage_metadata", None)
-                prompt_tokens = usage_value(usage, "prompt_token_count")
-                output_tokens = usage_value(usage, "candidates_token_count")
-                total_tokens = usage_value(usage, "total_token_count")
-                if res.text:
-                    duration = round(time.time() - start_time, 2)
+        for model_attempt_number, (attempt_model_id, attempt_friendly_name, fallback_after_ms) in enumerate(model_attempts, start=1):
+            if model_attempt_number > 1:
+                if not provider_error_texts or not all(_is_transient_provider_error(error) for error in provider_error_texts):
+                    break
+                print(f"[DEBUG] Expert Mode 31B hit transient failures or the {EXPERT_31B_FALLBACK_AFTER_MS / 1000:.0f}s budget; trying {attempt_model_id} fallback.")
+            model_started_at = time.time()
+
+            for attempt_number, (key_index, key) in enumerate(key_attempts, start=1):
+                if not key:
+                    continue
+                if fallback_after_ms:
+                    elapsed_ms = int((time.time() - model_started_at) * 1000)
+                    if elapsed_ms >= fallback_after_ms:
+                        print(f"[DEBUG] {attempt_model_id} exceeded {fallback_after_ms / 1000:.0f}s Expert budget before {_key_label(key_index)}; moving to fallback.")
+                        break
+                attempt_started_at = time.time()
+                try:
+                    key_label = _key_label(key_index)
+                    print(f"[DEBUG] Trying Google GenAI {key_label} ({attempt_number}/{len(key_attempts)}) on {attempt_model_id}...")
+                    request_timeout_ms = GEMMA_PER_KEY_TIMEOUT_MS
+                    if fallback_after_ms:
+                        elapsed_ms = int((time.time() - model_started_at) * 1000)
+                        remaining_ms = max(1000, fallback_after_ms - elapsed_ms)
+                        request_timeout_ms = min(GEMMA_PER_KEY_TIMEOUT_MS, remaining_ms)
+                    http_options = {"timeout": request_timeout_ms}
+                    if attempt_model_id.startswith("gemini-3"):
+                        http_options["apiVersion"] = "v1alpha"
+                    client = genai.Client(api_key=key, http_options=types.HttpOptions(**http_options))
+                    contents = [
+                        types.Part.from_text(text=unified_prompt)
+                    ]
+                    if include_image:
+                        with open(img_path, "rb") as f:
+                            image_bytes = f.read()
+                        contents.append(types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"))
+                    if include_image and side_img_path and os.path.exists(side_img_path):
+                        with open(side_img_path, "rb") as f:
+                            side_image_bytes = f.read()
+                        contents.append(types.Part.from_bytes(data=side_image_bytes, mime_type="image/jpeg"))
+                    config_kwargs = {"temperature": 0}
+                    if max_output_tokens:
+                        config_kwargs["max_output_tokens"] = max_output_tokens
+                    if attempt_model_id.startswith("gemini-3"):
+                        config_kwargs["response_mime_type"] = "application/json"
+                        config_kwargs["thinking_config"] = types.ThinkingConfig(includeThoughts=False, thinkingBudget=256)
+                    res = client.models.generate_content(
+                        model=attempt_model_id,
+                        config=types.GenerateContentConfig(**config_kwargs),
+                        contents=contents
+                    )
+                    usage = getattr(res, "usage_metadata", None)
+                    prompt_tokens = usage_value(usage, "prompt_token_count")
+                    output_tokens = usage_value(usage, "candidates_token_count")
+                    total_tokens = usage_value(usage, "total_token_count")
+                    if res.text:
+                        duration = round(time.time() - start_time, 2)
+                        log_token_usage({
+                            "scan_id": scan_id,
+                            "request_type": request_type,
+                            "provider": "google-genai",
+                            "model": attempt_model_id,
+                            "key_index": key_index,
+                            "attempt_number": attempt_number,
+                            "success": True,
+                            "duration_ms": int((time.time() - attempt_started_at) * 1000),
+                            "input_token_count": prompt_tokens,
+                            "output_token_count": output_tokens,
+                            "total_token_count": total_tokens,
+                            "estimated_input_tokens": estimated_input_tokens,
+                            "max_output_tokens": max_output_tokens,
+                            "image_included": include_image,
+                        })
+                        return res.text, friendly_name, duration
+                    provider_errors.append(f"{_key_label(key_index)}: empty model response")
+                    provider_error_texts.append("empty model response")
                     log_token_usage({
                         "scan_id": scan_id,
                         "request_type": request_type,
                         "provider": "google-genai",
-                        "model": model_id,
+                        "model": attempt_model_id,
                         "key_index": key_index,
                         "attempt_number": attempt_number,
-                        "success": True,
+                        "success": False,
                         "duration_ms": int((time.time() - attempt_started_at) * 1000),
-                        "input_token_count": prompt_tokens,
-                        "output_token_count": output_tokens,
-                        "total_token_count": total_tokens,
+                        "error": "empty model response",
                         "estimated_input_tokens": estimated_input_tokens,
                         "max_output_tokens": max_output_tokens,
                         "image_included": include_image,
                     })
-                    return res.text, friendly_name, duration
-                provider_errors.append(f"{_key_label(key_index)}: empty model response")
-                log_token_usage({
-                    "scan_id": scan_id,
-                    "request_type": request_type,
-                    "provider": "google-genai",
-                    "model": model_id,
-                    "key_index": key_index,
-                    "attempt_number": attempt_number,
-                    "success": False,
-                    "duration_ms": int((time.time() - attempt_started_at) * 1000),
-                    "error": "empty model response",
-                    "estimated_input_tokens": estimated_input_tokens,
-                    "max_output_tokens": max_output_tokens,
-                    "image_included": include_image,
-                })
-                _quarantine_key(key_index, "empty_response", "empty model response", 10 * 60 * 1000)
-            except Exception as e:
-                if "User interrupted" in str(e):
-                    raise
-                error_text = str(e).replace("\n", " ").strip()
-                short_error = error_text[:260] if error_text else "Unknown provider error"
-                provider_errors.append(f"{_key_label(key_index)}: {short_error}")
-                log_token_usage({
-                    "scan_id": scan_id,
-                    "request_type": request_type,
-                    "provider": "google-genai",
-                    "model": model_id,
-                    "key_index": key_index,
-                    "attempt_number": attempt_number,
-                    "success": False,
-                    "duration_ms": int((time.time() - attempt_started_at) * 1000),
-                    "error": short_error,
-                    "estimated_input_tokens": estimated_input_tokens,
-                    "max_output_tokens": max_output_tokens,
-                    "image_included": include_image,
-                })
-                quota_hit = "RESOURCE_EXHAUSTED" in error_text or "quota" in error_text.lower()
-                quarantine_reason, quarantine_ms = _quarantine_for_error(error_text)
-                if quarantine_reason:
-                    _quarantine_key(key_index, quarantine_reason, short_error, quarantine_ms)
-                if quota_hit:
-                    print(f"      [!] {friendly_name} Google GenAI {_key_label(key_index)} quota exhausted. Trying next key...")
-                else:
-                    print(f"      [!] {friendly_name} {_key_label(key_index)} failed: {short_error}")
-                continue
+                    _quarantine_key(key_index, "empty_response", "empty model response", 10 * 60 * 1000)
+                except Exception as e:
+                    if "User interrupted" in str(e):
+                        raise
+                    error_text = str(e).replace("\n", " ").strip()
+                    short_error = error_text[:260] if error_text else "Unknown provider error"
+                    provider_errors.append(f"{_key_label(key_index)}: {short_error}")
+                    provider_error_texts.append(short_error)
+                    log_token_usage({
+                        "scan_id": scan_id,
+                        "request_type": request_type,
+                        "provider": "google-genai",
+                        "model": attempt_model_id,
+                        "key_index": key_index,
+                        "attempt_number": attempt_number,
+                        "success": False,
+                        "duration_ms": int((time.time() - attempt_started_at) * 1000),
+                        "error": short_error,
+                        "estimated_input_tokens": estimated_input_tokens,
+                        "max_output_tokens": max_output_tokens,
+                        "image_included": include_image,
+                    })
+                    quota_hit = "RESOURCE_EXHAUSTED" in error_text or "quota" in error_text.lower()
+                    quarantine_reason, quarantine_ms = _quarantine_for_error(error_text)
+                    if quarantine_reason:
+                        _quarantine_key(key_index, quarantine_reason, short_error, quarantine_ms)
+                    if quota_hit:
+                        print(f"      [!] {attempt_friendly_name} Google GenAI {_key_label(key_index)} quota exhausted. Trying next key...")
+                    else:
+                        print(f"      [!] {attempt_friendly_name} {_key_label(key_index)} failed: {short_error}")
+                    continue
 
     except KeyboardInterrupt:
         print("\n[!] User Cancelled. Stopping request...")

@@ -38,11 +38,17 @@ const GENERIC_ERROR = 'Something went wrong. Please try again later.';
 const EMPTY_ANALYSIS_RESPONSE_ERROR = 'Analysis finished but no usable text was parsed';
 const FRIENDLY_FRONTAL_IMAGE_ERROR = "Analysis failed. Are you sure you're using a frontal image?";
 const PREMIUM_PROOF_VIDEO_SRC = '/social-proof/premium-proof.mp4';
+const PREMIUM_DEMO_MODEL_ID = 'premium-demo';
+const PREMIUM_DEMO_FRONT_IMAGE = '/premium-demo/henry-cavill.jpg';
+const PREMIUM_DEMO_SCAN_PAYLOAD_SRC = '/premium-demo/henry-cavill-scan.json';
 
 function friendlyAnalysisErrorMessage(message) {
   const text = String(message || '').trim();
-  if (/No healthy Google GenAI\/Gemma keys are available|temporarily cooling down|disabled or quarantined|All Google\/Gemma API keys/i.test(text)) {
+  if (/No healthy Google GenAI\/Gemma keys are available|temporarily cooling down|disabled or quarantined/i.test(text)) {
     return 'The AI provider timed out on all available keys, so they are cooling down. Please wait a few minutes and try again.';
+  }
+  if (/All configured Google GenAI\/Gemma keys failed|All Google\/Gemma API keys failed/i.test(text)) {
+    return 'The AI provider failed on every available key during this scan. Please try again in a moment.';
   }
   if (text.includes(EMPTY_ANALYSIS_RESPONSE_ERROR)) return FRIENDLY_FRONTAL_IMAGE_ERROR;
   return text;
@@ -938,6 +944,55 @@ const normalizeDashboardMedia = (data, includeHistory = true) => {
   return normalized;
 };
 
+async function loadPremiumDemoScanPayload() {
+  try {
+    const res = await fetch(PREMIUM_DEMO_SCAN_PAYLOAD_SRC, { cache: 'force-cache' });
+    if (res.ok) return res.json();
+  } catch (error) {
+    console.warn('Failed to load premium demo payload', error);
+  }
+  return {
+    success: true,
+    sex: 'male',
+    finalRating: 82,
+    tier: 'elite natural high-tier',
+    technicalSummary: 'Exceptional structural harmony anchored by a perfect 1.0 midface ratio and strong fWHR.',
+    bestFeatures: [
+      { title: 'Midface Harmony', description: 'A perfect 1.0 midface ratio creates an ideal vertical balance.' },
+      { title: 'Eye Area', description: 'Positive canthal tilt and strong brow compactness.' },
+    ],
+    primaryFlaws: [
+      { title: 'Mouth Width', description: 'The mouth is slightly narrow relative to the overall facial breadth.' },
+    ],
+  };
+}
+
+function buildPremiumDemoScanPayload(payload = {}, overrides = {}) {
+  const scannedAt = overrides.scannedAt || new Date().toISOString();
+  return normalizeDashboardMedia({
+    ...payload,
+    success: true,
+    scanId: 'premium-demo-scan',
+    scanRequestId: 'premium-demo-scan',
+    profileId: 'premium-demo',
+    profileName: 'Premium Preview',
+    selectedModel: PREMIUM_DEMO_MODEL_ID,
+    model: PREMIUM_DEMO_MODEL_ID,
+    frontImage: PREMIUM_DEMO_FRONT_IMAGE,
+    frontImageUrl: PREMIUM_DEMO_FRONT_IMAGE,
+    sideImage: null,
+    sideImageUrl: null,
+    isPremiumDemo: true,
+    demoScan: true,
+    visibility: 'private',
+    reportStatus: 'complete',
+    scannedAt,
+    title: 'Premium Preview Scan',
+    badge: 'Demo',
+    ...overrides,
+  });
+}
+
 const ANALYSIS_MODEL_LABELS = {
   '1': 'Legacy Premium',
   '2': 'Backup Model',
@@ -945,6 +1000,7 @@ const ANALYSIS_MODEL_LABELS = {
   '7': 'penis goat',
   '8': 'PENIS GOAT 2',
   '9': 'PENIS GOAT 3',
+  [PREMIUM_DEMO_MODEL_ID]: 'Premium Preview',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
@@ -3292,18 +3348,19 @@ const ScanAnimationsPage = ({ routeParams, setCurrentPage }) => {
 };
 
 // --- Upload Photo Page ---
-const FileDropzone = ({ label, file, setFile, isPulsing }) => {
+const FileDropzone = ({ label, file, setFile, isPulsing, locked = false, lockedLabel = 'Locked preview' }) => {
   const [isDragging, setIsDragging] = useState(false);
 
   return (
     <div className="flex flex-col items-center w-full">
       <span className="text-zinc-300 font-bold text-lg md:text-xl uppercase tracking-widest mb-6 drop-shadow-md">{label}</span>
       <label 
-        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }}
-        onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }}
+        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!locked) setIsDragging(true); }}
+        onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!locked) setIsDragging(false); }}
         onDrop={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          if (locked) return;
           setIsDragging(false);
           if (e.dataTransfer.files && e.dataTransfer.files[0]) {
             const f = e.dataTransfer.files[0];
@@ -3311,24 +3368,31 @@ const FileDropzone = ({ label, file, setFile, isPulsing }) => {
           }
         }}
         className={`w-full aspect-[3/4] max-w-sm mx-auto rounded-3xl border transition-all duration-300 flex flex-col items-center justify-center cursor-pointer relative overflow-hidden group ${
+          locked
+            ? 'border-cyan-400/35 bg-cyan-500/10 shadow-[0_0_42px_rgba(34,211,238,0.14)] cursor-default'
+            :
           isDragging 
             ? 'border-white bg-white/10 shadow-[0_0_50px_rgba(255,255,255,0.3)] scale-[1.02]' 
             : (isPulsing && !file ? 'border-zinc-500 bg-zinc-900/40 shadow-[0_0_30px_rgba(255,255,255,0.1)] animate-pulse hover:border-zinc-400' : 'border-zinc-800 bg-zinc-900/30 backdrop-blur-md hover:border-zinc-600 hover:bg-zinc-900/50 shadow-2xl')
         }`}
       >
-        <input type="file" className="hidden" accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(URL.createObjectURL(f), f); }} />
+        <input type="file" className="hidden" accept="image/*" disabled={locked} onChange={(e) => { const f = e.target.files?.[0]; if (f && !locked) setFile(URL.createObjectURL(f), f); }} />
         {file ? (
           <>
             <img src={file} alt={label} className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-40 transition-opacity duration-300" />
-            <div 
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setFile(null, null); }}
-              className="absolute top-4 right-4 md:top-6 md:right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20 bg-black/60 hover:bg-red-500/80 text-white rounded-full p-2 backdrop-blur-md border border-white/10 hover:border-red-500/50"
-              title="Remove Image"
-            >
-              <X size={20} />
-            </div>
+            {!locked && (
+              <div 
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setFile(null, null); }}
+                className="absolute top-4 right-4 md:top-6 md:right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20 bg-black/60 hover:bg-red-500/80 text-white rounded-full p-2 backdrop-blur-md border border-white/10 hover:border-red-500/50"
+                title="Remove Image"
+              >
+                <X size={20} />
+              </div>
+            )}
             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none">
-              <span className="font-sans text-sm md:text-base uppercase tracking-widest text-white font-bold bg-black/50 px-4 py-2 rounded-lg backdrop-blur-sm border border-white/10">Replace Image</span>
+              <span className="font-sans text-sm md:text-base uppercase tracking-widest text-white font-bold bg-black/50 px-4 py-2 rounded-lg backdrop-blur-sm border border-white/10">
+                {locked ? lockedLabel : 'Replace Image'}
+              </span>
             </div>
           </>
         ) : (
@@ -3665,6 +3729,7 @@ const ScanningView = ({
   onStatusChange,
   runnerOnly = false,
   startedAtMs = null,
+  demoPayload = null,
 }) => {
   const [statusText, setStatusText] = useState('Connecting to Backend Bridge...');
   const [elapsedScanMs, setElapsedScanMs] = useState(0);
@@ -3885,6 +3950,30 @@ const ScanningView = ({
       };
 
       try {
+        if (demoPayload?.isPremiumDemo || choice === PREMIUM_DEMO_MODEL_ID) {
+          const demoSteps = [
+            'Loading premium preview scan',
+            'Reading fixed demo face',
+            'Preparing premium dashboard',
+            'Saving demo preview',
+          ];
+          const progressTick = setInterval(() => {
+            if (!active) return;
+            const elapsedMs = Date.now() - scanStartedAt;
+            setElapsedScanMs(elapsedMs);
+            setStatusText(`${demoSteps[Math.floor(elapsedMs / 900) % demoSteps.length]}...`);
+          }, 500);
+          await new Promise((resolve) => setTimeout(resolve, 20000));
+          clearInterval(progressTick);
+          if (!active) return;
+          scanSucceeded = true;
+          setStatusText('Analysis Complete! Transitioning...');
+          onCompleteRef.current(buildPremiumDemoScanPayload(demoPayload, {
+            scannedAt: new Date().toISOString(),
+          }));
+          return;
+        }
+
         const isUltra = choice === "1" || choice === "2" || choice === "6" || choice === "7" || choice === "8" || choice === "9";
         activeUser = userRef.current;
         if (activeUser) {
@@ -4026,7 +4115,7 @@ const ScanningView = ({
       /** So the UI never sits on "Consulting AI" forever if Python/API hangs */
         const analyzeAbort = new AbortController();
         cancelAnalyzeRequest = () => analyzeAbort.abort();
-        const ANALYZE_CLIENT_MAX_MS = (choice === "6" || choice === "7" || choice === "8" || choice === "9") ? 4 * 60 * 1000 : 14 * 60 * 1000;
+        const ANALYZE_CLIENT_MAX_MS = (choice === "6" || choice === "7" || choice === "8" || choice === "9") ? 8 * 60 * 1000 : 14 * 60 * 1000;
         const analyzeHardStop = setTimeout(() => analyzeAbort.abort(), ANALYZE_CLIENT_MAX_MS);
 
         const buildProgressMessage = () => {
@@ -4213,7 +4302,7 @@ const ScanningView = ({
       active = false;
       cancelAnalyzeRequest();
     };
-  }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, profileId, scanRequestId, startedAtMs]);
+  }, [mainImageSrc, mainImageFile, sideImageUrl, sideImageFile, sideMetricData, choice, profileId, scanRequestId, startedAtMs, demoPayload]);
 
   if (runnerOnly) {
     return null;
@@ -4556,6 +4645,7 @@ const AnalysisDock = ({
       sideImageFile={job.sideImageFile}
       sideMetricData={job.sideMetricData || sideMetricDataGlobal}
       choice={job.choice}
+      demoPayload={job.demoPayload}
       onComplete={job.onComplete}
       onScanFailed={() => onDismiss(job.id)}
       user={job.user}
@@ -4915,6 +5005,14 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
   const models = [
     {
+      id: PREMIUM_DEMO_MODEL_ID,
+      name: "Premium Preview",
+      description:
+        "A fixed-face premium demo scan. The face is locked so you can preview the full result experience without spending a scan.",
+      tier: "demo",
+      Icon: Crown
+    },
+    {
       id: "2",
       name: "Backup Model",
       description:
@@ -4985,6 +5083,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   ];
 
   const isUltraModel = selectedModel === "1" || selectedModel === "2" || selectedModel === "6" || selectedModel === "7" || selectedModel === "8" || selectedModel === "9";
+  const isPremiumDemoModel = selectedModel === PREMIUM_DEMO_MODEL_ID;
   const shouldUseSideProfile = isUltraModel && useSideProfile;
 
   // Check if current user is an admin by email domain or specific email
@@ -5004,8 +5103,8 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       (planResolved &&
         (isProPlan(userPlan) ||
           (userPlan?.plan === 'single_scan' && (userPlan?.scanCredits ?? 0) > 0))));
-  const missingRequiredImage = shouldUseSideProfile ? (!frontImage || !sideImage) : !frontImage;
-  const scanAccessLocked = isUltraModel && (ultraAccessPending || !canUseUltra);
+  const missingRequiredImage = isPremiumDemoModel ? false : (shouldUseSideProfile ? (!frontImage || !sideImage) : !frontImage);
+  const scanAccessLocked = !isPremiumDemoModel && isUltraModel && (ultraAccessPending || !canUseUltra);
   const selectedProfileScanCount = selectedProfileId !== 'new'
     ? (profileScanCounts[selectedProfileId] || 0)
     : 0;
@@ -5043,6 +5142,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   }, [uploadGuideStorageKey]);
 
   useEffect(() => {
+    if (selectedModel === PREMIUM_DEMO_MODEL_ID) return;
     if (ultraAccessPending) return;
     if (!isAdmin && (selectedModel === '7' || selectedModel === '8' || selectedModel === '9')) {
       setSelectedModel('3');
@@ -5052,6 +5152,18 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       setSelectedModel('3');
     }
   }, [canUseUltra, isAdmin, selectedModel, ultraAccessPending]);
+
+  useEffect(() => {
+    if (!isPremiumDemoModel) return;
+    setUseSideProfile(false);
+    setFrontImage(PREMIUM_DEMO_FRONT_IMAGE);
+    setFrontFile(null);
+    setSideImage(null);
+    setSideFile(null);
+    setJustUnlocked(true);
+    const timer = setTimeout(() => setJustUnlocked(false), 1600);
+    return () => clearTimeout(timer);
+  }, [isPremiumDemoModel]);
 
   useEffect(() => {
     if (!shouldUseSideProfile) {
@@ -5182,6 +5294,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
              sideImageFile={activeAnalysisJob.sideImageFile}
              sideMetricData={activeAnalysisJob.sideMetricData || sideMetricDataGlobal}
              choice={activeAnalysisJob.choice}
+             demoPayload={activeAnalysisJob.demoPayload}
              scanRequestId={activeAnalysisJob.scanRequestId}
              user={activeAnalysisJob.user || user}
              profileId={activeAnalysisJob.profileId || activeScanProfileId}
@@ -5246,6 +5359,12 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
           0% { background-position: 0% 50%; }
           100% { background-position: 200% 50%; }
         }
+        @keyframes cyanPreviewFlicker {
+          0%, 100% { box-shadow: 0 0 18px rgba(34,211,238,0.16); filter: saturate(1); }
+          42% { box-shadow: 0 0 34px rgba(34,211,238,0.38); filter: saturate(1.35); }
+          46% { box-shadow: 0 0 12px rgba(34,211,238,0.12); filter: saturate(0.9); }
+          58% { box-shadow: 0 0 42px rgba(34,211,238,0.46); filter: saturate(1.5); }
+        }
       `}</style>
       <FadeUp>
         <div className="w-full max-w-[1200px] flex flex-col items-center outline-none">
@@ -5261,11 +5380,13 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
           </button>
 
           <div className="mb-10 flex w-full justify-center px-4">
-            <button
-              type="button"
-              onClick={() => {
-                setUseSideProfile((prev) => {
-                  const next = !prev;
+          <button
+            type="button"
+            disabled={isPremiumDemoModel}
+            onClick={() => {
+              if (isPremiumDemoModel) return;
+              setUseSideProfile((prev) => {
+                const next = !prev;
                   if (!next) {
                     setSideImage(null);
                     setSideFile(null);
@@ -5275,6 +5396,9 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
               }}
               className={[
                 "group flex w-full max-w-md items-center justify-between gap-4 rounded-2xl border px-5 py-4 transition-all duration-300",
+                isPremiumDemoModel
+                  ? "cursor-not-allowed border-cyan-500/25 bg-cyan-500/[0.06] opacity-70"
+                  :
                 useSideProfile
                   ? "border-cyan-500/35 bg-cyan-500/10 shadow-[0_0_28px_rgba(34,211,238,0.10)]"
                   : "border-zinc-800 bg-zinc-950/70 hover:border-zinc-700"
@@ -5286,7 +5410,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                   Use side profile
                 </span>
                 <span className="mt-1 text-[10px] font-sans uppercase tracking-[0.22em] text-zinc-500">
-                  {useSideProfile ? "Front + side analysis" : "Front-only scan"}
+                  {isPremiumDemoModel ? "Fixed preview face" : useSideProfile ? "Front + side analysis" : "Front-only scan"}
                 </span>
               </span>
               <span
@@ -5317,7 +5441,18 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                 : "max-w-sm mx-auto"
             ].join(' ')}
           >
-            <FileDropzone label="Front Profile" file={frontImage} setFile={(url, f) => { setFrontImage(url); setFrontFile(f ?? null); }} isPulsing={shouldUseSideProfile && sideImage && !frontImage} />
+            <FileDropzone
+              label={isPremiumDemoModel ? "Demo Preview Face" : "Front Profile"}
+              file={frontImage}
+              setFile={(url, f) => {
+                if (isPremiumDemoModel) return;
+                setFrontImage(url);
+                setFrontFile(f ?? null);
+              }}
+              isPulsing={shouldUseSideProfile && sideImage && !frontImage}
+              locked={isPremiumDemoModel}
+              lockedLabel="Demo face locked"
+            />
             {useSideProfile && (
               <div className="relative">
                 <div className={!isUltraModel ? 'blur-[6px] pointer-events-none select-none' : ''}>
@@ -5349,6 +5484,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                 const active = models.find((m) => m.id === selectedModel);
                 const ActiveIcon = active?.Icon;
                 const isUltra = active?.tier === 'ultra';
+                const isDemo = active?.tier === 'demo';
                 return (
                   <button
                     type="button"
@@ -5357,7 +5493,9 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                       "w-full flex items-center justify-between gap-4 rounded-xl py-4 px-5 text-sm outline-none transition-all",
                       isLockedToUltra ? "cursor-default" : "cursor-pointer",
                       "border bg-zinc-900/50 hover:bg-zinc-900/80 focus:border-zinc-500",
-                      isUltra ? "border-yellow-500/40 shadow-[0_0_28px_rgba(234,179,8,0.14)]" : "border-zinc-800"
+                      isDemo
+                        ? "border-cyan-400/45 shadow-[0_0_34px_rgba(34,211,238,0.20)]"
+                        : isUltra ? "border-yellow-500/40 shadow-[0_0_28px_rgba(234,179,8,0.14)]" : "border-zinc-800"
                     ].join(' ')}
                     aria-haspopup={isLockedToUltra ? undefined : "listbox"}
                     aria-expanded={isLockedToUltra ? undefined : isModelMenuOpen}
@@ -5366,13 +5504,13 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                       <span
                         className={[
                           "relative inline-flex items-center justify-center w-8 h-8 rounded-lg border shrink-0",
-                          isUltra ? "border-yellow-500/30 bg-yellow-500/10" : "border-zinc-800 bg-zinc-900/50"
+                          isDemo ? "border-cyan-400/35 bg-cyan-400/10" : isUltra ? "border-yellow-500/30 bg-yellow-500/10" : "border-zinc-800 bg-zinc-900/50"
                         ].join(' ')}
                       >
                         {ActiveIcon ? (
                           <ActiveIcon
                             size={16}
-                            className={isUltra ? "text-yellow-300 drop-shadow-[0_0_10px_rgba(250,204,21,0.35)]" : "text-zinc-300"}
+                            className={isDemo ? "text-cyan-200 drop-shadow-[0_0_12px_rgba(34,211,238,0.70)]" : isUltra ? "text-yellow-300 drop-shadow-[0_0_10px_rgba(250,204,21,0.35)]" : "text-zinc-300"}
                           />
                         ) : (
                           <MogCheckLogoIcon size={16} className="opacity-90" />
@@ -5393,7 +5531,9 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                         <span
                           className={[
                             "font-black uppercase tracking-widest truncate",
-                            isUltra
+                            isDemo
+                              ? "text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-white to-cyan-300 drop-shadow-[0_0_16px_rgba(34,211,238,0.24)]"
+                              : isUltra
                               ? "text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-yellow-100 to-amber-300 drop-shadow-[0_0_16px_rgba(250,204,21,0.12)]"
                               : "text-white"
                           ].join(' ')}
@@ -5401,7 +5541,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                           {active?.name ?? "Select a model"}
                         </span>
                         <span className="text-[10px] font-sans uppercase tracking-[0.22em] text-zinc-500 truncate">
-                          {isUltra ? "Premium model" : "Free model"}
+                          {isDemo ? "Fixed demo scan" : isUltra ? "Premium model" : "Free model"}
                         </span>
                       </span>
                     </span>
@@ -5437,6 +5577,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
                       const isActive = m.id === selectedModel;
                       const isUltra = m.tier === 'ultra';
+                      const isDemo = m.tier === 'demo';
                       const Icon = m.Icon ?? MogCheckLogoIcon;
 
                       const ultraLocked = isUltra && !ultraAccessPending && !canUseUltra;
@@ -5458,6 +5599,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                           className={[
                             "mogcheck-model-option w-full text-left rounded-xl px-3 py-3 flex items-start gap-3 relative group",
                             ultraLocked ? "opacity-50 cursor-pointer" : "",
+                            isDemo ? "border border-cyan-400/20 bg-cyan-400/[0.045] animate-[cyanPreviewFlicker_2.2s_ease-in-out_infinite]" : "",
                             isActive
                               ? "bg-white/5 shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
                               : "hover:bg-white/5 hover:shadow-[0_12px_44px_rgba(0,0,0,0.38)]"
@@ -5466,12 +5608,12 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                           <span
                             className={[
                               "relative mt-0.5 inline-flex items-center justify-center w-9 h-9 rounded-xl border shrink-0 overflow-hidden",
-                              isUltra ? "border-yellow-500/30 bg-yellow-500/10" : "border-zinc-800 bg-zinc-900/40"
+                              isDemo ? "border-cyan-400/35 bg-cyan-400/10" : isUltra ? "border-yellow-500/30 bg-yellow-500/10" : "border-zinc-800 bg-zinc-900/40"
                             ].join(' ')}
                           >
                             <Icon
                               size={16}
-                              className={isUltra ? "text-yellow-300 drop-shadow-[0_0_10px_rgba(250,204,21,0.35)]" : "text-zinc-300"}
+                              className={isDemo ? "text-cyan-200 drop-shadow-[0_0_12px_rgba(34,211,238,0.7)]" : isUltra ? "text-yellow-300 drop-shadow-[0_0_10px_rgba(250,204,21,0.35)]" : "text-zinc-300"}
                             />
                             {isUltra && (
                               <span
@@ -5491,7 +5633,9 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                               <span
                                 className={[
                                   "text-[11px] font-black uppercase tracking-widest truncate",
-                                  isUltra
+                                  isDemo
+                                    ? "text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-white to-cyan-300"
+                                    : isUltra
                                     ? "text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-yellow-50 to-amber-300"
                                     : "text-zinc-100"
                                 ].join(' ')}
@@ -5501,6 +5645,11 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                               {isUltra && (
                                 <span className="text-[9px] font-sans uppercase tracking-[0.3em] text-yellow-300/80 border border-yellow-500/20 bg-yellow-500/10 px-2 py-1 rounded-full">
                                   {ultraAccessPending ? 'Checking...' : ultraLocked ? 'Pro / 1 scan' : 'Premium'}
+                                </span>
+                              )}
+                              {isDemo && (
+                                <span className="text-[9px] font-sans uppercase tracking-[0.3em] text-cyan-200 border border-cyan-400/30 bg-cyan-400/10 px-2 py-1 rounded-full">
+                                  Demo
                                 </span>
                               )}
                               {!isUltra && (
@@ -5598,6 +5747,39 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
             <button 
               onClick={async () => {
+                if (isPremiumDemoModel) {
+                  if (!user) {
+                    setCurrentPage('login');
+                    return;
+                  }
+                  const demoPayload = buildPremiumDemoScanPayload(await loadPremiumDemoScanPayload(), {
+                    scannedAt: new Date().toISOString(),
+                  });
+                  setSelectedProfileId('premium-demo');
+                  setActiveScanProfileId('premium-demo');
+                  const queuedJob = queueAnalysisJob?.({
+                    analysisLabel: 'Premium Preview Scan',
+                    mainImageSrc: PREMIUM_DEMO_FRONT_IMAGE,
+                    mainImageFile: null,
+                    sideImageUrl: null,
+                    sideImageFile: null,
+                    sideMetricData: null,
+                    choice: PREMIUM_DEMO_MODEL_ID,
+                    user,
+                    profileId: 'premium-demo',
+                    scanRequestId: 'premium-demo-scan',
+                    demoPayload,
+                  });
+                  if (queuedJob) {
+                    setActiveAnalysisJob(null);
+                    setIsScanning(false);
+                    setCurrentPage('analysis');
+                  } else {
+                    setDashboardData(demoPayload);
+                    setCurrentPage('dashboard');
+                  }
+                  return;
+                }
                 let actualProfileId = selectedProfileId;
                 if (actualProfileId !== 'new' && (profileScanCounts[actualProfileId] || 0) >= PROFILE_SCAN_HISTORY_LIMIT) {
                   setUploadNotice('This profile has reached its 10/10 scan limit. Create a new profile or choose a different one.');
@@ -5668,7 +5850,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
               className={`relative overflow-hidden px-20 py-6 bg-white text-black font-black uppercase tracking-widest text-lg md:text-xl flex items-center justify-center gap-5 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none ${justUnlocked ? 'animate-[buttonUnlock_1s_ease-out_forwards]' : 'shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}
             >
             {justUnlocked && <div className="absolute top-0 bottom-0 w-[50%] bg-gradient-to-r from-transparent via-white to-transparent opacity-80 mix-blend-overlay" style={{ animation: 'sweepGlow 1.5s ease-out forwards' }} />}
-            <span className="relative z-10">Analyze Profiles</span>
+            <span className="relative z-10">{isPremiumDemoModel ? 'Scan Preview' : 'Analyze Profiles'}</span>
             {justUnlocked ? <Unlock size={28} className="text-black relative z-10" style={{ animation: 'popOpen 0.5s ease-out forwards' }} /> : <ChevronRight size={28} className="text-black relative z-10" />}
           </button>
           {isUploadGuideOpen && (
@@ -6585,6 +6767,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
 const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage, onOpenPremiumPlans = null, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback, forceFullAnalysis = false, onBackToProfiles = null, onOpenHistoryScan = null }) => {
   dashboardData = useMemo(() => normalizeDashboardMedia(dashboardData), [dashboardData]);
   const selectedModel = String(dashboardData?.selectedModel || '').trim();
+  const isPremiumDemoScan = Boolean(dashboardData?.isPremiumDemo || dashboardData?.demoScan || selectedModel === PREMIUM_DEMO_MODEL_ID);
   const isFreeModelResult = !forceFullAnalysis && ['3', '4', '5'].includes(selectedModel);
   const hasFullProUnlock = isProPlan(userPlan);
   const isRestrictedPreview = !forceFullAnalysis && isFreeModelResult;
@@ -7100,6 +7283,11 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
             <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
               AI used: {getAnalysisModelLabel(selectedModel || dashboardData?.model)}
             </span>
+            {isPremiumDemoScan && (
+              <span className="rounded-full border border-cyan-400/35 bg-cyan-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)]">
+                Demo preview face
+              </span>
+            )}
             {isDetailedReportGenerating && (
               <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-300">
                 <Loader2 size={12} className="animate-spin" />
@@ -7112,6 +7300,29 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
               </span>
             )}
           </div>
+          {isPremiumDemoScan && !isEmbedded && (
+            <div className="rounded-2xl border border-cyan-400/25 bg-cyan-400/[0.06] p-5 shadow-[0_0_30px_rgba(34,211,238,0.08)]">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200">Premium Preview Scan</p>
+                  <p className="mt-2 text-sm font-sans leading-relaxed text-zinc-300">
+                    This is a fixed demo face so you can preview the saved premium result flow.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (hasFullProUnlock) setCurrentPage('upload-ultra');
+                    else if (onOpenPremiumPlans) onOpenPremiumPlans();
+                    else setCurrentPage('plans');
+                  }}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-cyan-400/35 bg-cyan-400/15 px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100 transition-all hover:border-cyan-200 hover:bg-cyan-400/25 hover:text-white"
+                >
+                  <Plus size={14} /> Run this on my face
+                </button>
+              </div>
+            </div>
+          )}
           {!isEmbedded && isFreeModelResult && user && onBackToProfiles && (
             <button
               type="button"
@@ -8247,7 +8458,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     return ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(0)}s`;
   };
 
-  const modelLabel = (m) => ({ '1': 'Legacy Premium', '2': 'Backup Model', '6': 'Expert Mode', '7': 'penis goat', '8': 'PENIS GOAT 2', '9': 'PENIS GOAT 3', '3': 'Free' }[m] || m);
+  const modelLabel = (m) => ({ '1': 'Legacy Premium', '2': 'Backup Model', '6': 'Expert Mode', '7': 'penis goat', '8': 'PENIS GOAT 2', '9': 'PENIS GOAT 3', [PREMIUM_DEMO_MODEL_ID]: 'Premium Preview', '3': 'Free' }[m] || m);
   const adminUserSections = useMemo(() => {
     const newUsers = [];
     const goatUsers = [];

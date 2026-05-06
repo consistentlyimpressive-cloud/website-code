@@ -1,0 +1,356 @@
+{
+  "success": true,
+  "sex": "male",
+  "finalRating": 82,
+  "sideRating": null,
+  "tier": "elite natural high-tier",
+  "authenticityFlag": false,
+  "uncannyCueCount": 0,
+  "uncannyCues": [],
+  "visualBucket": "NATURAL/COHERENT HIGH-TIER",
+  "facialFatDefinitionRead": "lean",
+  "technicalSummary": "Exceptional structural harmony anchored by a perfect 1.0 midface ratio and strong fWHR. Bone development is elite, featuring high bigonial width and excellent orbital support.",
+  "appealAssessment": "High-tier masculine appeal driven by rare symmetry and ideal vertical proportions. The face is coherent and natural, avoiding the overbuilt look of synthetic models.",
+  "personalizedInterpretation": "A textbook example of structural balance where the eye area and midface provide a strong foundation, slightly limited only by narrow mouth proportions.",
+  "categories": {
+    "Harmony": 95,
+    "Bone": 92,
+    "Symmetry": 94,
+    "Skin": 90,
+    "Dimorphism": 88,
+    "Maxillary/Cheekbone Projection": 91,
+    "Nose Projection": 85,
+    "Facial Fat": 92,
+    "Eye Depth": 89,
+    "Ear Shape": 85
+  },
+  "hexagonFront": {
+    "Harmony": 95,
+    "Bone": 92,
+    "Symmetry": 94,
+    "Skin": 90,
+    "Dimorphism": 88,
+    "Facial Fat": 92
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.81",
+      "score": 88,
+      "impact": "positive",
+      "note": "Strong, balanced width without blockiness."
+    },
+    {
+      "name": "Bigonial Width Index",
+      "value": "0.919",
+      "score": 91,
+      "impact": "positive",
+      "note": "Strong jaw width that complements the bizygomatic breadth."
+    },
+    {
+      "name": "Midface Ratio",
+      "value": "1.0",
+      "score": 100,
+      "impact": "positive",
+      "note": "Absolute ideal; provides peak vertical harmony."
+    },
+    {
+      "name": "Upper Third Length",
+      "value": "0.412",
+      "score": 95,
+      "impact": "positive",
+      "note": "Well-proportioned forehead height."
+    },
+    {
+      "name": "Middle Third Length",
+      "value": "0.436",
+      "score": 98,
+      "impact": "positive",
+      "note": "Compact and balanced midface."
+    },
+    {
+      "name": "Lower Third Length",
+      "value": "0.482",
+      "score": 98,
+      "impact": "positive",
+      "note": "Strong vertical support in the lower face."
+    },
+    {
+      "name": "Canthal Tilt",
+      "value": "3.8",
+      "score": 86,
+      "impact": "positive",
+      "note": "Natural positive tilt contributing to an alert, attractive eye shape."
+    },
+    {
+      "name": "IPD Index",
+      "value": "0.46",
+      "score": 100,
+      "impact": "positive",
+      "note": "Perfectly centered eye spacing."
+    },
+    {
+      "name": "Eye Height Index",
+      "value": "0.066",
+      "score": 99,
+      "impact": "positive",
+      "note": "Balanced aperture with minimal upper eyelid exposure."
+    },
+    {
+      "name": "Brow Compactness Index",
+      "value": "0.093",
+      "score": 97,
+      "impact": "positive",
+      "note": ""
+    },
+    {
+      "name": "Mouth Width Index",
+      "value": "0.35",
+      "score": 76,
+      "impact": "negative",
+      "note": "Slightly narrow, creating a minor imbalance with the jaw width."
+    },
+    {
+      "name": "Nose Width Index",
+      "value": "0.222",
+      "score": 83,
+      "impact": "negative",
+      "note": "Slightly narrow/pinched nasal base."
+    },
+    {
+      "name": "Total Lip Height Index",
+      "value": "0.093",
+      "score": 65,
+      "impact": "negative",
+      "note": "Thin lips, lacking vertical volume."
+    },
+    {
+      "name": "Philtrum Height Index",
+      "value": "0.117",
+      "score": 80,
+      "impact": "neutral",
+      "note": "Balanced length, fitting the lower third well."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Elite Bone Structure",
+      "description": "Your fWHR and bigonial width are excellent, providing a strong, masculine foundation and a highly defined facial frame."
+    },
+    {
+      "title": "Perfect Midface Harmony",
+      "description": "The 1.0 midface ratio is a rare structural win, ensuring ideal balance and symmetry in the center of your face."
+    },
+    {
+      "title": "Optimized Eye Area",
+      "description": "A positive canthal tilt combined with ideal IPD creates a sharp, attractive, and well-supported orbital region."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Lower Third Bottleneck",
+      "description": "Thin lips and a narrow mouth width are the primary limiting factors, creating a slight disharmony with your strong jaw."
+    },
+    {
+      "title": "Orbital Fatigue",
+      "description": "Mild infraorbital puffiness slightly detracts from your eye area, contributing to a tired appearance despite strong bone support."
+    }
+  ],
+  "pros": [
+    "Ideal midface ratio",
+    "Strong orbital support",
+    "Elite jaw/cheekbone balance",
+    "High symmetry",
+    "Clean skin texture"
+  ],
+  "cons": [
+    "Narrow mouth width",
+    "Thin lip height",
+    "Slightly narrow nose",
+    "Minor lower-face soft tissue deficiency"
+  ],
+  "mainLimitingFactor": "Slight narrowness in the mouth and lip region prevents a move into the mid-to-high 80s.",
+  "qualityFlags": [
+    "High-resolution",
+    "Optimal lighting"
+  ],
+  "confidenceFlags": [
+    "High confidence"
+  ],
+  "debugJustification": "Score 82. Natural High-Tier. Driven by perfect midface (1.0), strong fWHR (1.81), and elite eye area. Capped by narrow mouth (0.35) and thin lips (0.093). No uncanny cues. Not inflated by celebrity status; based on structural excellence.",
+  "scanId": "premium-demo-scan",
+  "scanRequestId": "premium-demo-scan",
+  "profileId": "premium-demo",
+  "profileName": "Premium Preview",
+  "selectedModel": "premium-demo",
+  "model": "premium-demo",
+  "frontImage": "/premium-demo/henry-cavill.jpg",
+  "frontImageUrl": "/premium-demo/henry-cavill.jpg",
+  "sideImage": null,
+  "sideImageUrl": null,
+  "videoUrl": null,
+  "isPremiumDemo": true,
+  "demoScan": true,
+  "visibility": "private",
+  "reportStatus": "complete",
+  "scannedAt": "2026-05-06T18:20:51.000Z",
+  "title": "Premium Preview Scan",
+  "badge": "Demo",
+  "biometrics": [
+    {
+      "label": "fWHR (1.81)",
+      "name": "fWHR",
+      "value": "1.81",
+      "displayValue": "1.81",
+      "score": 88,
+      "max": 100,
+      "category": "Facial Width & Structure"
+    },
+    {
+      "label": "Bigonial Width Index (0.919)",
+      "name": "Bigonial Width Index",
+      "value": "0.919",
+      "displayValue": "0.919",
+      "score": 91,
+      "max": 100,
+      "category": "Facial Width & Structure"
+    },
+    {
+      "label": "Midface Ratio (1.0)",
+      "name": "Midface Ratio",
+      "value": "1.0",
+      "displayValue": "1.0",
+      "score": 100,
+      "max": 100,
+      "category": "Facial Width & Structure"
+    },
+    {
+      "label": "Upper Third Length (0.412)",
+      "name": "Upper Third Length",
+      "value": "0.412",
+      "displayValue": "0.412",
+      "score": 95,
+      "max": 100,
+      "category": "Facial Width & Structure"
+    },
+    {
+      "label": "Middle Third Length (0.436)",
+      "name": "Middle Third Length",
+      "value": "0.436",
+      "displayValue": "0.436",
+      "score": 98,
+      "max": 100,
+      "category": "Facial Width & Structure"
+    },
+    {
+      "label": "Lower Third Length (0.482)",
+      "name": "Lower Third Length",
+      "value": "0.482",
+      "displayValue": "0.482",
+      "score": 98,
+      "max": 100,
+      "category": "Facial Width & Structure"
+    },
+    {
+      "label": "Canthal Tilt (3.8)",
+      "name": "Canthal Tilt",
+      "value": "3.8",
+      "displayValue": "3.8",
+      "score": 86,
+      "max": 100,
+      "category": "Eye / Upper Third Area"
+    },
+    {
+      "label": "IPD Index (0.46)",
+      "name": "IPD Index",
+      "value": "0.46",
+      "displayValue": "0.46",
+      "score": 100,
+      "max": 100,
+      "category": "Eye / Upper Third Area"
+    },
+    {
+      "label": "Eye Height Index (0.066)",
+      "name": "Eye Height Index",
+      "value": "0.066",
+      "displayValue": "0.066",
+      "score": 99,
+      "max": 100,
+      "category": "Eye / Upper Third Area"
+    },
+    {
+      "label": "Brow Compactness Index (0.093)",
+      "name": "Brow Compactness Index",
+      "value": "0.093",
+      "displayValue": "0.093",
+      "score": 97,
+      "max": 100,
+      "category": "Eye / Upper Third Area"
+    },
+    {
+      "label": "Mouth Width Index (0.35)",
+      "name": "Mouth Width Index",
+      "value": "0.35",
+      "displayValue": "0.35",
+      "score": 76,
+      "max": 100,
+      "category": "Nasal & Peri-Oral Area"
+    },
+    {
+      "label": "Nose Width Index (0.222)",
+      "name": "Nose Width Index",
+      "value": "0.222",
+      "displayValue": "0.222",
+      "score": 83,
+      "max": 100,
+      "category": "Nasal & Peri-Oral Area"
+    },
+    {
+      "label": "Total Lip Height Index (0.093)",
+      "name": "Total Lip Height Index",
+      "value": "0.093",
+      "displayValue": "0.093",
+      "score": 65,
+      "max": 100,
+      "category": "Nasal & Peri-Oral Area"
+    },
+    {
+      "label": "Philtrum Height Index (0.117)",
+      "name": "Philtrum Height Index",
+      "value": "0.117",
+      "displayValue": "0.117",
+      "score": 80,
+      "max": 100,
+      "category": "Nasal & Peri-Oral Area"
+    }
+  ],
+  "personalizedFeedback": [
+    {
+      "id": 1,
+      "title": "Keep The Structure Lean",
+      "description": "The strongest part of this scan is the bone foundation: fWHR **1.81**, bigonial width **0.919**, and high third scores. Staying lean preserves the jaw and cheekbone definition that makes the face read high-tier."
+    },
+    {
+      "id": 2,
+      "title": "Eye Area Is Already A Strength",
+      "description": "IPD **0.46**, eye height **0.066**, and brow compactness **0.093** are all excellent. The only practical target is reducing mild under-eye fatigue so the orbital region looks as sharp as the measurements suggest."
+    },
+    {
+      "id": 3,
+      "title": "Lower Third Is The Main Bottleneck",
+      "description": "Mouth width **0.35** and total lip height **0.093** are the limiting ratios. The structure is strong, but the softer peri-oral area slightly under-supports the jaw width."
+    },
+    {
+      "id": 4,
+      "title": "Nasal Width Is Acceptable But Tight",
+      "description": "Nose width **0.222** is not a major flaw, but it reads slightly narrow against the broader facial frame. It should be treated as a minor balance note, not the core issue."
+    },
+    {
+      "id": 5,
+      "title": "Why The Score Lands At 82",
+      "description": "The scan is carried by perfect midface harmony **1.0**, elite skeletal ratios, symmetry, and skin quality. It stops short of the upper 80s because the mouth/lip region is visibly weaker than the surrounding bone structure."
+    }
+  ],
+  "demoVersion": "henry-cavill-jpg-biometrics-feedback-v3"
+}
