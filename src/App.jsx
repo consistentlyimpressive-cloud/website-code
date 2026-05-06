@@ -1181,9 +1181,9 @@ const FlipIn = ({ children, delay = 0 }) => {
 };
 
 const PremiumProofModal = ({ onClose, onContinue }) => (
-  <SiteModal title="See Premium In Action" subtitle="Real scan flow preview" onClose={onClose} maxWidth="max-w-3xl">
+  <SiteModal title="See Premium In Action" subtitle="Real scan flow preview" onClose={onClose} maxWidth="max-w-md">
     <div className="space-y-5">
-      <div className="overflow-hidden rounded-2xl border border-yellow-500/25 bg-black shadow-[0_0_50px_rgba(234,179,8,0.10)]">
+      <div className="mx-auto aspect-[9/16] max-h-[68vh] w-full max-w-[360px] overflow-hidden rounded-2xl border border-yellow-500/25 bg-black shadow-[0_0_50px_rgba(234,179,8,0.10)]">
         <video
           src={PREMIUM_PROOF_VIDEO_SRC}
           autoPlay
@@ -1191,7 +1191,7 @@ const PremiumProofModal = ({ onClose, onContinue }) => (
           muted
           playsInline
           preload="auto"
-          className="block max-h-[60vh] w-full bg-black object-contain"
+          className="h-full w-full bg-black object-cover"
         />
       </div>
 
