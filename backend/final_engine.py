@@ -362,10 +362,10 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             "3": ("gemma-4-26b-a4b-it", "OPTIC"),
             "4": ("gemma-4-26b-a4b-it", "CORE"),
             "5": ("gemma-4-26b-a4b-it", "GENEVA"),
-            "6": (GEMINI_31_PRO_MODEL_ID, "Expert Mode (Very Accurate)"),
+            "6": ("gemma-4-31b-it", "Expert Mode (Very Accurate)"),
             "7": (GEMINI_31_PRO_MODEL_ID, "penis goat"),
             "8": (GEMINI_31_PRO_MODEL_ID, "PENIS GOAT 2"),
-            "9": (GEMINI_31_PRO_MODEL_ID, "PENIS GOAT 3")
+            "9": ("gemma-4-31b-it", "PENIS GOAT 3")
         }
 
         if choice not in mapping:
@@ -374,8 +374,8 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
         model_id, friendly_name = mapping[choice]
 
         print(f"[DEBUG] Consulting {friendly_name}... (Press Ctrl+C to Cancel)")
-        available_keys = GEMINI_31_PRO_KEYS if choice in {"6", "7", "8", "9"} else GOOGLE_GENAI_KEYS
-        key_help = "GEMINI_3_1_PRO_API_KEY" if choice in {"6", "7", "8", "9"} else "GEMINI_KEY_1 or more keys for Gemma"
+        available_keys = GEMINI_31_PRO_KEYS if choice in {"7", "8"} else GOOGLE_GENAI_KEYS
+        key_help = "GEMINI_3_1_PRO_API_KEY" if choice in {"7", "8"} else "GEMINI_KEY_1 or more keys for Gemma"
         if not available_keys:
             return (
                 f"Error: No Google GenAI keys are configured in backend/.env. Add {key_help}.",
@@ -398,9 +398,9 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
         scan_id = os.getenv("MOGCHECK_SCAN_REQUEST_ID") or None
         include_image = not (choice in {"2", "6", "7", "8", "9"} and analysis_phase == "report")
         max_output_tokens = None
-        if choice == "2":
+        if choice in {"2", "6", "9"}:
             max_output_tokens = 1400 if analysis_phase == "report" else 1500
-        elif choice in {"6", "7", "8", "9"}:
+        elif choice in {"7", "8"}:
             # Gemini 3.x can spend a large part of maxOutputTokens on hidden thinking.
             # Give it more visible room and cap thinking so the JSON is not truncated.
             max_output_tokens = 2400 if analysis_phase == "report" else 4096

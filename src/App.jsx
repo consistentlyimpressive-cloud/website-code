@@ -37,6 +37,7 @@ const SettingsPage = React.lazy(() => import('./components/SettingsPage'));
 const GENERIC_ERROR = 'Something went wrong. Please try again later.';
 const EMPTY_ANALYSIS_RESPONSE_ERROR = 'Analysis finished but no usable text was parsed';
 const FRIENDLY_FRONTAL_IMAGE_ERROR = "Analysis failed. Are you sure you're using a frontal image?";
+const PREMIUM_PROOF_VIDEO_SRC = '/social-proof/premium-proof.mp4';
 
 function friendlyAnalysisErrorMessage(message) {
   const text = String(message || '').trim();
@@ -1179,8 +1180,54 @@ const FlipIn = ({ children, delay = 0 }) => {
   );
 };
 
+const PremiumProofModal = ({ onClose, onContinue }) => (
+  <SiteModal title="See Premium In Action" subtitle="Real scan flow preview" onClose={onClose} maxWidth="max-w-3xl">
+    <div className="space-y-5">
+      <div className="overflow-hidden rounded-2xl border border-yellow-500/25 bg-black shadow-[0_0_50px_rgba(234,179,8,0.10)]">
+        <video
+          src={PREMIUM_PROOF_VIDEO_SRC}
+          controls
+          loop
+          playsInline
+          preload="metadata"
+          className="block max-h-[60vh] w-full bg-black object-contain"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400 sm:grid-cols-3">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 py-3 text-center">
+          Secure checkout by Paddle
+        </div>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 py-3 text-center">
+          Premium scans saved to profile
+        </div>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 py-3 text-center">
+          Cancel anytime for Pro
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-xl border border-zinc-800 bg-zinc-900 px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] text-zinc-300 transition-colors hover:border-zinc-700 hover:text-white"
+        >
+          Maybe later
+        </button>
+        <button
+          type="button"
+          onClick={onContinue}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-600 to-yellow-400 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-black shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-transform hover:scale-[1.02]"
+        >
+          <Crown size={14} /> View Premium Plans
+        </button>
+      </div>
+    </div>
+  </SiteModal>
+);
+
 // --- Navbar ---
-const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDashboard }) => {
+const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignOut, userPlan, showDashboard }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -1263,7 +1310,15 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDa
         <button onClick={() => setCurrentPage('dashboard')} className={`${currentPage === 'dashboard' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}><Activity size={14} /> Dashboard</button>
         )}
         <button onClick={() => setCurrentPage('celebrity')} className={`${currentPage === 'celebrity' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Scans</button>
-        <button onClick={() => setCurrentPage('plans')} className={`${currentPage === 'plans' ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'text-yellow-500/70'} hover:text-yellow-400 transition-all uppercase tracking-widest flex items-center gap-1`}><Crown size={13} /> Plans</button>
+        <button
+          onClick={() => {
+            if (currentPage === 'plans') setCurrentPage('plans');
+            else onOpenPremiumPlans?.();
+          }}
+          className={`${currentPage === 'plans' ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'text-yellow-500/70'} hover:text-yellow-400 transition-all uppercase tracking-widest flex items-center gap-1`}
+        >
+          <Crown size={13} /> Plans
+        </button>
       </div>
       <div className="hidden md:block">
         {user ? (
@@ -1405,7 +1460,16 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDa
         <button onClick={() => { setCurrentPage('dashboard'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Activity size={14} /> Dashboard</button>
         )}
           <button onClick={() => { setCurrentPage('celebrity'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Celebrity Rating</button>
-          <button onClick={() => { setCurrentPage('plans'); setIsOpen(false); }} className="text-yellow-500/70 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Crown size={13} /> Plans</button>
+          <button
+            onClick={() => {
+              setIsOpen(false);
+              if (currentPage === 'plans') setCurrentPage('plans');
+              else onOpenPremiumPlans?.();
+            }}
+            className="text-yellow-500/70 uppercase tracking-widest text-xs font-bold flex items-center gap-2"
+          >
+            <Crown size={13} /> Plans
+          </button>
           {user ? (
             <>
               <button type="button" onClick={() => { setCurrentPage('photo-guide'); setIsOpen(false); }} className="flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-6 py-2 text-cyan-300 hover:text-cyan-100 font-bold text-xs uppercase tracking-widest">
@@ -6536,7 +6600,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
   );
 };
 
-const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback, forceFullAnalysis = false, onBackToProfiles = null, onOpenHistoryScan = null }) => {
+const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage, onOpenPremiumPlans = null, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback, forceFullAnalysis = false, onBackToProfiles = null, onOpenHistoryScan = null }) => {
   dashboardData = useMemo(() => normalizeDashboardMedia(dashboardData), [dashboardData]);
   const selectedModel = String(dashboardData?.selectedModel || '').trim();
   const isFreeModelResult = !forceFullAnalysis && ['3', '4', '5'].includes(selectedModel);
@@ -6579,7 +6643,10 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
       <span className={`text-white font-black italic uppercase tracking-widest mb-1 drop-shadow-md ${compact ? 'text-base' : 'text-lg'}`}>PRO FEATURE</span>
       <span className={`text-zinc-300 font-sans text-[10px] uppercase tracking-widest text-center px-4 max-w-[min(100%,280px)] leading-relaxed ${compact ? 'mb-4' : 'mb-6'}`}>{title} requires a premium model</span>
       <button 
-        onClick={() => setCurrentPage('plans')}
+        onClick={() => {
+          if (onOpenPremiumPlans) onOpenPremiumPlans();
+          else setCurrentPage('plans');
+        }}
         className={`bg-gradient-to-r from-yellow-600 to-yellow-500 text-black font-bold uppercase tracking-widest rounded-full hover:scale-105 transition-transform shadow-[0_0_15px_rgba(234,179,8,0.4)] ${compact ? 'px-5 py-1.5 text-[10px]' : 'px-6 py-2 text-xs'}`}
       >
         Upgrade to Pro
@@ -9690,6 +9757,7 @@ const App = () => {
   const [analysisJobs, setAnalysisJobs] = useState([]);
   const [analysisDockCollapsed, setAnalysisDockCollapsed] = useState(false);
   const [focusedAnalysisJobId, setFocusedAnalysisJobId] = useState(null);
+  const [premiumProofOpen, setPremiumProofOpen] = useState(false);
   const analysisJobsRef = useRef([]);
 
   useEffect(() => {
@@ -9711,6 +9779,19 @@ const App = () => {
       window.history.replaceState({ page: parsed.page || page }, '', targetPath);
     }
   }, [user?.uid]);
+
+  const openPremiumPlansProof = useCallback(() => {
+    if (currentPage === 'plans') {
+      setCurrentPage('plans');
+      return;
+    }
+    setPremiumProofOpen(true);
+  }, [currentPage, setCurrentPage]);
+
+  const continueToPremiumPlans = useCallback(() => {
+    setPremiumProofOpen(false);
+    setCurrentPage('plans');
+  }, [setCurrentPage]);
 
   useEffect(() => {
     const syncLocationState = () => {
@@ -10113,10 +10194,17 @@ const App = () => {
         <Navbar
           currentPage={currentPage}
           setCurrentPage={setCurrentPage}
+          onOpenPremiumPlans={openPremiumPlansProof}
           user={user}
           onSignOut={handleSignOut}
           userPlan={userPlan}
           showDashboard={Boolean(user || hasScanData)}
+        />
+      )}
+      {premiumProofOpen && (
+        <PremiumProofModal
+          onClose={() => setPremiumProofOpen(false)}
+          onContinue={continueToPremiumPlans}
         />
       )}
       <main className="flex flex-col min-h-screen">
@@ -10156,13 +10244,14 @@ const App = () => {
                 hasActiveAnalysis={hasScanData}
                 analysisContent={
                   hasScanData
-                    ? <DashboardPage dashboardData={dashboardData} setDashboardData={setDashboardData} setCurrentPage={setCurrentPage} userPlan={userPlan} user={user} hideTopSection isEmbedded />
+                    ? <DashboardPage dashboardData={dashboardData} setDashboardData={setDashboardData} setCurrentPage={setCurrentPage} onOpenPremiumPlans={openPremiumPlansProof} userPlan={userPlan} user={user} hideTopSection isEmbedded />
                     : null
                 }
                 renderCommunityDashboard={(communityData) => (
                   <DashboardPage
                     dashboardData={communityData}
                     setCurrentPage={setCurrentPage}
+                    onOpenPremiumPlans={openPremiumPlansProof}
                     userPlan={userPlan}
                     user={user}
                     hideTopSection
@@ -10180,6 +10269,7 @@ const App = () => {
                 dashboardData={dashboardData}
                 setDashboardData={setDashboardData}
                 setCurrentPage={setCurrentPage}
+                onOpenPremiumPlans={openPremiumPlansProof}
                 userPlan={userPlan}
                 user={user}
                 onBackToProfiles={() => {
@@ -10219,6 +10309,7 @@ const App = () => {
                 <DashboardPage
                   dashboardData={scanDashboardData}
                   setCurrentPage={setCurrentPage}
+                  onOpenPremiumPlans={openPremiumPlansProof}
                   userPlan={userPlan}
                   user={user}
                   hideTopSection
