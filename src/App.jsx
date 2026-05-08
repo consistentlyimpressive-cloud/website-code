@@ -39,8 +39,40 @@ const EMPTY_ANALYSIS_RESPONSE_ERROR = 'Analysis finished but no usable text was 
 const FRIENDLY_FRONTAL_IMAGE_ERROR = "Analysis failed. Are you sure you're using a frontal image?";
 const PREMIUM_PROOF_VIDEO_SRC = '/social-proof/premium-proof.mp4';
 const PREMIUM_DEMO_MODEL_ID = 'premium-demo';
-const PREMIUM_DEMO_FRONT_IMAGE = '/premium-demo/henry-cavill.jpg';
-const PREMIUM_DEMO_SCAN_PAYLOAD_SRC = '/premium-demo/henry-cavill-scan.json';
+const DEFAULT_PREMIUM_DEMO_ID = 'henry';
+const PREMIUM_DEMO_FACES = [
+  {
+    id: 'henry',
+    name: 'Henry Cavill',
+    shortName: 'Henry',
+    image: '/premium-demo/henry-cavill.jpg',
+    payloadSrc: '/premium-demo/henry-cavill-scan.json',
+    score: 82,
+    enabled: true,
+  },
+  {
+    id: 'sean-opry',
+    name: "Sean O'Pry",
+    shortName: 'Sean',
+    image: '/premium-demo/sean-opry.webp',
+    payloadSrc: '/premium-demo/sean-opry-scan.json',
+    score: 77,
+    enabled: true,
+  },
+  {
+    id: 'empty-3',
+    name: 'Coming Soon',
+    shortName: 'Locked',
+    image: null,
+    payloadSrc: null,
+    score: null,
+    enabled: false,
+  },
+];
+const ACTIVE_PREMIUM_DEMO_FACES = PREMIUM_DEMO_FACES.filter((face) => face.enabled);
+const ACTIVE_PREMIUM_DEMO_IDS = ACTIVE_PREMIUM_DEMO_FACES.map((face) => face.id);
+const PREMIUM_DEMO_FRONT_IMAGE = ACTIVE_PREMIUM_DEMO_FACES[0]?.image || '/premium-demo/henry-cavill.jpg';
+const PREMIUM_DEMO_SCAN_PAYLOAD_SRC = ACTIVE_PREMIUM_DEMO_FACES[0]?.payloadSrc || '/premium-demo/henry-cavill-scan.json';
 
 function friendlyAnalysisErrorMessage(message) {
   const text = String(message || '').trim();
@@ -516,6 +548,39 @@ function findCommunityScanTemplate(scan) {
   );
 }
 
+function forceCommunityScanFrontOnly(data) {
+  if (!data || typeof data !== 'object') return data;
+  const payload = data.payload && typeof data.payload === 'object'
+    ? {
+        ...data.payload,
+        sideImage: null,
+        sideImageUrl: null,
+        sideRating: null,
+        sideCategories: null,
+        sideBestFeatures: [],
+        sidePrimaryFlaws: [],
+        sideBiometrics: [],
+        hexagonSide: null,
+        cohesiveFrontSide: false,
+      }
+    : data.payload;
+
+  return {
+    ...data,
+    payload,
+    sideImage: null,
+    sideImageUrl: null,
+    sideRating: null,
+    sideCategories: null,
+    sideBestFeatures: [],
+    sidePrimaryFlaws: [],
+    sideBiometrics: [],
+    hexagonSide: null,
+    cohesiveFrontSide: false,
+    communityFrontOnly: true,
+  };
+}
+
 function hydrateCommunityScanEntry(scan, index = 0) {
   const template = findCommunityScanTemplate(scan);
   const isOfficialScan = Boolean(scan?.officialScan || scan?.official || template?.officialScan || template?.official);
@@ -532,33 +597,19 @@ function hydrateCommunityScanEntry(scan, index = 0) {
     scan?.frontImageUrl ||
     template?.dashboardData?.frontImage ||
     null;
-  const sideImage =
-    payload?.sideImage ||
-    scan?.sideImage ||
-    scan?.sideImageUrl ||
-    template?.dashboardData?.sideImage ||
-    frontImage ||
-    null;
   const finalRating =
     payload?.finalRating ??
     scan?.finalRating ??
     template?.dashboardData?.finalRating ??
     0;
-  const sideRating =
-    payload?.sideRating ??
-    scan?.sideRating ??
-    template?.dashboardData?.sideRating ??
-    finalRating;
 
   const dashboardData = payload
-    ? {
+    ? forceCommunityScanFrontOnly({
         ...payload,
         frontImage,
-        sideImage,
         finalRating,
-        sideRating,
         selectedModel: String(payload.selectedModel || scan?.selectedModel || scan?.model || (isOfficialScan ? 'official' : '1')),
-      }
+      })
     : null;
 
   return {
@@ -581,9 +632,9 @@ function hydrateCommunityScanEntry(scan, index = 0) {
               ? 'C-Tier'
               : 'D-Tier'),
     frontImage,
-    sideImage,
+    sideImage: null,
     finalRating,
-    sideRating,
+    sideRating: null,
     dashboardData,
   };
 }
@@ -944,9 +995,44 @@ const normalizeDashboardMedia = (data, includeHistory = true) => {
   return normalized;
 };
 
-async function loadPremiumDemoScanPayload() {
+function getPremiumDemoFace(demoId = DEFAULT_PREMIUM_DEMO_ID) {
+  return PREMIUM_DEMO_FACES.find((face) => face.id === demoId && face.enabled) || ACTIVE_PREMIUM_DEMO_FACES[0];
+}
+
+function normalizePremiumDemoId(demoId) {
+  return getPremiumDemoFace(demoId)?.id || DEFAULT_PREMIUM_DEMO_ID;
+}
+
+function getAvailablePremiumDemoId(usedIds = [], preferredId = DEFAULT_PREMIUM_DEMO_ID) {
+  const used = new Set(usedIds);
+  const preferred = getPremiumDemoFace(preferredId);
+  if (preferred && !used.has(preferred.id)) return preferred.id;
+  return ACTIVE_PREMIUM_DEMO_FACES.find((face) => !used.has(face.id))?.id || preferred?.id || DEFAULT_PREMIUM_DEMO_ID;
+}
+
+function getPremiumDemoIdFromScan(scan) {
+  const payload = scan?.payload && typeof scan.payload === 'object' ? scan.payload : {};
+  const demoId = payload.demoId || scan?.demoId;
+  if (demoId && getPremiumDemoFace(demoId)?.id === demoId) return demoId;
+  const scanId = scan?.id || scan?.scanId || payload.scanId || payload.scanRequestId;
+  const matchedFace = ACTIVE_PREMIUM_DEMO_FACES.find((face) => scanId === `premium-demo-scan-${face.id}`);
+  if (matchedFace) return matchedFace.id;
+  if (
+    scanId === 'premium-demo-scan' ||
+    scan?.isPremiumDemo ||
+    scan?.demoScan ||
+    payload.isPremiumDemo ||
+    payload.demoScan
+  ) {
+    return DEFAULT_PREMIUM_DEMO_ID;
+  }
+  return null;
+}
+
+async function loadPremiumDemoScanPayload(demoId = DEFAULT_PREMIUM_DEMO_ID) {
+  const face = getPremiumDemoFace(demoId);
   try {
-    const res = await fetch(PREMIUM_DEMO_SCAN_PAYLOAD_SRC, { cache: 'force-cache' });
+    const res = await fetch(face?.payloadSrc || PREMIUM_DEMO_SCAN_PAYLOAD_SRC, { cache: 'force-cache' });
     if (res.ok) return res.json();
   } catch (error) {
     console.warn('Failed to load premium demo payload', error);
@@ -968,26 +1054,32 @@ async function loadPremiumDemoScanPayload() {
 }
 
 function buildPremiumDemoScanPayload(payload = {}, overrides = {}) {
+  const demoId = normalizePremiumDemoId(overrides.demoId || payload.demoId);
+  const face = getPremiumDemoFace(demoId);
+  const scanId = overrides.scanId || overrides.id || payload.scanId || `premium-demo-scan-${demoId}`;
   const scannedAt = overrides.scannedAt || new Date().toISOString();
   return normalizeDashboardMedia({
     ...payload,
     success: true,
-    scanId: 'premium-demo-scan',
-    scanRequestId: 'premium-demo-scan',
+    id: scanId,
+    scanId,
+    scanRequestId: scanId,
     profileId: 'premium-demo',
-    profileName: 'Premium Preview',
+    profileName: 'Demo Scan',
     selectedModel: PREMIUM_DEMO_MODEL_ID,
     model: PREMIUM_DEMO_MODEL_ID,
-    frontImage: PREMIUM_DEMO_FRONT_IMAGE,
-    frontImageUrl: PREMIUM_DEMO_FRONT_IMAGE,
+    frontImage: face?.image || PREMIUM_DEMO_FRONT_IMAGE,
+    frontImageUrl: face?.image || PREMIUM_DEMO_FRONT_IMAGE,
     sideImage: null,
     sideImageUrl: null,
     isPremiumDemo: true,
     demoScan: true,
+    demoId,
+    demoName: face?.name || 'Premium Demo',
     visibility: 'private',
     reportStatus: 'complete',
     scannedAt,
-    title: 'Premium Preview Scan',
+    title: 'Demo Scan',
     badge: 'Demo',
     ...overrides,
   });
@@ -2241,8 +2333,16 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
             </div>
           </header>
           <div className="flex-1 px-4 pb-16 pt-6 md:px-8">
+            <button
+              type="button"
+              onClick={() => setCommunityPeek(null)}
+              className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/[0.07] px-4 py-2 font-sans text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100 transition-colors hover:border-cyan-300/60 hover:bg-cyan-400/10"
+            >
+              <ArrowLeft size={14} />
+              Go to previous page
+            </button>
             <DashboardPage
-              dashboardData={communityPeek.dashboardData}
+              dashboardData={forceCommunityScanFrontOnly(communityPeek.dashboardData)}
               setCurrentPage={setCurrentPage}
               userPlan={{ plan: 'pro', scanCredits: 0 }}
               user={null}
@@ -3963,7 +4063,7 @@ const ScanningView = ({
             setElapsedScanMs(elapsedMs);
             setStatusText(`${demoSteps[Math.floor(elapsedMs / 900) % demoSteps.length]}...`);
           }, 500);
-          await new Promise((resolve) => setTimeout(resolve, 20000));
+          await new Promise((resolve) => setTimeout(resolve, 25000));
           clearInterval(progressTick);
           if (!active) return;
           scanSucceeded = true;
@@ -4938,6 +5038,9 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [newProfileName, setNewProfileName] = useState('');
   const [profilesUnavailable, setProfilesUnavailable] = useState(false);
   const [profileScanCounts, setProfileScanCounts] = useState({});
+  const [premiumDemoScanUsed, setPremiumDemoScanUsed] = useState(false);
+  const [premiumDemoUsedIds, setPremiumDemoUsedIds] = useState([]);
+  const [selectedPremiumDemoId, setSelectedPremiumDemoId] = useState(DEFAULT_PREMIUM_DEMO_ID);
 
   useEffect(() => {
     setFrontImage(null);
@@ -4969,6 +5072,16 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                   counts[profileId] = (counts[profileId] || 0) + 1;
                 });
                 setProfileScanCounts(counts);
+                const detectedDemoIds = new Set(
+                  Array.isArray(scansData.premiumDemoUsedIds) ? scansData.premiumDemoUsedIds : []
+                );
+                (scansData.scans || []).forEach((scan) => {
+                  const demoId = getPremiumDemoIdFromScan(scan);
+                  if (demoId) detectedDemoIds.add(demoId);
+                });
+                const nextDemoUsedIds = ACTIVE_PREMIUM_DEMO_IDS.filter((demoId) => detectedDemoIds.has(demoId));
+                setPremiumDemoUsedIds(nextDemoUsedIds);
+                setPremiumDemoScanUsed(Boolean(scansData.premiumDemoScanUsed) || ACTIVE_PREMIUM_DEMO_IDS.every((demoId) => detectedDemoIds.has(demoId)));
               }
             } catch (scanErr) {
               console.warn('Failed to fetch profile scan counts', scanErr);
@@ -5003,15 +5116,30 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     fetchProfiles();
   }, [user, initialProfileId]);
 
+  // Check if current user is an admin by email domain or specific email
+  const isAdmin = user?.email && (
+    user.email === 'laithbu07@gmail.com' ||
+    user.email === 'admin@looksmaxxing.com' ||
+    user.email === 'serenity.eyb@gmail.com' ||
+    user.email === 'laithabuamsheh@gmail.com' ||
+    user.email.endsWith('@looksmaxxing.com')
+  );
+  const premiumDemoUsedSet = useMemo(() => new Set(premiumDemoUsedIds), [premiumDemoUsedIds]);
+  const selectedPremiumDemoFace = getPremiumDemoFace(selectedPremiumDemoId);
+  const visiblePremiumDemoFaceId = selectedPremiumDemoFace?.id || DEFAULT_PREMIUM_DEMO_ID;
+  const activePremiumDemoTotal = ACTIVE_PREMIUM_DEMO_IDS.length;
+  const activePremiumDemoUsedCount = ACTIVE_PREMIUM_DEMO_IDS.filter((demoId) => premiumDemoUsedSet.has(demoId)).length;
+  const allPremiumDemosUsed = activePremiumDemoTotal > 0 && activePremiumDemoUsedCount >= activePremiumDemoTotal;
+
   const models = [
-    {
+    ...(!allPremiumDemosUsed || isAdmin ? [{
       id: PREMIUM_DEMO_MODEL_ID,
-      name: "Premium Preview",
+      name: "Free Demo Scan",
       description:
-        "A fixed-face premium demo scan. The face is locked so you can preview the full result experience without spending a scan.",
+        "Choose a fixed-face premium demo scan. Each demo face can be previewed once per account.",
       tier: "demo",
       Icon: Crown
-    },
+    }] : []),
     {
       id: "2",
       name: "Backup Model",
@@ -5085,17 +5213,16 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const isUltraModel = selectedModel === "1" || selectedModel === "2" || selectedModel === "6" || selectedModel === "7" || selectedModel === "8" || selectedModel === "9";
   const isPremiumDemoModel = selectedModel === PREMIUM_DEMO_MODEL_ID;
   const shouldUseSideProfile = isUltraModel && useSideProfile;
-
-  // Check if current user is an admin by email domain or specific email
-  const isAdmin = user?.email && (
-    user.email === 'laithbu07@gmail.com' || 
-    user.email === 'admin@looksmaxxing.com' ||
-    user.email === 'serenity.eyb@gmail.com' ||
-    user.email === 'laithabuamsheh@gmail.com' ||
-    user.email.endsWith('@looksmaxxing.com')
-  );
-
+  const shouldDemoGlowFlicker = !isProPlan(userPlan);
   const planResolved = !user || userPlan?.loaded !== false;
+  const isFreePlanAccount = Boolean(
+    user &&
+    !isAdmin &&
+    planResolved &&
+    normalizePlanValue(userPlan?.plan || 'free') === 'free'
+  );
+  const shouldShowDemoNudge = isFreePlanAccount && !allPremiumDemosUsed && !isPremiumDemoModel;
+
   const ultraAccessPending = !!user && !isAdmin && !planResolved;
   const canUseUltra =
     !!user &&
@@ -5108,7 +5235,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const selectedProfileScanCount = selectedProfileId !== 'new'
     ? (profileScanCounts[selectedProfileId] || 0)
     : 0;
-  const selectedProfileFull = selectedProfileId !== 'new' && selectedProfileScanCount >= PROFILE_SCAN_HISTORY_LIMIT;
+  const selectedProfileFull = !isPremiumDemoModel && selectedProfileId !== 'new' && selectedProfileScanCount >= PROFILE_SCAN_HISTORY_LIMIT;
   const uploadGuideStorageKey = useMemo(
     () => `${UPLOAD_GUIDE_STORAGE_PREFIX}:${user?.uid || 'guest'}`,
     [user?.uid]
@@ -5154,16 +5281,36 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   }, [canUseUltra, isAdmin, selectedModel, ultraAccessPending]);
 
   useEffect(() => {
+    if (!isAdmin && allPremiumDemosUsed && selectedModel === PREMIUM_DEMO_MODEL_ID) {
+      setSelectedModel('3');
+    }
+  }, [allPremiumDemosUsed, isAdmin, selectedModel]);
+
+  useEffect(() => {
     if (!isPremiumDemoModel) return;
+    const nextDemoId = getAvailablePremiumDemoId(premiumDemoUsedIds, selectedPremiumDemoId);
+    if (nextDemoId !== selectedPremiumDemoId) {
+      setSelectedPremiumDemoId(nextDemoId);
+    }
+    const nextDemoFace = getPremiumDemoFace(nextDemoId);
     setUseSideProfile(false);
-    setFrontImage(PREMIUM_DEMO_FRONT_IMAGE);
+    setSelectedProfileId(PREMIUM_DEMO_MODEL_ID);
+    setActiveScanProfileId(PREMIUM_DEMO_MODEL_ID);
+    setFrontImage(nextDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE);
     setFrontFile(null);
     setSideImage(null);
     setSideFile(null);
     setJustUnlocked(true);
     const timer = setTimeout(() => setJustUnlocked(false), 1600);
     return () => clearTimeout(timer);
-  }, [isPremiumDemoModel]);
+  }, [isPremiumDemoModel, premiumDemoUsedIds, selectedPremiumDemoId]);
+
+  useEffect(() => {
+    if (isPremiumDemoModel || selectedProfileId !== PREMIUM_DEMO_MODEL_ID) return;
+    const nextProfileId = profiles[0]?.id || 'new';
+    setSelectedProfileId(nextProfileId);
+    setActiveScanProfileId(nextProfileId);
+  }, [isPremiumDemoModel, profiles, selectedProfileId]);
 
   useEffect(() => {
     if (!shouldUseSideProfile) {
@@ -5219,7 +5366,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
   const handleScanComplete = useCallback((data) => {
     const completedAt = new Date().toISOString();
-    const targetProfileId = activeScanProfileId || selectedProfileId || 'default';
+    const targetProfileId = data?.profileId || activeScanProfileId || selectedProfileId || 'default';
     const completedScan = normalizeDashboardMedia({
       ...data,
       scanRequestId: data?.scanRequestId || null,
@@ -5229,7 +5376,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       debugAnchorsImageUrl: data?.debugAnchorsImageUrl || data?.debugAnchorsImage || null,
       debugRatiosImage: data?.debugRatiosImage || data?.debugRatiosImageUrl || null,
       debugRatiosImageUrl: data?.debugRatiosImageUrl || data?.debugRatiosImage || null,
-      selectedModel,
+      selectedModel: data?.selectedModel || data?.model || selectedModel,
       profileId: targetProfileId && targetProfileId !== 'new' ? targetProfileId : 'default',
       scannedAt: data?.scannedAt || completedAt,
       _handoffSavedAt: completedAt,
@@ -5441,18 +5588,97 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                 : "max-w-sm mx-auto"
             ].join(' ')}
           >
-            <FileDropzone
-              label={isPremiumDemoModel ? "Demo Preview Face" : "Front Profile"}
-              file={frontImage}
-              setFile={(url, f) => {
-                if (isPremiumDemoModel) return;
-                setFrontImage(url);
-                setFrontFile(f ?? null);
-              }}
-              isPulsing={shouldUseSideProfile && sideImage && !frontImage}
-              locked={isPremiumDemoModel}
-              lockedLabel="Demo face locked"
-            />
+            {isPremiumDemoModel ? (
+              <div className="group/demo-picker col-span-full flex w-full flex-col items-center">
+                <span className="mb-6 text-lg font-bold uppercase tracking-widest text-cyan-100 drop-shadow-[0_0_16px_rgba(34,211,238,0.24)] md:text-xl">
+                  Demo Preview Face
+                </span>
+                <div className="grid w-full max-w-6xl grid-cols-1 items-center justify-items-center gap-4 md:grid-cols-[minmax(130px,1fr)_minmax(340px,440px)_minmax(130px,1fr)] md:gap-10">
+                  {[
+                    ...PREMIUM_DEMO_FACES.filter((face) => face.id !== visiblePremiumDemoFaceId).slice(0, 1),
+                    selectedPremiumDemoFace,
+                    ...PREMIUM_DEMO_FACES.filter((face) => face.id !== visiblePremiumDemoFaceId).slice(1, 2),
+                  ].filter(Boolean).map((face) => {
+                    const isSelectedFace = face.id === visiblePremiumDemoFaceId;
+                    const isUsedFace = premiumDemoUsedSet.has(face.id);
+                    const isDisabledFace = !face.enabled || (!isAdmin && isUsedFace);
+                    const selectFace = () => {
+                      if (isDisabledFace) return;
+                      setSelectedPremiumDemoId(face.id);
+                      setFrontImage(face.image || PREMIUM_DEMO_FRONT_IMAGE);
+                    };
+                    if (isSelectedFace) {
+                      return (
+                        <button
+                          key={face.id}
+                          type="button"
+                          onClick={selectFace}
+                          className="order-1 mx-auto flex w-full max-w-md flex-col overflow-hidden bg-transparent shadow-[0_0_70px_rgba(34,211,238,0.16)] transition-all duration-500 md:order-none md:max-w-[440px] md:scale-110"
+                        >
+                          <span className="relative aspect-[3/4] overflow-hidden rounded-[1.35rem] bg-zinc-950">
+                            <img
+                              src={face.image}
+                              alt={`${face.name} demo face`}
+                              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover/demo-picker:scale-[1.025]"
+                            />
+                            <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/45 to-transparent p-4 text-left">
+                              <span className="block text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200">Premium Demo</span>
+                              <span className="mt-1 block text-3xl font-black italic uppercase tracking-tight text-white">{face.shortName}</span>
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    }
+                    return (
+                      <button
+                        key={face.id}
+                        type="button"
+                        disabled={isDisabledFace}
+                        onClick={selectFace}
+                        className={[
+                          "order-2 mx-auto flex w-full max-w-[190px] flex-col overflow-hidden bg-transparent transition-all duration-500 md:order-none",
+                          "opacity-100 md:opacity-0 md:translate-y-3 md:blur-[2px] md:group-hover/demo-picker:opacity-65 md:group-focus-within/demo-picker:opacity-65 md:group-hover/demo-picker:translate-y-0 md:group-focus-within/demo-picker:translate-y-0",
+                          isDisabledFace
+                            ? "cursor-not-allowed grayscale"
+                            : "hover:opacity-100 hover:blur-0 hover:scale-105"
+                        ].join(' ')}
+                      >
+                        <span className="relative aspect-[3/4] overflow-hidden rounded-[1.05rem] bg-zinc-950">
+                          {face.image ? (
+                            <img
+                              src={face.image}
+                              alt={`${face.name} demo face`}
+                              className="absolute inset-0 h-full w-full object-cover opacity-80 transition-transform duration-500 hover:scale-105"
+                            />
+                          ) : (
+                            <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-zinc-950/70 text-zinc-600">
+                              <Lock size={22} />
+                              <span className="text-[9px] font-black uppercase tracking-[0.24em]">Coming Soon</span>
+                            </span>
+                          )}
+                          <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/55 to-transparent p-3 text-left">
+                            <span className="block text-[9px] font-black uppercase tracking-[0.24em] text-cyan-200/80">
+                              {!face.enabled ? 'Coming Soon' : isUsedFace && !isAdmin ? 'Used' : 'Choose'}
+                            </span>
+                            <span className="mt-1 block text-sm font-black italic uppercase tracking-tight text-white/90">{face.shortName}</span>
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <FileDropzone
+                label="Front Profile"
+                file={frontImage}
+                setFile={(url, f) => {
+                  setFrontImage(url);
+                  setFrontFile(f ?? null);
+                }}
+                isPulsing={shouldUseSideProfile && sideImage && !frontImage}
+              />
+            )}
             {useSideProfile && (
               <div className="relative">
                 <div className={!isUltraModel ? 'blur-[6px] pointer-events-none select-none' : ''}>
@@ -5479,6 +5705,23 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       <div className="w-full max-w-[1200px] flex flex-col items-center outline-none">
           <div className="w-full max-w-sm mb-12">
             <label className="block text-zinc-500 font-sans text-[10px] uppercase tracking-[0.3em] mb-3 text-center">AI Model Selection</label>
+            {shouldShowDemoNudge && (
+              <button
+                type="button"
+                onClick={() => setIsModelMenuOpen(true)}
+                className="mb-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-amber-300/35 bg-amber-400/[0.08] px-4 py-3 text-left shadow-[0_0_28px_rgba(251,191,36,0.10)] transition-all hover:border-amber-200/70 hover:bg-amber-400/[0.12]"
+              >
+                <span className="min-w-0">
+                  <span className="block text-[10px] font-black uppercase tracking-[0.28em] text-amber-200">Free plan perk</span>
+                  <span className="mt-1 block text-xs font-sans leading-relaxed text-amber-100/75">
+                    Open this menu and choose Free Demo Scan.
+                  </span>
+                </span>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-300/35 bg-amber-300/10 text-amber-100">
+                  <ChevronRight size={18} className="rotate-90" />
+                </span>
+              </button>
+            )}
             <div ref={modelMenuRef} className="relative">
               {(() => {
                 const active = models.find((m) => m.id === selectedModel);
@@ -5593,13 +5836,20 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                               else setCurrentPage('plans');
                               return;
                             }
+                            if (m.id === PREMIUM_DEMO_MODEL_ID) {
+                              const nextDemoId = getAvailablePremiumDemoId(premiumDemoUsedIds, selectedPremiumDemoId);
+                              setSelectedPremiumDemoId(nextDemoId);
+                              setSelectedProfileId(PREMIUM_DEMO_MODEL_ID);
+                              setActiveScanProfileId(PREMIUM_DEMO_MODEL_ID);
+                            }
                             setSelectedModel(m.id);
                             setIsModelMenuOpen(false);
                           }}
                           className={[
                             "mogcheck-model-option w-full text-left rounded-xl px-3 py-3 flex items-start gap-3 relative group",
                             ultraLocked ? "opacity-50 cursor-pointer" : "",
-                            isDemo ? "border border-cyan-400/20 bg-cyan-400/[0.045] animate-[cyanPreviewFlicker_2.2s_ease-in-out_infinite]" : "",
+                            isDemo ? "border border-cyan-400/20 bg-cyan-400/[0.045]" : "",
+                            isDemo && shouldDemoGlowFlicker ? "animate-[cyanPreviewFlicker_2.2s_ease-in-out_infinite]" : "",
                             isActive
                               ? "bg-white/5 shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
                               : "hover:bg-white/5 hover:shadow-[0_12px_44px_rgba(0,0,0,0.38)]"
@@ -5630,6 +5880,11 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
                           <span className="flex-1 min-w-0">
                             <span className="flex items-center justify-between gap-3">
+                              {isDemo && shouldShowDemoNudge && (
+                                <span className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-full border border-amber-300/35 bg-amber-300/10 text-amber-100 sm:inline-flex">
+                                  <ChevronRight size={14} />
+                                </span>
+                              )}
                               <span
                                 className={[
                                   "text-[11px] font-black uppercase tracking-widest truncate",
@@ -5652,7 +5907,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                                   Demo
                                 </span>
                               )}
-                              {!isUltra && (
+                              {!isUltra && !isDemo && (
                                 <span className="text-[9px] font-sans uppercase tracking-[0.3em] text-cyan-300/80 border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 rounded-full">
                                   Free
                                 </span>
@@ -5693,7 +5948,28 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
               </p>
             )}
 
-            {user && (
+            {user && (isPremiumDemoModel ? (
+              <div className="w-full max-w-md mx-auto mb-8 rounded-2xl p-[1px] bg-gradient-to-br from-cyan-300/65 via-cyan-500/35 to-blue-600/45 shadow-[0_0_44px_rgba(34,211,238,0.18)]">
+                <div className="rounded-[15px] border border-cyan-300/25 bg-cyan-950/20 p-5 backdrop-blur-sm">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-cyan-100">
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-cyan-300/35 bg-cyan-300/10 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.24)]">
+                          <Lock size={14} />
+                        </span>
+                        Demo Scan Profile
+                      </h3>
+                      <p className="mt-3 text-xs font-sans leading-relaxed text-cyan-100/75">
+                        Demo scans use their own locked profile and do not count toward your normal profiles.
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full border border-cyan-300/35 bg-cyan-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100">
+                      {activePremiumDemoUsedCount}/{activePremiumDemoTotal} locked
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
               <div className="w-full max-w-md mx-auto mb-8 rounded-2xl p-[1px] bg-gradient-to-br from-cyan-500/40 via-zinc-700/50 to-violet-500/30 shadow-[0_0_40px_rgba(34,211,238,0.08)]">
                 <div className="bg-zinc-950/95 backdrop-blur-sm rounded-[15px] p-5 border border-zinc-800/80">
                   <div className="flex items-center justify-between gap-2 mb-3">
@@ -5743,7 +6019,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                   )}
                 </div>
               </div>
-            )}
+            ))}
 
             <button 
               onClick={async () => {
@@ -5752,22 +6028,73 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                     setCurrentPage('login');
                     return;
                   }
-                  const demoPayload = buildPremiumDemoScanPayload(await loadPremiumDemoScanPayload(), {
-                    scannedAt: new Date().toISOString(),
-                  });
-                  setSelectedProfileId('premium-demo');
-                  setActiveScanProfileId('premium-demo');
+                  const requestedDemoId = normalizePremiumDemoId(visiblePremiumDemoFaceId);
+                  const requestedDemoFace = getPremiumDemoFace(requestedDemoId);
+                  let demoPayload = null;
+                  try {
+                    const token = await user.getIdToken();
+                    const res = await fetch(`${API_BASE}/api/user/demo-scan`, {
+                      method: 'POST',
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ demoId: requestedDemoId }),
+                    });
+                    const body = await res.json().catch(() => ({}));
+                    if (res.status === 409) {
+                      const nextUsedIds = Array.isArray(body.premiumDemoUsedIds)
+                        ? body.premiumDemoUsedIds
+                        : Array.from(new Set([...premiumDemoUsedIds, requestedDemoId]));
+                      setPremiumDemoUsedIds(nextUsedIds);
+                      const nextAllUsed = ACTIVE_PREMIUM_DEMO_IDS.every((demoId) => nextUsedIds.includes(demoId));
+                      setPremiumDemoScanUsed(nextAllUsed);
+                      setProfileScanCounts((prev) => ({
+                        ...prev,
+                        [PREMIUM_DEMO_MODEL_ID]: nextUsedIds.length,
+                      }));
+                      if (nextAllUsed) {
+                        setSelectedModel('3');
+                      } else {
+                        const nextDemoId = getAvailablePremiumDemoId(nextUsedIds, requestedDemoId);
+                        const nextDemoFace = getPremiumDemoFace(nextDemoId);
+                        setSelectedPremiumDemoId(nextDemoId);
+                        setFrontImage(nextDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE);
+                      }
+                      setUploadNotice(body.error || 'You have already used this premium demo scan.');
+                      return;
+                    }
+                    if (!res.ok) throw new Error(body.error || 'Failed to save demo scan.');
+                    demoPayload = buildPremiumDemoScanPayload(body.payload || body.scan?.payload || await loadPremiumDemoScanPayload(requestedDemoId), {
+                      demoId: requestedDemoId,
+                      id: body.scan?.id || `premium-demo-scan-${requestedDemoId}`,
+                      scanId: body.scan?.scanId || body.scan?.id || `premium-demo-scan-${requestedDemoId}`,
+                      scannedAt: body.scan?.scannedAt || body.scan?.createdAt || new Date().toISOString(),
+                    });
+                    const nextUsedIds = Array.from(new Set([...premiumDemoUsedIds, requestedDemoId]));
+                    setPremiumDemoUsedIds(nextUsedIds);
+                    setPremiumDemoScanUsed(ACTIVE_PREMIUM_DEMO_IDS.every((demoId) => nextUsedIds.includes(demoId)));
+                    setProfileScanCounts((prev) => ({
+                      ...prev,
+                      [PREMIUM_DEMO_MODEL_ID]: nextUsedIds.length,
+                    }));
+                  } catch (e) {
+                    setUploadNotice(e.message || 'Failed to save demo scan.');
+                    return;
+                  }
+                  setSelectedProfileId(PREMIUM_DEMO_MODEL_ID);
+                  setActiveScanProfileId(PREMIUM_DEMO_MODEL_ID);
                   const queuedJob = queueAnalysisJob?.({
-                    analysisLabel: 'Premium Preview Scan',
-                    mainImageSrc: PREMIUM_DEMO_FRONT_IMAGE,
+                    analysisLabel: 'Demo Scan',
+                    mainImageSrc: requestedDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE,
                     mainImageFile: null,
                     sideImageUrl: null,
                     sideImageFile: null,
                     sideMetricData: null,
                     choice: PREMIUM_DEMO_MODEL_ID,
                     user,
-                    profileId: 'premium-demo',
-                    scanRequestId: 'premium-demo-scan',
+                    profileId: PREMIUM_DEMO_MODEL_ID,
+                    scanRequestId: demoPayload?.scanRequestId || `premium-demo-scan-${requestedDemoId}`,
                     demoPayload,
                   });
                   if (queuedJob) {
@@ -5775,8 +6102,20 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                     setIsScanning(false);
                     setCurrentPage('analysis');
                   } else {
-                    setDashboardData(demoPayload);
-                    setCurrentPage('dashboard');
+                    setActiveAnalysisJob({
+                      analysisLabel: 'Demo Scan',
+                      mainImageSrc: requestedDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE,
+                      mainImageFile: null,
+                      sideImageUrl: null,
+                      sideImageFile: null,
+                      sideMetricData: null,
+                      choice: PREMIUM_DEMO_MODEL_ID,
+                      user,
+                      profileId: PREMIUM_DEMO_MODEL_ID,
+                      scanRequestId: demoPayload?.scanRequestId || `premium-demo-scan-${requestedDemoId}`,
+                      demoPayload,
+                    });
+                    setIsScanning(true);
                   }
                   return;
                 }
@@ -6829,6 +7168,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const [completedProtocolIds, setCompletedProtocolIds] = useState({});
   const [scanLightbox, setScanLightbox] = useState(null);
   const freeHistoryStripRef = useRef(null);
+  const startedDetailedReportsRef = useRef(new Set());
 
   useEffect(() => {
     if (!communityPeek) return undefined;
@@ -6845,10 +7185,10 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     setCommunityPeek({
       id: hydrated.id,
       tier: hydrated.tier || null,
-      data: {
+      data: forceCommunityScanFrontOnly({
         ...hydrated.dashboardData,
         selectedModel: String(hydrated.dashboardData?.selectedModel || '1'),
-      },
+      }),
     });
   }, []);
 
@@ -6994,14 +7334,36 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     { label: 'Midface Ratio', score: 83, max: 100 }
   ];
 
+  const normalizeMetricLabelForMatching = (value) =>
+    String(value || '')
+      .toLowerCase()
+      .replace(/[_/()\-]+/g, ' ')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  const compactMetricLabelForMatching = (value) =>
+    normalizeMetricLabelForMatching(value).replace(/\s+/g, '');
   const FRONTAL_KEYWORDS = [
-    'bigonial', 'ipd', 'mouth', 'nose width', 'upper third', 'middle third',
-    'lower third', 'eye height', 'brow compactness', 'philtrum', 'lip height',
-    'fwhr', 'midface', 'canthal'
+    'bigonial', 'jaw', 'chin', 'mandibular',
+    'ipd', 'eye spacing', 'eye height', 'eye shape', 'eye area', 'eyelid exposure',
+    'mouth', 'nose width', 'nose length', 'nose projection',
+    'upper third', 'middle third', 'lower third', 'facial thirds',
+    'brow compactness', 'philtrum', 'lip height', 'total lip height',
+    'fwhr', 'midface', 'canthal',
+    'skin texture', 'skin clarity', 'facial fat', 'soft tissue', 'symmetry',
+    'cheekbone', 'maxillary'
   ];
+  const FRONTAL_KEYWORD_MATCHERS = FRONTAL_KEYWORDS.map((keyword) => ({
+    normal: normalizeMetricLabelForMatching(keyword),
+    compact: compactMetricLabelForMatching(keyword),
+  }));
   const isFrontalMetric = (label) => {
-    const low = label.toLowerCase();
-    return FRONTAL_KEYWORDS.some(kw => low.includes(kw));
+    const normal = normalizeMetricLabelForMatching(label);
+    const compact = compactMetricLabelForMatching(label);
+    return FRONTAL_KEYWORD_MATCHERS.some(({ normal: keyword, compact: compactKeyword }) =>
+      (keyword && normal.includes(keyword)) ||
+      (compactKeyword && compact.includes(compactKeyword))
+    );
   };
   const frontalBiometrics = dashboardData?.biometrics?.length
     ? dashboardData.biometrics.filter(m => isFrontalMetric(m.label))
@@ -7080,6 +7442,75 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     !isFreeModelResult &&
     Boolean(user && setDashboardData && detailedReportScanRequestId) &&
     (hasDetailedReportFailed || detailedReportHasWaitedTooLong);
+
+  useEffect(() => {
+    if (
+      isRestrictedPreview ||
+      isFreeModelResult ||
+      !user ||
+      !setDashboardData ||
+      detailedReportStatus !== 'generating' ||
+      !detailedReportScanRequestId
+    ) {
+      return undefined;
+    }
+
+    const reportAttemptId = String(
+      dashboardData?.reportAttemptId ||
+      dashboardData?.payload?.reportAttemptId ||
+      'initial'
+    ).trim();
+    const startKey = `${detailedReportScanRequestId}:${reportAttemptId || 'initial'}`;
+    if (startedDetailedReportsRef.current.has(startKey)) return undefined;
+    startedDetailedReportsRef.current.add(startKey);
+
+    let cancelled = false;
+    const startDetailedReport = async () => {
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch(`${API_BASE}/api/analyze/report/start/${encodeURIComponent(detailedReportScanRequestId)}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || `Detailed report start failed (${res.status})`);
+        const nextPayload = body.payload || null;
+        if (!cancelled && nextPayload) {
+          setDashboardData((prev) => normalizeDashboardMedia({
+            ...(prev || {}),
+            ...nextPayload,
+            scanHistory: Array.isArray(prev?.scanHistory) ? prev.scanHistory : nextPayload.scanHistory,
+            ratingHistory: Array.isArray(prev?.ratingHistory) ? prev.ratingHistory : nextPayload.ratingHistory,
+          }));
+        }
+      } catch (error) {
+        console.warn('Detailed report start failed', error);
+        if (!cancelled) {
+          setDashboardData((prev) => prev
+            ? normalizeDashboardMedia({
+                ...prev,
+                reportStatus: 'failed',
+                reportError: error?.message || 'Could not start the detailed report.',
+              })
+            : prev);
+        }
+      }
+    };
+
+    startDetailedReport();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    dashboardData?.payload?.reportAttemptId,
+    dashboardData?.reportAttemptId,
+    detailedReportScanRequestId,
+    detailedReportStatus,
+    isFreeModelResult,
+    isRestrictedPreview,
+    setDashboardData,
+    user,
+  ]);
 
   const retryDetailedReport = useCallback(async () => {
     if (!canRetryDetailedReport || reportRetrying) return;
@@ -7254,8 +7685,16 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
             </div>
           </header>
           <div className="flex-1 px-4 pb-16 pt-6 md:px-8">
+            <button
+              type="button"
+              onClick={() => setCommunityPeek(null)}
+              className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/[0.07] px-4 py-2 font-sans text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100 transition-colors hover:border-cyan-300/60 hover:bg-cyan-400/10"
+            >
+              <ArrowLeft size={14} />
+              Go to previous page
+            </button>
             <DashboardPage
-              dashboardData={communityPeek.data}
+              dashboardData={forceCommunityScanFrontOnly(communityPeek.data)}
               setCurrentPage={setCurrentPage}
               userPlan={userPlan}
               user={user}
@@ -7285,7 +7724,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
             </span>
             {isPremiumDemoScan && (
               <span className="rounded-full border border-cyan-400/35 bg-cyan-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)]">
-                Demo preview face
+                Demo Scan
               </span>
             )}
             {isDetailedReportGenerating && (
@@ -7304,7 +7743,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
             <div className="rounded-2xl border border-cyan-400/25 bg-cyan-400/[0.06] p-5 shadow-[0_0_30px_rgba(34,211,238,0.08)]">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200">Premium Preview Scan</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200">Demo Scan</p>
                   <p className="mt-2 text-sm font-sans leading-relaxed text-zinc-300">
                     This is a fixed demo face so you can preview the saved premium result flow.
                   </p>

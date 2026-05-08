@@ -2564,6 +2564,51 @@ function formatHexagonForTerminal(hexagon) {
   return parts.length ? parts.join(' | ') : 'n/a';
 }
 
+function extractProviderFailureMessage(output) {
+  const text = String(output || '');
+  const markers = [
+    'Error: All configured Google GenAI/Gemma keys failed or hit quota.',
+    'Error: All configured Gemini keys failed or hit quota.',
+    'Error: No healthy Google GenAI/Gemma keys are available.',
+  ];
+  const marker = markers.find((candidate) => text.includes(candidate));
+  if (!marker) return null;
+
+  const line = text
+    .slice(text.indexOf(marker))
+    .split(/\r?\n/)[0]
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!line) return null;
+
+  if (/No healthy Google GenAI\/Gemma keys are available/i.test(line)) {
+    return {
+      code: 'GEMMA_KEYS_UNAVAILABLE',
+      error: 'All Google/Gemma API keys are temporarily cooling down after provider timeouts. Please wait a few minutes and try again.',
+    };
+  }
+
+  if (/PERMISSION_DENIED|permission_denied|denied access|403/i.test(line)) {
+    return {
+      code: 'GEMINI_KEYS_PERMISSION_DENIED',
+      error: 'Gemini provider failed: one key is denied access and the remaining configured keys are exhausted or failing. Check the Gemini API keys/projects in backend/.env.',
+    };
+  }
+
+  if (/RESOURCE_EXHAUSTED|quota|429/i.test(line)) {
+    return {
+      code: 'GEMINI_KEYS_QUOTA_EXHAUSTED',
+      error: 'Gemini provider quota is exhausted for the configured keys. Add a working Gemini key, raise quota/billing, or switch the scan provider.',
+    };
+  }
+
+  return {
+    code: 'GEMINI_KEYS_FAILED',
+    error: line.slice(0, 500),
+  };
+}
+
 function getPublicBackendBase(req) {
   const requestBase = getRequestBase(req);
   const raw = (process.env.PUBLIC_BACKEND_URL || '').trim().replace(/\/$/, '');
@@ -2973,50 +3018,108 @@ function normalizeStoredScanUrls(scan) {
   };
 }
 
-const PREMIUM_DEMO_SCAN_ID = 'premium-demo-scan';
+const LEGACY_PREMIUM_DEMO_SCAN_ID = 'premium-demo-scan';
 const PREMIUM_DEMO_PROFILE_ID = 'premium-demo';
-const PREMIUM_DEMO_VERSION = 'henry-cavill-jpg-biometrics-feedback-v3';
-const PREMIUM_DEMO_PAYLOAD_PATH = path.join(__dirname, '..', 'public', 'premium-demo', 'henry-cavill-scan.json');
+const DEFAULT_PREMIUM_DEMO_ID = 'henry';
+const PREMIUM_DEMO_CATALOG = {
+  henry: {
+    id: 'henry',
+    scanId: 'premium-demo-scan-henry',
+    legacyScanId: LEGACY_PREMIUM_DEMO_SCAN_ID,
+    image: '/premium-demo/henry-cavill.jpg',
+    payloadPath: path.join(__dirname, '..', 'public', 'premium-demo', 'henry-cavill-scan.json'),
+    version: 'henry-cavill-jpg-biometrics-feedback-v3',
+    enabled: true,
+  },
+  'sean-opry': {
+    id: 'sean-opry',
+    scanId: 'premium-demo-scan-sean-opry',
+    image: '/premium-demo/sean-opry.webp',
+    payloadPath: path.join(__dirname, '..', 'public', 'premium-demo', 'sean-opry-scan.json'),
+    version: 'sean-opry-biometrics-feedback-v1',
+    enabled: true,
+  },
+};
+const ACTIVE_PREMIUM_DEMO_IDS = Object.values(PREMIUM_DEMO_CATALOG)
+  .filter((demo) => demo.enabled)
+  .map((demo) => demo.id);
 
-function loadPremiumDemoPayload() {
+function normalizePremiumDemoId(demoId) {
+  const normalized = String(demoId || DEFAULT_PREMIUM_DEMO_ID).trim();
+  return PREMIUM_DEMO_CATALOG[normalized]?.enabled ? normalized : DEFAULT_PREMIUM_DEMO_ID;
+}
+
+function getPremiumDemoConfig(demoId) {
+  return PREMIUM_DEMO_CATALOG[normalizePremiumDemoId(demoId)] || PREMIUM_DEMO_CATALOG[DEFAULT_PREMIUM_DEMO_ID];
+}
+
+function loadPremiumDemoPayload(demoId = DEFAULT_PREMIUM_DEMO_ID) {
+  const demo = getPremiumDemoConfig(demoId);
   try {
-    const raw = fs.readFileSync(PREMIUM_DEMO_PAYLOAD_PATH, 'utf8');
+    const raw = fs.readFileSync(demo.payloadPath, 'utf8');
     return JSON.parse(raw);
   } catch (error) {
-    console.warn('[premium-demo] Failed to load payload:', error.message);
+    console.warn(`[premium-demo] Failed to load payload for ${demo.id}:`, error.message);
     return null;
   }
 }
 
-async function ensurePremiumDemoScan(uid) {
+function collectPremiumDemoUsedIds(scans = [], userData = {}) {
+  const used = new Set();
+  for (const scan of scans) {
+    const payload = scan?.payload && typeof scan.payload === 'object' ? scan.payload : {};
+    const demoId = payload.demoId || scan.demoId;
+    if (demoId && PREMIUM_DEMO_CATALOG[demoId]?.enabled) used.add(demoId);
+    const scanId = scan?.id || scan?.scanId || payload.scanId || payload.scanRequestId;
+    if (scanId === LEGACY_PREMIUM_DEMO_SCAN_ID) used.add(DEFAULT_PREMIUM_DEMO_ID);
+    for (const demo of Object.values(PREMIUM_DEMO_CATALOG)) {
+      if (scanId === demo.scanId || (demo.legacyScanId && scanId === demo.legacyScanId)) used.add(demo.id);
+    }
+    if (!demoId && (scan?.isPremiumDemo || scan?.demoScan || payload.isPremiumDemo || payload.demoScan)) {
+      used.add(DEFAULT_PREMIUM_DEMO_ID);
+    }
+  }
+  const usedMap = userData?.premiumDemoScansUsed;
+  if (usedMap && typeof usedMap === 'object') {
+    for (const [demoId, isUsed] of Object.entries(usedMap)) {
+      if (isUsed && PREMIUM_DEMO_CATALOG[demoId]?.enabled) used.add(demoId);
+    }
+  }
+  if (userData?.premiumDemoScanUsed) used.add(DEFAULT_PREMIUM_DEMO_ID);
+  return ACTIVE_PREMIUM_DEMO_IDS.filter((demoId) => used.has(demoId));
+}
+
+async function ensurePremiumDemoScan(uid, demoId = DEFAULT_PREMIUM_DEMO_ID) {
   if (!uid || !firestore) return;
-  const payload = loadPremiumDemoPayload();
+  const demo = getPremiumDemoConfig(demoId);
+  const payload = loadPremiumDemoPayload(demo.id);
   if (!payload) return;
-  const docRef = firestore.collection('users').doc(uid).collection('scans').doc(PREMIUM_DEMO_SCAN_ID);
+  const docRef = firestore.collection('users').doc(uid).collection('scans').doc(demo.scanId);
   const snap = await docRef.get();
 
   const demoPayload = {
     ...payload,
     success: true,
-    scanId: PREMIUM_DEMO_SCAN_ID,
-    scanRequestId: PREMIUM_DEMO_SCAN_ID,
+    scanId: demo.scanId,
+    scanRequestId: demo.scanId,
     profileId: PREMIUM_DEMO_PROFILE_ID,
-    profileName: 'Premium Preview',
+    profileName: 'Demo Scan',
     selectedModel: 'premium-demo',
     model: 'premium-demo',
-    frontImage: '/premium-demo/henry-cavill.jpg',
-    frontImageUrl: '/premium-demo/henry-cavill.jpg',
+    frontImage: demo.image,
+    frontImageUrl: demo.image,
     sideImage: null,
     sideImageUrl: null,
     isPremiumDemo: true,
     demoScan: true,
+    demoId: demo.id,
     visibility: 'private',
     reportStatus: 'complete',
-    title: 'Premium Preview Scan',
+    title: 'Demo Scan',
     badge: 'Demo',
-    demoVersion: PREMIUM_DEMO_VERSION,
+    demoVersion: demo.version,
   };
-  if (snap.exists && snap.data()?.payload?.demoVersion === PREMIUM_DEMO_VERSION) return;
+  if (snap.exists && snap.data()?.payload?.demoVersion === demo.version) return;
 
   await docRef.set({
     timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -3024,16 +3127,17 @@ async function ensurePremiumDemoScan(uid) {
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     model: 'premium-demo',
     profileId: PREMIUM_DEMO_PROFILE_ID,
-    profileName: 'Premium Preview',
+    profileName: 'Demo Scan',
     visibility: 'private',
     finalRating: Number(demoPayload.finalRating) || null,
     sideRating: null,
     frontImageUrl: demoPayload.frontImage,
     sideImageUrl: null,
     success: true,
-    scanRequestId: PREMIUM_DEMO_SCAN_ID,
+    scanRequestId: demo.scanId,
     isPremiumDemo: true,
     demoScan: true,
+    demoId: demo.id,
     payload: demoPayload,
   }, { merge: true });
 }
@@ -3550,8 +3654,12 @@ app.post(
   }
 
   if (!success) {
+    const providerFailureMessage = extractProviderFailureMessage(pythonOutput);
     if (code !== 0) {
       payload.error = `Python exited with code ${code}. Check this terminal for [FATAL] or API errors above.`;
+    } else if (providerFailureMessage) {
+      payload.code = providerFailureMessage.code;
+      payload.error = providerFailureMessage.error;
     } else if (/No healthy Google GenAI\/Gemma keys are available/i.test(pythonOutput)) {
       payload.code = 'GEMMA_KEYS_UNAVAILABLE';
       payload.error = 'All Google/Gemma API keys are temporarily cooling down after provider timeouts. Please wait a few minutes and try again.';
@@ -3795,24 +3903,6 @@ app.post(
   }
 
   res.json(payload);
-  if (success && shouldRunSplitReport) {
-    setImmediate(() => {
-      startDetailedReportGeneration({
-        uid: req.uid,
-        scanRequestId,
-        profileId: payload.profileId || profileId,
-        modelChoice,
-        pythonExecutable,
-        scriptPath,
-        imagePath,
-        sideImagePath,
-        runOutputDir,
-        savedScanRef,
-        savedScanBase,
-        payload,
-      });
-    });
-  }
     });
   }
 );
@@ -3854,6 +3944,97 @@ app.get('/api/analyze/status/:scanRequestId', extractUserOptional, async (req, r
     return res.json({ state: 'running', startedAt: recovery.startedAt || null, profileId: recovery.profileId || null });
   }
   return res.json({ state: 'pending' });
+});
+
+app.post('/api/analyze/report/start/:scanRequestId', extractUserOptional, async (req, res) => {
+  if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
+  const scanRequestId = String(req.params.scanRequestId || '').trim();
+  if (!scanRequestId) return res.status(400).json({ error: 'Missing scan request id' });
+
+  let context = readDetailedReportContext(req.uid, scanRequestId);
+  let payload = context?.payload || readAnalysisRecovery(req.uid, scanRequestId)?.payload || null;
+  let savedScanRef = context?.savedScanRef || null;
+  let savedScanBase = context?.savedScanBase || null;
+
+  if (!payload && firestore) {
+    try {
+      const snap = await firestore
+        .collection('users')
+        .doc(req.uid)
+        .collection('scans')
+        .where('scanRequestId', '==', scanRequestId)
+        .limit(1)
+        .get();
+      if (!snap.empty) {
+        const doc = snap.docs[0];
+        savedScanRef = doc.ref;
+        savedScanBase = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
+        payload = savedScanBase.payload || savedScanBase || null;
+      }
+    } catch (error) {
+      console.warn('[analyze/report/start] scan lookup failed:', error.message);
+    }
+  }
+
+  if (!payload) {
+    return res.status(404).json({ error: 'No completed core scan was found for this detailed report.' });
+  }
+
+  const reportStatus = String(payload.reportStatus || payload.payload?.reportStatus || '').toLowerCase();
+  if (reportStatus === 'complete') {
+    return res.json({ state: 'completed', payload });
+  }
+
+  if (!context) {
+    context = buildDetailedReportContextFromPayload(req.uid, scanRequestId, payload);
+  }
+
+  if (!context) {
+    return res.status(409).json({
+      error: 'This detailed report cannot start because the local source image is no longer available.',
+    });
+  }
+
+  const nextPayload = {
+    ...payload,
+    reportStatus: 'generating',
+    reportStartedAt: payload.reportStartedAt || new Date().toISOString(),
+    reportAttemptId: payload.reportAttemptId || `${scanRequestId}-report-1`,
+    reportRetryCount: Number(payload.reportRetryCount || 0),
+    reportError: null,
+  };
+
+  const nextContext = {
+    ...context,
+    uid: req.uid,
+    scanRequestId,
+    profileId: nextPayload.profileId || context.profileId || 'default',
+    modelChoice: String(nextPayload.selectedModel || context.modelChoice || '1'),
+    pythonExecutable: context.pythonExecutable || getPythonExecutable(),
+    scriptPath: context.scriptPath || path.join(__dirname, 'final_engine.py'),
+    savedScanRef: context.savedScanRef || savedScanRef,
+    savedScanBase: context.savedScanBase || savedScanBase,
+    payload: nextPayload,
+  };
+
+  rememberDetailedReportContext(nextContext);
+  await persistDetailedReportPayload({
+    uid: req.uid,
+    scanRequestId,
+    profileId: nextContext.profileId,
+    modelChoice: nextContext.modelChoice,
+    savedScanRef: nextContext.savedScanRef,
+    savedScanBase: nextContext.savedScanBase,
+    payload: nextPayload,
+  });
+
+  const startResult = startDetailedReportGeneration(nextContext);
+  return res.json({
+    state: startResult.alreadyRunning ? 'running' : 'started',
+    started: startResult.started === true,
+    alreadyRunning: startResult.alreadyRunning === true,
+    payload: nextPayload,
+  });
 });
 
 app.post('/api/analyze/report/retry/:scanRequestId', extractUserOptional, async (req, res) => {
@@ -4558,6 +4739,107 @@ app.delete('/api/admin/users/:uid/scans/:scanId', async (req, res) => {
 const profilesRoutes = require('./profiles-routes.js');
 profilesRoutes(app, firestore, admin, extractUserOptional);
 
+function isAdminAccountEmail(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  return (
+    normalized.endsWith('@looksmaxxing.com') ||
+    normalized === 'serenity.eyb@gmail.com' ||
+    normalized === 'laithbu07@gmail.com' ||
+    normalized === 'laithabuamsheh@gmail.com'
+  );
+}
+
+app.post('/api/user/demo-scan', extractUserOptional, async (req, res) => {
+  if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
+  if (!firestore) return res.status(503).json({ error: 'Demo scans require Firestore.' });
+  if (isFirestoreQuotaCoolingDown()) {
+    return res.status(503).json({ error: firestoreQuotaCooldownWarning() });
+  }
+
+  try {
+    const isDemoAdmin = isAdminAccountEmail(req.userEmail);
+    const demo = getPremiumDemoConfig(req.body?.demoId);
+    const userRef = firestore.collection('users').doc(req.uid);
+    const userSnap = await userRef.get();
+    const userData = userSnap.exists ? userSnap.data() : {};
+    const existingScanChecks = [demo.scanId];
+    if (demo.legacyScanId) existingScanChecks.push(demo.legacyScanId);
+    const existingScanSnaps = await Promise.all(
+      existingScanChecks.map((scanId) => firestore.collection('users').doc(req.uid).collection('scans').doc(scanId).get())
+    );
+    const existingScanSnap = existingScanSnaps.find((snap) => snap.exists) || null;
+    const usedIds = collectPremiumDemoUsedIds(
+      existingScanSnaps.filter((snap) => snap.exists).map((snap) => ({ id: snap.id, ...snap.data() })),
+      userData
+    );
+    if (!isDemoAdmin && usedIds.includes(demo.id)) {
+      const existingScan = existingScanSnap
+        ? normalizeStoredScanUrls({ id: existingScanSnap.id, ...existingScanSnap.data() })
+        : null;
+      return res.status(409).json({
+        error: 'You have already used this premium demo scan.',
+        premiumDemoUsedIds: usedIds,
+        scan: existingScan,
+      });
+    }
+
+    const docRef = firestore.collection('users').doc(req.uid).collection('scans').doc(demo.scanId);
+    const existing = await docRef.get();
+    if (existing.exists) {
+      if (isDemoAdmin) {
+        const scan = normalizeStoredScanUrls({ id: existing.id, ...existing.data() });
+        return res.json({
+          ok: true,
+          adminBypass: true,
+          scan,
+          payload: scan.payload || scan,
+        });
+      }
+
+      await userRef.set({
+        premiumDemoScansUsed: { [demo.id]: true },
+        premiumDemoScanUsed: ACTIVE_PREMIUM_DEMO_IDS.every((id) => id === demo.id || usedIds.includes(id)),
+        premiumDemoScanUsedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return res.status(409).json({
+        error: 'You have already used this premium demo scan.',
+        premiumDemoUsedIds: Array.from(new Set([...usedIds, demo.id])),
+        scan: normalizeStoredScanUrls({ id: existing.id, ...existing.data() }),
+      });
+    }
+
+    await ensurePremiumDemoScan(req.uid, demo.id);
+    const created = await docRef.get();
+    if (!created.exists) {
+      return res.status(500).json({ error: 'Failed to save premium demo scan.' });
+    }
+
+    if (!isDemoAdmin) {
+      const nextUsedIds = Array.from(new Set([...usedIds, demo.id]));
+      await userRef.set({
+        premiumDemoScansUsed: { [demo.id]: true },
+        premiumDemoScanUsed: ACTIVE_PREMIUM_DEMO_IDS.every((id) => nextUsedIds.includes(id)),
+        premiumDemoScanUsedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
+
+    const scan = normalizeStoredScanUrls({ id: created.id, ...created.data() });
+    return res.json({
+      ok: true,
+      scan,
+      demoId: demo.id,
+      payload: scan.payload || scan,
+    });
+  } catch (e) {
+    console.error('[premium-demo] create failed:', e);
+    if (isQuotaExceededError(e)) {
+      noteFirestoreQuotaExceeded('user/demo-scan');
+      return res.status(503).json({ error: firestoreQuotaCooldownWarning() });
+    }
+    return res.status(500).json({ error: e.message || 'Failed to save premium demo scan.' });
+  }
+});
+
 app.get('/api/user/scans', extractUserOptional, async (req, res) => {
   if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
   if (!firestore) return res.json({ scans: [], warning: 'Firestore unavailable. Scan history is temporarily unavailable.' });
@@ -4565,7 +4847,6 @@ app.get('/api/user/scans', extractUserOptional, async (req, res) => {
     return res.json({ scans: [], warning: firestoreQuotaCooldownWarning() });
   }
   try {
-    await ensurePremiumDemoScan(req.uid);
     const snap = await firestore.collection('users').doc(req.uid).collection('scans').orderBy('timestamp', 'desc').get();
     const scans = [];
     snap.forEach(doc => {
@@ -4574,7 +4855,15 @@ app.get('/api/user/scans', extractUserOptional, async (req, res) => {
       scans.push(scan);
       upsertLocalCachedScan(req.uid, doc.id, scan);
     });
-    res.json({ scans });
+    let premiumDemoUsedIds = collectPremiumDemoUsedIds(scans, {});
+    try {
+      const userSnap = await firestore.collection('users').doc(req.uid).get();
+      premiumDemoUsedIds = collectPremiumDemoUsedIds(scans, userSnap.data() || {});
+    } catch {
+      // The scan list itself is enough if the user metadata read fails.
+    }
+    const premiumDemoScanUsed = ACTIVE_PREMIUM_DEMO_IDS.every((demoId) => premiumDemoUsedIds.includes(demoId));
+    res.json({ scans, premiumDemoScanUsed, premiumDemoUsedIds });
   } catch (e) {
     if (isQuotaExceededError(e)) {
       noteFirestoreQuotaExceeded('user/scans');
@@ -4633,7 +4922,20 @@ app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
       const doc = await docRef.get();
       if (doc.exists) currentData = doc.data() || currentData;
     }
-    if (!currentData || !Object.keys(currentData).length) return res.status(404).json({ error: 'Scan not found' });
+    if (!currentData || !Object.keys(currentData).length) {
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, 'visibility')) {
+        const requestedVisibility = normalizeScanVisibility(req.body.visibility);
+        if (requestedVisibility !== 'community') {
+          await syncCommunityScanVisibility(req.uid, scanId, {}, requestedVisibility);
+          return res.json({
+            ok: true,
+            communityListingOnly: true,
+            scan: { id: scanId, visibility: requestedVisibility },
+          });
+        }
+      }
+      return res.status(404).json({ error: 'Scan not found' });
+    }
 
     const updateData = {
       updatedAt: new Date().toISOString(),

@@ -11,6 +11,7 @@ import { resolveMediaUrl } from '../utils/mediaUrl';
 
 const API_BASE = getApiBase();
 const PROFILE_SCAN_HISTORY_LIMIT = 10;
+const DEMO_PROFILE_SCAN_LIMIT = 2;
 
 const clampTextStyle = {
   display: '-webkit-box',
@@ -821,8 +822,8 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     return grouped;
   }, [allScans]);
 
-  const profilesWithMeta = useMemo(() => (
-    profiles.map((profile) => {
+  const profilesWithMeta = useMemo(() => {
+    const withMeta = profiles.map((profile) => {
       const scans = scansByProfile.get(profile.id) || [];
       const latestScan = scans[scans.length - 1] || null;
       return {
@@ -831,8 +832,27 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         latestScan,
         latestScanAt: latestScan ? timestampToMillis(latestScan.timestamp || latestScan.scannedAt) : 0,
       };
-    })
-  ), [profiles, scansByProfile]);
+    });
+
+    if (!withMeta.some((profile) => profile.id === 'premium-demo')) {
+      const demoScans = scansByProfile.get('premium-demo') || [];
+      const latestDemoScan = demoScans[demoScans.length - 1] || null;
+      if (latestDemoScan) {
+        withMeta.unshift({
+          id: 'premium-demo',
+          name: 'Premium Demo',
+          visibility: 'private',
+          createdAt: latestDemoScan.createdAt || latestDemoScan.timestamp || latestDemoScan.scannedAt || null,
+          isDemoProfile: true,
+          scanCount: Math.min(demoScans.length, DEMO_PROFILE_SCAN_LIMIT),
+          latestScan: latestDemoScan,
+          latestScanAt: timestampToMillis(latestDemoScan.timestamp || latestDemoScan.scannedAt || latestDemoScan.createdAt),
+        });
+      }
+    }
+
+    return withMeta;
+  }, [profiles, scansByProfile]);
 
   const username = user?.email?.split('@')[0] || 'User';
   const hasFullProSubscription = userPlan?.plan === 'pro';
@@ -1709,7 +1729,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
             {loading ? (
               <p className="text-zinc-500">Loading profiles...</p>
-            ) : profiles.length === 0 ? (
+            ) : profilesWithMeta.length === 0 ? (
               <div className="bg-zinc-900/30 border border-zinc-800 rounded-2xl p-8 text-center">
                 <p className="text-zinc-400 mb-4">You don&apos;t have any profiles yet.</p>
               </div>
@@ -1727,35 +1747,65 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                         openProfile(p);
                       }
                     }}
-                    className="bg-zinc-900/40 border border-zinc-800 hover:border-cyan-500/50 rounded-2xl p-6 cursor-pointer transition-all hover:-translate-y-1 hover:shadow-[0_0_20px_rgba(34,211,238,0.1)] group flex flex-col"
+                    className={[
+                      "rounded-2xl p-6 cursor-pointer transition-all hover:-translate-y-1 group flex flex-col",
+                      p.isDemoProfile
+                        ? "relative overflow-hidden border border-amber-300/55 bg-[radial-gradient(circle_at_18%_0%,rgba(251,191,36,0.22),transparent_34%),linear-gradient(135deg,rgba(120,53,15,0.62),rgba(9,9,11,0.80)_58%,rgba(202,138,4,0.18))] hover:border-amber-200/80 shadow-[0_0_36px_rgba(251,191,36,0.15)] hover:shadow-[0_0_52px_rgba(251,191,36,0.23)]"
+                        : "bg-zinc-900/40 border border-zinc-800 hover:border-cyan-500/50 hover:shadow-[0_0_20px_rgba(34,211,238,0.1)]"
+                    ].join(' ')}
                   >
+                    {p.isDemoProfile && (
+                      <>
+                        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/90 to-transparent" />
+                        <div className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-amber-300/12 blur-2xl" />
+                      </>
+                    )}
                     <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xl font-black italic text-white group-hover:text-cyan-400 transition-colors">{p.name}</h3>
+                      <h3 className={`text-xl font-black italic transition-colors ${p.isDemoProfile ? 'text-amber-100 group-hover:text-white' : 'text-white group-hover:text-cyan-400'}`}>
+                        {p.name}
+                      </h3>
                       <div className="flex items-center gap-3">
-                        <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-300 shadow-[0_0_16px_rgba(34,211,238,0.12)]">
-                          {Math.min(p.scanCount, PROFILE_SCAN_HISTORY_LIMIT)}/{PROFILE_SCAN_HISTORY_LIMIT}
+                        <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] shadow-[0_0_16px_rgba(251,191,36,0.12)] ${p.isDemoProfile ? 'border-amber-200/45 bg-amber-300/15 text-amber-100' : 'border-cyan-400/30 bg-cyan-400/10 text-cyan-300'}`}>
+                          {p.isDemoProfile ? 'Demo' : `${Math.min(p.scanCount, PROFILE_SCAN_HISTORY_LIMIT)}/${PROFILE_SCAN_HISTORY_LIMIT}`}
                         </span>
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button type="button" onClick={(e) => { e.stopPropagation(); setRenameDraft({ id: p.id, name: p.name }); }} className="p-1 text-zinc-400 hover:text-white">
-                            <Edit2 size={16} />
-                          </button>
-                          <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteProfileId(p.id); }} className="p-1 text-red-400 hover:text-red-300">
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                        {p.isDemoProfile ? (
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-amber-200/45 bg-amber-300/15 text-amber-50 shadow-[0_0_18px_rgba(251,191,36,0.20)]">
+                            <Lock size={14} />
+                          </span>
+                        ) : (
+                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button type="button" onClick={(e) => { e.stopPropagation(); setRenameDraft({ id: p.id, name: p.name }); }} className="p-1 text-zinc-400 hover:text-white">
+                              <Edit2 size={16} />
+                            </button>
+                            <button type="button" onClick={(e) => { e.stopPropagation(); setDeleteProfileId(p.id); }} className="p-1 text-red-400 hover:text-red-300">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="mt-auto">
-                      <p className="text-xs text-zinc-400 uppercase tracking-widest">Scans used: {Math.min(p.scanCount, PROFILE_SCAN_HISTORY_LIMIT)}/{PROFILE_SCAN_HISTORY_LIMIT}</p>
-                      <p className="text-xs text-zinc-500 uppercase tracking-widest mt-1">
-                        Dashboard: {p.latestScan ? (modelUsesProDashboard(p.latestScan.model) ? 'Pro' : 'Free') : 'No scans yet'}
+                      {p.isDemoProfile && (
+                        <p className="mb-4 inline-flex rounded-full border border-amber-200/35 bg-amber-300/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-amber-100">
+                          Premium preview profile
+                        </p>
+                      )}
+                      <p className={`text-xs uppercase tracking-widest ${p.isDemoProfile ? 'text-amber-100/82' : 'text-zinc-400'}`}>
+                        Scans used: {p.isDemoProfile ? `${Math.min(p.scanCount, DEMO_PROFILE_SCAN_LIMIT)}/${DEMO_PROFILE_SCAN_LIMIT} locked` : `${Math.min(p.scanCount, PROFILE_SCAN_HISTORY_LIMIT)}/${PROFILE_SCAN_HISTORY_LIMIT}`}
                       </p>
-                      <p className="text-xs text-zinc-500 uppercase tracking-widest mt-1">
-                    Created: {formatDashboardDate(p.createdAt)}
+                      <p className={`text-xs uppercase tracking-widest mt-1 ${p.isDemoProfile ? 'text-amber-200/62' : 'text-zinc-500'}`}>
+                        Dashboard: {p.isDemoProfile ? 'Demo' : p.latestScan ? (modelUsesProDashboard(p.latestScan.model) ? 'Pro' : 'Free') : 'No scans yet'}
                       </p>
-                      <p className="text-xs text-zinc-500 uppercase tracking-widest mt-1">
-                        {openingProfileId === p.id ? 'Opening profile...' : `Last scan: ${formatDashboardDate(p.latestScanAt)}`}
-                      </p>
+                      {!p.isDemoProfile && (
+                        <>
+                          <p className="text-xs uppercase tracking-widest mt-1 text-zinc-500">
+                            Created: {formatDashboardDate(p.createdAt)}
+                          </p>
+                          <p className="text-xs uppercase tracking-widest mt-1 text-zinc-500">
+                            {openingProfileId === p.id ? 'Opening profile...' : `Last scan: ${formatDashboardDate(p.latestScanAt)}`}
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
