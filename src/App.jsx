@@ -2965,14 +2965,14 @@ const HomePage = ({ setCurrentPage }) => {
           <p className="text-zinc-500 font-sans text-[10px] uppercase tracking-widest">What we do, how it works, and why it is repeatable.</p>
         </div>
       </FadeUp>
-      <div className="w-full max-w-5xl mx-auto space-y-16 md:space-y-20">
+      <div className="w-full max-w-6xl mx-auto space-y-16 md:space-y-20">
         {whatMattersItems.map((item, idx) => {
           const imageFirst = idx % 2 === 0;
           return (
             <FadeUp key={item.step} delay={idx * 120}>
-              <div className="group/process grid gap-8 md:grid-cols-2 md:items-center">
+              <div className="group/process grid gap-8 md:grid-cols-2 md:items-center md:gap-12">
                 <div
-                  className={`${imageFirst ? 'md:order-1' : 'md:order-2'} ${imageFirst ? '' : 'md:justify-self-end'} w-full max-w-[360px]`}
+                  className={`${imageFirst ? 'md:order-1' : 'md:order-2'} w-full`}
                   style={{ animation: `homeFloat ${6.8 + idx * 0.35}s ease-in-out infinite`, animationDelay: `${idx * 0.35}s` }}
                 >
                   <div className="relative overflow-hidden rounded-sm border border-zinc-800/70 shadow-[0_24px_70px_rgba(0,0,0,0.38)] transition-all duration-500 group-hover/process:-translate-y-3 group-hover/process:border-cyan-400/35 group-hover/process:shadow-[0_30px_80px_rgba(34,211,238,0.12)]">
@@ -2987,7 +2987,7 @@ const HomePage = ({ setCurrentPage }) => {
                     <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-cyan-300/18 to-transparent opacity-30 transition-opacity duration-500 group-hover/process:opacity-100" style={{ animation: 'processScanLine 3.6s ease-in-out infinite' }} />
                   </div>
                 </div>
-                <div className={`${imageFirst ? 'md:order-2 md:pl-4' : 'md:order-1 md:pr-4'} max-w-xl transition-transform duration-500 ease-out group-hover/process:translate-y-[-6px]`}>
+                <div className={`${imageFirst ? 'md:order-2 md:pl-4' : 'md:order-1 md:pr-4'} max-w-lg transition-transform duration-500 ease-out group-hover/process:translate-y-[-6px]`}>
                   <p className="mb-3 font-sans text-[10px] font-bold uppercase tracking-[0.36em] text-cyan-400/80">{item.step}</p>
                   <h3 className="text-2xl md:text-3xl font-black italic uppercase tracking-tight text-white">{item.title}</h3>
                   <div className="my-5 h-px w-28 overflow-hidden bg-zinc-800">
