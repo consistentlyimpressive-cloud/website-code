@@ -5190,7 +5190,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const isPremiumDemoModel = selectedModel === PREMIUM_DEMO_MODEL_ID;
   const selectedPremiumDemoLocked = isPremiumDemoModel && !selectedPremiumDemoFace?.enabled;
   const shouldUseSideProfile = isUltraModel && useSideProfile;
-  const shouldDemoGlowFlicker = !isProPlan(userPlan);
   const planResolved = !user || userPlan?.loaded !== false;
   const isFreePlanAccount = Boolean(
     user &&
@@ -5198,7 +5197,12 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     planResolved &&
     normalizePlanValue(userPlan?.plan || 'free') === 'free'
   );
-  const shouldShowDemoNudge = isFreePlanAccount && !allPremiumDemosUsed && !isPremiumDemoModel;
+  const shouldDemoGlowFlicker = isFreePlanAccount;
+  const shouldShowDemoNudge = Boolean(
+    user &&
+    !isPremiumDemoModel &&
+    (isAdmin || (isFreePlanAccount && !allPremiumDemosUsed))
+  );
 
   const ultraAccessPending = !!user && !isAdmin && !planResolved;
   const canUseUltra =
@@ -5703,7 +5707,9 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                 className="mb-3 flex w-full items-center justify-between gap-3 rounded-2xl border border-amber-300/35 bg-amber-400/[0.08] px-4 py-3 text-left shadow-[0_0_28px_rgba(251,191,36,0.10)] transition-all hover:border-amber-200/70 hover:bg-amber-400/[0.12]"
               >
                 <span className="min-w-0">
-                  <span className="block text-[10px] font-black uppercase tracking-[0.28em] text-amber-200">Free plan perk</span>
+                  <span className="block text-[10px] font-black uppercase tracking-[0.28em] text-amber-200">
+                    {isAdmin ? 'Admin demo preview' : 'Free plan perk'}
+                  </span>
                   <span className="mt-1 block text-xs font-sans leading-relaxed text-amber-100/75">
                     Open this menu and choose Free Demo Scan.
                   </span>
