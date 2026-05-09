@@ -5584,11 +5584,12 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                         const fallbackFace = isDisabledFace
                           ? ACTIVE_PREMIUM_DEMO_FACES.find((candidate) => candidate.id !== visiblePremiumDemoFaceId)
                           : face;
+                        const isHenrySelected = visiblePremiumDemoFaceId === 'henry';
                         const slotOffset = isSelectedFace
                           ? 0
                           : face.id === 'empty-3'
-                          ? -218
-                          : 218;
+                          ? (isHenrySelected ? 218 : -218)
+                          : (isHenrySelected ? -218 : 218);
                         const slotScale = isSelectedFace ? 1 : 0.86;
                         const selectFace = () => {
                           if (!fallbackFace) return;
