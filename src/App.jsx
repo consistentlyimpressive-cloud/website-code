@@ -2979,7 +2979,22 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
       </FadeUp>
     </header>
 
-    <section className="w-full px-6 pb-20 pt-2 relative z-10">
+    <section id="results-section" className="w-full pt-24 pb-16 px-6 max-w-7xl mx-auto border-t border-zinc-900 relative z-10">
+      <FadeUp>
+        <div className="text-center mb-20">
+          <span className="text-blue-500 font-sans text-[10px] uppercase tracking-[0.3em] block mb-4 font-bold drop-shadow-[0_0_10px_rgba(59,130,246,0.6)]">REAL RESULTS</span>
+          <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4 uppercase italic [font-weight:950] drop-shadow-none [text-shadow:none]">Make The Impossible, Possible.</h2>
+          <p className="text-zinc-400 font-sans text-sm max-w-2xl mx-auto uppercase tracking-widest">Join the many who cracked the aesthetic code</p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+          <ComparisonCard beforeImgSrc={compBefore1} afterImgSrc={compAfter1} beforeScore="4.8" afterScore="7.4" review={reviewsData[0]} />
+          <ComparisonCard beforeImgSrc={compBefore2} afterImgSrc={compAfter2} beforeScore="5.2" afterScore="8.5" isActive={true} review={reviewsData[2]} />
+          <ComparisonCard beforeImgSrc={compAfter3} afterImgSrc={compBefore3} beforeScore="4.5" afterScore="7.1" review={reviewsData[1]} />
+        </div>
+      </FadeUp>
+    </section>
+
+    <section className="w-full px-6 pb-20 pt-8 relative z-10">
       <FadeUp>
         <div className="mx-auto flex w-full max-w-4xl flex-col items-center">
           <span className="mb-6 text-center text-2xl font-black uppercase tracking-[0.18em] text-cyan-100 drop-shadow-[0_0_20px_rgba(34,211,238,0.25)]">
@@ -3050,74 +3065,20 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
             })}
           </div>
 
-          <div className="mt-2 w-full max-w-md">
-            <label className="block text-center text-[10px] font-sans uppercase tracking-[0.3em] text-zinc-500">AI Model Selection</label>
-            <div className="mt-3 flex w-full items-center justify-between gap-4 rounded-xl border border-cyan-400/45 bg-zinc-900/50 px-5 py-4 shadow-[0_0_34px_rgba(34,211,238,0.20)]">
-              <span className="flex items-center gap-3 min-w-0">
-                <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-cyan-400/35 bg-cyan-400/10">
-                  <Crown size={17} className="text-cyan-200 drop-shadow-[0_0_12px_rgba(34,211,238,0.70)]" />
-                </span>
-                <span className="flex min-w-0 flex-col text-left">
-                  <span className="truncate text-sm font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-white to-cyan-300 drop-shadow-[0_0_16px_rgba(34,211,238,0.24)]">
-                    Free Demo Scan
-                  </span>
-                  <span className="truncate text-[10px] font-sans uppercase tracking-[0.22em] text-zinc-500">Fixed demo scan</span>
-                </span>
-              </span>
-              <Lock size={16} className="text-cyan-300/70" />
-            </div>
-          </div>
-
-          <div className="mt-10 w-full max-w-lg rounded-3xl p-[1px] bg-gradient-to-br from-cyan-200/75 via-cyan-500/45 to-blue-600/60 shadow-[0_0_56px_rgba(34,211,238,0.24)]">
-            <div className="rounded-[23px] border border-cyan-200/20 bg-[linear-gradient(135deg,rgba(45,212,191,0.42),rgba(8,47,73,0.72)_54%,rgba(29,78,216,0.58))] p-6 backdrop-blur-sm">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="flex items-center gap-3 text-xs font-black uppercase tracking-[0.24em] text-cyan-50">
-                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-100/35 bg-cyan-100/10 text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,0.24)]">
-                      <Lock size={15} />
-                    </span>
-                    Demo Scan Profile
-                  </h3>
-                  <p className="mt-4 max-w-sm text-sm font-sans leading-relaxed text-cyan-50/78">
-                    Demo scans use their own locked profile and do not count toward your normal profiles.
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-full border border-cyan-100/35 bg-cyan-100/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-50">
-                  {ACTIVE_PREMIUM_DEMO_IDS.length}/{ACTIVE_PREMIUM_DEMO_IDS.length} locked
-                </span>
-              </div>
-            </div>
-          </div>
-
           {homeDemoNotice && (
-            <p className="mt-5 max-w-lg text-center text-xs font-sans leading-relaxed text-amber-200/90">{homeDemoNotice}</p>
+            <p className="mt-3 max-w-lg text-center text-xs font-sans leading-relaxed text-amber-200/90">{homeDemoNotice}</p>
           )}
 
           <button
             type="button"
             onClick={startHomeDemoScan}
             disabled={homeDemoStarting || selectedHomeDemoLocked}
-            className="group mt-10 relative flex w-full max-w-md items-center justify-center gap-4 overflow-hidden rounded-xl border border-cyan-200/50 bg-[linear-gradient(135deg,rgba(34,211,238,0.95),rgba(14,165,233,0.78)_42%,rgba(29,78,216,0.88))] px-12 py-6 text-lg font-black uppercase tracking-[0.28em] text-white shadow-[0_0_34px_rgba(34,211,238,0.38),0_18px_70px_rgba(14,165,233,0.16)] transition-all duration-300 hover:-translate-y-1 hover:scale-[1.015] hover:shadow-[0_0_54px_rgba(34,211,238,0.55),0_24px_90px_rgba(14,165,233,0.22)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:scale-100"
+            className="group mt-8 relative flex w-full max-w-md items-center justify-center gap-4 overflow-hidden rounded-xl border border-cyan-200/50 bg-[linear-gradient(135deg,rgba(34,211,238,0.95),rgba(14,165,233,0.78)_42%,rgba(29,78,216,0.88))] px-12 py-6 text-lg font-black uppercase tracking-[0.28em] text-white shadow-[0_0_34px_rgba(34,211,238,0.38),0_18px_70px_rgba(14,165,233,0.16)] transition-all duration-300 hover:-translate-y-1 hover:scale-[1.015] hover:shadow-[0_0_54px_rgba(34,211,238,0.55),0_24px_90px_rgba(14,165,233,0.22)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:scale-100"
           >
             <span className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/50 to-transparent opacity-60 transition-transform duration-700 group-hover:translate-x-[320%]" />
             <span className="relative z-10">{homeDemoStarting ? 'Starting' : selectedHomeDemoLocked ? 'Locked' : 'Scan Preview'}</span>
             <ChevronRight size={26} className="relative z-10 transition-transform group-hover:translate-x-1" />
           </button>
-        </div>
-      </FadeUp>
-    </section>
-
-    <section id="results-section" className="w-full pt-24 pb-16 px-6 max-w-7xl mx-auto border-t border-zinc-900 relative z-10">
-      <FadeUp>
-        <div className="text-center mb-20">
-          <span className="text-blue-500 font-sans text-[10px] uppercase tracking-[0.3em] block mb-4 font-bold drop-shadow-[0_0_10px_rgba(59,130,246,0.6)]">REAL RESULTS</span>
-          <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4 uppercase italic [font-weight:950] drop-shadow-none [text-shadow:none]">Make The Impossible, Possible.</h2>
-          <p className="text-zinc-400 font-sans text-sm max-w-2xl mx-auto uppercase tracking-widest">Join the many who cracked the aesthetic code</p>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
-          <ComparisonCard beforeImgSrc={compBefore1} afterImgSrc={compAfter1} beforeScore="4.8" afterScore="7.4" review={reviewsData[0]} />
-          <ComparisonCard beforeImgSrc={compBefore2} afterImgSrc={compAfter2} beforeScore="5.2" afterScore="8.5" isActive={true} review={reviewsData[2]} />
-          <ComparisonCard beforeImgSrc={compAfter3} afterImgSrc={compBefore3} beforeScore="4.5" afterScore="7.1" review={reviewsData[1]} />
         </div>
       </FadeUp>
     </section>
