@@ -3251,7 +3251,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
         </FadeUp>
 
         <FadeUp delay={180}>
-          <div className={`relative flex min-h-[760px] flex-col overflow-hidden rounded-[30px] bg-zinc-950 p-8 transition-all duration-[2200ms] hover:-translate-y-3 ${
+          <div className={`relative flex h-[860px] flex-col overflow-hidden rounded-[30px] bg-zinc-950 p-8 transition-all duration-[2200ms] hover:-translate-y-3 ${
             homeProAnnual
               ? 'border border-emerald-500/35 shadow-[0_0_80px_rgba(16,185,129,0.11)] hover:border-emerald-300/70 hover:shadow-[0_0_100px_rgba(16,185,129,0.18)]'
               : 'border border-yellow-400/45 shadow-[0_0_80px_rgba(234,179,8,0.13)] hover:border-yellow-300/70 hover:shadow-[0_0_100px_rgba(234,179,8,0.2)]'
@@ -3307,7 +3307,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
             <p className={`mb-5 font-sans text-[10px] uppercase tracking-[0.24em] transition-colors duration-700 ${homeProAnnual ? 'text-emerald-400/60' : 'text-yellow-500/60'}`}>
               {homeProAnnual ? 'Everything in monthly Pro, plus' : 'Everything in 2 Scans, plus'}
             </p>
-            <ul className="mb-10 flex min-h-[252px] flex-col gap-4 text-sm font-sans text-zinc-300">
+            <ul className="mb-10 flex h-[340px] flex-col gap-4 text-sm font-sans text-zinc-300">
               {homeProAnnual ? (
                 <>
                   <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> Best monthly rate for long-term access</li>
