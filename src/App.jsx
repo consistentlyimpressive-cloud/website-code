@@ -5573,21 +5573,21 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                   Demo Preview Face
                 </span>
                 {(() => {
-                  const faceById = new Map(PREMIUM_DEMO_FACES.map((face) => [face.id, face]));
-                  const henryFace = faceById.get('henry');
-                  const seanFace = faceById.get('sean-opry');
-                  const emptyFace = faceById.get('empty-3');
-                  const stageFaces = visiblePremiumDemoFaceId === 'sean-opry'
-                    ? [henryFace, selectedPremiumDemoFace, emptyFace]
-                    : [emptyFace, selectedPremiumDemoFace, seanFace];
+                  const stageFaces = PREMIUM_DEMO_FACES;
 
                   return (
                     <div className="relative h-[370px] w-full max-w-[620px] overflow-visible sm:h-[395px]">
-                      {stageFaces.filter(Boolean).map((face, index) => {
+                      {stageFaces.filter(Boolean).map((face) => {
                         const isSelectedFace = face.id === visiblePremiumDemoFaceId;
                         const isUsedFace = premiumDemoUsedSet.has(face.id);
                         const isDisabledFace = !face.enabled;
-                        const slotOffset = index === 0 ? -218 : index === 2 ? 218 : 0;
+                        const slotOffset = isSelectedFace
+                          ? 0
+                          : face.id === 'empty-3'
+                          ? (visiblePremiumDemoFaceId === 'sean-opry' ? 218 : -218)
+                          : face.id === 'henry'
+                          ? -218
+                          : 218;
                         const slotScale = isSelectedFace ? 1 : 0.86;
                         const selectFace = () => {
                           if (isDisabledFace) return;
@@ -5606,6 +5606,8 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                               "transition-[transform,opacity,filter,box-shadow] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform",
                               isSelectedFace
                                 ? "w-[286px] sm:w-[300px] opacity-100 shadow-[0_0_42px_rgba(34,211,238,0.12)]"
+                                : isDisabledFace
+                                ? "w-[118px] opacity-35 blur-[1.5px] sm:w-[136px] md:opacity-35 md:group-hover/demo-picker:opacity-45 md:group-focus-within/demo-picker:opacity-45"
                                 : "w-[118px] opacity-100 blur-[1.5px] sm:w-[136px] md:opacity-0 md:group-hover/demo-picker:opacity-65 md:group-focus-within/demo-picker:opacity-65",
                               isDisabledFace
                                 ? "cursor-not-allowed grayscale"
