@@ -5581,25 +5581,26 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                         const isSelectedFace = face.id === visiblePremiumDemoFaceId;
                         const isUsedFace = premiumDemoUsedSet.has(face.id);
                         const isDisabledFace = !face.enabled;
+                        const fallbackFace = isDisabledFace
+                          ? ACTIVE_PREMIUM_DEMO_FACES.find((candidate) => candidate.id !== visiblePremiumDemoFaceId)
+                          : face;
                         const slotOffset = isSelectedFace
                           ? 0
                           : face.id === 'empty-3'
-                          ? (visiblePremiumDemoFaceId === 'sean-opry' ? 218 : -218)
-                          : face.id === 'henry'
                           ? -218
                           : 218;
                         const slotScale = isSelectedFace ? 1 : 0.86;
                         const selectFace = () => {
-                          if (isDisabledFace) return;
-                          setSelectedPremiumDemoId(face.id);
-                          setFrontImage(face.image || PREMIUM_DEMO_FRONT_IMAGE);
+                          if (!fallbackFace) return;
+                          setSelectedPremiumDemoId(fallbackFace.id);
+                          setFrontImage(fallbackFace.image || PREMIUM_DEMO_FRONT_IMAGE);
                         };
 
                         return (
                           <button
                             key={face.id}
                             type="button"
-                            disabled={isDisabledFace}
+                            disabled={!fallbackFace}
                             onClick={selectFace}
                             className={[
                               "absolute left-1/2 top-1/2 flex flex-col overflow-hidden bg-transparent",
@@ -5607,10 +5608,10 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                               isSelectedFace
                                 ? "w-[286px] sm:w-[300px] opacity-100 shadow-[0_0_42px_rgba(34,211,238,0.12)]"
                                 : isDisabledFace
-                                ? "w-[118px] opacity-35 blur-[1.5px] sm:w-[136px] md:opacity-35 md:group-hover/demo-picker:opacity-45 md:group-focus-within/demo-picker:opacity-45"
-                                : "w-[118px] opacity-100 blur-[1.5px] sm:w-[136px] md:opacity-0 md:group-hover/demo-picker:opacity-65 md:group-focus-within/demo-picker:opacity-65",
+                                ? "w-[118px] opacity-30 blur-[1.5px] sm:w-[136px] md:opacity-30 md:group-hover/demo-picker:opacity-45 md:group-focus-within/demo-picker:opacity-45"
+                                : "w-[118px] opacity-70 blur-[1.5px] sm:w-[136px] md:opacity-65 md:group-hover/demo-picker:opacity-80 md:group-focus-within/demo-picker:opacity-80",
                               isDisabledFace
-                                ? "cursor-not-allowed grayscale"
+                                ? "cursor-pointer grayscale hover:!opacity-60 hover:!blur-0"
                                 : isSelectedFace
                                 ? "cursor-default"
                                 : "hover:!opacity-100 hover:!blur-0 hover:drop-shadow-[0_0_24px_rgba(34,211,238,0.22)]"
