@@ -826,11 +826,21 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     const withMeta = profiles.map((profile) => {
       const scans = scansByProfile.get(profile.id) || [];
       const latestScan = scans[scans.length - 1] || null;
+      const previewScans = [...scans]
+        .reverse()
+        .map((scan, index) => ({
+          id: getScanId(scan) || scan.id || scan.scanId || `${profile.id}-${scan.timestamp || scan.scannedAt || scan.createdAt || index}`,
+          frontImage: resolveMediaUrl(scan.frontImageUrl || scan.frontImage || scan.dashboardData?.frontImage || scan.payload?.frontImage || scan.payload?.frontImageUrl || null),
+          scannedAt: scan.timestamp || scan.scannedAt || scan.createdAt || null,
+        }))
+        .filter((scan) => scan.frontImage)
+        .slice(0, 3);
       return {
         ...profile,
         scanCount: scans.length,
         latestScan,
         latestScanAt: latestScan ? timestampToMillis(latestScan.timestamp || latestScan.scannedAt) : 0,
+        previewScans,
       };
     });
 
@@ -847,6 +857,15 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
           scanCount: Math.min(demoScans.length, DEMO_PROFILE_SCAN_LIMIT),
           latestScan: latestDemoScan,
           latestScanAt: timestampToMillis(latestDemoScan.timestamp || latestDemoScan.scannedAt || latestDemoScan.createdAt),
+          previewScans: [...demoScans]
+            .reverse()
+            .map((scan, index) => ({
+              id: getScanId(scan) || scan.id || scan.scanId || `premium-demo-${scan.timestamp || scan.scannedAt || scan.createdAt || index}`,
+              frontImage: resolveMediaUrl(scan.frontImageUrl || scan.frontImage || scan.dashboardData?.frontImage || scan.payload?.frontImage || scan.payload?.frontImageUrl || null),
+              scannedAt: scan.timestamp || scan.scannedAt || scan.createdAt || null,
+            }))
+            .filter((scan) => scan.frontImage)
+            .slice(0, 3),
         });
       }
     }
@@ -1748,12 +1767,35 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       }
                     }}
                     className={[
-                      "rounded-2xl p-6 cursor-pointer transition-all hover:-translate-y-1 group flex flex-col",
+                      "relative rounded-2xl p-6 cursor-pointer transition-all hover:-translate-y-1 hover:z-30 focus-within:z-30 group flex flex-col",
                       p.isDemoProfile
-                        ? "relative overflow-hidden border border-amber-300/55 bg-[radial-gradient(circle_at_18%_0%,rgba(251,191,36,0.22),transparent_34%),linear-gradient(135deg,rgba(120,53,15,0.62),rgba(9,9,11,0.80)_58%,rgba(202,138,4,0.18))] hover:border-amber-200/80 shadow-[0_0_36px_rgba(251,191,36,0.15)] hover:shadow-[0_0_52px_rgba(251,191,36,0.23)]"
+                        ? "overflow-visible border border-amber-300/55 bg-[radial-gradient(circle_at_18%_0%,rgba(251,191,36,0.22),transparent_34%),linear-gradient(135deg,rgba(120,53,15,0.62),rgba(9,9,11,0.80)_58%,rgba(202,138,4,0.18))] hover:border-amber-200/80 shadow-[0_0_36px_rgba(251,191,36,0.15)] hover:shadow-[0_0_52px_rgba(251,191,36,0.23)]"
                         : "bg-zinc-900/40 border border-zinc-800 hover:border-cyan-500/50 hover:shadow-[0_0_20px_rgba(34,211,238,0.1)]"
                     ].join(' ')}
                   >
+                    {p.previewScans?.length > 0 && (
+                      <div className="pointer-events-none absolute inset-x-3 bottom-[calc(100%-0.35rem)] z-30 origin-bottom overflow-hidden rounded-t-3xl border border-cyan-400/35 bg-zinc-950/95 shadow-[0_-18px_46px_rgba(0,0,0,0.45),0_0_24px_rgba(34,211,238,0.12)] backdrop-blur-xl opacity-0 scale-y-75 translate-y-3 transition-all duration-300 ease-out group-hover:opacity-100 group-hover:scale-y-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:scale-y-100 group-focus-within:translate-y-0">
+                        <div className="grid h-28 grid-cols-3 divide-x divide-cyan-400/20 sm:h-32">
+                          {p.previewScans.map((scan) => (
+                            <div key={scan.id} className="relative overflow-hidden bg-zinc-900">
+                              <img
+                                loading="lazy"
+                                decoding="async"
+                                src={scan.frontImage}
+                                alt=""
+                                className="h-full w-full object-cover object-top grayscale-[0.15] transition-transform duration-500 group-hover:scale-105"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
+                            </div>
+                          ))}
+                          {Array.from({ length: Math.max(0, 3 - p.previewScans.length) }).map((_, index) => (
+                            <div key={`empty-${index}`} className="flex items-center justify-center bg-zinc-900/80 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-700">
+                              Empty
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {p.isDemoProfile && (
                       <>
                         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/90 to-transparent" />
