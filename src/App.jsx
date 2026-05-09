@@ -5017,7 +5017,10 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [sideImage, setSideImage] = useState(null);
   const [sideFile, setSideFile] = useState(null);
   const [useSideProfile, setUseSideProfile] = useState(true);
-  const normalizeSelectableModel = (model) => (String(model || '').trim() === '1' ? '6' : String(model || '3').trim());
+  const normalizeSelectableModel = (model) => {
+    const normalized = String(model || '3').trim();
+    return normalized === '1' || normalized === '6' ? '9' : normalized;
+  };
   const [selectedModel, setSelectedModel] = useState(normalizeSelectableModel(initialModel));
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [dropdownAnimOpen, setDropdownAnimOpen] = useState(false);
@@ -5149,39 +5152,12 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       Icon: Zap
     },
     {
-      id: "6",
-      name: "Expert Mode (Very Accurate)",
-      description:
-        "Fast, calibrated premium analysis with detailed image reading and strict expert scoring.",
-      tier: "ultra",
-      Icon: Sparkles
-    },
-    {
-      id: "7",
-      name: "penis goat",
-      description:
-        "Admin-only Expert Mode variant using the custom calibration prompt.",
-      tier: "ultra",
-      Icon: Crown,
-      adminOnly: true
-    },
-    {
-      id: "8",
-      name: "PENIS GOAT 2",
-      description:
-        "Admin-only elite-standards variant using the bimodal scaling prompt.",
-      tier: "ultra",
-      Icon: Crown,
-      adminOnly: true
-    },
-    {
       id: "9",
       name: "PENIS GOAT 3",
       description:
-        "Admin-only modern modeling standards variant with angularity and texture gates.",
+        "Premium modern modeling standards analysis with angularity and texture gates.",
       tier: "ultra",
-      Icon: Crown,
-      adminOnly: true
+      Icon: Crown
     },
     { id: "separator" },
     {
@@ -5271,7 +5247,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   useEffect(() => {
     if (selectedModel === PREMIUM_DEMO_MODEL_ID) return;
     if (ultraAccessPending) return;
-    if (!isAdmin && (selectedModel === '7' || selectedModel === '8' || selectedModel === '9')) {
+    if (!isAdmin && (selectedModel === '7' || selectedModel === '8')) {
       setSelectedModel('3');
       return;
     }
@@ -5288,7 +5264,8 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
   useEffect(() => {
     if (!isPremiumDemoModel) return;
-    const nextDemoId = getAvailablePremiumDemoId(premiumDemoUsedIds, selectedPremiumDemoId);
+    const selectedDemoFace = getPremiumDemoFace(selectedPremiumDemoId);
+    const nextDemoId = selectedDemoFace?.id || getAvailablePremiumDemoId(premiumDemoUsedIds, selectedPremiumDemoId);
     if (nextDemoId !== selectedPremiumDemoId) {
       setSelectedPremiumDemoId(nextDemoId);
     }
@@ -5583,7 +5560,9 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
           <div
             className={[
               "grid grid-cols-1 w-full mb-16 px-4 transition-all duration-500",
-              useSideProfile
+              isPremiumDemoModel
+                ? "max-w-6xl mx-auto"
+                : useSideProfile
                 ? "md:grid-cols-2 gap-12 md:gap-24"
                 : "max-w-sm mx-auto"
             ].join(' ')}
@@ -5601,7 +5580,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                   ].filter(Boolean).map((face) => {
                     const isSelectedFace = face.id === visiblePremiumDemoFaceId;
                     const isUsedFace = premiumDemoUsedSet.has(face.id);
-                    const isDisabledFace = !face.enabled || (!isAdmin && isUsedFace);
+                    const isDisabledFace = !face.enabled;
                     const selectFace = () => {
                       if (isDisabledFace) return;
                       setSelectedPremiumDemoId(face.id);
@@ -5658,7 +5637,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                           )}
                           <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/55 to-transparent p-3 text-left">
                             <span className="block text-[9px] font-black uppercase tracking-[0.24em] text-cyan-200/80">
-                              {!face.enabled ? 'Coming Soon' : isUsedFace && !isAdmin ? 'Used' : 'Choose'}
+                              {!face.enabled ? 'Coming Soon' : isUsedFace && !isAdmin ? 'Preview' : 'Choose'}
                             </span>
                             <span className="mt-1 block text-sm font-black italic uppercase tracking-tight text-white/90">{face.shortName}</span>
                           </span>
