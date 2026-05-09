@@ -5132,6 +5132,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const visiblePremiumDemoFaceId = selectedPremiumDemoFace?.id || DEFAULT_PREMIUM_DEMO_ID;
   const activePremiumDemoTotal = ACTIVE_PREMIUM_DEMO_IDS.length;
   const activePremiumDemoUsedCount = ACTIVE_PREMIUM_DEMO_IDS.filter((demoId) => premiumDemoUsedSet.has(demoId)).length;
+  const hasUsedAnyPremiumDemo = activePremiumDemoUsedCount > 0 || Boolean(premiumDemoScanUsed);
   const allPremiumDemosUsed = activePremiumDemoTotal > 0 && activePremiumDemoUsedCount >= activePremiumDemoTotal;
 
   const models = [
@@ -5201,7 +5202,8 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const shouldShowDemoNudge = Boolean(
     user &&
     !isPremiumDemoModel &&
-    (isAdmin || (isFreePlanAccount && !allPremiumDemosUsed))
+    !hasUsedAnyPremiumDemo &&
+    (isAdmin || isFreePlanAccount)
   );
 
   const ultraAccessPending = !!user && !isAdmin && !planResolved;
