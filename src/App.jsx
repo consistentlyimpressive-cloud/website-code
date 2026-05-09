@@ -1670,7 +1670,7 @@ const ComparisonCard = ({ beforeImgSrc, afterImgSrc, beforeScore, afterScore, is
     return () => { window.removeEventListener('mousemove', handleMouseMove); window.removeEventListener('mouseup', handleMouseUp); window.removeEventListener('touchmove', handleTouchMove); window.removeEventListener('touchend', handleMouseUp); };
   }, [isDragging]);
   return (
-    <div ref={containerRef} className={`relative aspect-[4/5] rounded-xl overflow-hidden border ${isActive ? 'border-blue-500/50 scale-105 z-10 shadow-[0_0_30px_rgba(59,130,246,0.3)]' : 'border-zinc-800 opacity-80 scale-95'} transition-all duration-700 bg-zinc-900 group cursor-ew-resize select-none touch-none`} onMouseDown={(e) => { setIsDragging(true); handleMove(e.clientX); }} onTouchStart={(e) => { setIsDragging(true); handleMove(e.touches[0].clientX); }}>
+    <div ref={containerRef} className={`relative aspect-[4/5] rounded-xl overflow-hidden border ${isActive ? 'border-blue-500/50 scale-105 z-10 shadow-[0_0_30px_rgba(59,130,246,0.3)]' : 'border-zinc-800 opacity-80 scale-95'} transition-all duration-700 bg-zinc-900 group cursor-ew-resize select-none touch-none hover:-translate-y-3 hover:opacity-100 hover:border-blue-400/60 hover:shadow-[0_24px_70px_rgba(59,130,246,0.18)]`} onMouseDown={(e) => { setIsDragging(true); handleMove(e.clientX); }} onTouchStart={(e) => { setIsDragging(true); handleMove(e.touches[0].clientX); }}>
       <img src={afterImgSrc} className="absolute inset-0 w-full h-full object-cover brightness-110 pointer-events-none" alt="After" draggable="false" referrerPolicy="no-referrer" />
       <img src={beforeImgSrc} className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ clipPath: `polygon(0 0, ${sliderPosition}% 0, ${sliderPosition}% 100%, 0% 100%)` }} alt="Before" draggable="false" referrerPolicy="no-referrer" />
       <div className="absolute top-0 bottom-0 w-[2px] bg-white/40 z-20 shadow-[0_0_10px_rgba(0,0,0,0.5)] pointer-events-none" style={{ left: `calc(${sliderPosition}% - 1px)` }} />
@@ -2844,6 +2844,21 @@ const HomePage = ({ setCurrentPage }) => {
           0%, 100% { box-shadow: 0 0 20px rgba(255,255,255,0.2); }
           50% { box-shadow: 0 0 40px rgba(255,255,255,0.4), 0 0 80px rgba(255,255,255,0.1); }
         }
+        @keyframes processScanLine {
+          0% { transform: translateY(-120%); opacity: 0; }
+          14% { opacity: 0.75; }
+          72% { opacity: 0.35; }
+          100% { transform: translateY(420%); opacity: 0; }
+        }
+        @keyframes lineDrift {
+          0% { transform: translateX(-45%); opacity: 0.25; }
+          50% { opacity: 0.85; }
+          100% { transform: translateX(45%); opacity: 0.25; }
+        }
+        @keyframes homeFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-8px); }
+        }
       `}</style>
 
       <FadeUp>
@@ -2919,7 +2934,7 @@ const HomePage = ({ setCurrentPage }) => {
 
     <section className="w-full pt-16 pb-16 px-6 max-w-5xl mx-auto relative z-0">
       <FadeUp>
-        <div className="overflow-hidden rounded-[32px] border border-cyan-500/15 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.12),transparent_35%),linear-gradient(180deg,rgba(10,13,16,0.98),rgba(8,9,10,0.98))] p-8 md:p-10 shadow-[0_0_40px_rgba(34,211,238,0.07)]">
+        <div className="group overflow-hidden rounded-[32px] border border-cyan-500/15 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.12),transparent_35%),linear-gradient(180deg,rgba(10,13,16,0.98),rgba(8,9,10,0.98))] p-8 md:p-10 shadow-[0_0_40px_rgba(34,211,238,0.07)] transition-all duration-500 hover:-translate-y-2 hover:border-cyan-400/35 hover:shadow-[0_22px_70px_rgba(34,211,238,0.12)]">
           <div className="grid gap-8 md:grid-cols-[1.25fr_0.75fr] md:items-center">
             <div>
               <p className="text-[10px] font-sans uppercase tracking-[0.3em] text-cyan-400/80">Live Matchups</p>
@@ -2955,22 +2970,36 @@ const HomePage = ({ setCurrentPage }) => {
           const imageFirst = idx % 2 === 0;
           return (
             <FadeUp key={item.step} delay={idx * 120}>
-              <div className="grid gap-8 md:grid-cols-2 md:items-center">
-                <div className={`${imageFirst ? 'md:order-1' : 'md:order-2'} ${imageFirst ? '' : 'md:justify-self-end'} w-full max-w-[360px]`}>
-                  <div className="aspect-[4/3] overflow-hidden rounded-sm bg-zinc-900 shadow-[0_24px_70px_rgba(0,0,0,0.38)]">
+              <div className="group/process grid gap-8 md:grid-cols-2 md:items-center">
+                <div
+                  className={`${imageFirst ? 'md:order-1' : 'md:order-2'} ${imageFirst ? '' : 'md:justify-self-end'} w-full max-w-[360px]`}
+                  style={{ animation: `homeFloat ${6.8 + idx * 0.35}s ease-in-out infinite`, animationDelay: `${idx * 0.35}s` }}
+                >
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-sm border border-zinc-800/70 bg-black shadow-[0_24px_70px_rgba(0,0,0,0.38)] transition-all duration-500 group-hover/process:-translate-y-3 group-hover/process:border-cyan-400/35 group-hover/process:shadow-[0_30px_80px_rgba(34,211,238,0.12)]">
                     <img
                       loading="lazy"
                       decoding="async"
                       src={item.imgSrc}
                       alt=""
-                      className="h-full w-full object-cover object-center scale-110 [filter:grayscale(100%)_saturate(0)]"
+                      className="absolute inset-0 h-full w-full scale-110 object-cover object-center opacity-35 blur-xl [filter:grayscale(100%)_saturate(0)] transition-opacity duration-700 group-hover/process:opacity-55"
                     />
+                    <img
+                      loading="lazy"
+                      decoding="async"
+                      src={item.imgSrc}
+                      alt=""
+                      className="relative z-10 h-full w-full object-contain object-center [filter:grayscale(100%)_saturate(0)] transition-all duration-700 group-hover/process:scale-[1.025] group-hover/process:brightness-110"
+                    />
+                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.12),transparent_45%)] opacity-20 transition-opacity duration-500 group-hover/process:opacity-100" />
+                    <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-cyan-300/18 to-transparent opacity-30 transition-opacity duration-500 group-hover/process:opacity-100" style={{ animation: 'processScanLine 3.6s ease-in-out infinite' }} />
                   </div>
                 </div>
-                <div className={`${imageFirst ? 'md:order-2 md:pl-4' : 'md:order-1 md:pr-4'} max-w-xl`}>
+                <div className={`${imageFirst ? 'md:order-2 md:pl-4' : 'md:order-1 md:pr-4'} max-w-xl transition-transform duration-500 ease-out group-hover/process:translate-y-[-6px]`}>
                   <p className="mb-3 font-sans text-[10px] font-bold uppercase tracking-[0.36em] text-cyan-400/80">{item.step}</p>
                   <h3 className="text-2xl md:text-3xl font-black italic uppercase tracking-tight text-white">{item.title}</h3>
-                  <div className="my-5 h-px w-28 bg-gradient-to-r from-cyan-400/70 via-zinc-500/30 to-transparent" />
+                  <div className="my-5 h-px w-28 overflow-hidden bg-zinc-800">
+                    <div className="h-full w-full bg-gradient-to-r from-transparent via-cyan-300 to-transparent" style={{ animation: 'lineDrift 3.2s ease-in-out infinite' }} />
+                  </div>
                   <p className="font-sans text-sm md:text-base leading-7 text-zinc-300">{item.text}</p>
                   <p className="mt-5 font-sans text-[10px] font-bold uppercase tracking-[0.26em] text-zinc-500">{item.note}</p>
                 </div>
