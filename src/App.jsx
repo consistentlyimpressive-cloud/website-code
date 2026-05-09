@@ -2786,10 +2786,8 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
     if (!video) return undefined;
 
     let rafId = 0;
-    let direction = 1;
-    let position = 0;
-    let lastFrameAt = null;
     let active = true;
+    let startedAt = null;
     const rate = 1.3;
 
     const tick = (frameAt) => {
@@ -2800,18 +2798,13 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
         return;
       }
 
-      if (lastFrameAt == null) lastFrameAt = frameAt;
-      const deltaSeconds = ((frameAt - lastFrameAt) / 1000) * rate;
-      lastFrameAt = frameAt;
-      position += deltaSeconds * direction;
-
-      if (position >= duration) {
-        position = duration;
-        direction = -1;
-      } else if (position <= 0) {
-        position = 0;
-        direction = 1;
-      }
+      if (startedAt == null) startedAt = frameAt - ((video.currentTime || 0) / rate) * 1000;
+      const elapsedSeconds = ((frameAt - startedAt) / 1000) * rate;
+      const cycle = duration * 2;
+      const phase = elapsedSeconds % cycle;
+      const endpointPadding = Math.min(0.04, duration / 30);
+      const rawPosition = phase <= duration ? phase : cycle - phase;
+      const position = Math.min(duration - endpointPadding, Math.max(endpointPadding, rawPosition));
 
       if (Math.abs(video.currentTime - position) > 0.025) {
         try {
@@ -2826,8 +2819,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
     const startPingPong = () => {
       window.cancelAnimationFrame(rafId);
       video.pause();
-      position = Math.min(video.currentTime || 0, video.duration || 0);
-      lastFrameAt = null;
+      startedAt = null;
       rafId = window.requestAnimationFrame(tick);
     };
 
