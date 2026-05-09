@@ -2975,20 +2975,13 @@ const HomePage = ({ setCurrentPage }) => {
                   className={`${imageFirst ? 'md:order-1' : 'md:order-2'} ${imageFirst ? '' : 'md:justify-self-end'} w-full max-w-[360px]`}
                   style={{ animation: `homeFloat ${6.8 + idx * 0.35}s ease-in-out infinite`, animationDelay: `${idx * 0.35}s` }}
                 >
-                  <div className="relative aspect-[4/3] overflow-hidden rounded-sm border border-zinc-800/70 bg-black shadow-[0_24px_70px_rgba(0,0,0,0.38)] transition-all duration-500 group-hover/process:-translate-y-3 group-hover/process:border-cyan-400/35 group-hover/process:shadow-[0_30px_80px_rgba(34,211,238,0.12)]">
+                  <div className="relative overflow-hidden rounded-sm border border-zinc-800/70 shadow-[0_24px_70px_rgba(0,0,0,0.38)] transition-all duration-500 group-hover/process:-translate-y-3 group-hover/process:border-cyan-400/35 group-hover/process:shadow-[0_30px_80px_rgba(34,211,238,0.12)]">
                     <img
                       loading="lazy"
                       decoding="async"
                       src={item.imgSrc}
                       alt=""
-                      className="absolute inset-0 h-full w-full scale-110 object-cover object-center opacity-35 blur-xl [filter:grayscale(100%)_saturate(0)] transition-opacity duration-700 group-hover/process:opacity-55"
-                    />
-                    <img
-                      loading="lazy"
-                      decoding="async"
-                      src={item.imgSrc}
-                      alt=""
-                      className="relative z-10 h-full w-full object-contain object-center [filter:grayscale(100%)_saturate(0)] transition-all duration-700 group-hover/process:scale-[1.025] group-hover/process:brightness-110"
+                      className="relative z-10 block h-auto w-full [filter:grayscale(100%)_saturate(0)] transition-all duration-700 group-hover/process:scale-[1.025] group-hover/process:brightness-110"
                     />
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.12),transparent_45%)] opacity-20 transition-opacity duration-500 group-hover/process:opacity-100" />
                     <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-cyan-300/18 to-transparent opacity-30 transition-opacity duration-500 group-hover/process:opacity-100" style={{ animation: 'processScanLine 3.6s ease-in-out infinite' }} />
