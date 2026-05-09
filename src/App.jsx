@@ -3251,7 +3251,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
         </FadeUp>
 
         <FadeUp delay={180}>
-          <div className={`relative flex h-[860px] flex-col overflow-hidden rounded-[30px] bg-zinc-950 p-8 transition-all duration-[2200ms] hover:-translate-y-3 ${
+          <div className={`relative flex h-[910px] flex-col overflow-hidden rounded-[30px] bg-zinc-950 p-8 transition-all duration-[2200ms] hover:-translate-y-3 ${
             homeProAnnual
               ? 'border border-emerald-500/35 shadow-[0_0_80px_rgba(16,185,129,0.11)] hover:border-emerald-300/70 hover:shadow-[0_0_100px_rgba(16,185,129,0.18)]'
               : 'border border-yellow-400/45 shadow-[0_0_80px_rgba(234,179,8,0.13)] hover:border-yellow-300/70 hover:shadow-[0_0_100px_rgba(234,179,8,0.2)]'
