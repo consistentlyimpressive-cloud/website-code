@@ -2741,9 +2741,12 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
   );
 };
 
-const HomePage = ({ setCurrentPage }) => {
+const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
   const [analysisHeroCount, setAnalysisHeroCount] = useState(74);
   const [activeUsers, setActiveUsers] = useState(106);
+  const [homeDemoId, setHomeDemoId] = useState(DEFAULT_PREMIUM_DEMO_ID);
+  const [homeDemoNotice, setHomeDemoNotice] = useState('');
+  const [homeDemoStarting, setHomeDemoStarting] = useState(false);
 
   useEffect(() => {
     // Initial active users (analysis count + 32)
@@ -2807,6 +2810,65 @@ const HomePage = ({ setCurrentPage }) => {
       note: 'Better inputs, clearer goals, and repeatable progress.',
     },
   ];
+  const selectedHomeDemoFace = PREMIUM_DEMO_FACES.find((face) => face.id === homeDemoId) || getPremiumDemoFace(homeDemoId);
+  const selectedHomeDemoLocked = !selectedHomeDemoFace?.enabled;
+
+  const startHomeDemoScan = async () => {
+    setHomeDemoNotice('');
+    if (selectedHomeDemoLocked) {
+      setHomeDemoNotice('This demo face is locked for now. Choose Henry or Sean.');
+      return;
+    }
+    if (!user) {
+      setCurrentPage('login');
+      return;
+    }
+    setHomeDemoStarting(true);
+    try {
+      const requestedDemoId = normalizePremiumDemoId(homeDemoId);
+      const requestedDemoFace = getPremiumDemoFace(requestedDemoId);
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/api/user/demo-scan`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ demoId: requestedDemoId }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 409) {
+        setHomeDemoNotice(body.error || 'You already used this demo face. Pick another available one.');
+        return;
+      }
+      if (!res.ok) throw new Error(body.error || 'Failed to save demo scan.');
+      const demoPayload = buildPremiumDemoScanPayload(body.payload || body.scan?.payload || await loadPremiumDemoScanPayload(requestedDemoId), {
+        demoId: requestedDemoId,
+        id: body.scan?.id || `premium-demo-scan-${requestedDemoId}`,
+        scanId: body.scan?.scanId || body.scan?.id || `premium-demo-scan-${requestedDemoId}`,
+        scannedAt: body.scan?.scannedAt || body.scan?.createdAt || new Date().toISOString(),
+      });
+      const queuedJob = queueAnalysisJob?.({
+        analysisLabel: 'Demo Scan',
+        mainImageSrc: requestedDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE,
+        mainImageFile: null,
+        sideImageUrl: null,
+        sideImageFile: null,
+        sideMetricData: null,
+        choice: PREMIUM_DEMO_MODEL_ID,
+        user,
+        profileId: PREMIUM_DEMO_MODEL_ID,
+        scanRequestId: demoPayload?.scanRequestId || `premium-demo-scan-${requestedDemoId}`,
+        demoPayload,
+      });
+      if (!queuedJob) throw new Error('Demo scan could not be queued.');
+      setCurrentPage('analysis');
+    } catch (e) {
+      setHomeDemoNotice(e.message || 'Failed to start demo scan.');
+    } finally {
+      setHomeDemoStarting(false);
+    }
+  };
 
   return (
   <div className="w-full flex flex-col items-center relative overflow-x-hidden">
@@ -2916,6 +2978,134 @@ const HomePage = ({ setCurrentPage }) => {
         </div>
       </FadeUp>
     </header>
+
+    <section className="w-full px-6 pb-20 pt-2 relative z-10">
+      <FadeUp>
+        <div className="mx-auto flex w-full max-w-4xl flex-col items-center">
+          <span className="mb-6 text-center text-2xl font-black uppercase tracking-[0.18em] text-cyan-100 drop-shadow-[0_0_20px_rgba(34,211,238,0.25)]">
+            Demo Preview Face
+          </span>
+          <div className="group/home-demo relative h-[430px] w-full max-w-[760px] overflow-visible sm:h-[470px]">
+            {PREMIUM_DEMO_FACES.map((face) => {
+              const isSelectedFace = face.id === homeDemoId;
+              const isDisabledFace = !face.enabled;
+              const slotOffset = isSelectedFace
+                ? 0
+                : homeDemoId === 'henry'
+                ? (face.id === 'sean-opry' ? -260 : 260)
+                : homeDemoId === 'sean-opry'
+                ? (face.id === 'henry' ? 260 : -260)
+                : face.id === 'henry'
+                ? -260
+                : 260;
+              const slotScale = isSelectedFace ? 1 : 0.48;
+              const cardStatus = !face.enabled ? 'Coming Soon' : isSelectedFace ? 'Premium Demo' : 'Choose';
+
+              return (
+                <button
+                  key={face.id}
+                  type="button"
+                  onClick={() => setHomeDemoId(face.id)}
+                  className={[
+                    "absolute left-1/2 top-1/2 flex w-[276px] flex-col overflow-hidden bg-transparent sm:w-[320px]",
+                    "transition-[transform,opacity,filter,box-shadow] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform",
+                    isSelectedFace
+                      ? "opacity-100 drop-shadow-[0_0_34px_rgba(34,211,238,0.16)]"
+                      : isDisabledFace
+                      ? "opacity-35 blur-[1.5px] group-hover/home-demo:opacity-45"
+                      : "opacity-70 blur-[1.5px] group-hover/home-demo:opacity-85",
+                    isSelectedFace ? "cursor-default" : "cursor-pointer hover:!opacity-100 hover:!blur-0 hover:drop-shadow-[0_0_24px_rgba(34,211,238,0.24)]",
+                    isDisabledFace ? "grayscale" : ""
+                  ].join(' ')}
+                  style={{
+                    transform: `translate(calc(-50% + ${slotOffset}px), -50%) scale(${slotScale})`,
+                    zIndex: isSelectedFace ? 20 : 10,
+                  }}
+                >
+                  <span className={["relative aspect-[3/4] overflow-hidden bg-zinc-950", isSelectedFace ? "rounded-[1.15rem]" : "rounded-[0.95rem]"].join(' ')}>
+                    {face.image ? (
+                      <img
+                        src={face.image}
+                        alt={`${face.name} demo face`}
+                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover/home-demo:scale-[1.018]"
+                      />
+                    ) : (
+                      <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-950/70 text-zinc-600">
+                        <Lock size={isSelectedFace ? 24 : 18} />
+                        <span className="text-[8px] font-black uppercase tracking-[0.24em]">Coming Soon</span>
+                        <span className="text-[9px] font-black uppercase tracking-[0.24em] text-zinc-500">Locked</span>
+                      </span>
+                    )}
+                    <span className={["absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent text-left", isSelectedFace ? "via-black/45 p-5" : "via-black/55 p-3"].join(' ')}>
+                      <span className={["block font-black uppercase text-cyan-200", isSelectedFace ? "text-[10px] tracking-[0.28em]" : "text-[8px] tracking-[0.22em]"].join(' ')}>
+                        {cardStatus}
+                      </span>
+                      <span className={["mt-1 block font-black italic uppercase tracking-tight text-white", isSelectedFace ? "text-3xl" : "text-sm text-white/90"].join(' ')}>
+                        {face.shortName}
+                      </span>
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-2 w-full max-w-md">
+            <label className="block text-center text-[10px] font-sans uppercase tracking-[0.3em] text-zinc-500">AI Model Selection</label>
+            <div className="mt-3 flex w-full items-center justify-between gap-4 rounded-xl border border-cyan-400/45 bg-zinc-900/50 px-5 py-4 shadow-[0_0_34px_rgba(34,211,238,0.20)]">
+              <span className="flex items-center gap-3 min-w-0">
+                <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-cyan-400/35 bg-cyan-400/10">
+                  <Crown size={17} className="text-cyan-200 drop-shadow-[0_0_12px_rgba(34,211,238,0.70)]" />
+                </span>
+                <span className="flex min-w-0 flex-col text-left">
+                  <span className="truncate text-sm font-black uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-white to-cyan-300 drop-shadow-[0_0_16px_rgba(34,211,238,0.24)]">
+                    Free Demo Scan
+                  </span>
+                  <span className="truncate text-[10px] font-sans uppercase tracking-[0.22em] text-zinc-500">Fixed demo scan</span>
+                </span>
+              </span>
+              <Lock size={16} className="text-cyan-300/70" />
+            </div>
+          </div>
+
+          <div className="mt-10 w-full max-w-lg rounded-3xl p-[1px] bg-gradient-to-br from-cyan-200/75 via-cyan-500/45 to-blue-600/60 shadow-[0_0_56px_rgba(34,211,238,0.24)]">
+            <div className="rounded-[23px] border border-cyan-200/20 bg-[linear-gradient(135deg,rgba(45,212,191,0.42),rgba(8,47,73,0.72)_54%,rgba(29,78,216,0.58))] p-6 backdrop-blur-sm">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="flex items-center gap-3 text-xs font-black uppercase tracking-[0.24em] text-cyan-50">
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-100/35 bg-cyan-100/10 text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,0.24)]">
+                      <Lock size={15} />
+                    </span>
+                    Demo Scan Profile
+                  </h3>
+                  <p className="mt-4 max-w-sm text-sm font-sans leading-relaxed text-cyan-50/78">
+                    Demo scans use their own locked profile and do not count toward your normal profiles.
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full border border-cyan-100/35 bg-cyan-100/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-50">
+                  {ACTIVE_PREMIUM_DEMO_IDS.length}/{ACTIVE_PREMIUM_DEMO_IDS.length} locked
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {homeDemoNotice && (
+            <p className="mt-5 max-w-lg text-center text-xs font-sans leading-relaxed text-amber-200/90">{homeDemoNotice}</p>
+          )}
+
+          <button
+            type="button"
+            onClick={startHomeDemoScan}
+            disabled={homeDemoStarting || selectedHomeDemoLocked}
+            className="group mt-10 relative flex w-full max-w-md items-center justify-center gap-4 overflow-hidden rounded-xl border border-cyan-200/50 bg-[linear-gradient(135deg,rgba(34,211,238,0.95),rgba(14,165,233,0.78)_42%,rgba(29,78,216,0.88))] px-12 py-6 text-lg font-black uppercase tracking-[0.28em] text-white shadow-[0_0_34px_rgba(34,211,238,0.38),0_18px_70px_rgba(14,165,233,0.16)] transition-all duration-300 hover:-translate-y-1 hover:scale-[1.015] hover:shadow-[0_0_54px_rgba(34,211,238,0.55),0_24px_90px_rgba(14,165,233,0.22)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:scale-100"
+          >
+            <span className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/50 to-transparent opacity-60 transition-transform duration-700 group-hover:translate-x-[320%]" />
+            <span className="relative z-10">{homeDemoStarting ? 'Starting' : selectedHomeDemoLocked ? 'Locked' : 'Scan Preview'}</span>
+            <ChevronRight size={26} className="relative z-10 transition-transform group-hover:translate-x-1" />
+          </button>
+        </div>
+      </FadeUp>
+    </section>
 
     <section id="results-section" className="w-full pt-24 pb-16 px-6 max-w-7xl mx-auto border-t border-zinc-900 relative z-10">
       <FadeUp>
@@ -10926,7 +11116,7 @@ const App = () => {
       )}
       <main className="flex flex-col min-h-screen">
         <React.Suspense fallback={<PageLoadingFallback />}>
-        {currentPage === 'home' && <HomePage setCurrentPage={setCurrentPage} />}
+        {currentPage === 'home' && <HomePage setCurrentPage={setCurrentPage} user={user} queueAnalysisJob={queueAnalysisJob} />}
         {currentPage === 'photo-guide' && <PhotoGuidePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'analysis' && <ConsultingStatusPage job={focusedAnalysisJob} setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'animations' && <ScanAnimationsPage routeParams={routeParams} setCurrentPage={setCurrentPage} />}
