@@ -3214,7 +3214,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           <p className="mb-4 text-[10px] font-black uppercase tracking-[0.38em] text-yellow-400/75">Plans</p>
           <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white">Choose Your Access</h2>
           <p className="mx-auto mt-5 max-w-xl text-sm font-sans leading-relaxed text-zinc-500">
-            Start free, unlock one premium scan, or use Pro for full tracking and unlimited analysis.
+            Start free, unlock two premium scans, or use Pro for full tracking and unlimited analysis.
           </p>
         </div>
       </FadeUp>
@@ -3232,11 +3232,13 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
             </div>
             <div className="mb-8 h-px w-full bg-zinc-800" />
             <ul className="mb-10 flex flex-col gap-4 text-sm font-sans text-zinc-400">
-              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-zinc-500" /> Basic appearance overview</li>
-              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-zinc-500" /> General rating and structure snapshot</li>
-              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-zinc-500" /> Daily free scan access</li>
-              <li className="flex gap-3 text-zinc-650"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No premium ratio breakdown</li>
-              <li className="flex gap-3 text-zinc-650"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No saved progress dashboard</li>
+              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-zinc-500" /> Basic appearance overview & general rating</li>
+              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-zinc-500" /> Structural symmetry snapshot</li>
+              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-zinc-500" /> 1 scan per day</li>
+              <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No detailed facial biometrics</li>
+              <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No AI potential analysis</li>
+              <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No personalized protocols</li>
+              <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No celebrity lookalike matching</li>
             </ul>
             <button
               type="button"
@@ -3249,23 +3251,39 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
         </FadeUp>
 
         <FadeUp delay={180}>
-          <div className="relative flex min-h-[660px] flex-col rounded-[30px] border border-yellow-400/45 bg-[radial-gradient(circle_at_50%_0%,rgba(250,204,21,0.18),transparent_34%),linear-gradient(180deg,rgba(28,22,4,0.92),rgba(9,9,11,0.96))] p-8 shadow-[0_0_80px_rgba(234,179,8,0.13)] transition-all duration-500 hover:-translate-y-3 hover:border-yellow-300/70 hover:shadow-[0_0_100px_rgba(234,179,8,0.2)]">
-            <div className="absolute -top-9 left-1/2 -translate-x-1/2 text-center">
-              <h3 className="text-5xl font-black italic uppercase tracking-tighter text-white drop-shadow-[0_0_24px_rgba(234,179,8,0.22)]">Pro</h3>
-              <p className="-mt-1 text-xs font-sans uppercase tracking-[0.24em] text-yellow-200/80">Most popular</p>
+          <div className={`relative flex min-h-[660px] flex-col rounded-[30px] p-8 transition-all duration-700 hover:-translate-y-3 ${
+            homeProAnnual
+              ? 'border border-emerald-500/35 bg-[radial-gradient(circle_at_50%_0%,rgba(16,185,129,0.18),transparent_34%),linear-gradient(180deg,rgba(9,21,27,0.92),rgba(9,9,11,0.96))] shadow-[0_0_80px_rgba(16,185,129,0.11)] hover:border-emerald-300/70 hover:shadow-[0_0_100px_rgba(16,185,129,0.18)]'
+              : 'border border-yellow-400/45 bg-[radial-gradient(circle_at_50%_0%,rgba(250,204,21,0.18),transparent_34%),linear-gradient(180deg,rgba(28,22,4,0.92),rgba(9,9,11,0.96))] shadow-[0_0_80px_rgba(234,179,8,0.13)] hover:border-yellow-300/70 hover:shadow-[0_0_100px_rgba(234,179,8,0.2)]'
+          }`}>
+            <div className="mb-8 text-center">
+              <h3 className={`text-5xl font-black italic uppercase tracking-tighter text-white transition-[filter] duration-700 ${
+                homeProAnnual
+                  ? 'drop-shadow-[0_0_24px_rgba(16,185,129,0.24)]'
+                  : 'drop-shadow-[0_0_24px_rgba(234,179,8,0.22)]'
+              }`}>Pro</h3>
+              <p className={`-mt-1 text-xs font-sans uppercase tracking-[0.24em] transition-colors duration-700 ${homeProAnnual ? 'text-emerald-200/80' : 'text-yellow-200/80'}`}>Most popular</p>
             </div>
-            <div className="mt-8 mb-8 flex items-center justify-between gap-4">
+            <div className="mb-8 flex items-center justify-between gap-4">
               <div>
-                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.34em] text-yellow-400/70">Full access</p>
+                <p className={`mb-2 text-[10px] font-black uppercase tracking-[0.34em] transition-colors duration-700 ${homeProAnnual ? 'text-emerald-400/70' : 'text-yellow-400/70'}`}>Full access</p>
                 <p className="text-sm font-sans text-zinc-400">{homeProAnnual ? 'Annual billing' : 'Monthly billing'}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setHomeProAnnual((value) => !value)}
-                className="group/toggle flex h-11 w-24 items-center rounded-full border border-yellow-300/35 bg-black/35 p-1 transition-all hover:border-yellow-200/70"
+                className={`group/toggle flex h-11 w-24 items-center rounded-full bg-black/35 p-1 transition-all duration-700 ${
+                  homeProAnnual
+                    ? 'border border-emerald-300/40 ring-1 ring-emerald-400/20 hover:border-emerald-200/75 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/55'
+                    : 'border border-yellow-300/35 ring-1 ring-yellow-300/15 hover:border-yellow-200/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-200/55'
+                }`}
                 aria-pressed={homeProAnnual}
               >
-                <span className={`h-9 w-9 rounded-full bg-gradient-to-br from-yellow-100 to-yellow-400 shadow-[0_0_18px_rgba(250,204,21,0.36)] transition-transform duration-300 ${homeProAnnual ? 'translate-x-[52px]' : 'translate-x-0'}`} />
+                <span className={`h-9 w-9 rounded-full transition-all duration-700 ${
+                  homeProAnnual
+                    ? 'translate-x-[52px] bg-gradient-to-br from-emerald-100 to-emerald-400 shadow-[0_0_22px_rgba(16,185,129,0.42)]'
+                    : 'translate-x-0 bg-gradient-to-br from-yellow-100 to-yellow-400 shadow-[0_0_18px_rgba(250,204,21,0.36)]'
+                }`} />
               </button>
             </div>
             <div className="mb-2 flex items-end gap-2">
@@ -3273,25 +3291,49 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
               <span className="pb-2 text-xs font-sans uppercase tracking-[0.24em] text-zinc-500">/mo</span>
             </div>
             <p className="mb-6 text-xs font-sans uppercase tracking-[0.18em] text-zinc-400">
-              {homeProAnnual ? <>Billed annually at <span className="text-yellow-200">$144</span></> : 'Cancel anytime'}
+              {homeProAnnual ? <>Billed annually at <span className="line-through text-zinc-600">$180</span> <span className="text-emerald-300">$144</span></> : 'Cancel anytime, no commitment'}
             </p>
-            <div className="mb-8 inline-flex w-fit rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-emerald-300">
+            <div className={`mb-8 inline-flex w-fit rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] transition-colors duration-700 ${
+              homeProAnnual
+                ? 'border border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
+                : 'border border-yellow-400/25 bg-yellow-400/10 text-yellow-200'
+            }`}>
               {homeProAnnual ? 'Save $36 yearly' : 'Switch to annual to save'}
             </div>
-            <div className="mb-8 h-px w-full bg-yellow-400/15" />
+            <div className={`mb-8 h-px w-full transition-colors duration-700 ${homeProAnnual ? 'bg-emerald-500/15' : 'bg-yellow-400/15'}`} />
+            <p className={`mb-5 font-sans text-[10px] uppercase tracking-[0.24em] transition-colors duration-700 ${homeProAnnual ? 'text-emerald-400/60' : 'text-yellow-500/60'}`}>
+              {homeProAnnual ? 'Everything in monthly Pro, plus' : 'Everything in 2 Scans, plus'}
+            </p>
             <ul className="mb-10 flex flex-col gap-4 text-sm font-sans text-zinc-300">
-              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-400" /> Unlimited analysis under fair usage</li>
-              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-400" /> Full ratio and biometric breakdowns</li>
-              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-400" /> AI potential analysis and protocols</li>
-              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-400" /> Saved profile progress tracking</li>
-              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-400" /> Celebrity matching and comparisons</li>
+              {homeProAnnual ? (
+                <>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> Best monthly rate for long-term access</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> Unlimited analysis (fair usage)</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> AI potential analysis, protocols, and progress tracking</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> Full-detail biometric breakdowns and premium dashboard access</li>
+                </>
+              ) : (
+                <>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Unlimited analysis (fair usage)</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> AI potential analysis - see your projected best self</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Full-detail AI facial analysis with 40+ biometric measurements</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Customized personal improvement protocols</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Celebrity lookalike matching & comparison</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Progress tracking dashboard</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Exact final rating with detailed ratio breakdown</li>
+                </>
+              )}
             </ul>
             <button
               type="button"
               onClick={() => setCurrentPage('plans')}
-              className="mt-auto rounded-2xl bg-gradient-to-r from-yellow-500 to-yellow-300 px-5 py-4 text-xs font-black uppercase tracking-[0.24em] text-black shadow-[0_0_30px_rgba(234,179,8,0.28)] transition-transform hover:scale-[1.02]"
+              className={`mt-auto rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-[0.24em] text-black transition-all duration-700 hover:scale-[1.02] ${
+                homeProAnnual
+                  ? 'bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.3)]'
+                  : 'bg-gradient-to-r from-yellow-500 to-yellow-300 shadow-[0_0_30px_rgba(234,179,8,0.28)]'
+              }`}
             >
-              Choose {homeProAnnual ? 'Annual' : 'Pro'}
+              {homeProAnnual ? 'Go Yearly' : 'Upgrade To Pro'}
             </button>
           </div>
         </FadeUp>
@@ -3300,26 +3342,29 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           <div className="group flex min-h-[600px] flex-col rounded-[28px] border border-cyan-500/30 bg-[linear-gradient(180deg,rgba(8,20,28,0.74),rgba(9,9,11,0.94))] p-7 shadow-[0_18px_80px_rgba(34,211,238,0.07)] transition-all duration-500 hover:-translate-y-2 hover:border-cyan-300/55 hover:shadow-[0_0_80px_rgba(34,211,238,0.14)]">
             <div className="mb-8">
               <p className="mb-2 text-[10px] font-black uppercase tracking-[0.34em] text-cyan-300/70">One-time</p>
-              <h3 className="text-4xl font-black italic uppercase tracking-tighter text-white">1 Scan</h3>
+              <h3 className="text-4xl font-black italic uppercase tracking-tighter text-white">2 Scans</h3>
             </div>
             <div className="mb-8 flex items-end gap-2">
               <span className="text-6xl font-black tracking-tighter text-white">$8</span>
               <span className="pb-2 text-xs font-sans uppercase tracking-[0.24em] text-zinc-600">Once</span>
             </div>
             <div className="mb-8 h-px w-full bg-cyan-500/20" />
+            <p className="mb-5 font-sans text-[10px] uppercase tracking-[0.24em] text-cyan-400/60">Two premium analyses include</p>
             <ul className="mb-10 flex flex-col gap-4 text-sm font-sans text-zinc-300">
-              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> Premium scan access without a subscription</li>
-              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> Detailed rating and ratio report</li>
-              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> Personalized best/worst feature breakdown</li>
-              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> Great for testing premium before Pro</li>
+              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> 2 full-detail AI facial analyses with 40+ measurements</li>
+              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> Exact final rating with detailed ratio breakdown</li>
+              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> Customized personal improvement protocols</li>
+              <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> Celebrity lookalike matching & comparison</li>
+              <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No AI potential analysis</li>
               <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No ongoing monthly access</li>
+              <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No progress tracking</li>
             </ul>
             <button
               type="button"
               onClick={() => setCurrentPage('plans')}
               className="mt-auto rounded-2xl border border-cyan-300/45 bg-cyan-400/10 px-5 py-4 text-xs font-black uppercase tracking-[0.24em] text-cyan-100 shadow-[0_0_26px_rgba(34,211,238,0.14)] transition-all hover:bg-cyan-300 hover:text-black"
             >
-              Buy Scan
+              Buy 2 Scans
             </button>
           </div>
         </FadeUp>
