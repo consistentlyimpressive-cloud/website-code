@@ -1774,8 +1774,8 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                     ].join(' ')}
                   >
                     {p.previewScans?.length > 0 && (
-                      <div className="pointer-events-none absolute inset-x-3 bottom-[calc(100%-0.35rem)] z-30 origin-bottom overflow-hidden rounded-t-3xl border border-cyan-400/35 bg-zinc-950/95 shadow-[0_-18px_46px_rgba(0,0,0,0.45),0_0_24px_rgba(34,211,238,0.12)] backdrop-blur-xl opacity-0 scale-y-75 translate-y-3 transition-all duration-300 ease-out group-hover:opacity-100 group-hover:scale-y-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:scale-y-100 group-focus-within:translate-y-0">
-                        <div className="grid h-28 grid-cols-3 divide-x divide-cyan-400/20 sm:h-32">
+                      <div className="pointer-events-none absolute inset-x-5 bottom-[calc(100%-0.25rem)] z-30 overflow-hidden rounded-t-2xl border border-cyan-400/35 bg-zinc-950/95 shadow-[0_-14px_36px_rgba(0,0,0,0.42),0_0_20px_rgba(34,211,238,0.10)] backdrop-blur-xl opacity-0 translate-y-5 transition-[opacity,transform] duration-300 ease-out group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0">
+                        <div className="grid h-24 grid-cols-3 divide-x divide-cyan-400/20 sm:h-28">
                           {p.previewScans.map((scan) => (
                             <div key={scan.id} className="relative overflow-hidden bg-zinc-900">
                               <img
