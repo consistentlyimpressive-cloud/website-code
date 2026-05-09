@@ -2777,6 +2777,37 @@ const HomePage = ({ setCurrentPage }) => {
     return () => { cancelled = true; };
   }, []);
 
+  const whatMattersItems = [
+    {
+      step: '01 / Upload',
+      title: 'Start With A Clear Front Photo',
+      imgSrc: measureItems[0].imgSrc,
+      text: 'MogCheck begins with a clean face input, then prepares the image for structure, harmony, skin, and proportion analysis. No guessing, no trend-chasing, just a consistent scan target.',
+      note: 'Front-facing photos produce the cleanest ratings and profile history.',
+    },
+    {
+      step: '02 / Measure',
+      title: 'Extract The Metrics That Shape The Read',
+      imgSrc: measureItems[1].imgSrc,
+      text: 'The system checks ratios, spacing, balance, dimorphism, symmetry, and visible quality signals. Premium scans go deeper with best features, flaws, structural overview, and personalized feedback.',
+      note: 'The goal is to explain why a face reads the way it does.',
+    },
+    {
+      step: '03 / Report',
+      title: 'Turn The Scan Into A Dashboard',
+      imgSrc: measureItems[2].imgSrc,
+      text: 'Your result becomes a saved profile scan with ratings, category signals, morphometric ratios, and protocols. You can compare scans over time instead of losing everything after one result.',
+      note: 'Profiles keep your progress organized scan by scan.',
+    },
+    {
+      step: '04 / Improve',
+      title: 'Use The Feedback To Know What To Work On',
+      imgSrc: measureItems[3].imgSrc,
+      text: 'The point is not random advice. It is direction: what is helping, what is holding the rating back, and what changes are most likely to matter for your face specifically.',
+      note: 'Better inputs, clearer goals, and repeatable progress.',
+    },
+  ];
+
   return (
   <div className="w-full flex flex-col items-center relative overflow-x-hidden">
     {/* Animated gradient sweep - page level, behind all content */}
@@ -2913,8 +2944,41 @@ const HomePage = ({ setCurrentPage }) => {
     </section>
 
     <section className="w-full pt-16 pb-32 px-6 bg-[#0c0d0e]">
-      <FadeUp><div className="text-center mb-16"><h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white mb-4">What Actually Matters</h2><p className="text-zinc-500 font-sans text-[10px] uppercase tracking-widest">Forget the trends. Follow the metrics.</p></div></FadeUp>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-10 w-full max-w-5xl mx-auto">{measureItems.map((item, idx) => (<FadeUp key={idx} delay={idx * 150}><SpotlightImageCard item={item} /></FadeUp>))}</div>
+      <FadeUp>
+        <div className="text-center mb-16">
+          <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white mb-4">What Actually Matters</h2>
+          <p className="text-zinc-500 font-sans text-[10px] uppercase tracking-widest">What we do, how it works, and why it is repeatable.</p>
+        </div>
+      </FadeUp>
+      <div className="w-full max-w-5xl mx-auto space-y-16 md:space-y-20">
+        {whatMattersItems.map((item, idx) => {
+          const imageFirst = idx % 2 === 0;
+          return (
+            <FadeUp key={item.step} delay={idx * 120}>
+              <div className="grid gap-8 md:grid-cols-2 md:items-center">
+                <div className={`${imageFirst ? 'md:order-1' : 'md:order-2'} ${imageFirst ? '' : 'md:justify-self-end'} w-full max-w-[360px]`}>
+                  <div className="aspect-[4/3] overflow-hidden rounded-sm bg-zinc-900 shadow-[0_24px_70px_rgba(0,0,0,0.38)]">
+                    <img
+                      loading="lazy"
+                      decoding="async"
+                      src={item.imgSrc}
+                      alt=""
+                      className="h-full w-full object-cover object-center scale-110 [filter:grayscale(100%)_saturate(0)]"
+                    />
+                  </div>
+                </div>
+                <div className={`${imageFirst ? 'md:order-2 md:pl-4' : 'md:order-1 md:pr-4'} max-w-xl`}>
+                  <p className="mb-3 font-sans text-[10px] font-bold uppercase tracking-[0.36em] text-cyan-400/80">{item.step}</p>
+                  <h3 className="text-2xl md:text-3xl font-black italic uppercase tracking-tight text-white">{item.title}</h3>
+                  <div className="my-5 h-px w-28 bg-gradient-to-r from-cyan-400/70 via-zinc-500/30 to-transparent" />
+                  <p className="font-sans text-sm md:text-base leading-7 text-zinc-300">{item.text}</p>
+                  <p className="mt-5 font-sans text-[10px] font-bold uppercase tracking-[0.26em] text-zinc-500">{item.note}</p>
+                </div>
+              </div>
+            </FadeUp>
+          );
+        })}
+      </div>
     </section>
 
     <section className="w-full py-32 px-6 border-t border-zinc-900">
