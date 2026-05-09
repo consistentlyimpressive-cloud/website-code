@@ -20,13 +20,13 @@ const clampTextStyle = {
 };
 
 const modelLabel = (model) => ({
-  '1': 'Legacy Premium',
+  '1': 'Premium Model',
   '2': 'Backup Model',
-  '6': 'Expert Mode (Very Accurate)',
-  '7': 'penis goat',
-  '8': 'PENIS GOAT 2',
-  '9': 'PENIS GOAT 3',
-  'premium-demo': 'Premium Preview',
+  '6': 'Premium Model',
+  '7': 'Premium Model',
+  '8': 'Premium Model',
+  '9': 'Premium Model',
+  'premium-demo': 'Premium Demo',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
@@ -877,6 +877,12 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   const hasFullProSubscription = userPlan?.plan === 'pro';
   const isFreeModelScan = !modelUsesProDashboard(dashboardData?.selectedModel);
   const finalRating = Number(dashboardData?.finalRating) || 0;
+  const mobileNewScanModel = (
+    modelUsesProDashboard(dashboardData?.selectedModel) &&
+    String(dashboardData?.selectedModel || '').trim() !== 'premium-demo'
+  )
+    ? String(dashboardData?.selectedModel || '9').trim()
+    : '9';
   const categorySignals = useMemo(() => {
     const cats = dashboardData?.categories || {};
     return [
@@ -965,8 +971,8 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   const dashboardScanOptions = [
     {
       id: '6',
-      label: 'Expert Mode (Pro)',
-      description: 'Very accurate premium scan with fast calibrated expert scoring.',
+      label: 'Premium Model',
+      description: 'Very accurate premium scan with fast calibrated scoring.',
       buttonClass: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20',
     },
     {
@@ -1295,8 +1301,21 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         </p>
 
         {showAnalysisShell && (
+          <div className="mb-6 flex items-center justify-between md:hidden">
+            <span className="text-2xl font-black italic tracking-tighter text-white">MogCheck</span>
+            <button
+              type="button"
+              onClick={() => handleCreateProfileAndScan(mobileNewScanModel)}
+              className="inline-flex items-center gap-2 rounded-full bg-blue-500 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-[0_0_24px_rgba(59,130,246,0.35)] transition-all hover:bg-blue-400"
+            >
+              <Plus size={13} /> New Scan
+            </button>
+          </div>
+        )}
+
+        {showAnalysisShell && (
           <div className="flex flex-col gap-8 mb-10">
-            <section ref={overviewRef} className="scroll-mt-28">
+            <section ref={overviewRef} className="hidden scroll-mt-28 md:block">
               <div className="rounded-3xl border border-cyan-500/20 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.12),transparent_40%),linear-gradient(180deg,rgba(7,16,20,0.98),rgba(10,10,11,0.98))] p-6 md:p-8 shadow-[0_0_40px_rgba(34,211,238,0.08)]">
                 <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                   <div className="flex items-end gap-4">
@@ -1323,7 +1342,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
             </section>
 
             {categorySignals.length > 0 && (
-              <section className="scroll-mt-28">
+              <section className="hidden scroll-mt-28 md:block">
                 <p className="mb-4 text-[10px] font-sans uppercase tracking-[0.35em] text-zinc-500">Category Signals</p>
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                   {categorySignals.map((signal) => (
@@ -1336,7 +1355,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
               </section>
             )}
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="hidden grid-cols-1 gap-4 md:grid md:grid-cols-3">
               <div className="rounded-3xl border border-orange-500/20 bg-orange-500/5 p-5">
                 <div className="mb-4 flex items-center gap-3 text-orange-300">
                   <Flame size={18} />
@@ -1370,7 +1389,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
               </div>
             </div>
 
-            <section ref={analysisRef} className="scroll-mt-28">
+            <section ref={analysisRef} className="hidden scroll-mt-28 md:block">
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h2 className="text-2xl font-black uppercase tracking-[0.25em] text-white">Face Analysis</h2>
@@ -1465,7 +1484,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
             </section>
 
             {activeDashboardScanId && user && (
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+              <div className="hidden rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 md:block">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-zinc-500">Post settings</p>
@@ -1513,7 +1532,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
               </div>
             )}
 
-            <div className="border-t border-zinc-900 pt-8">
+            <div className="pt-0 md:border-t md:border-zinc-900 md:pt-8">
               {analysisContent}
             </div>
 
@@ -1829,7 +1848,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                     <div className="mt-auto">
                       {p.isDemoProfile && (
                         <p className="mb-4 inline-flex rounded-full border border-amber-200/35 bg-amber-300/10 px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-amber-100">
-                          Premium preview profile
+                          Premium demo profile
                         </p>
                       )}
                       <p className={`text-xs uppercase tracking-widest ${p.isDemoProfile ? 'text-amber-100/82' : 'text-zinc-400'}`}>

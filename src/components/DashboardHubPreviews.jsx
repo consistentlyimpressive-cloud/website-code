@@ -169,12 +169,12 @@ const buildSectionCommunityScans = (scans = []) => {
 };
 
 const modelLabel = (model) => ({
-  '1': 'Legacy Premium',
+  '1': 'Premium Model',
   '2': 'Backup Model',
-  '6': 'Expert Mode (Very Accurate)',
-  '7': 'penis goat',
-  '8': 'PENIS GOAT 2',
-  '9': 'PENIS GOAT 3',
+  '6': 'Premium Model',
+  '7': 'Premium Model',
+  '8': 'Premium Model',
+  '9': 'Premium Model',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',

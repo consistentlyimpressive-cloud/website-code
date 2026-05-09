@@ -38,6 +38,32 @@ const GENERIC_ERROR = 'Something went wrong. Please try again later.';
 const EMPTY_ANALYSIS_RESPONSE_ERROR = 'Analysis finished but no usable text was parsed';
 const FRIENDLY_FRONTAL_IMAGE_ERROR = "Analysis failed. Are you sure you're using a frontal image?";
 const PREMIUM_PROOF_VIDEO_SRC = '/social-proof/premium-proof.mp4';
+const HOME_FEATURED_COMMUNITY_SCANS = [
+  {
+    id: 'home-community-cillian',
+    name: 'Cillian Murphy',
+    image: 'https://api.mogcheck.net/uploads/community-cillian-murphy.png',
+    rating: 74,
+    tier: 'B-TIER',
+    footer: 'Community Scan - Premium Model',
+  },
+  {
+    id: 'home-community-matt-damon',
+    name: 'Matt Damon',
+    image: 'https://api.mogcheck.net/uploads/1777228794523-328924b4953df45f.jpg',
+    rating: 56,
+    tier: 'D-TIER',
+    footer: 'Community Scan - Premium Model',
+  },
+  {
+    id: 'home-community-tyla',
+    name: 'Tyla',
+    image: 'https://api.mogcheck.net/uploads/1777227531979-2463cd04416e29ca.jpg',
+    rating: 72,
+    tier: 'B-TIER',
+    footer: 'Community Scan - Premium Model',
+  },
+];
 const PREMIUM_DEMO_MODEL_ID = 'premium-demo';
 const DEFAULT_PREMIUM_DEMO_ID = 'henry';
 const PREMIUM_DEMO_FACES = [
@@ -1086,13 +1112,13 @@ function buildPremiumDemoScanPayload(payload = {}, overrides = {}) {
 }
 
 const ANALYSIS_MODEL_LABELS = {
-  '1': 'Legacy Premium',
+  '1': 'Premium Model',
   '2': 'Backup Model',
-  '6': 'Expert Mode (Very Accurate)',
-  '7': 'penis goat',
-  '8': 'PENIS GOAT 2',
-  '9': 'PENIS GOAT 3',
-  [PREMIUM_DEMO_MODEL_ID]: 'Premium Preview',
+  '6': 'Premium Model',
+  '7': 'Premium Model',
+  '8': 'Premium Model',
+  '9': 'Premium Model',
+  [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
@@ -1420,19 +1446,17 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
   }, [loadNotifications, showNotifications, user]);
 
   return (
-    <nav className="fixed top-0 w-full z-50 overflow-visible bg-[#0c0d0e]/80 backdrop-blur-md border-b border-zinc-900 flex justify-between items-center px-6 py-4">
-      <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => setCurrentPage('home')}>
+    <nav className="fixed top-0 z-50 flex w-full items-center justify-between overflow-visible border-b border-zinc-900 bg-[#0c0d0e]/80 px-6 py-4 backdrop-blur-md md:grid md:grid-cols-[1fr_auto_1fr] md:items-center">
+      <div className="flex items-center justify-between md:block">
+      <div className="flex items-center cursor-pointer group w-fit" onClick={() => setCurrentPage('home')}>
         <div className="w-9 h-9 flex items-center justify-center group-hover:rotate-12 transition-transform">
           <MogCheckLogoMark size={36} className="w-9 h-9" />
         </div>
-        <span className="text-xl font-black tracking-tighter text-white italic">MogCheck</span>
       </div>
-      <div className="hidden md:flex items-center gap-8 text-xs font-bold">
+      </div>
+      <div className="hidden md:flex items-center justify-center gap-8 text-xs font-bold justify-self-center">
         <button onClick={() => setCurrentPage('home')} className={`${currentPage === 'home' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Home</button>
-        <button onClick={() => setCurrentPage('news')} className={`${currentPage === 'news' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>
-          News
-          <span className="bg-red-500/20 text-red-500 text-[8px] px-1.5 py-0.5 rounded-sm animate-pulse ml-1">LIVE</span>
-        </button>
+        <button onClick={() => setCurrentPage('news')} className={`${currentPage === 'news' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>News</button>
         <button onClick={() => setCurrentPage('mog-battles')} className={`${currentPage === 'mog-battles' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>
           <Swords size={14} className="text-cyan-500/90" /> Mog Battles
         </button>
@@ -1450,7 +1474,7 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
           <Crown size={13} /> Plans
         </button>
       </div>
-      <div className="hidden md:block">
+      <div className="hidden md:block justify-self-end">
         {user ? (
           <div className="relative flex items-center gap-2" ref={menuRef}>
             <button
@@ -1460,9 +1484,10 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
                 setShowUserMenu(false);
                 setShowNotifications(false);
               }}
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300 transition-all hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-cyan-100"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 transition-all hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-cyan-100"
+              aria-label="Start scan"
             >
-              <Plus size={14} /> Start Scan
+              <Plus size={18} />
             </button>
             <button
               type="button"
@@ -1481,19 +1506,18 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
                 </span>
               )}
             </button>
-            {planChip && (
-              <span
-                className={`hidden sm:inline-flex items-center px-2.5 py-1 rounded-full border text-[9px] font-bold uppercase tracking-widest shrink-0 ${planChip.className}`}
-                title="Current plan"
-              >
-                {planChip.label}
-              </span>
-            )}
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2 px-5 py-2 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all text-xs font-bold uppercase tracking-widest"
+              className="flex items-center gap-3 rounded-full bg-zinc-900 border border-zinc-800 px-4 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all"
             >
-              {username}
+              <span className="flex min-w-0 flex-col items-start leading-none">
+                <span className="max-w-[150px] truncate text-xs font-bold uppercase tracking-widest">{username}</span>
+                {planChip && (
+                  <span className={`mt-1 text-[9px] font-bold uppercase tracking-[0.16em] ${planChip.className.includes('text-') ? planChip.className.match(/text-[^\s]+/)?.[0] || 'text-zinc-500' : 'text-zinc-500'}`}>
+                    {planChip.label}
+                  </span>
+                )}
+              </span>
               <ChevronDown size={12} className={`transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
             </button>
             {showUserMenu && (
@@ -1584,12 +1608,12 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
       {isOpen && (
         <div className="absolute top-full left-0 w-full bg-[#0c0d0e] border-b border-zinc-900 flex flex-col items-center py-6 gap-6 md:hidden">
         <button onClick={() => { setCurrentPage('home'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Home</button>
-        <button onClick={() => { setCurrentPage('news'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2">News <span className="bg-red-500/20 text-red-500 text-[8px] px-1.5 py-0.5 rounded-sm animate-pulse ml-1">LIVE</span></button>
+        <button onClick={() => { setCurrentPage('news'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2">News</button>
         <button onClick={() => { setCurrentPage('mog-battles'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Swords size={14} className="text-cyan-500/90" /> Mog Battles</button>
         {showDashboard && (
         <button onClick={() => { setCurrentPage('dashboard'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Activity size={14} /> Dashboard</button>
         )}
-          <button onClick={() => { setCurrentPage('celebrity'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Celebrity Rating</button>
+          <button onClick={() => { setCurrentPage('celebrity'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Scans</button>
           <button
             onClick={() => {
               setIsOpen(false);
@@ -1602,8 +1626,8 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
           </button>
           {user ? (
             <>
-              <button type="button" onClick={() => { setCurrentPage('photo-guide'); setIsOpen(false); }} className="flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-6 py-2 text-cyan-300 hover:text-cyan-100 font-bold text-xs uppercase tracking-widest">
-                <Plus size={14} /> Start Scan
+              <button type="button" onClick={() => { setCurrentPage('photo-guide'); setIsOpen(false); }} className="flex h-11 w-11 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:text-cyan-100">
+                <Plus size={18} />
               </button>
               <div className="flex flex-col items-center gap-1">
                 <span className="text-zinc-300 font-sans text-xs">{username}</span>
@@ -3025,9 +3049,20 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
 
           <div className="w-16 h-[1px] bg-gradient-to-r from-transparent via-zinc-500 to-transparent mb-5" />
           <p className="text-zinc-300 font-sans text-sm md:text-base uppercase tracking-[0.3em] mb-14 font-bold">Powered by AI - track your looks with MogCheck</p>
-          <button onClick={() => setCurrentPage('login')} className="mx-auto group relative px-12 py-5 bg-white text-black font-black uppercase tracking-tighter text-lg flex items-center gap-5 hover:scale-110 transition-all duration-300 rounded-sm" style={{ animation: 'ctaPulse 3s ease-in-out infinite' }}>
-            <span className="tracking-widest">TRY FOR FREE</span>
-            <div className="flex items-center"><div className="h-[2px] w-10 bg-black" /><div className="rotate-45 w-4 h-4 bg-black -ml-2" /></div>
+          <button
+            onClick={() => setCurrentPage('login')}
+            className="mx-auto group relative inline-flex items-center gap-5 overflow-hidden rounded-full border border-cyan-200/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(233,249,255,0.98)_54%,rgba(182,240,255,0.96))] px-10 py-4 text-black shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_0_44px_rgba(34,211,238,0.24),0_22px_70px_rgba(0,0,0,0.32)] transition-all duration-500 hover:-translate-y-1 hover:scale-[1.03] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.18),0_0_68px_rgba(34,211,238,0.36),0_28px_90px_rgba(0,0,0,0.42)]"
+            style={{ animation: 'ctaPulse 3s ease-in-out infinite' }}
+          >
+            <span className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/70 to-transparent opacity-80 transition-transform duration-700 group-hover:translate-x-[360%]" />
+            <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-cyan-500/15 text-cyan-600 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.28)]">
+              <Plus size={18} />
+            </span>
+            <span className="relative text-lg font-black uppercase tracking-[0.26em]">TRY FOR FREE</span>
+            <div className="relative flex items-center text-cyan-700">
+              <div className="h-[2px] w-10 bg-cyan-700/70 transition-all duration-300 group-hover:w-12" />
+              <ChevronRight size={20} className="-ml-1 transition-transform duration-300 group-hover:translate-x-1" />
+            </div>
           </button>
         </div>
       </FadeUp>
@@ -3077,72 +3112,28 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
     <section className="w-full px-6 pb-20 pt-8 relative z-10">
       <FadeUp>
         <div className="mx-auto flex w-full max-w-4xl flex-col items-center">
-          <span className="mb-6 text-center text-2xl font-black uppercase tracking-[0.18em] text-cyan-100 drop-shadow-[0_0_20px_rgba(34,211,238,0.25)]">
-            Demo Preview Face
-          </span>
-          <div className="group/home-demo relative h-[430px] w-full max-w-[760px] overflow-visible sm:h-[470px]">
-            {PREMIUM_DEMO_FACES.map((face) => {
-              const isSelectedFace = face.id === homeDemoId;
-              const isDisabledFace = !face.enabled;
-              const slotOffset = isSelectedFace
-                ? 0
-                : homeDemoId === 'henry'
-                ? (face.id === 'sean-opry' ? -260 : 260)
-                : homeDemoId === 'sean-opry'
-                ? (face.id === 'henry' ? 260 : -260)
-                : face.id === 'henry'
-                ? -260
-                : 260;
-              const slotScale = isSelectedFace ? 1 : 0.48;
-              const cardStatus = !face.enabled ? 'Coming Soon' : isSelectedFace ? 'Premium Demo' : 'Choose';
-
-              return (
-                <button
-                  key={face.id}
-                  type="button"
-                  onClick={() => setHomeDemoId(face.id)}
-                  className={[
-                    "absolute left-1/2 top-1/2 flex w-[276px] flex-col overflow-hidden bg-transparent sm:w-[320px]",
-                    "transition-[transform,opacity,filter,box-shadow] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform",
-                    isSelectedFace
-                      ? "opacity-100 drop-shadow-[0_0_34px_rgba(34,211,238,0.16)]"
-                      : isDisabledFace
-                      ? "opacity-35 blur-[1.5px] group-hover/home-demo:opacity-45"
-                      : "opacity-70 blur-[1.5px] group-hover/home-demo:opacity-85",
-                    isSelectedFace ? "cursor-default" : "cursor-pointer hover:!opacity-100 hover:!blur-0 hover:drop-shadow-[0_0_24px_rgba(34,211,238,0.24)]",
-                    isDisabledFace ? "grayscale" : ""
-                  ].join(' ')}
-                  style={{
-                    transform: `translate(calc(-50% + ${slotOffset}px), -50%) scale(${slotScale})`,
-                    zIndex: isSelectedFace ? 20 : 10,
-                  }}
-                >
-                  <span className={["relative aspect-[3/4] overflow-hidden bg-zinc-950", isSelectedFace ? "rounded-[1.15rem]" : "rounded-[0.95rem]"].join(' ')}>
-                    {face.image ? (
-                      <img
-                        src={face.image}
-                        alt={`${face.name} demo face`}
-                        className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover/home-demo:scale-[1.018]"
-                      />
-                    ) : (
-                      <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-zinc-950/70 text-zinc-600">
-                        <Lock size={isSelectedFace ? 24 : 18} />
-                        <span className="text-[8px] font-black uppercase tracking-[0.24em]">Coming Soon</span>
-                        <span className="text-[9px] font-black uppercase tracking-[0.24em] text-zinc-500">Locked</span>
-                      </span>
-                    )}
-                    <span className={["absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent text-left", isSelectedFace ? "via-black/45 p-5" : "via-black/55 p-3"].join(' ')}>
-                      <span className={["block font-black uppercase text-cyan-200", isSelectedFace ? "text-[10px] tracking-[0.28em]" : "text-[8px] tracking-[0.22em]"].join(' ')}>
-                        {cardStatus}
-                      </span>
-                      <span className={["mt-1 block font-black italic uppercase tracking-tight text-white", isSelectedFace ? "text-3xl" : "text-sm text-white/90"].join(' ')}>
-                        {face.shortName}
-                      </span>
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
+          <h2 className="mb-3 text-center text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white">
+            Try A Demo Scan
+          </h2>
+          <p className="mb-10 max-w-2xl text-center text-sm leading-relaxed text-zinc-400">
+            See how the analysis looks before creating an account.
+          </p>
+          <div className="relative w-full max-w-[380px]">
+            <div className="pointer-events-none absolute inset-[-22px] bg-[radial-gradient(circle,rgba(34,211,238,0.14),transparent_66%)] blur-2xl" />
+            <div className="relative overflow-hidden rounded-[1.4rem] bg-zinc-950 shadow-[0_28px_80px_rgba(0,0,0,0.4)]">
+              {selectedHomeDemoFace.image ? (
+                <img
+                  src={selectedHomeDemoFace.image}
+                  alt={`${selectedHomeDemoFace.name} demo face`}
+                  className="aspect-[3/4] w-full object-cover saturate-0 brightness-[0.88] contrast-[1.08]"
+                />
+              ) : (
+                <span className="flex aspect-[3/4] flex-col items-center justify-center gap-3 bg-zinc-950/70 text-zinc-600">
+                  <Lock size={24} />
+                  <span className="text-[9px] font-black uppercase tracking-[0.24em]">Locked</span>
+                </span>
+              )}
+            </div>
           </div>
 
           {homeDemoNotice && (
@@ -3156,7 +3147,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
             className="group mt-8 relative flex w-full max-w-md items-center justify-center gap-4 overflow-hidden rounded-xl border border-cyan-200/50 bg-[linear-gradient(135deg,rgba(34,211,238,0.95),rgba(14,165,233,0.78)_42%,rgba(29,78,216,0.88))] px-12 py-6 text-lg font-black uppercase tracking-[0.28em] text-white shadow-[0_0_34px_rgba(34,211,238,0.38),0_18px_70px_rgba(14,165,233,0.16)] transition-all duration-300 hover:-translate-y-1 hover:scale-[1.015] hover:shadow-[0_0_54px_rgba(34,211,238,0.55),0_24px_90px_rgba(14,165,233,0.22)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:scale-100"
           >
             <span className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/50 to-transparent opacity-60 transition-transform duration-700 group-hover:translate-x-[320%]" />
-            <span className="relative z-10">{homeDemoStarting ? 'Starting' : selectedHomeDemoLocked ? 'Locked' : 'Scan Preview'}</span>
+            <span className="relative z-10">{homeDemoStarting ? 'Starting' : selectedHomeDemoLocked ? 'Locked' : 'Try Demo Scan'}</span>
             <ChevronRight size={26} className="relative z-10 transition-transform group-hover:translate-x-1" />
           </button>
         </div>
@@ -3243,9 +3234,13 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
             <button
               type="button"
               onClick={() => setCurrentPage('photo-guide')}
-              className="mt-auto rounded-2xl border border-zinc-700 px-5 py-4 text-xs font-black uppercase tracking-[0.24em] text-zinc-300 transition-all hover:border-white/60 hover:bg-white hover:text-black"
+              className="group mt-auto inline-flex items-center justify-center gap-3 rounded-2xl border border-cyan-400/30 bg-[linear-gradient(135deg,rgba(15,23,42,0.92),rgba(8,47,73,0.9))] px-5 py-4 text-xs font-black uppercase tracking-[0.24em] text-cyan-100 shadow-[0_0_28px_rgba(34,211,238,0.08)] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/60 hover:shadow-[0_0_36px_rgba(34,211,238,0.16)]"
             >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-cyan-400/30 bg-cyan-400/10 text-cyan-300">
+                <Plus size={14} />
+              </span>
               Start Free
+              <ChevronRight size={16} className="transition-transform duration-300 group-hover:translate-x-0.5" />
             </button>
           </div>
         </FadeUp>
@@ -3373,6 +3368,74 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           </div>
         </FadeUp>
       </div>
+    </section>
+
+    <section className="w-full border-t border-zinc-900 px-6 py-24">
+      <FadeUp>
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-12 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="mb-3 text-[10px] font-black uppercase tracking-[0.34em] text-cyan-400/75">Featured Community Scans</p>
+              <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white">See What The Community Is Posting</h2>
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-zinc-400">
+                A quick look at three live community scans before you jump into the full gallery.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCurrentPage('celebrity')}
+              className="group inline-flex items-center gap-3 self-start rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-6 py-4 text-sm font-black uppercase tracking-[0.22em] text-cyan-300 transition-all hover:-translate-y-1 hover:border-cyan-300/55 hover:bg-cyan-500/18"
+            >
+              Show More
+              <ArrowUpRight size={18} className="transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            </button>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            {HOME_FEATURED_COMMUNITY_SCANS.map((scan) => {
+              const scoreTone = scan.rating >= 70 ? 'text-lime-300' : scan.rating >= 60 ? 'text-cyan-300' : 'text-orange-400';
+              const borderTone = scan.rating >= 70 ? 'border-lime-400/40 hover:border-lime-300/60' : scan.rating >= 60 ? 'border-cyan-400/40 hover:border-cyan-300/60' : 'border-orange-400/40 hover:border-orange-300/60';
+              return (
+                <button
+                  key={scan.id}
+                  type="button"
+                  onClick={() => setCurrentPage('celebrity')}
+                  className={`group relative aspect-[0.76] overflow-hidden rounded-[26px] border bg-zinc-950 text-left shadow-[0_24px_70px_rgba(0,0,0,0.34)] transition-all duration-500 hover:-translate-y-2 ${borderTone}`}
+                >
+                  <img
+                    src={resolveMediaUrl(scan.image)}
+                    alt={scan.name}
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/28 to-transparent" />
+                  <div className="absolute left-4 top-4 rounded-md border border-zinc-500/50 bg-zinc-800/75 px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-200">
+                    {scan.tier}
+                  </div>
+                  <div className="absolute right-4 top-4 flex items-center gap-2">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-500/40 bg-black/45 text-zinc-100">
+                      <span className="text-lg leading-none">...</span>
+                    </span>
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full border border-cyan-500/45 bg-black/35 text-cyan-300">
+                      <Share2 size={15} />
+                    </span>
+                  </div>
+                  <div className="absolute inset-x-0 bottom-0 p-5">
+                    <div className={`text-[2.2rem] font-black tracking-tight ${scoreTone}`}>
+                      {scan.rating.toFixed(1)}
+                      <span className="ml-1 text-sm text-zinc-300">/100</span>
+                    </div>
+                    <p className="mt-1 text-[10px] font-sans uppercase tracking-[0.28em] text-zinc-400">
+                      {scan.footer}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </FadeUp>
     </section>
 
     <section className="w-full py-32 px-6 border-t border-zinc-900">
@@ -4510,7 +4573,7 @@ const ScanningView = ({
       try {
         if (demoPayload?.isPremiumDemo || choice === PREMIUM_DEMO_MODEL_ID) {
           const demoSteps = [
-            'Loading premium preview scan',
+            'Loading premium demo scan',
             'Reading fixed demo face',
             'Preparing premium dashboard',
             'Saving demo preview',
@@ -5606,15 +5669,15 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       id: "2",
       name: "Backup Model",
       description:
-        "Fallback premium model for times when Expert Mode is unavailable or behaving inconsistently.",
+        "Fallback model for times when the premium model is unavailable or behaving inconsistently.",
       tier: "ultra",
       Icon: Zap
     },
     {
       id: "9",
-      name: "PENIS GOAT 3",
+      name: "Premium Model",
       description:
-        "Premium modern modeling standards analysis with angularity and texture gates.",
+        "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
       tier: "ultra",
       Icon: Crown
     },
@@ -6876,7 +6939,7 @@ const blendRadarSets = (primaryData, secondaryData, weight = 0.18) => {
 };
 
 // --- Radar Chart Component ---
-const RadarChart = ({ data, finalScore }) => {
+const RadarChart = ({ data, finalScore, compact = false }) => {
   const [progress, setProgress] = useState(0);
   const dataKey = data.map((d) => `${d.label}:${d.val}`).join('|');
   useEffect(() => {
@@ -6919,20 +6982,22 @@ const RadarChart = ({ data, finalScore }) => {
           return <circle key={i} cx={x} cy={y} r="1.5" fill="#fff" className="drop-shadow-[0_0_4px_rgba(255,255,255,1)]" />;
         })}
       </svg>
-      <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2">
-        <div className="flex justify-between w-full px-2 mt-4">
-           <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[3].label}</span>
-           <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[2].label}</span>
+      {!compact && (
+        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2">
+          <div className="flex justify-between w-full px-2 mt-4">
+             <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[3].label}</span>
+             <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[2].label}</span>
+          </div>
+          <div className="flex justify-between w-full px-0 -mt-2">
+             <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[4].label}</span>
+             <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[1].label}</span>
+          </div>
+          <div className="flex justify-center w-full mb-1">
+             <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[0].label}</span>
+          </div>
         </div>
-        <div className="flex justify-between w-full px-0 -mt-2">
-           <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[4].label}</span>
-           <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[1].label}</span>
-        </div>
-        <div className="flex justify-center w-full mb-1">
-           <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[0].label}</span>
-        </div>
-      </div>
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white font-black italic text-xl drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
+      )}
+      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white font-black italic drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] ${compact ? 'text-sm' : 'text-xl'}`}>
         {scoreToDisplay10(finalScore) != null
           ? (scoreToDisplay10(finalScore) * progress).toFixed(1)
           : (data.reduce((a, b) => a + b.val * progress, 0) / data.length).toFixed(1)}
@@ -8175,7 +8240,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
       `}</style>
       <FadeUp>
         <div className={`w-full mx-auto flex flex-col gap-12 ${isEmbedded ? 'max-w-5xl' : 'max-w-6xl'}`}>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="hidden flex-wrap items-center gap-2 md:flex">
             <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
               AI used: {getAnalysisModelLabel(selectedModel || dashboardData?.model)}
             </span>
@@ -8196,6 +8261,51 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
               </span>
             )}
           </div>
+          {(isRestrictedPreview || !isFreeModelResult) && (
+            <div className="space-y-4 md:hidden">
+              <div className="grid grid-cols-[1.15fr_0.85fr] gap-3">
+                <button
+                  type="button"
+                  onClick={() => setScanLightbox({ src: activeImageUrl, subtitle: `${effectiveProfileView === 'side' ? 'Side' : 'Front'} profile` })}
+                  className="relative aspect-square overflow-hidden rounded-[28px] border border-zinc-800 bg-zinc-950 text-left shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
+                >
+                  <img
+                    loading="lazy"
+                    decoding="async"
+                    src={activeImageUrl}
+                    alt={`${effectiveProfileView === 'side' ? 'Side' : 'Front'} profile`}
+                    className="h-full w-full object-cover"
+                    style={{ objectPosition: effectiveProfileView === 'side' ? 'center top' : 'center' }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
+                </button>
+                <div className="grid gap-3">
+                  <div className="flex min-h-[7.25rem] flex-col items-center justify-center rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-3 text-center shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
+                    <span className="mb-2 text-[9px] font-black uppercase tracking-[0.26em] text-cyan-400">Final Rating</span>
+                    <span className="text-5xl font-black italic tracking-tight text-zinc-200 drop-shadow-[0_0_18px_rgba(34,211,238,0.18)]">
+                      {displayedFinalRating}
+                    </span>
+                  </div>
+                  <div className="relative flex min-h-[7.25rem] items-center justify-center overflow-hidden rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-4 shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.08)_0%,transparent_72%)]" />
+                    <div className="relative z-10 w-[88%] max-w-[7rem]">
+                      <RadarChart data={radarData} finalScore={radarFinalScore} compact />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {showBestFlaw && (
+                <div className="space-y-3">
+                  {primaryBestFeature && (
+                    <FeatureHighlightCard type="best" feature={primaryBestFeature} onHover={setActiveHover} />
+                  )}
+                  {primaryFlawFeature && (
+                    <FeatureHighlightCard type="flaw" feature={primaryFlawFeature} onHover={setActiveHover} />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {isPremiumDemoScan && !isEmbedded && (
             <div className="rounded-2xl border border-cyan-400/25 bg-cyan-400/[0.06] p-5 shadow-[0_0_30px_rgba(34,211,238,0.08)]">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -8376,7 +8486,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
             <>
               <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={effectiveProfileView} showFeatureLists={true} />
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="hidden md:grid md:grid-cols-4 gap-6">
                 <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
                   {/* Left Column Stack: Final Rating then Categories */}
                   <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden text-center flex flex-col justify-center h-[180px] shadow-lg group hover:border-zinc-700 transition-colors">
@@ -8478,7 +8588,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
             </>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="hidden md:grid md:grid-cols-4 gap-6">
                 <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
                   {/* Left Column Stack: Final Rating then Categories */}
                   <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden text-center flex flex-col justify-center h-[180px] shadow-lg group hover:border-zinc-700 transition-colors">
@@ -9354,7 +9464,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     return ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(0)}s`;
   };
 
-  const modelLabel = (m) => ({ '1': 'Legacy Premium', '2': 'Backup Model', '6': 'Expert Mode', '7': 'penis goat', '8': 'PENIS GOAT 2', '9': 'PENIS GOAT 3', [PREMIUM_DEMO_MODEL_ID]: 'Premium Preview', '3': 'Free' }[m] || m);
+  const modelLabel = (m) => ({ '1': 'Premium Model', '2': 'Backup Model', '6': 'Premium Model', '7': 'Premium Model', '8': 'Premium Model', '9': 'Premium Model', [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo', '3': 'Free' }[m] || m);
   const adminUserSections = useMemo(() => {
     const newUsers = [];
     const goatUsers = [];

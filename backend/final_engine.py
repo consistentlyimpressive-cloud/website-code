@@ -199,7 +199,7 @@ KEY_HEALTH_STATE_PATH = Path(__file__).resolve().parent / "key-health-state.json
 BENCHMARK_CALIBRATION_PATH = Path(__file__).resolve().parent / "gemini-benchmark-calibration.json"
 
 
-def remove_score_cap_rules_for_penis_goat(prompt):
+def remove_score_cap_rules_for_premium_model(prompt):
     cap_pattern = re.compile(
         r"\b(?:cap|caps|capped|ceiling)\b|must\s+not\s+exceed\s+40|female\s+counterbalance|deduct\s+10\s+points",
         re.IGNORECASE,
@@ -375,15 +375,15 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
     try:
         # --- MODEL MAPPING ---
         mapping = {
-            "1": ("gemma-4-31b-it", "Legacy Premium"),
+            "1": ("gemma-4-31b-it", "Premium Model"),
             "2": ("gemma-4-31b-it", "Backup Model"),
             "3": ("gemma-4-26b-a4b-it", "OPTIC"),
             "4": ("gemma-4-26b-a4b-it", "CORE"),
             "5": ("gemma-4-26b-a4b-it", "GENEVA"),
-            "6": ("gemma-4-31b-it", "Expert Mode (Very Accurate)"),
-            "7": (GEMINI_31_PRO_MODEL_ID, "penis goat"),
-            "8": (GEMINI_31_PRO_MODEL_ID, "PENIS GOAT 2"),
-            "9": ("gemma-4-31b-it", "PENIS GOAT 3")
+            "6": ("gemma-4-31b-it", "Premium Model"),
+            "7": (GEMINI_31_PRO_MODEL_ID, "Premium Model"),
+            "8": (GEMINI_31_PRO_MODEL_ID, "Premium Model"),
+            "9": ("gemma-4-31b-it", "Premium Model")
         }
 
         if choice not in mapping:
@@ -447,7 +447,7 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             if model_attempt_number > 1:
                 if not provider_error_texts or not all(_is_transient_provider_error(error) for error in provider_error_texts):
                     break
-                print(f"[DEBUG] Expert Mode 31B hit transient failures or the {EXPERT_31B_FALLBACK_AFTER_MS / 1000:.0f}s budget; trying {attempt_model_id} fallback.")
+                print(f"[DEBUG] Premium Model 31B hit transient failures or the {EXPERT_31B_FALLBACK_AFTER_MS / 1000:.0f}s budget; trying {attempt_model_id} fallback.")
             model_started_at = time.time()
 
             for attempt_number, (key_index, key) in enumerate(key_attempts, start=1):
@@ -583,16 +583,16 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("\n" + "=" * 30)
     print("      MODEL SELECTOR")
     print("=" * 30)
-    print("1. Legacy Premium")
+    print("1. Premium Model")
     print("2. Backup Model")
     print("-" * 30)
     print("3. OPTIC (Balance & Alignment)")
     print("4. CORE (Objective Attractiveness)")
     print("5. GENEVA (Mathematical Beauty)")
-    print("6. Expert Mode (Very Accurate)")
-    print("7. penis goat")
-    print("8. PENIS GOAT 2")
-    print("9. PENIS GOAT 3")
+    print("6. Premium Model")
+    print("7. Premium Model")
+    print("8. Premium Model")
+    print("9. Premium Model")
 
     if choice_override is not None and str(choice_override).strip():
         choice = str(choice_override).strip()
@@ -903,7 +903,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         Output budget: stay compact, but do not under-fill metrics. Target 1000-1500 output tokens.
         """
         gemini_31_calibration_patch = """
-        EXPERT MODE CALIBRATION PATCH:
+        PREMIUM MODEL CALIBRATION PATCH:
         - You have a known failure mode: clustering many different faces around raw 66-68 / displayed mid-60s. Do not use 66-68 as a default safe answer.
         - You must first select a score band from the visible face and metrics, then choose an exact score inside that band. If two scans have meaningfully different bottlenecks, their finalRating should usually differ.
         - Do not overclassify faces as NATURAL/COHERENT HIGH-TIER. Most real submitted faces are average, lower-average, mildly above-average, or flawed-attractive. Use HIGH-TIER only when the photo clearly earns it across eyes, harmony, proportions, skin/soft tissue, and structure.
@@ -916,7 +916,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         """
         calibration_preserving_prompt = f"""
         You are MogCheck Premium Experimental Calibration-Preserving Core.
-        {("This run uses Expert Mode (Very Accurate) as the reasoning model." if choice in {"6", "7"} else "")}
+        {("This run uses Premium Model reasoning calibration." if choice in {"6", "7"} else "")}
         {(gemini_31_calibration_patch if choice in {"6", "7"} else "")}
         Produce the first dashboard result only. This is a lower-token Premium core request, not a softer model.
 
@@ -1079,11 +1079,11 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - Do not return only 3 unless the image is unusable or content-rejected.
         """
         if choice == "7":
-            active_prompt = remove_score_cap_rules_for_penis_goat(calibration_preserving_prompt)
+            active_prompt = remove_score_cap_rules_for_premium_model(calibration_preserving_prompt)
         elif choice == "8":
             active_prompt = f"""
-        You are PENIS GOAT 2, a clinical maxillofacial analyst for ELITE standards.
-        Produce the first dashboard result in the same dashboard-compatible JSON shape as Expert Mode.
+        You are MogCheck Premium Model, a clinical maxillofacial analyst for elite standards.
+        Produce the first dashboard result in the same dashboard-compatible JSON shape as the Premium Model.
         Preserve the scoring logic below exactly in spirit. Do not soften, average out, or replace it with generic Premium calibration.
 
         INPUT A (Metadata): {prompt_clinical_data}
@@ -1142,9 +1142,9 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         """
         elif choice == "9":
             active_prompt = f"""
-        You are PENIS GOAT 3, an elite-tier aesthetic consultant and clinical maxillofacial analyst.
+        You are MogCheck Premium Model, an elite-tier aesthetic consultant and clinical maxillofacial analyst.
         Your goal is to provide a brutally objective rating based on modern modeling standards, dimorphism, and facial harmony.
-        Produce the first dashboard result in the same dashboard-compatible JSON shape as Expert Mode.
+        Produce the first dashboard result in the same dashboard-compatible JSON shape as the Premium Model.
         Preserve the scoring logic below exactly in spirit. Do not replace it with generic Premium calibration.
 
         DATA INPUTS:
@@ -1705,7 +1705,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         core_analysis = read_text_context(os.getenv("MOGCHECK_CORE_ANALYSIS_PATH"), 9000)
         active_prompt = f"""
         You are MogCheck Premium Backup Model.
-        {("This run uses Expert Mode (Very Accurate) as the reasoning model." if choice in {"6", "7", "8", "9"} else "")}
+        {("This run uses Premium Model reasoning calibration." if choice in {"6", "7", "8", "9"} else "")}
         Generate ONLY the delayed protocols and personalized feedback for an already-scored scan.
 
         LOCKED_CORE_RESULT:
