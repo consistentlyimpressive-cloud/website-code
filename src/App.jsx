@@ -3251,11 +3251,14 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
         </FadeUp>
 
         <FadeUp delay={180}>
-          <div className={`relative flex min-h-[660px] flex-col rounded-[30px] p-8 transition-all duration-700 hover:-translate-y-3 ${
+          <div className={`relative flex min-h-[760px] flex-col overflow-hidden rounded-[30px] bg-zinc-950 p-8 transition-all duration-[2200ms] hover:-translate-y-3 ${
             homeProAnnual
-              ? 'border border-emerald-500/35 bg-[radial-gradient(circle_at_50%_0%,rgba(16,185,129,0.18),transparent_34%),linear-gradient(180deg,rgba(9,21,27,0.92),rgba(9,9,11,0.96))] shadow-[0_0_80px_rgba(16,185,129,0.11)] hover:border-emerald-300/70 hover:shadow-[0_0_100px_rgba(16,185,129,0.18)]'
-              : 'border border-yellow-400/45 bg-[radial-gradient(circle_at_50%_0%,rgba(250,204,21,0.18),transparent_34%),linear-gradient(180deg,rgba(28,22,4,0.92),rgba(9,9,11,0.96))] shadow-[0_0_80px_rgba(234,179,8,0.13)] hover:border-yellow-300/70 hover:shadow-[0_0_100px_rgba(234,179,8,0.2)]'
+              ? 'border border-emerald-500/35 shadow-[0_0_80px_rgba(16,185,129,0.11)] hover:border-emerald-300/70 hover:shadow-[0_0_100px_rgba(16,185,129,0.18)]'
+              : 'border border-yellow-400/45 shadow-[0_0_80px_rgba(234,179,8,0.13)] hover:border-yellow-300/70 hover:shadow-[0_0_100px_rgba(234,179,8,0.2)]'
           }`}>
+            <div className={`pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(250,204,21,0.18),transparent_34%),linear-gradient(180deg,rgba(28,22,4,0.92),rgba(9,9,11,0.96))] transition-opacity duration-[2200ms] ease-in-out ${homeProAnnual ? 'opacity-0' : 'opacity-100'}`} />
+            <div className={`pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(16,185,129,0.18),transparent_34%),linear-gradient(180deg,rgba(9,21,27,0.92),rgba(9,9,11,0.96))] transition-opacity duration-[2200ms] ease-in-out ${homeProAnnual ? 'opacity-100' : 'opacity-0'}`} />
+            <div className="relative z-10 flex flex-1 flex-col">
             <div className="mb-8 text-center">
               <h3 className={`text-5xl font-black italic uppercase tracking-tighter text-white transition-[filter] duration-700 ${
                 homeProAnnual
@@ -3304,7 +3307,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
             <p className={`mb-5 font-sans text-[10px] uppercase tracking-[0.24em] transition-colors duration-700 ${homeProAnnual ? 'text-emerald-400/60' : 'text-yellow-500/60'}`}>
               {homeProAnnual ? 'Everything in monthly Pro, plus' : 'Everything in 2 Scans, plus'}
             </p>
-            <ul className="mb-10 flex flex-col gap-4 text-sm font-sans text-zinc-300">
+            <ul className="mb-10 flex min-h-[252px] flex-col gap-4 text-sm font-sans text-zinc-300">
               {homeProAnnual ? (
                 <>
                   <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> Best monthly rate for long-term access</li>
@@ -3335,6 +3338,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
             >
               {homeProAnnual ? 'Go Yearly' : 'Upgrade To Pro'}
             </button>
+            </div>
           </div>
         </FadeUp>
 
