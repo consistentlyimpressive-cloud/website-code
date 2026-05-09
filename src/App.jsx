@@ -5128,7 +5128,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     user.email.endsWith('@looksmaxxing.com')
   );
   const premiumDemoUsedSet = useMemo(() => new Set(premiumDemoUsedIds), [premiumDemoUsedIds]);
-  const selectedPremiumDemoFace = getPremiumDemoFace(selectedPremiumDemoId);
+  const selectedPremiumDemoFace = PREMIUM_DEMO_FACES.find((face) => face.id === selectedPremiumDemoId) || getPremiumDemoFace(selectedPremiumDemoId);
   const visiblePremiumDemoFaceId = selectedPremiumDemoFace?.id || DEFAULT_PREMIUM_DEMO_ID;
   const activePremiumDemoTotal = ACTIVE_PREMIUM_DEMO_IDS.length;
   const activePremiumDemoUsedCount = ACTIVE_PREMIUM_DEMO_IDS.filter((demoId) => premiumDemoUsedSet.has(demoId)).length;
@@ -5188,6 +5188,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
   const isUltraModel = selectedModel === "1" || selectedModel === "2" || selectedModel === "6" || selectedModel === "7" || selectedModel === "8" || selectedModel === "9";
   const isPremiumDemoModel = selectedModel === PREMIUM_DEMO_MODEL_ID;
+  const selectedPremiumDemoLocked = isPremiumDemoModel && !selectedPremiumDemoFace?.enabled;
   const shouldUseSideProfile = isUltraModel && useSideProfile;
   const shouldDemoGlowFlicker = !isProPlan(userPlan);
   const planResolved = !user || userPlan?.loaded !== false;
@@ -5264,16 +5265,16 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
   useEffect(() => {
     if (!isPremiumDemoModel) return;
-    const selectedDemoFace = getPremiumDemoFace(selectedPremiumDemoId);
+    const selectedDemoFace = PREMIUM_DEMO_FACES.find((face) => face.id === selectedPremiumDemoId);
     const nextDemoId = selectedDemoFace?.id || getAvailablePremiumDemoId(premiumDemoUsedIds, selectedPremiumDemoId);
     if (nextDemoId !== selectedPremiumDemoId) {
       setSelectedPremiumDemoId(nextDemoId);
     }
-    const nextDemoFace = getPremiumDemoFace(nextDemoId);
+    const nextDemoFace = PREMIUM_DEMO_FACES.find((face) => face.id === nextDemoId) || getPremiumDemoFace(nextDemoId);
     setUseSideProfile(false);
     setSelectedProfileId(PREMIUM_DEMO_MODEL_ID);
     setActiveScanProfileId(PREMIUM_DEMO_MODEL_ID);
-    setFrontImage(nextDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE);
+    setFrontImage(nextDemoFace?.image || null);
     setFrontFile(null);
     setSideImage(null);
     setSideFile(null);
@@ -5581,44 +5582,48 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                         const isSelectedFace = face.id === visiblePremiumDemoFaceId;
                         const isUsedFace = premiumDemoUsedSet.has(face.id);
                         const isDisabledFace = !face.enabled;
-                        const fallbackFace = isDisabledFace
-                          ? ACTIVE_PREMIUM_DEMO_FACES.find((candidate) => candidate.id !== visiblePremiumDemoFaceId)
-                          : face;
-                        const isHenrySelected = visiblePremiumDemoFaceId === 'henry';
                         const slotOffset = isSelectedFace
                           ? 0
-                          : face.id === 'empty-3'
-                          ? (isHenrySelected ? 218 : -218)
-                          : (isHenrySelected ? -218 : 218);
-                        const slotScale = isSelectedFace ? 1 : 0.86;
+                          : visiblePremiumDemoFaceId === 'henry'
+                          ? (face.id === 'sean-opry' ? -218 : 218)
+                          : visiblePremiumDemoFaceId === 'sean-opry'
+                          ? (face.id === 'henry' ? 218 : -218)
+                          : face.id === 'henry'
+                          ? -218
+                          : 218;
+                        const slotScale = isSelectedFace ? 1 : 0.45;
                         const selectFace = () => {
-                          if (!fallbackFace) return;
-                          setSelectedPremiumDemoId(fallbackFace.id);
-                          setFrontImage(fallbackFace.image || PREMIUM_DEMO_FRONT_IMAGE);
+                          setSelectedPremiumDemoId(face.id);
+                          setFrontImage(face.image || null);
                         };
+                        const cardStatus = !face.enabled
+                          ? 'Coming Soon'
+                          : isSelectedFace
+                          ? 'Premium Demo'
+                          : isUsedFace && !isAdmin
+                          ? 'Preview'
+                          : 'Choose';
 
                         return (
                           <button
                             key={face.id}
                             type="button"
-                            disabled={!fallbackFace}
                             onClick={selectFace}
                             className={[
-                              "absolute left-1/2 top-1/2 flex flex-col overflow-hidden bg-transparent",
-                              "transition-[transform,opacity,filter,box-shadow] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform",
+                              "absolute left-1/2 top-1/2 flex w-[286px] flex-col overflow-hidden bg-transparent sm:w-[300px]",
+                              "transition-[transform,opacity,filter,box-shadow] duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform",
                               isSelectedFace
-                                ? "w-[286px] sm:w-[300px] opacity-100 shadow-[0_0_42px_rgba(34,211,238,0.12)]"
+                                ? "opacity-100 shadow-[0_0_42px_rgba(34,211,238,0.12)]"
                                 : isDisabledFace
-                                ? "w-[118px] opacity-30 blur-[1.5px] sm:w-[136px] md:opacity-30 md:group-hover/demo-picker:opacity-45 md:group-focus-within/demo-picker:opacity-45"
-                                : "w-[118px] opacity-70 blur-[1.5px] sm:w-[136px] md:opacity-65 md:group-hover/demo-picker:opacity-80 md:group-focus-within/demo-picker:opacity-80",
-                              isDisabledFace
-                                ? "cursor-pointer grayscale hover:!opacity-60 hover:!blur-0"
-                                : isSelectedFace
+                                ? "opacity-35 blur-[1.5px] md:opacity-35 md:group-hover/demo-picker:opacity-45 md:group-focus-within/demo-picker:opacity-45"
+                                : "opacity-70 blur-[1.5px] md:opacity-65 md:group-hover/demo-picker:opacity-80 md:group-focus-within/demo-picker:opacity-80",
+                              isSelectedFace
                                 ? "cursor-default"
-                                : "hover:!opacity-100 hover:!blur-0 hover:drop-shadow-[0_0_24px_rgba(34,211,238,0.22)]"
+                                : "cursor-pointer hover:!opacity-100 hover:!blur-0 hover:drop-shadow-[0_0_24px_rgba(34,211,238,0.22)]",
+                              isDisabledFace ? "grayscale" : ""
                             ].join(' ')}
                             style={{
-                              transform: `translate(-50%, -50%) translateX(${slotOffset}px) scale(${slotScale})`,
+                              transform: `translate(calc(-50% + ${slotOffset}px), -50%) scale(${slotScale})`,
                               zIndex: isSelectedFace ? 20 : 10,
                             }}
                           >
@@ -5640,7 +5645,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                               )}
                               <span className={["absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent text-left", isSelectedFace ? "via-black/45 p-4" : "via-black/55 p-3"].join(' ')}>
                                 <span className={["block font-black uppercase text-cyan-200", isSelectedFace ? "text-[10px] tracking-[0.28em]" : "text-[8px] tracking-[0.22em]"].join(' ')}>
-                                  {!face.enabled ? 'Coming Soon' : isSelectedFace ? 'Premium Demo' : isUsedFace && !isAdmin ? 'Preview' : 'Choose'}
+                                  {cardStatus}
                                 </span>
                                 <span className={["mt-1 block font-black italic uppercase tracking-tight text-white", isSelectedFace ? "text-3xl" : "text-sm text-white/90"].join(' ')}>
                                   {face.shortName}
@@ -6171,7 +6176,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                   setNewProfileName('');
                 }
               }} 
-              disabled={missingRequiredImage || scanAccessLocked || selectedProfileFull}
+              disabled={missingRequiredImage || scanAccessLocked || selectedProfileFull || selectedPremiumDemoLocked}
               className={`relative overflow-hidden px-20 py-6 bg-white text-black font-black uppercase tracking-widest text-lg md:text-xl flex items-center justify-center gap-5 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none ${justUnlocked ? 'animate-[buttonUnlock_1s_ease-out_forwards]' : 'shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}
             >
             {justUnlocked && <div className="absolute top-0 bottom-0 w-[50%] bg-gradient-to-r from-transparent via-white to-transparent opacity-80 mix-blend-overlay" style={{ animation: 'sweepGlow 1.5s ease-out forwards' }} />}
