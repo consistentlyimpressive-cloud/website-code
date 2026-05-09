@@ -2747,6 +2747,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
   const [homeDemoId, setHomeDemoId] = useState(DEFAULT_PREMIUM_DEMO_ID);
   const [homeDemoNotice, setHomeDemoNotice] = useState('');
   const [homeDemoStarting, setHomeDemoStarting] = useState(false);
+  const heroFaceVideoRef = useRef(null);
 
   useEffect(() => {
     // Initial active users (analysis count + 32)
@@ -2778,6 +2779,66 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
       }
     })();
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const video = heroFaceVideoRef.current;
+    if (!video) return undefined;
+
+    let rafId = 0;
+    let direction = 1;
+    let position = 0;
+    let lastFrameAt = null;
+    let active = true;
+    const rate = 1.3;
+
+    const tick = (frameAt) => {
+      if (!active) return;
+      const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+      if (!duration) {
+        rafId = window.requestAnimationFrame(tick);
+        return;
+      }
+
+      if (lastFrameAt == null) lastFrameAt = frameAt;
+      const deltaSeconds = ((frameAt - lastFrameAt) / 1000) * rate;
+      lastFrameAt = frameAt;
+      position += deltaSeconds * direction;
+
+      if (position >= duration) {
+        position = duration;
+        direction = -1;
+      } else if (position <= 0) {
+        position = 0;
+        direction = 1;
+      }
+
+      if (Math.abs(video.currentTime - position) > 0.025) {
+        try {
+          video.currentTime = position;
+        } catch {
+          /* keep decorative animation best-effort */
+        }
+      }
+      rafId = window.requestAnimationFrame(tick);
+    };
+
+    const startPingPong = () => {
+      window.cancelAnimationFrame(rafId);
+      video.pause();
+      position = Math.min(video.currentTime || 0, video.duration || 0);
+      lastFrameAt = null;
+      rafId = window.requestAnimationFrame(tick);
+    };
+
+    video.addEventListener('loadedmetadata', startPingPong);
+    if (video.readyState >= 1) startPingPong();
+
+    return () => {
+      active = false;
+      window.cancelAnimationFrame(rafId);
+      video.removeEventListener('loadedmetadata', startPingPong);
+    };
   }, []);
 
   const whatMattersItems = [
@@ -2885,11 +2946,11 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
         style={{ mixBlendMode: 'screen' }}
         aria-hidden
       >
-        <video 
-          autoPlay 
-          loop 
+        <video
+          ref={heroFaceVideoRef}
           muted 
           playsInline 
+          preload="auto"
           className="w-full h-full object-contain object-center opacity-[0.92]"
           style={{ filter: 'contrast(1.08)' }}
           src="/FaceANimationforwebsite.webm" 
@@ -2994,6 +3055,32 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
       </FadeUp>
     </section>
 
+    <section className="w-full pt-16 pb-16 px-6 max-w-5xl mx-auto relative z-0">
+      <FadeUp>
+        <div className="group overflow-hidden rounded-[32px] border border-cyan-500/15 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.12),transparent_35%),linear-gradient(180deg,rgba(10,13,16,0.98),rgba(8,9,10,0.98))] p-8 md:p-10 shadow-[0_0_40px_rgba(34,211,238,0.07)] transition-all duration-500 hover:-translate-y-2 hover:border-cyan-400/35 hover:shadow-[0_22px_70px_rgba(34,211,238,0.12)]">
+          <div className="grid gap-8 md:grid-cols-[1.25fr_0.75fr] md:items-center">
+            <div>
+              <p className="text-[10px] font-sans uppercase tracking-[0.3em] text-cyan-400/80">Live Matchups</p>
+              <h2 className="mt-3 text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white">Mog Battles</h2>
+              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-zinc-400">
+                Compare scans head-to-head, track community voting, and follow how specific battles move over time.
+              </p>
+            </div>
+            <div className="flex md:justify-end">
+              <button
+                type="button"
+                onClick={() => setCurrentPage('mog-battles')}
+                className="group inline-flex items-center gap-3 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-6 py-4 text-sm font-black uppercase tracking-[0.22em] text-cyan-300 transition-all hover:scale-[1.02] hover:bg-cyan-500/20 hover:shadow-[0_0_24px_rgba(34,211,238,0.16)]"
+              >
+                Open Mog Battles
+                <ArrowUpRight size={18} className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </FadeUp>
+    </section>
+
     <section className="w-full px-6 pb-20 pt-8 relative z-10">
       <FadeUp>
         <div className="mx-auto flex w-full max-w-4xl flex-col items-center">
@@ -3079,32 +3166,6 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
             <span className="relative z-10">{homeDemoStarting ? 'Starting' : selectedHomeDemoLocked ? 'Locked' : 'Scan Preview'}</span>
             <ChevronRight size={26} className="relative z-10 transition-transform group-hover:translate-x-1" />
           </button>
-        </div>
-      </FadeUp>
-    </section>
-
-    <section className="w-full pt-16 pb-16 px-6 max-w-5xl mx-auto relative z-0">
-      <FadeUp>
-        <div className="group overflow-hidden rounded-[32px] border border-cyan-500/15 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.12),transparent_35%),linear-gradient(180deg,rgba(10,13,16,0.98),rgba(8,9,10,0.98))] p-8 md:p-10 shadow-[0_0_40px_rgba(34,211,238,0.07)] transition-all duration-500 hover:-translate-y-2 hover:border-cyan-400/35 hover:shadow-[0_22px_70px_rgba(34,211,238,0.12)]">
-          <div className="grid gap-8 md:grid-cols-[1.25fr_0.75fr] md:items-center">
-            <div>
-              <p className="text-[10px] font-sans uppercase tracking-[0.3em] text-cyan-400/80">Live Matchups</p>
-              <h2 className="mt-3 text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white">Mog Battles</h2>
-              <p className="mt-4 max-w-2xl text-sm leading-relaxed text-zinc-400">
-                Compare scans head-to-head, track community voting, and follow how specific battles move over time.
-              </p>
-            </div>
-            <div className="flex md:justify-end">
-              <button
-                type="button"
-                onClick={() => setCurrentPage('mog-battles')}
-                className="group inline-flex items-center gap-3 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-6 py-4 text-sm font-black uppercase tracking-[0.22em] text-cyan-300 transition-all hover:scale-[1.02] hover:bg-cyan-500/20 hover:shadow-[0_0_24px_rgba(34,211,238,0.16)]"
-              >
-                Open Mog Battles
-                <ArrowUpRight size={18} className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-              </button>
-            </div>
-          </div>
         </div>
       </FadeUp>
     </section>
