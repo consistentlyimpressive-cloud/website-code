@@ -5569,83 +5569,86 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
           >
             {isPremiumDemoModel ? (
               <div className="group/demo-picker col-span-full flex w-full flex-col items-center">
-                <span className="mb-6 text-lg font-bold uppercase tracking-widest text-cyan-100 drop-shadow-[0_0_16px_rgba(34,211,238,0.24)] md:text-xl">
+                <span className="mb-5 text-lg font-bold uppercase tracking-widest text-cyan-100 drop-shadow-[0_0_16px_rgba(34,211,238,0.24)] md:text-xl">
                   Demo Preview Face
                 </span>
-                <div className="grid w-full max-w-6xl grid-cols-1 items-center justify-items-center gap-4 md:grid-cols-[minmax(130px,1fr)_minmax(340px,440px)_minmax(130px,1fr)] md:gap-10">
-                  {[
-                    ...PREMIUM_DEMO_FACES.filter((face) => face.id !== visiblePremiumDemoFaceId).slice(0, 1),
-                    selectedPremiumDemoFace,
-                    ...PREMIUM_DEMO_FACES.filter((face) => face.id !== visiblePremiumDemoFaceId).slice(1, 2),
-                  ].filter(Boolean).map((face) => {
-                    const isSelectedFace = face.id === visiblePremiumDemoFaceId;
-                    const isUsedFace = premiumDemoUsedSet.has(face.id);
-                    const isDisabledFace = !face.enabled;
-                    const selectFace = () => {
-                      if (isDisabledFace) return;
-                      setSelectedPremiumDemoId(face.id);
-                      setFrontImage(face.image || PREMIUM_DEMO_FRONT_IMAGE);
-                    };
-                    if (isSelectedFace) {
-                      return (
-                        <button
-                          key={face.id}
-                          type="button"
-                          onClick={selectFace}
-                          className="order-1 mx-auto flex w-full max-w-md flex-col overflow-hidden bg-transparent shadow-[0_0_70px_rgba(34,211,238,0.16)] transition-all duration-500 md:order-none md:max-w-[440px] md:scale-110"
-                        >
-                          <span className="relative aspect-[3/4] overflow-hidden rounded-[1.35rem] bg-zinc-950">
-                            <img
-                              src={face.image}
-                              alt={`${face.name} demo face`}
-                              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover/demo-picker:scale-[1.025]"
-                            />
-                            <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/45 to-transparent p-4 text-left">
-                              <span className="block text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200">Premium Demo</span>
-                              <span className="mt-1 block text-3xl font-black italic uppercase tracking-tight text-white">{face.shortName}</span>
+                {(() => {
+                  const faceById = new Map(PREMIUM_DEMO_FACES.map((face) => [face.id, face]));
+                  const henryFace = faceById.get('henry');
+                  const seanFace = faceById.get('sean-opry');
+                  const emptyFace = faceById.get('empty-3');
+                  const stageFaces = visiblePremiumDemoFaceId === 'sean-opry'
+                    ? [henryFace, selectedPremiumDemoFace, emptyFace]
+                    : [emptyFace, selectedPremiumDemoFace, seanFace];
+
+                  return (
+                    <div className="relative h-[370px] w-full max-w-[620px] overflow-visible sm:h-[395px]">
+                      {stageFaces.filter(Boolean).map((face, index) => {
+                        const isSelectedFace = face.id === visiblePremiumDemoFaceId;
+                        const isUsedFace = premiumDemoUsedSet.has(face.id);
+                        const isDisabledFace = !face.enabled;
+                        const slotOffset = index === 0 ? -218 : index === 2 ? 218 : 0;
+                        const slotScale = isSelectedFace ? 1 : 0.86;
+                        const selectFace = () => {
+                          if (isDisabledFace) return;
+                          setSelectedPremiumDemoId(face.id);
+                          setFrontImage(face.image || PREMIUM_DEMO_FRONT_IMAGE);
+                        };
+
+                        return (
+                          <button
+                            key={face.id}
+                            type="button"
+                            disabled={isDisabledFace}
+                            onClick={selectFace}
+                            className={[
+                              "absolute left-1/2 top-1/2 flex flex-col overflow-hidden bg-transparent",
+                              "transition-[transform,opacity,filter,box-shadow] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform",
+                              isSelectedFace
+                                ? "w-[286px] sm:w-[300px] opacity-100 shadow-[0_0_42px_rgba(34,211,238,0.12)]"
+                                : "w-[118px] opacity-100 blur-[1.5px] sm:w-[136px] md:opacity-0 md:group-hover/demo-picker:opacity-65 md:group-focus-within/demo-picker:opacity-65",
+                              isDisabledFace
+                                ? "cursor-not-allowed grayscale"
+                                : isSelectedFace
+                                ? "cursor-default"
+                                : "hover:!opacity-100 hover:!blur-0 hover:drop-shadow-[0_0_24px_rgba(34,211,238,0.22)]"
+                            ].join(' ')}
+                            style={{
+                              transform: `translate(-50%, -50%) translateX(${slotOffset}px) scale(${slotScale})`,
+                              zIndex: isSelectedFace ? 20 : 10,
+                            }}
+                          >
+                            <span className={["relative aspect-[3/4] overflow-hidden bg-zinc-950", isSelectedFace ? "rounded-[1.15rem]" : "rounded-[0.95rem]"].join(' ')}>
+                              {face.image ? (
+                                <img
+                                  src={face.image}
+                                  alt={`${face.name} demo face`}
+                                  className={[
+                                    "absolute inset-0 h-full w-full object-cover transition-transform duration-700",
+                                    isSelectedFace ? "group-hover/demo-picker:scale-[1.018]" : "opacity-80 hover:scale-105"
+                                  ].join(' ')}
+                                />
+                              ) : (
+                                <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-zinc-950/70 text-zinc-600">
+                                  <Lock size={isSelectedFace ? 22 : 18} />
+                                  <span className="text-[8px] font-black uppercase tracking-[0.2em] sm:text-[9px] sm:tracking-[0.24em]">Coming Soon</span>
+                                </span>
+                              )}
+                              <span className={["absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent text-left", isSelectedFace ? "via-black/45 p-4" : "via-black/55 p-3"].join(' ')}>
+                                <span className={["block font-black uppercase text-cyan-200", isSelectedFace ? "text-[10px] tracking-[0.28em]" : "text-[8px] tracking-[0.22em]"].join(' ')}>
+                                  {!face.enabled ? 'Coming Soon' : isSelectedFace ? 'Premium Demo' : isUsedFace && !isAdmin ? 'Preview' : 'Choose'}
+                                </span>
+                                <span className={["mt-1 block font-black italic uppercase tracking-tight text-white", isSelectedFace ? "text-3xl" : "text-sm text-white/90"].join(' ')}>
+                                  {face.shortName}
+                                </span>
+                              </span>
                             </span>
-                          </span>
-                        </button>
-                      );
-                    }
-                    return (
-                      <button
-                        key={face.id}
-                        type="button"
-                        disabled={isDisabledFace}
-                        onClick={selectFace}
-                        className={[
-                          "order-2 mx-auto flex w-full max-w-[190px] flex-col overflow-hidden bg-transparent transition-all duration-500 md:order-none",
-                          "opacity-100 md:opacity-0 md:translate-y-3 md:blur-[2px] md:group-hover/demo-picker:opacity-65 md:group-focus-within/demo-picker:opacity-65 md:group-hover/demo-picker:translate-y-0 md:group-focus-within/demo-picker:translate-y-0",
-                          isDisabledFace
-                            ? "cursor-not-allowed grayscale"
-                            : "hover:opacity-100 hover:blur-0 hover:scale-105"
-                        ].join(' ')}
-                      >
-                        <span className="relative aspect-[3/4] overflow-hidden rounded-[1.05rem] bg-zinc-950">
-                          {face.image ? (
-                            <img
-                              src={face.image}
-                              alt={`${face.name} demo face`}
-                              className="absolute inset-0 h-full w-full object-cover opacity-80 transition-transform duration-500 hover:scale-105"
-                            />
-                          ) : (
-                            <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-zinc-950/70 text-zinc-600">
-                              <Lock size={22} />
-                              <span className="text-[9px] font-black uppercase tracking-[0.24em]">Coming Soon</span>
-                            </span>
-                          )}
-                          <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/55 to-transparent p-3 text-left">
-                            <span className="block text-[9px] font-black uppercase tracking-[0.24em] text-cyan-200/80">
-                              {!face.enabled ? 'Coming Soon' : isUsedFace && !isAdmin ? 'Preview' : 'Choose'}
-                            </span>
-                            <span className="mt-1 block text-sm font-black italic uppercase tracking-tight text-white/90">{face.shortName}</span>
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <FileDropzone
