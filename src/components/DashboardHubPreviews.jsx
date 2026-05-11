@@ -125,7 +125,6 @@ const communityScanToDashboardCard = (scan, index = 0) => {
     profileId: scan.profileId || payload.profileId || null,
     profileName: scan.profileName || payload.profileName || 'Community Scan',
     selectedModel: String(scan.model || payload.selectedModel || (scan.officialScan || scan.official ? 'official' : '1')),
-    cohesiveFrontSide: Boolean(scan.cohesiveFrontSide || payload.cohesiveFrontSide),
     frontImage: resolveMediaUrl(scan.frontImageUrl || scan.frontImage || payload.frontImage || payload.imgSrc || null),
     sideImage: resolveMediaUrl(scan.sideImageUrl || scan.sideImage || payload.sideImage || null),
     debugAnchorsImage: resolveMediaUrl(scan.debugAnchorsImageUrl || scan.debugAnchorsImage || payload.debugAnchorsImage || payload.debugAnchorsImageUrl || null),
