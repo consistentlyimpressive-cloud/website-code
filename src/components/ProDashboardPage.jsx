@@ -330,7 +330,6 @@ const communityScanToDashboardCard = (scan, index = 0) => {
     profileId: scan.profileId || payload.profileId || null,
     profileName: scan.profileName || payload.profileName || 'Community Scan',
     selectedModel: String(scan.model || payload.selectedModel || (scan.officialScan || scan.official ? 'official' : '1')),
-    cohesiveFrontSide: Boolean(scan.cohesiveFrontSide || payload.cohesiveFrontSide),
     frontImage: resolveMediaUrl(scan.frontImageUrl || scan.frontImage || payload.frontImage || payload.imgSrc || null),
     sideImage: resolveMediaUrl(scan.sideImageUrl || scan.sideImage || payload.sideImage || null),
     debugAnchorsImage: resolveMediaUrl(scan.debugAnchorsImageUrl || scan.debugAnchorsImage || payload.debugAnchorsImage || payload.debugAnchorsImageUrl || null),
@@ -429,6 +428,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   const [communityAddOpen, setCommunityAddOpen] = useState(false);
   const [communityNotice, setCommunityNotice] = useState('');
   const [shareNotice, setShareNotice] = useState('');
+  const [shareIntent, setShareIntent] = useState(null);
   const [communityMenuId, setCommunityMenuId] = useState(null);
   const overviewRef = useRef(null);
   const analysisRef = useRef(null);
@@ -662,7 +662,13 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     return `${window.location.origin}/scan/${encodeURIComponent(user.uid)}/${encodeURIComponent(scanId)}`;
   };
 
-  const handleShareScan = async (scan) => {
+  const getScoreCardUrlForScan = (scan) => {
+    const scanId = getScanId(scan);
+    if (!user?.uid || !scanId) return '';
+    return `${window.location.origin}/score-card/${encodeURIComponent(user.uid)}/${encodeURIComponent(scanId)}`;
+  };
+
+  const handleShareScan = async (scan, type = 'analysis') => {
     const scanId = getScanId(scan);
     if (!scanId || !user) return;
     const visibility = normalizeVisibility(scan?.visibility || 'private');
@@ -670,13 +676,14 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       const updated = await handleUpdateActiveScanVisibility(scanId, 'unlisted');
       if (!updated) return;
     }
-    const url = getShareUrlForScan(scan);
+    const url = type === 'score-card' ? getScoreCardUrlForScan(scan) : getShareUrlForScan(scan);
     try {
       await navigator.clipboard.writeText(url);
-      setShareNotice('Scan link copied. Private scans are changed to unlisted so the link works.');
+      setShareNotice(`${type === 'score-card' ? 'Score card' : 'Full analysis'} link copied. Private scans are changed to unlisted so the link works.`);
     } catch {
       setShareNotice(url);
     }
+    setShareIntent(null);
     window.setTimeout(() => setShareNotice(''), 4500);
   };
 
@@ -1444,13 +1451,13 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                           tabIndex={0}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleShareScan(scan);
+                            setShareIntent(scan);
                           }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
                               e.stopPropagation();
-                              handleShareScan(scan);
+                              setShareIntent(scan);
                             }
                           }}
                           className="absolute right-2 top-2 z-10 rounded-md border border-cyan-500/25 bg-black/75 p-1 text-cyan-300 opacity-0 transition-opacity hover:bg-cyan-500 hover:text-black group-hover:opacity-100"
@@ -1518,7 +1525,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                   })}
                   <button
                     type="button"
-                    onClick={() => handleShareScan(dashboardData)}
+                    onClick={() => setShareIntent(dashboardData)}
                     className="inline-flex items-center gap-2 rounded-full border border-cyan-500/35 bg-cyan-500/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300 transition-colors hover:bg-cyan-500/20"
                   >
                     <Share2 size={13} /> Share
@@ -2112,6 +2119,27 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         {communityNotice && (
           <SiteModal title="Community Scan" onClose={() => setCommunityNotice('')} maxWidth="max-w-lg">
             <p className="text-sm leading-relaxed text-zinc-300">{communityNotice}</p>
+          </SiteModal>
+        )}
+
+        {shareIntent && (
+          <SiteModal title="Share Scan" onClose={() => setShareIntent(null)} maxWidth="max-w-sm">
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => handleShareScan(shareIntent, 'analysis')}
+                className="flex w-full items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-left text-sm font-bold text-white transition-colors hover:border-cyan-500/40 hover:text-cyan-200"
+              >
+                Full Analysis <ChevronRight size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleShareScan(shareIntent, 'score-card')}
+                className="flex w-full items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-left text-sm font-bold text-emerald-200 transition-colors hover:bg-emerald-500/20"
+              >
+                Score Card <ChevronRight size={16} />
+              </button>
+            </div>
           </SiteModal>
         )}
 

@@ -72,6 +72,7 @@ const PREMIUM_DEMO_FACES = [
     name: 'Henry Cavill',
     shortName: 'Henry',
     image: '/premium-demo/henry-cavill.jpg',
+    sideImage: '/premium-demo/henry-cavill-side.jpg',
     payloadSrc: '/premium-demo/henry-cavill-scan.json',
     score: 82,
     enabled: true,
@@ -81,6 +82,7 @@ const PREMIUM_DEMO_FACES = [
     name: "Sean O'Pry",
     shortName: 'Sean',
     image: '/premium-demo/sean-opry.webp',
+    sideImage: '/premium-demo/sean-opry-side.jpg',
     payloadSrc: '/premium-demo/sean-opry-scan.json',
     score: 77,
     enabled: true,
@@ -144,6 +146,14 @@ function parseAppLocation(pathname, userUid = null) {
     return {
       page: 'public-scan',
       routeParams: { uid: parts[1], scanId: parts[2], scanOnly: true },
+      dashboardRoute: { slug: null, profileId: null },
+    };
+  }
+
+  if (parts[0] === 'score-card' && parts.length >= 3) {
+    return {
+      page: 'public-score-card',
+      routeParams: { uid: parts[1], scanId: parts[2], scanOnly: true, scoreCardOnly: true },
       dashboardRoute: { slug: null, profileId: null },
     };
   }
@@ -587,7 +597,6 @@ function forceCommunityScanFrontOnly(data) {
         sidePrimaryFlaws: [],
         sideBiometrics: [],
         hexagonSide: null,
-        cohesiveFrontSide: false,
       }
     : data.payload;
 
@@ -602,7 +611,6 @@ function forceCommunityScanFrontOnly(data) {
     sidePrimaryFlaws: [],
     sideBiometrics: [],
     hexagonSide: null,
-    cohesiveFrontSide: false,
     communityFrontOnly: true,
   };
 }
@@ -887,6 +895,13 @@ const signInWithGoogleProvider = async () => {
   return signInWithPopup(auth, googleProvider);
 };
 
+function shouldDefaultUploadToPremium(user, userPlan) {
+  if (!user) return false;
+  if (canAlwaysAccessDashboard(user)) return true;
+  if (isProPlan(userPlan)) return true;
+  return normalizePlanValue(userPlan?.plan) === 'single_scan' && Number(userPlan?.scanCredits || 0) > 0;
+}
+
 const PADDLE_CLIENT_TOKEN =
   String(import.meta.env.VITE_PADDLE_CLIENT_TOKEN || 'live_41a7033635d9efa677b7d3a8521').trim();
 const PADDLE_ENVIRONMENT =
@@ -1096,8 +1111,8 @@ function buildPremiumDemoScanPayload(payload = {}, overrides = {}) {
     model: PREMIUM_DEMO_MODEL_ID,
     frontImage: face?.image || PREMIUM_DEMO_FRONT_IMAGE,
     frontImageUrl: face?.image || PREMIUM_DEMO_FRONT_IMAGE,
-    sideImage: null,
-    sideImageUrl: null,
+    sideImage: face?.sideImage || payload.sideImage || payload.sideImageUrl || null,
+    sideImageUrl: face?.sideImage || payload.sideImageUrl || payload.sideImage || null,
     isPremiumDemo: true,
     demoScan: true,
     demoId,
@@ -6912,32 +6927,6 @@ const hexagonToRadarData = (hexagon, fallbackRaw) => {
   }));
 };
 
-const blendNumeric = (primaryValue, secondaryValue, weight = 0.18) => {
-  const primary = Number(primaryValue);
-  if (Number.isNaN(primary)) return null;
-  const secondary = Number(secondaryValue);
-  if (Number.isNaN(secondary)) return primary;
-  return Math.round((primary * (1 - weight) + secondary * weight) * 10) / 10;
-};
-
-const blendRadarSets = (primaryData, secondaryData, weight = 0.18) => {
-  if (!Array.isArray(primaryData) || primaryData.length === 0) return primaryData;
-  if (!Array.isArray(secondaryData) || secondaryData.length === 0) return primaryData;
-
-  const secondaryByLabel = new Map(
-    secondaryData.map((item) => [String(item?.label || '').toLowerCase(), Number(item?.val)])
-  );
-
-  return primaryData.map((item) => {
-    const secondary = secondaryByLabel.get(String(item?.label || '').toLowerCase());
-    const blended = blendNumeric(item?.val, secondary, weight);
-    return {
-      ...item,
-      val: blended == null ? item?.val : blended,
-    };
-  });
-};
-
 // --- Radar Chart Component ---
 const RadarChart = ({ data, finalScore, compact = false }) => {
   const [progress, setProgress] = useState(0);
@@ -7005,6 +6994,28 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
     </div>
   );
 };
+
+const CategorySignalsList = ({ data = [], blurred = false }) => (
+  <div className="space-y-2">
+    {data.map((item) => {
+      const value = Math.max(0, Math.min(10, Number(item.val) || 0));
+      return (
+        <div key={item.label}>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-500">{item.label}</span>
+            <span className={`text-[10px] font-black tabular-nums text-cyan-200 ${blurred ? 'blur-[3px]' : ''}`}>{value.toFixed(1)}</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
+            <div
+              className={`h-full rounded-full bg-cyan-400 ${blurred ? 'blur-[2px]' : 'shadow-[0_0_10px_rgba(34,211,238,0.55)]'}`}
+              style={{ width: `${value * 10}%` }}
+            />
+          </div>
+        </div>
+      );
+    })}
+  </div>
+);
 
 // --- Metric Bar Component ---
 const MetricBar = ({ label, score, max = 100, displayValue, isFreePlan = false }) => {
@@ -7758,11 +7769,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
 
   const [activeProfileView, setActiveProfileView] = useState('front');
   const [freeRatingLoop, setFreeRatingLoop] = useState(70);
-  const [experimentalCohesiveEnabled, setExperimentalCohesiveEnabled] = useState(Boolean(dashboardData?.cohesiveFrontSide));
-
-  useEffect(() => {
-    setExperimentalCohesiveEnabled(Boolean(dashboardData?.cohesiveFrontSide));
-  }, [dashboardData?.scanId, dashboardData?.cohesiveFrontSide]);
 
   const placeholderProfileImage = "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png";
   const hasUsableImage = (src) => Boolean(
@@ -7775,7 +7781,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const effectiveProfileView = activeProfileView === 'side' && hasSideProfileImage ? 'side' : 'front';
   const isSideView = effectiveProfileView === 'side';
   const hasBothProfileViews = hasFrontProfileImage && hasSideProfileImage;
-  const effectiveCohesiveEnabled = hasBothProfileViews && experimentalCohesiveEnabled;
 
   useEffect(() => {
     if (!hasSideProfileImage && activeProfileView === 'side') {
@@ -7828,9 +7833,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           { label: 'Bone', val: categoryToRadar10(oppositeCats.Bone, oppositeRawRating) },
         ]
       : null);
-  const radarData = effectiveCohesiveEnabled
-    ? blendRadarSets(primaryRadarData, secondaryRadarData, 0.18)
-    : primaryRadarData;
+  const radarData = primaryRadarData;
 
   const getCatScore = (catName) => {
     if (!dashboardData?.categories) return null;
@@ -8093,9 +8096,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const baseDisplayedFinalRating = isSideView
     ? (dashboardData?.sideRating ?? dashboardData?.finalRating ?? null)
     : (dashboardData?.finalRating ?? null);
-  const numericDisplayedFinalRating = effectiveCohesiveEnabled
-    ? blendNumeric(baseDisplayedFinalRating, oppositeRawRating, 0.18)
-    : baseDisplayedFinalRating;
+  const numericDisplayedFinalRating = baseDisplayedFinalRating;
   const displayedFinalRating = isFreeModelResult
     ? freeRatingLoop
     : (numericDisplayedFinalRating ?? 85);
@@ -8129,21 +8130,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     }
     setCurrentPage('animations', `/animations/${animationId}`);
   }, [activeBestFeatures, activeImageUrl, activePrimaryFlaws, dashboardData?.finalRating, effectiveProfileView, metricData, numericDisplayedFinalRating, setCurrentPage]);
-  const cohesiveExperimentToggle = hasBothProfileViews && !isFreeModelResult ? (
-    <button
-      type="button"
-      onClick={() => setExperimentalCohesiveEnabled((prev) => !prev)}
-      className={`mb-4 inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] transition-colors ${
-        effectiveCohesiveEnabled
-          ? 'border-amber-400/35 bg-amber-400/10 text-amber-300'
-          : 'border-zinc-700 bg-zinc-900/80 text-zinc-400 hover:border-amber-400/25 hover:text-amber-300'
-      }`}
-      title="Experimental: let front and side influence each other slightly instead of staying fully separate."
-    >
-      <Sparkles size={12} />
-      {effectiveCohesiveEnabled ? 'Experimental cohesive on' : 'Experimental cohesive off'}
-    </button>
-  ) : null;
   const radarFinalScore = Number(numericDisplayedFinalRating ?? dashboardData?.finalRating ?? 0) || 0;
   const freeHistoryCards = useMemo(() => {
     const items = Array.isArray(dashboardData?.scanHistory) ? [...dashboardData.scanHistory] : [];
@@ -8253,11 +8239,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
               <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-300">
                 <Loader2 size={12} className="animate-spin" />
                 Detailed report loading
-              </span>
-            )}
-            {(dashboardData?.cohesiveFrontSide || effectiveCohesiveEnabled) && (
-              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">
-                Cohesive side/front enabled
               </span>
             )}
           </div>
@@ -8489,32 +8470,33 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
               <div className="hidden md:grid md:grid-cols-4 gap-6">
                 <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
                   {/* Left Column Stack: Final Rating then Categories */}
-                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden text-center flex flex-col justify-center h-[180px] shadow-lg group hover:border-zinc-700 transition-colors">
-                    <div className="relative z-10 flex flex-col items-center justify-center">
-                      <span className="font-sans text-[10px] uppercase tracking-[0.45em] mb-4 text-green-300/80">Final Rating</span>
-                      <div className="relative leading-none">
-                        <>
-                          <span className="absolute inset-0 block text-6xl font-black italic tracking-tighter text-green-400/90 blur-[25.9px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none">
+                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden p-4 shadow-lg group hover:border-zinc-700 transition-colors">
+                    <div className="relative z-10 grid grid-cols-[0.75fr_1fr] items-center gap-4">
+                      <div className="text-center">
+                        <span className="mb-3 block font-sans text-[9px] uppercase tracking-[0.34em] text-green-300/80">Final Rating</span>
+                        <div className="relative leading-none">
+                          <span className="absolute inset-0 block text-5xl font-black italic tracking-tighter text-green-400/90 blur-[25.9px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none">
                             {displayedFinalRating}
                           </span>
-                          <span className="relative block text-6xl font-black italic tracking-tighter text-green-400 blur-[18.5px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_rgba(74,222,128,0.4)]">
+                          <span className="relative block text-5xl font-black italic tracking-tighter text-green-400 blur-[18.5px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_rgba(74,222,128,0.4)]">
                             {displayedFinalRating}
                           </span>
-                        </>
+                        </div>
                       </div>
+                      <CategorySignalsList data={radarData} blurred />
                       {authenticityFlag && !isFreeModelResult && (
-                        <span className="mt-3 max-w-[85%] rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                        <span className="col-span-2 mt-1 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
                           {authenticityFlag}
                         </span>
                       )}
                       {showUncannyFlagUnderScore && (
-                        <span className="mt-2 max-w-[85%] text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                        <span className="col-span-2 mt-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
                           ({uncannyFlag})
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg group hover:border-zinc-700 transition-colors p-4">
+                  <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center min-h-[230px] shadow-lg group hover:border-zinc-700 transition-colors p-4">
                     {renderBlurredOverlay("Category Scores")}
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(74,222,128,0.05)_0%,transparent_70%)] pointer-events-none" />
                     <div className="w-[85%] max-w-[200px] opacity-10 blur-[12.95px] pointer-events-none select-none relative z-10">
@@ -8524,7 +8506,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                 </div>
 
                 <div className="col-span-1 md:col-span-3 bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
-                  {cohesiveExperimentToggle}
                   <div className="mb-6 flex items-center justify-between gap-3">
                     <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest flex items-center gap-2">
                       <Target size={14} className="text-zinc-500" /> Structure
@@ -8591,29 +8572,32 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
               <div className="hidden md:grid md:grid-cols-4 gap-6">
                 <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
                   {/* Left Column Stack: Final Rating then Categories */}
-                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden text-center flex flex-col justify-center h-[180px] shadow-lg group hover:border-zinc-700 transition-colors">
-                    <div className="relative z-10 flex flex-col items-center justify-center">
-                      <span className="font-sans text-[10px] uppercase tracking-[0.45em] mb-4 text-cyan-400/80">
-                        {isFreeModelResult ? 'Analysis Type' : 'Final Rating'}
-                      </span>
-                      <div className="relative leading-none">
-                        <span className={`block font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-500 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)] ${isFreeModelResult ? 'text-3xl' : 'text-6xl'}`}>
-                          {displayedFinalRating}
+                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden p-4 shadow-lg group hover:border-zinc-700 transition-colors">
+                    <div className="relative z-10 grid grid-cols-[0.75fr_1fr] items-center gap-4">
+                      <div className="text-center">
+                        <span className="mb-3 block font-sans text-[9px] uppercase tracking-[0.34em] text-cyan-400/80">
+                          {isFreeModelResult ? 'Analysis Type' : 'Final Rating'}
                         </span>
+                        <div className="relative leading-none">
+                          <span className={`block font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-500 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)] ${isFreeModelResult ? 'text-3xl' : 'text-5xl'}`}>
+                            {displayedFinalRating}
+                          </span>
+                        </div>
                       </div>
+                      <CategorySignalsList data={radarData} />
                       {authenticityFlag && !isFreeModelResult && (
-                        <span className="mt-3 max-w-[85%] rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                        <span className="col-span-2 mt-1 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
                           {authenticityFlag}
                         </span>
                       )}
                       {showUncannyFlagUnderScore && (
-                        <span className="mt-2 max-w-[85%] text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                        <span className="col-span-2 mt-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
                           ({uncannyFlag})
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg group hover:border-zinc-700 transition-colors p-4">
+                  <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center min-h-[230px] shadow-lg group hover:border-zinc-700 transition-colors p-4">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.05)_0%,transparent_70%)] pointer-events-none" />
                     <div className="w-[85%] max-w-[200px] relative z-10">
                       <RadarChart data={radarData} finalScore={radarFinalScore} />
@@ -8622,7 +8606,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                 </div>
 
                 <div className="col-span-1 md:col-span-3 bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
-                  {cohesiveExperimentToggle}
                   <div className="mb-6 flex items-center justify-between gap-3">
                     <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest flex items-center gap-2">
                       <Target size={14} className="text-zinc-500" /> Structure
@@ -9322,7 +9305,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
 };
 
 // --- Admin Dashboard ---
-const AdminDashboardPage = ({ setCurrentPage }) => {
+const AdminDashboardPage = ({ setCurrentPage, user }) => {
   const [password, setPassword] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -9363,12 +9346,24 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
   const [announcementSending, setAnnouncementSending] = useState(false);
   const [announcementStatus, setAnnouncementStatus] = useState('');
   const storedPw = useRef('');
+  const isEmailAdmin = String(user?.email || '').trim().toLowerCase() === 'serenity.eyb@gmail.com';
+
+  const buildAdminHeaders = useCallback(async (base = {}, pwOverride = null) => {
+    const headers = { ...base };
+    if (isEmailAdmin && user?.getIdToken) {
+      const token = await user.getIdToken();
+      headers.Authorization = `Bearer ${token}`;
+      return headers;
+    }
+    headers['x-admin-password'] = pwOverride ?? storedPw.current;
+    return headers;
+  }, [isEmailAdmin, user]);
 
   const fetchStats = async (pw) => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_BASE}/api/admin/stats`, { headers: { 'x-admin-password': pw } });
+      const res = await fetch(`${API_BASE}/api/admin/stats`, { headers: await buildAdminHeaders({}, pw) });
       if (!res.ok) {
         if (res.status === 401) {
           setAuthenticated(false);
@@ -9380,7 +9375,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       const data = await res.json();
       setStats(data);
       
-      const usersRes = await fetch(`${API_BASE}/api/admin/users`, { headers: { 'x-admin-password': pw } });
+      const usersRes = await fetch(`${API_BASE}/api/admin/users`, { headers: await buildAdminHeaders({}, pw) });
       const usersData = await usersRes.json().catch(() => ({}));
       if (!usersRes.ok) {
         throw new Error(usersData?.error || `Users endpoint failed (${usersRes.status})`);
@@ -9390,7 +9385,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       setScanLimitsLoading(true);
       setScanLimitsError('');
       try {
-        const limitsRes = await fetch(`${API_BASE}/api/admin/scan-limits`, { headers: { 'x-admin-password': pw } });
+        const limitsRes = await fetch(`${API_BASE}/api/admin/scan-limits`, { headers: await buildAdminHeaders({}, pw) });
         const limitsData = await limitsRes.json().catch(() => ({}));
         if (!limitsRes.ok) throw new Error(limitsData?.error || `Scan limits endpoint failed (${limitsRes.status})`);
         setScanLimits(Array.isArray(limitsData.limitedUsers) ? limitsData.limitedUsers : []);
@@ -9403,7 +9398,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       
       setLastRefresh(new Date());
       setAuthenticated(true);
-      window.localStorage.setItem('mogcheck_admin_pw', pw);
+      if (!isEmailAdmin) window.localStorage.setItem('mogcheck_admin_pw', pw);
       return true;
     } catch (e) {
       setError(e.message);
@@ -9415,12 +9410,12 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
   };
 
   const fetchVisitorStats = useCallback(async (range = visitorRange, pw = storedPw.current) => {
-    if (!pw) return;
+    if (!pw && !isEmailAdmin) return;
     setVisitorStatsLoading(true);
     setVisitorStatsError('');
     try {
       const res = await fetch(`${API_BASE}/api/admin/visitor-stats?range=${encodeURIComponent(range)}`, {
-        headers: { 'x-admin-password': pw },
+        headers: await buildAdminHeaders({}, pw),
         cache: 'no-store',
       });
       const data = await res.json().catch(() => ({}));
@@ -9432,7 +9427,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     } finally {
       setVisitorStatsLoading(false);
     }
-  }, [visitorRange]);
+  }, [visitorRange, buildAdminHeaders, isEmailAdmin]);
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -9446,7 +9441,12 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     if (!authenticated) return;
     const iv = setInterval(() => fetchStats(storedPw.current), 120000);
     return () => clearInterval(iv);
-  }, [authenticated]);
+  }, [authenticated, buildAdminHeaders]);
+
+  useEffect(() => {
+    if (!isEmailAdmin || authenticated) return;
+    fetchStats('');
+  }, [isEmailAdmin, authenticated, buildAdminHeaders]);
 
   useEffect(() => {
     if (!authenticated) return;
@@ -9483,7 +9483,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/users/${uid}`, {
         method: 'DELETE',
-        headers: { 'x-admin-password': storedPw.current }
+        headers: await buildAdminHeaders()
       });
       if (!res.ok) throw new Error('Failed to delete user');
       setUsers(users.filter(u => u.uid !== uid));
@@ -9505,10 +9505,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/notifications/announcement`, {
         method: 'POST',
-        headers: {
-          'x-admin-password': storedPw.current,
-          'Content-Type': 'application/json',
-        },
+        headers: await buildAdminHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(announcementDraft),
       });
       const data = await res.json().catch(() => ({}));
@@ -9566,7 +9563,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/users/${uid}/plan`, {
         method: 'POST',
-        headers: { 'x-admin-password': storedPw.current, 'Content-Type': 'application/json' },
+        headers: await buildAdminHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ plan: normalizedPlan, scanCredits: normalizedCredits })
       });
       const data = await res.json().catch(() => ({}));
@@ -9600,7 +9597,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     setScanLimitsError('');
     try {
       const res = await fetch(`${API_BASE}/api/admin/scan-limits`, {
-        headers: { 'x-admin-password': storedPw.current },
+        headers: await buildAdminHeaders(),
         cache: 'no-store',
       });
       const data = await res.json().catch(() => ({}));
@@ -9618,10 +9615,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/scan-limits/${encodeURIComponent(uid)}`, {
         method: 'POST',
-        headers: {
-          'x-admin-password': storedPw.current,
-          'Content-Type': 'application/json',
-        },
+        headers: await buildAdminHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ email, reason: 'Manual admin limit' }),
       });
       const data = await res.json().catch(() => ({}));
@@ -9639,7 +9633,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/scan-limits/${encodeURIComponent(uid)}`, {
         method: 'DELETE',
-        headers: { 'x-admin-password': storedPw.current },
+        headers: await buildAdminHeaders(),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Failed to unlimit user');
@@ -9674,7 +9668,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       if (!userScansByUser[uid]) {
         requests.push(
           fetch(`${API_BASE}/api/admin/users/${uid}/scans`, {
-            headers: { 'x-admin-password': storedPw.current },
+            headers: await buildAdminHeaders(),
             cache: 'no-store',
           }).then(async (res) => {
             const data = await res.json().catch(() => ({}));
@@ -9689,7 +9683,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       if (!userMogBattlesByUser[uid]) {
         requests.push(
           fetch(`${API_BASE}/api/admin/users/${uid}/mog-battles`, {
-            headers: { 'x-admin-password': storedPw.current },
+            headers: await buildAdminHeaders(),
             cache: 'no-store',
           }).then(async (res) => {
             const data = await res.json().catch(() => ({}));
@@ -9704,7 +9698,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       if (!userActivityByUser[uid]) {
         requests.push(
           fetch(`${API_BASE}/api/admin/users/${uid}/activity`, {
-            headers: { 'x-admin-password': storedPw.current },
+            headers: await buildAdminHeaders(),
             cache: 'no-store',
           }).then(async (res) => {
             const data = await res.json().catch(() => ({}));
@@ -9719,7 +9713,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       if (!userPurchasesByUser[uid]) {
         requests.push(
           fetch(`${API_BASE}/api/admin/users/${uid}/purchases`, {
-            headers: { 'x-admin-password': storedPw.current },
+            headers: await buildAdminHeaders(),
             cache: 'no-store',
           }).then(async (res) => {
             const data = await res.json().catch(() => ({}));
@@ -9744,7 +9738,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     try {
       const delRes = await fetch(`${API_BASE}/api/admin/users/${uid}/scans/${scanId}`, {
         method: 'DELETE',
-        headers: { 'x-admin-password': storedPw.current }
+        headers: await buildAdminHeaders()
       });
       if (!delRes.ok) throw new Error('Failed to delete scan');
       setUserScansByUser((prev) => ({
@@ -9760,7 +9754,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     try {
       const delRes = await fetch(`${API_BASE}/api/admin/mog-battles/${encodeURIComponent(battleId)}`, {
         method: 'DELETE',
-        headers: { 'x-admin-password': storedPw.current }
+        headers: await buildAdminHeaders()
       });
       const data = await delRes.json().catch(() => ({}));
       if (!delRes.ok) throw new Error(data.error || 'Failed to delete Mog Battle');
@@ -11169,6 +11163,7 @@ const App = () => {
     const model = String(dashboardData?.selectedModel || '').trim();
     return model === '1' || model === '2' || model === '6' || model === '7' || model === '8' || model === '9';
   }, [dashboardData?.selectedModel]);
+  const defaultUploadModel = shouldDefaultUploadToPremium(user, userPlan) ? '9' : '3';
 
   useEffect(() => {
     const reportStatus = String(dashboardData?.reportStatus || dashboardData?.payload?.reportStatus || '').toLowerCase();
@@ -11241,7 +11236,7 @@ const App = () => {
   ]);
 
   const useProDashboard = Boolean(user || hasScanData) && !isFreeModelDashboard;
-  const isScanOnlyPage = currentPage === 'public-scan';
+  const isScanOnlyPage = currentPage === 'public-scan' || currentPage === 'public-score-card';
 
   const registerCompletedScan = useCallback((data, meta = {}, options = {}) => {
     const completedAt = new Date().toISOString();
@@ -11420,7 +11415,7 @@ const App = () => {
             setSelectedCelebrity={setSelectedCelebrity}
             user={user}
             userPlan={userPlan}
-            initialModel={pendingUploadModel ?? (currentPage === 'upload-ultra' ? '6' : '3')}
+            initialModel={pendingUploadModel ?? (currentPage === 'upload-ultra' ? '6' : defaultUploadModel)}
             isLockedToUltra={currentPage === 'upload-ultra'}
             initialProfileId={pendingUploadProfileId}
             queueAnalysisJob={queueAnalysisJob}
@@ -11519,7 +11514,15 @@ const App = () => {
             }}
           />
         )}
-        {currentPage === 'admin' && <AdminDashboardPage setCurrentPage={setCurrentPage} />}
+        {currentPage === 'public-score-card' && (
+          <PublicProfilePage
+            routeParams={routeParams}
+            user={user}
+            scanOnly
+            scoreCardOnly
+          />
+        )}
+        {currentPage === 'admin' && <AdminDashboardPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'protocol-all' && <AllProtocolsPage protocols={dashboardData?.protocols || []} setCurrentPage={setCurrentPage} />}
         {currentPage === 'tos' && <TermsOfServicePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'privacy' && <PrivacyPolicyPage setCurrentPage={setCurrentPage} />}
