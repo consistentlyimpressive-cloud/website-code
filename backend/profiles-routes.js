@@ -201,32 +201,8 @@ module.exports = function(app, firestore, admin, extractUserOptional) {
   });
 
   app.get('/api/public/scans/:uid/:scanId', extractUserOptional, async (req, res) => {
+    if (!firestore) return res.status(500).json({ error: 'Firestore not configured' });
     const { uid, scanId } = req.params;
-    const buildLocalPublicScanResponse = () => {
-      const localScan = localUserStore.getScan(uid, scanId);
-      if (!localScan) return null;
-      const scan = normalizeStoredScanUrls(localScan);
-      const isOwner = req.uid === uid;
-      const adminPassword = req.headers['x-admin-password'] || '';
-      const hasAdminAccess = String(req.query?.admin || '').trim() === '1' && adminStore.checkPassword(adminPassword);
-      if (!isOwner && !hasAdminAccess && !isPublicScanVisibility(scan.visibility)) {
-        return { status: 403, body: { error: 'This scan is private' } };
-      }
-      const profile = localUserStore.listProfiles(uid).find((item) => item.id === (scan.profileId || 'default')) || {
-        id: scan.profileId || 'default',
-        userId: uid,
-        name: scan.payload?.profileName || scan.profileName || 'Shared Scan',
-        visibility: 'private',
-      };
-      return { status: 200, body: { profile: { ...profile, userId: uid }, scans: [scan] } };
-    };
-
-    if (!firestore) {
-      const localResponse = buildLocalPublicScanResponse();
-      if (localResponse) return res.status(localResponse.status).json(localResponse.body);
-      return res.status(404).json({ error: 'Scan not found' });
-    }
-
     try {
       const scanDoc = await firestore.collection('users').doc(uid).collection('scans').doc(scanId).get();
       if (!scanDoc.exists) return res.status(404).json({ error: 'Scan not found' });
@@ -259,8 +235,6 @@ module.exports = function(app, firestore, admin, extractUserOptional) {
 
       res.json({ profile, scans: [scan] });
     } catch (e) {
-      const localResponse = buildLocalPublicScanResponse();
-      if (localResponse) return res.status(localResponse.status).json(localResponse.body);
       const { status, error } = sanitizeFirebaseError(e);
       console.error('[profiles] public scan GET failed:', e.message || e);
       res.status(status).json({ error });

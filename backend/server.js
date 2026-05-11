@@ -1103,6 +1103,7 @@ async function buildCommunityScanDoc(uid, scanId, scanData) {
     profileName,
     visibility: 'community',
     model: String(scanData?.model || payload?.selectedModel || '').trim() || '1',
+    cohesiveFrontSide: Boolean(scanData?.cohesiveFrontSide || payload?.cohesiveFrontSide),
     finalRating: Number(scanData?.finalRating) || 0,
     sideRating: Number(scanData?.sideRating) || 0,
     sex: payload?.sex || null,
@@ -1113,6 +1114,7 @@ async function buildCommunityScanDoc(uid, scanId, scanData) {
       frontImage: normalizedScanData?.frontImageUrl || normalizedPayload?.frontImage || null,
       sideImage: normalizedScanData?.sideImageUrl || normalizedPayload?.sideImage || null,
       selectedModel: String(scanData?.model || payload?.selectedModel || '').trim() || '1',
+      cohesiveFrontSide: Boolean(scanData?.cohesiveFrontSide || payload?.cohesiveFrontSide),
     },
     timestamp: scanData?.timestamp || admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1637,28 +1639,6 @@ app.delete('/api/mog-battle/community/:battleId', requireFirestore, async (req, 
     console.error('[mog-battle] DELETE community', e.message || e);
     return res.status(401).json({ error: 'Invalid session' });
   }
-});
-
-async function requestHasAdminBearerToken(req) {
-  const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-  if (!token || !admin?.auth) return false;
-  try {
-    const decoded = await admin.auth().verifyIdToken(token);
-    return isAdminAccountEmail(decoded?.email);
-  } catch (e) {
-    console.warn('[admin] bearer auth failed:', e.message || e);
-    return false;
-  }
-}
-
-app.use('/api/admin', async (req, res, next) => {
-  const pw = req.headers['x-admin-password'] || req.query.pw || '';
-  if (adminStore.checkPassword(pw)) return next();
-  if (await requestHasAdminBearerToken(req)) {
-    req.headers['x-admin-password'] = process.env.ADMIN_PASSWORD || 'ascend-admin';
-  }
-  return next();
 });
 
 app.delete('/api/admin/mog-battles/:battleId', async (req, res) => {
@@ -3047,7 +3027,6 @@ const PREMIUM_DEMO_CATALOG = {
     scanId: 'premium-demo-scan-henry',
     legacyScanId: LEGACY_PREMIUM_DEMO_SCAN_ID,
     image: '/premium-demo/henry-cavill.jpg',
-    sideImage: '/premium-demo/henry-cavill-side.jpg',
     payloadPath: path.join(__dirname, '..', 'public', 'premium-demo', 'henry-cavill-scan.json'),
     version: 'henry-cavill-jpg-biometrics-feedback-v3',
     enabled: true,
@@ -3056,9 +3035,8 @@ const PREMIUM_DEMO_CATALOG = {
     id: 'sean-opry',
     scanId: 'premium-demo-scan-sean-opry',
     image: '/premium-demo/sean-opry.webp',
-    sideImage: '/premium-demo/sean-opry-side.jpg',
     payloadPath: path.join(__dirname, '..', 'public', 'premium-demo', 'sean-opry-scan.json'),
-    version: 'sean-opry-front-side-premium-v2',
+    version: 'sean-opry-biometrics-feedback-v1',
     enabled: true,
   },
 };
@@ -3084,34 +3062,6 @@ function loadPremiumDemoPayload(demoId = DEFAULT_PREMIUM_DEMO_ID) {
     console.warn(`[premium-demo] Failed to load payload for ${demo.id}:`, error.message);
     return null;
   }
-}
-
-function buildPremiumDemoPayload(demoId = DEFAULT_PREMIUM_DEMO_ID) {
-  const demo = getPremiumDemoConfig(demoId);
-  const payload = loadPremiumDemoPayload(demo.id);
-  if (!payload) return null;
-  return {
-    ...payload,
-    success: true,
-    scanId: demo.scanId,
-    scanRequestId: demo.scanId,
-    profileId: PREMIUM_DEMO_PROFILE_ID,
-    profileName: 'Demo Scan',
-    selectedModel: 'premium-demo',
-    model: 'premium-demo',
-    frontImage: demo.image,
-    frontImageUrl: demo.image,
-    sideImage: demo.sideImage || payload.sideImage || payload.sideImageUrl || null,
-    sideImageUrl: demo.sideImage || payload.sideImageUrl || payload.sideImage || null,
-    isPremiumDemo: true,
-    demoScan: true,
-    demoId: demo.id,
-    visibility: 'private',
-    reportStatus: 'complete',
-    title: 'Demo Scan',
-    badge: 'Demo',
-    demoVersion: demo.version,
-  };
 }
 
 function collectPremiumDemoUsedIds(scans = [], userData = {}) {
@@ -3142,10 +3092,33 @@ function collectPremiumDemoUsedIds(scans = [], userData = {}) {
 async function ensurePremiumDemoScan(uid, demoId = DEFAULT_PREMIUM_DEMO_ID) {
   if (!uid || !firestore) return;
   const demo = getPremiumDemoConfig(demoId);
-  const demoPayload = buildPremiumDemoPayload(demo.id);
-  if (!demoPayload) return;
+  const payload = loadPremiumDemoPayload(demo.id);
+  if (!payload) return;
   const docRef = firestore.collection('users').doc(uid).collection('scans').doc(demo.scanId);
   const snap = await docRef.get();
+
+  const demoPayload = {
+    ...payload,
+    success: true,
+    scanId: demo.scanId,
+    scanRequestId: demo.scanId,
+    profileId: PREMIUM_DEMO_PROFILE_ID,
+    profileName: 'Demo Scan',
+    selectedModel: 'premium-demo',
+    model: 'premium-demo',
+    frontImage: demo.image,
+    frontImageUrl: demo.image,
+    sideImage: null,
+    sideImageUrl: null,
+    isPremiumDemo: true,
+    demoScan: true,
+    demoId: demo.id,
+    visibility: 'private',
+    reportStatus: 'complete',
+    title: 'Demo Scan',
+    badge: 'Demo',
+    demoVersion: demo.version,
+  };
   if (snap.exists && snap.data()?.payload?.demoVersion === demo.version) return;
 
   await docRef.set({
@@ -3157,9 +3130,9 @@ async function ensurePremiumDemoScan(uid, demoId = DEFAULT_PREMIUM_DEMO_ID) {
     profileName: 'Demo Scan',
     visibility: 'private',
     finalRating: Number(demoPayload.finalRating) || null,
-    sideRating: Number(demoPayload.sideRating) || null,
+    sideRating: null,
     frontImageUrl: demoPayload.frontImage,
-    sideImageUrl: demoPayload.sideImage || null,
+    sideImageUrl: null,
     success: true,
     scanRequestId: demo.scanId,
     isPremiumDemo: true,
@@ -3774,12 +3747,14 @@ app.post(
       payload.scanRequestId = scanRequestId;
       payload.profileId = profileId;
       payload.selectedModel = String(modelChoice || payload.selectedModel || '').trim() || '1';
+      payload.cohesiveFrontSide = false;
       payload.platform = scanPlatform;
 
       savedScanBase = {
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         model: modelChoice,
         platform: scanPlatform,
+        cohesiveFrontSide: false,
         visibility: 'private',
         finalRating,
         sideRating,
@@ -3801,6 +3776,7 @@ app.post(
           debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
           scanRequestId,
           selectedModel: payload.selectedModel,
+          cohesiveFrontSide: false,
           platform: scanPlatform,
         },
         profileId: payload.profileId,
@@ -3848,6 +3824,7 @@ app.post(
           frontImageUrl: persistedFrontImage || payload.frontImageUrl || null,
           sideImageUrl: persistedSideImage || payload.sideImageUrl || null,
           selectedModel: String(modelChoice || payload.selectedModel || '').trim() || '1',
+          cohesiveFrontSide: false,
           platform: scanPlatform,
         },
       };
@@ -4774,39 +4751,7 @@ function isAdminAccountEmail(email) {
 
 app.post('/api/user/demo-scan', extractUserOptional, async (req, res) => {
   if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
-  const sendLocalDemoPayload = (demoId, warning = null) => {
-    const demo = getPremiumDemoConfig(demoId);
-    const payload = buildPremiumDemoPayload(demo.id);
-    if (!payload) return res.status(500).json({ error: 'Failed to load premium demo scan.' });
-    const scan = {
-      id: demo.scanId,
-      scanId: demo.scanId,
-      model: 'premium-demo',
-      profileId: PREMIUM_DEMO_PROFILE_ID,
-      profileName: 'Demo Scan',
-      visibility: 'private',
-      finalRating: Number(payload.finalRating) || null,
-      sideRating: Number(payload.sideRating) || null,
-      frontImageUrl: payload.frontImage || null,
-      sideImageUrl: payload.sideImage || null,
-      success: true,
-      scanRequestId: demo.scanId,
-      isPremiumDemo: true,
-      demoScan: true,
-      demoId: demo.id,
-      payload,
-    };
-    return res.json({
-      ok: true,
-      localFallback: Boolean(warning),
-      warning,
-      scan,
-      demoId: demo.id,
-      payload,
-    });
-  };
-
-  if (!firestore) return sendLocalDemoPayload(req.body?.demoId, 'Firestore unavailable locally; loaded static demo payload.');
+  if (!firestore) return res.status(503).json({ error: 'Demo scans require Firestore.' });
   if (isFirestoreQuotaCoolingDown()) {
     return res.status(503).json({ error: firestoreQuotaCooldownWarning() });
   }
@@ -4890,9 +4835,6 @@ app.post('/api/user/demo-scan', extractUserOptional, async (req, res) => {
     if (isQuotaExceededError(e)) {
       noteFirestoreQuotaExceeded('user/demo-scan');
       return res.status(503).json({ error: firestoreQuotaCooldownWarning() });
-    }
-    if (isCredentialsConfigError(e?.message)) {
-      return sendLocalDemoPayload(req.body?.demoId, 'Firestore credentials unavailable locally; loaded static demo payload.');
     }
     return res.status(500).json({ error: e.message || 'Failed to save premium demo scan.' });
   }

@@ -146,6 +146,7 @@ const scanToBattleFighter = (scan, fallback = 'Scan') => {
     visibility: scan?.visibility || payload.visibility || 'private',
     sex: scan?.sex || payload.sex || payload.gender || '',
     model: scan?.model || payload.model || payload.modelUsed || '',
+    cohesiveFrontSide: Boolean(scan?.cohesiveFrontSide || payload.cohesiveFrontSide),
   };
 };
 
