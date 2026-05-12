@@ -8431,6 +8431,31 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
       `}</style>
       <FadeUp>
         <div className={`w-full mx-auto flex flex-col gap-12 ${isEmbedded ? 'max-w-5xl' : 'max-w-6xl'}`}>
+          {/* Mobile Header Buttons (Free Dashboard) */}
+          {!isEmbedded && isFreeModelResult && (
+            <div className="md:hidden">
+              {onBackToProfiles && (
+                <button
+                  type="button"
+                  onClick={onBackToProfiles}
+                  className="mb-8 inline-flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+                >
+                  <ArrowLeft size={15} />
+                  Previous Page
+                </button>
+              )}
+              <div className="mb-6 flex items-center justify-between">
+                <span className="text-2xl font-black italic tracking-tighter text-white">MogCheck</span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage('upload-photo')}
+                  className="inline-flex items-center gap-2 rounded-full bg-blue-500 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-[0_0_24px_rgba(59,130,246,0.35)] transition-all hover:bg-blue-400"
+                >
+                  <Plus size={13} /> New Scan
+                </button>
+              </div>
+            </div>
+          )}
           <div className="hidden flex-wrap items-center gap-2 md:flex">
             <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
               AI used: {getAnalysisModelLabel(selectedModel || dashboardData?.model)}
