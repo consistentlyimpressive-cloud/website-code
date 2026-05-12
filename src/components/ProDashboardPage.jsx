@@ -988,7 +988,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       overview: overviewRef,
       analysis: analysisRef,
       profiles: profilesRef,
-      news: newsRef,
       'mog-battles': mogBattlesRef,
       community: communityRef,
     };
@@ -1166,7 +1165,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       { id: 'analysis', ref: analysisRef },
       { id: 'mog-battles', ref: mogBattlesRef },
       { id: 'community', ref: communityRef },
-      { id: 'news', ref: newsRef },
     ].filter((section) => section.ref.current);
 
     if (!sections.length) return undefined;

@@ -6,7 +6,6 @@ import { getApiBase } from '../utils/apiBase';
 import { resolveMediaUrl } from '../utils/mediaUrl';
 
 const API_BASE = getApiBase();
-const API_BASE = getApiBase();
 
 function getScanImage(scan) {
   return resolveMediaUrl(
