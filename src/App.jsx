@@ -1167,51 +1167,54 @@ function appendUniqueScan(items, scan) {
 
 function getRatingToneClasses(score) {
   const n = Number(score) || 0;
-  if (n >= 90) {
+  if (n >= 90) { // Emerald Green
     return {
-      text: 'text-emerald-200 drop-shadow-[0_0_16px_rgba(110,231,183,0.55)]',
+      text: 'text-emerald-400 drop-shadow-[0_0_16px_rgba(16,185,129,0.55)]',
       glow: 'group-hover:shadow-[0_24px_70px_rgba(16,185,129,0.22)]',
       border: 'border-emerald-300/45 group-hover:border-emerald-200/70',
       badge: 'border-emerald-300/35 bg-emerald-400/15 text-emerald-200',
+      fill: 'rgba(16,185,129,0.2)',
+      stroke: '#10b981',
     };
   }
-  if (n >= 80) {
-    return {
-      text: 'text-emerald-400 drop-shadow-[0_0_14px_rgba(52,211,153,0.45)]',
-      glow: 'group-hover:shadow-[0_24px_65px_rgba(52,211,153,0.16)]',
-      border: 'border-emerald-500/35 group-hover:border-emerald-400/60',
-      badge: 'border-emerald-500/30 bg-emerald-500/12 text-emerald-300',
-    };
-  }
-  if (n >= 70) {
+  if (n >= 75) { // Greenish Yellow / Lime
     return {
       text: 'text-lime-300 drop-shadow-[0_0_13px_rgba(163,230,53,0.35)]',
       glow: 'group-hover:shadow-[0_24px_65px_rgba(163,230,53,0.12)]',
       border: 'border-lime-500/30 group-hover:border-lime-400/55',
       badge: 'border-lime-500/30 bg-lime-500/12 text-lime-300',
+      fill: 'rgba(163,230,53,0.2)',
+      stroke: '#a3e635',
     };
   }
-  if (n >= 60) {
+  if (n >= 60) { // Yellow
     return {
       text: 'text-yellow-300 drop-shadow-[0_0_13px_rgba(250,204,21,0.35)]',
       glow: 'group-hover:shadow-[0_24px_65px_rgba(250,204,21,0.1)]',
       border: 'border-yellow-500/30 group-hover:border-yellow-400/55',
       badge: 'border-yellow-500/30 bg-yellow-500/12 text-yellow-300',
+      fill: 'rgba(250,204,21,0.2)',
+      stroke: '#facc15',
     };
   }
-  if (n >= 50) {
+  if (n >= 50) { // Orange
     return {
       text: 'text-orange-400 drop-shadow-[0_0_13px_rgba(251,146,60,0.35)]',
       glow: 'group-hover:shadow-[0_24px_65px_rgba(249,115,22,0.12)]',
       border: 'border-orange-500/35 group-hover:border-orange-400/60',
       badge: 'border-orange-500/30 bg-orange-500/12 text-orange-300',
+      fill: 'rgba(249,115,22,0.2)',
+      stroke: '#f97316',
     };
   }
+  // Red
   return {
-    text: 'text-rose-400 drop-shadow-[0_0_13px_rgba(251,113,133,0.35)]',
-    glow: 'group-hover:shadow-[0_24px_65px_rgba(244,63,94,0.14)]',
-    border: 'border-rose-500/35 group-hover:border-rose-400/60',
-    badge: 'border-rose-500/30 bg-rose-500/12 text-rose-300',
+    text: 'text-red-500 drop-shadow-[0_0_13px_rgba(239,68,68,0.35)]',
+    glow: 'group-hover:shadow-[0_24px_65px_rgba(239,68,68,0.14)]',
+    border: 'border-red-500/35 group-hover:border-red-400/60',
+    badge: 'border-red-500/30 bg-red-500/12 text-red-300',
+    fill: 'rgba(239,68,68,0.2)',
+    stroke: '#ef4444',
   };
 }
 
@@ -7063,7 +7066,7 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
           const { x, y } = getPoint(1, i);
           return <line key={i} x1="50" y1="50" x2={x} y2={y} stroke="#3f3f46" strokeWidth="0.5" />;
         })}
-        <polygon points={points} fill="rgba(34,211,238,0.2)" stroke="#22d3ee" strokeWidth="1" className="drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+        <polygon points={points} fill={getRatingToneClasses(finalScore).fill || "rgba(34,211,238,0.2)"} stroke={getRatingToneClasses(finalScore).stroke || "#22d3ee"} strokeWidth="1" style={{ filter: `drop-shadow(0 0 4px ${getRatingToneClasses(finalScore).stroke || "rgba(34,211,238,0.8)"})` }} />
         {data.map((d, i) => {
           const { x, y } = getPoint((d.val * progress) / 10, i);
           return <circle key={i} cx={x} cy={y} r="1.2" fill="#fff" className="drop-shadow-[0_0_4px_rgba(255,255,255,1)]" />;
@@ -8336,6 +8339,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const displayedFinalRating = isFreeModelResult
     ? freeRatingLoop
     : (numericDisplayedFinalRating ?? 85);
+  const ratingTone = getRatingToneClasses(displayedFinalRating);
   const openAnimationsViewer = useCallback(() => {
     if (typeof window === 'undefined') return;
     const animationId =
@@ -8518,8 +8522,8 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                 </button>
                 <div className="grid gap-3">
                   <div className="flex min-h-[7.25rem] flex-col items-center justify-center rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-3 text-center shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
-                    <span className="mb-2 text-[9px] font-black uppercase tracking-[0.26em] text-cyan-400">Final Rating</span>
-                    <span className="text-5xl font-black italic tracking-tight text-zinc-200 drop-shadow-[0_0_18px_rgba(34,211,238,0.18)]">
+                    <span className={`mb-2 text-[9px] font-black uppercase tracking-[0.26em] ${ratingTone.text.split(' ')[0]}`}>Final Rating</span>
+                    <span className={`text-5xl font-black italic tracking-tight text-zinc-200 drop-shadow-[0_0_18px_${ratingTone.stroke || 'rgba(34,211,238,0.18)'}]`}>
                       {displayedFinalRating}
                     </span>
                   </div>
@@ -8728,13 +8732,13 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   {/* Left Column Stack: Final Rating then Categories */}
                   <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden text-center flex flex-col justify-center h-[180px] shadow-lg group hover:border-zinc-700 transition-colors">
                     <div className="relative z-10 flex flex-col items-center justify-center">
-                      <span className="font-sans text-[10px] uppercase tracking-[0.45em] mb-4 text-green-300/80">Final Rating</span>
+                      <span className={`font-sans text-[10px] uppercase tracking-[0.45em] mb-4 ${ratingTone.text.split(' ')[0]}/80`}>Final Rating</span>
                       <div className="relative leading-none">
                         <>
-                          <span className="absolute inset-0 block text-6xl font-black italic tracking-tighter text-green-400/90 blur-[25.9px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none">
+                          <span className={`absolute inset-0 block text-6xl font-black italic tracking-tighter ${ratingTone.text.split(' ')[0]}/90 blur-[25.9px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none`}>
                             {displayedFinalRating}
                           </span>
-                          <span className="relative block text-6xl font-black italic tracking-tighter text-green-400 blur-[18.5px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_rgba(74,222,128,0.4)]">
+                          <span className={`relative block text-6xl font-black italic tracking-tighter ${ratingTone.text.split(' ')[0]} blur-[18.5px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_${ratingTone.stroke || 'rgba(74,222,128,0.4)'}]`}>
                             {displayedFinalRating}
                           </span>
                         </>
