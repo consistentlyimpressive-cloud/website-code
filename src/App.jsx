@@ -1993,13 +1993,23 @@ const CommunityScanCard = ({
 
         <div className={`absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black via-black/80 to-transparent ${compact ? 'p-3' : 'p-4'} flex flex-col items-start [transform:translateZ(32px)]`}>
           <div className="flex items-baseline justify-between w-full pr-3 mb-1.5">
-            <div className="flex items-baseline gap-1">
-              <span className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${ratingTone.text}`}>{rating.toFixed(1)}</span>
-              <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
+            <div className="flex items-baseline gap-1 relative">
+              <span className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${ratingTone.text} ${window.innerWidth <= 768 ? 'blur-[8px] select-none' : ''}`}>
+                {rating.toFixed(1)}
+              </span>
+              <span className={`text-[10px] text-zinc-400 font-bold uppercase tracking-widest ${window.innerWidth <= 768 ? 'blur-[2px] opacity-30' : ''}`}>/100</span>
+              
+              {window.innerWidth <= 768 && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center -top-2">
+                  <div className="flex items-center gap-1.5 bg-yellow-500/15 border border-yellow-500/30 px-2.5 py-1 rounded-full backdrop-blur-md shadow-[0_0_20px_rgba(234,179,8,0.25)] scale-[0.85]">
+                    <Lock size={10} className="text-yellow-500 fill-yellow-500/20" />
+                    <span className="text-[7px] font-black uppercase tracking-[0.1em] text-yellow-500">Unlock Premium</span>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               <Activity size={12} className="text-cyan-400" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">{votesCount} Votes</span>
             </div>
           </div>
           <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-[0.2em]">
@@ -8495,9 +8505,19 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                 <div className="grid gap-3">
                   <div className="flex min-h-[7.25rem] flex-col items-center justify-center rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-3 text-center shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
                     <span className={`mb-2 text-[9px] font-black uppercase tracking-[0.26em] ${ratingTone.text.split(' ')[0]}`}>Final Rating</span>
-                    <span className={`text-5xl font-black italic tracking-tight text-zinc-200 drop-shadow-[0_0_18px_${ratingTone.stroke || 'rgba(34,211,238,0.18)'}]`}>
-                      {displayedFinalRating}
-                    </span>
+                    <div className="relative">
+                      <span className={`text-5xl font-black italic tracking-tight text-zinc-200 drop-shadow-[0_0_18px_${ratingTone.stroke || 'rgba(34,211,238,0.18)'}] ${isFreeModelResult ? 'blur-[8px] select-none' : ''}`}>
+                        {displayedFinalRating}
+                      </span>
+                      {isFreeModelResult && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <div className="flex items-center gap-1.5 bg-yellow-500/15 border border-yellow-500/30 px-3 py-1.5 rounded-full backdrop-blur-md shadow-[0_0_20px_rgba(234,179,8,0.3)]">
+                            <Lock size={12} className="text-yellow-500 fill-yellow-500/20" />
+                            <span className="text-[8px] font-black uppercase tracking-[0.12em] text-yellow-500">Unlock Premium</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="relative flex min-h-[7.25rem] items-center justify-center overflow-hidden rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-4 shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.08)_0%,transparent_72%)]" />
@@ -11633,7 +11653,11 @@ const App = () => {
         )}
         {currentPage === 'plans' && <PlansPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'mog-battles' && (
-          <MogBattlePage2 user={user} setCurrentPage={setCurrentPage} />
+          window.innerWidth > 768 ? (
+            <MogBattlePage user={user} setCurrentPage={setCurrentPage} />
+          ) : (
+            <MogBattlePage2 user={user} setCurrentPage={setCurrentPage} />
+          )
         )}
         {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} user={user} />}
@@ -11644,7 +11668,7 @@ const App = () => {
         {currentPage === 'profile' && (
           <UserProfilePage user={user} userPlan={userPlan} setCurrentPage={setCurrentPage} />
         )}
-        {currentPage === 'celebrity' && <ScansPage2 setCurrentPage={setCurrentPage} setSelectedCelebrity={setSelectedCelebrity} user={user} />}
+        {currentPage === 'celebrity' && <ScansPage setCurrentPage={setCurrentPage} setSelectedCelebrity={setSelectedCelebrity} user={user} />}
         {currentPage === 'celebrity-stats' && selectedCelebrity && <CelebrityStatsPage celeb={selectedCelebrity} setCurrentPage={setCurrentPage} />}
         {currentPage === 'public-scan' && (
           <PublicProfilePage
@@ -11698,15 +11722,15 @@ const App = () => {
              <button onClick={() => setCurrentPage('tos')} className="text-zinc-500 hover:text-zinc-300 text-xs font-sans transition-colors uppercase tracking-widest">Terms of Service</button>
              <button onClick={() => setCurrentPage('privacy')} className="text-zinc-500 hover:text-zinc-300 text-xs font-sans transition-colors uppercase tracking-widest">Privacy Policy</button>
           </div>
-          <p className="text-zinc-600 text-[10px] font-sans uppercase tracking-[0.5em]">Peak Performance Aesthetics (c) 2026</p>
+          <p className="text-zinc-600 text-[10px] font-sans uppercase tracking-[0.5em]">2024</p>
         </footer>
       )}
     </div>
   );
 };
 
-// --- Scans Page 2 ---
-const ScansPage2 = ({ setCurrentPage, setSelectedCelebrity, user }) => {
+// --- Scans Page ---
+const ScansPage = ({ setCurrentPage, setSelectedCelebrity, user }) => {
   const [communityScans, setCommunityScans] = useState([]);
   const [filterMode, setFilterMode] = useState('all');
   const [communitySort, setCommunitySort] = useState('latest');
@@ -11951,7 +11975,7 @@ const ScansPage2 = ({ setCurrentPage, setSelectedCelebrity, user }) => {
       )}
       <div className="absolute inset-0 bg-gradient-to-b from-[#0c0d0e] via-zinc-900/20 to-[#0c0d0e] -z-10" />
       <div className="w-full max-w-[1400px] mx-auto flex flex-col items-center text-center">
-        <h2 className="text-3xl font-black italic uppercase tracking-widest text-white mb-2">Scans 2</h2>
+        <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white mb-2">Scans</h2>
         <p className="text-zinc-500 uppercase tracking-widest text-xs mb-8">Verified scans and live community scans with shareable links.</p>
 
         {/* Filters */}

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Newspaper, Swords, Users, ChevronRight, Plus } from 'lucide-react';
+import { Newspaper, Swords, Users, ChevronRight, Plus, Lock } from 'lucide-react';
 import { COMMUNITY_SCANS } from '../data/communityScans';
 import { celebrityData } from '../data/celebrityData';
 import { getApiBase } from '../utils/apiBase';
@@ -271,11 +271,20 @@ function DashboardHubCommunityScanCard({ scan, compact = false, onOpen }) {
           </div>
 
           <div className={`absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black via-black/80 to-transparent ${compact ? 'p-3' : 'p-4'} flex flex-col items-start [transform:translateZ(32px)]`}>
-            <div className="mb-2 flex items-baseline gap-1">
-              <span className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${ratingTone.text}`}>
+            <div className="mb-2 flex items-baseline gap-1 relative">
+              <span className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${ratingTone.text} ${window.innerWidth <= 768 ? 'blur-[8px] select-none' : ''}`}>
                 {rating.toFixed(1)}
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">/100</span>
+              <span className={`text-[10px] font-bold uppercase tracking-widest text-zinc-400 ${window.innerWidth <= 768 ? 'blur-[2.5px] opacity-25' : ''}`}>/100</span>
+              
+              {window.innerWidth <= 768 && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center -top-4">
+                  <div className="flex items-center gap-1.5 bg-yellow-500/15 border border-yellow-500/30 px-2.5 py-1 rounded-full backdrop-blur-md shadow-[0_0_20px_rgba(234,179,8,0.25)] scale-[0.85]">
+                    <Lock size={10} className="text-yellow-500 fill-yellow-500/20" />
+                    <span className="text-[7px] font-black uppercase tracking-[0.1em] text-yellow-500">Unlock Premium</span>
+                  </div>
+                </div>
+              )}
             </div>
             <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-500">
               Community Scan - {modelLabel(dd?.selectedModel || scan?.model)}
