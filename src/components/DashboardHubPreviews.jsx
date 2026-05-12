@@ -275,7 +275,7 @@ function DashboardHubCommunityScanCard({ scan, compact = false, onOpen }) {
               <span 
                 className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums`}
                 style={{
-                  background: `linear-gradient(to top, ${ratingTone.stroke || '#22d3ee'}, #ffffff)`,
+                  background: `linear-gradient(to bottom, #ffffff 40%, ${ratingTone.stroke || '#22d3ee'})`,
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   filter: 'saturate(0.85)'

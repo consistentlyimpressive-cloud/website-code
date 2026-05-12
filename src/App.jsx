@@ -1995,8 +1995,11 @@ const CommunityScanCard = ({
           <div className="flex items-baseline justify-between w-full pr-3 mb-1.5">
             <div className="flex items-baseline gap-1 relative">
               <span 
-                className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${ratingTone.text} ${(window.innerWidth <= 768 && !scan.officialScan) ? 'blur-[8px] select-none' : ''}`}
+                className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${(window.innerWidth <= 768 && !scan.officialScan) ? 'blur-[8px] select-none' : ''}`}
                 style={{
+                  background: (window.innerWidth <= 768 && !scan.officialScan) ? 'none' : `linear-gradient(to bottom, #ffffff 40%, ${ratingTone.stroke || '#22d3ee'})`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
                   filter: (window.innerWidth <= 768 && !scan.officialScan) ? 'blur(8px)' : 'none'
                 }}
               >
@@ -8514,7 +8517,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       <span 
                         className={`text-5xl font-black italic tracking-tight drop-shadow-[0_0_18px_${ratingTone.stroke || 'rgba(34,211,238,0.18)'}] ${isFreeModelResult ? 'select-none animate-free-rating-bg' : ''}`}
                         style={{
-                          background: isFreeModelResult ? 'none' : '#ffffff',
+                          background: isFreeModelResult ? 'none' : `linear-gradient(to bottom, #ffffff 40%, ${ratingTone.stroke || '#22d3ee'})`,
                           WebkitBackgroundClip: 'text',
                           WebkitTextFillColor: 'transparent',
                           filter: `saturate(0.85) ${isFreeModelResult ? 'blur(8px)' : ''}`
@@ -8785,7 +8788,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                         <span 
                           className={`block font-black tracking-tighter ${isFreeModelResult ? 'text-3xl animate-free-rating-bg' : 'text-[5.5rem] md:text-[6.5rem]'}`}
                           style={{
-                            background: isFreeModelResult ? 'none' : '#ffffff',
+                            background: isFreeModelResult ? 'none' : `linear-gradient(to bottom, #ffffff 40%, ${ratingTone.stroke || '#22d3ee'})`,
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
                             filter: 'saturate(0.85)'
