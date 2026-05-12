@@ -218,7 +218,7 @@ const FighterBattleCard = ({ battle, side, stats, onVote, currentUserUid, action
       }}
       className={`group relative w-full max-w-[460px] overflow-hidden rounded-[18px] border bg-[#050506] transition-all duration-700 ease-[cubic-bezier(.16,1,.3,1)] hover:-translate-y-2 ${toneBorder} ${toneShadow} ${hasVoted && path ? 'cursor-pointer' : ''}`}
     >
-      <div className="relative aspect-[9/16] min-h-[500px] max-h-[660px] w-full overflow-hidden rounded-t-[18px]">
+      <div className="relative aspect-[9/16] md:min-h-[500px] max-h-[660px] w-full overflow-hidden rounded-t-[18px]">
         <img
           src={fighterImage(fighter)}
           alt={fighterName(fighter)}
@@ -240,17 +240,17 @@ const FighterBattleCard = ({ battle, side, stats, onVote, currentUserUid, action
               background: 'linear-gradient(135deg, rgba(16,185,129,0.24), rgba(5,78,63,0.30))',
             }}
           >
-            <Trophy size={17} /> Winner
+            <Trophy size={14} className="md:w-[17px]" /> Winner
           </div>
         )}
-        <div className="absolute inset-x-6 bottom-7 z-10">
+        <div className="absolute inset-x-3 md:inset-x-6 bottom-4 md:bottom-7 z-10">
           {hasVoted ? (
             <>
-              <div className={`text-5xl font-black tracking-[-0.04em] ${toneText}`}>{stats.percent}%</div>
-              <div className="mt-2 text-xs font-black uppercase tracking-[0.22em] text-zinc-300">{formatCount(stats.votes)} votes</div>
+              <div className={`text-2xl md:text-5xl font-black tracking-[-0.04em] ${toneText}`}>{stats.percent}%</div>
+              <div className="mt-1 text-[8px] md:text-xs font-black uppercase tracking-[0.22em] text-zinc-300">{formatCount(stats.votes)} votes</div>
             </>
           ) : (
-            <div className="h-[76px]" />
+            <div className="h-[40px] md:h-[76px]" />
           )}
           <button
             type="button"
@@ -258,9 +258,9 @@ const FighterBattleCard = ({ battle, side, stats, onVote, currentUserUid, action
               e.stopPropagation();
               if (!hasVoted) onVote(side); 
             }}
-            className={`mt-5 w-full rounded-lg px-5 py-3.5 text-sm font-black uppercase tracking-[0.18em] transition-all duration-300 ${!hasVoted ? 'hover:-translate-y-0.5' : 'cursor-default'} ${voteClass}`}
+            className={`mt-3 md:mt-5 w-full rounded-lg px-3 py-2 md:px-5 md:py-3.5 text-[10px] md:text-sm font-black uppercase tracking-[0.18em] transition-all duration-300 ${!hasVoted ? 'hover:-translate-y-0.5' : 'cursor-default'} ${voteClass}`}
           >
-            {hasVoted ? (path ? 'View Analysis' : 'Voted') : 'Vote'}
+            {hasVoted ? (path ? (window.innerWidth < 768 ? 'Analysis' : 'View Analysis') : 'Voted') : 'Vote'}
           </button>
         </div>
       </div>
@@ -654,9 +654,9 @@ const MogBattlePage2 = ({ user, setCurrentPage }) => {
             </div>
             
             {/* Mobile: horizontal scroll, Desktop: vertical list */}
-            <div className="lg:hidden overflow-x-auto px-4 py-4">
-              <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
-                {leaderboardSlots.slice(0, 8).map((row, i) => (
+            <div className="lg:hidden overflow-x-auto px-4 py-4 custom-scrollbar">
+              <div className="flex gap-4" style={{ minWidth: 'max-content' }}>
+                {leaderboardSlots.slice(0, 10).map((row, i) => (
                   <div key={row?.key || `empty-${i}`} className="shrink-0 w-[140px]">
                     {row ? (
                       <button
@@ -686,7 +686,7 @@ const MogBattlePage2 = ({ user, setCurrentPage }) => {
                         <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-500">{row.wins} Wins</p>
                       </button>
                     ) : (
-                      <div className="flex flex-col items-center rounded-2xl border border-transparent bg-white/[0.01] p-4">
+                      <div className="flex flex-col items-center justify-center h-[140px] rounded-2xl border border-zinc-800 bg-white/[0.01] p-4">
                         <span className="text-lg font-black text-zinc-800">#{i + 1}</span>
                       </div>
                     )}
