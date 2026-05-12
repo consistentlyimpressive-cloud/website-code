@@ -1994,12 +1994,17 @@ const CommunityScanCard = ({
         <div className={`absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black via-black/80 to-transparent ${compact ? 'p-3' : 'p-4'} flex flex-col items-start [transform:translateZ(32px)]`}>
           <div className="flex items-baseline justify-between w-full pr-3 mb-1.5">
             <div className="flex items-baseline gap-1 relative">
-              <span className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${ratingTone.text} ${window.innerWidth <= 768 ? 'blur-[8px] select-none' : ''}`}>
+              <span 
+                className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${ratingTone.text} ${(window.innerWidth <= 768 && !scan.officialScan) ? 'blur-[8px] select-none' : ''}`}
+                style={{
+                  filter: (window.innerWidth <= 768 && !scan.officialScan) ? 'blur(8px)' : 'none'
+                }}
+              >
                 {rating.toFixed(1)}
               </span>
-              <span className={`text-[10px] text-zinc-400 font-bold uppercase tracking-widest ${window.innerWidth <= 768 ? 'blur-[2px] opacity-30' : ''}`}>/100</span>
+              <span className={`text-[10px] text-zinc-400 font-bold uppercase tracking-widest ${(window.innerWidth <= 768 && !scan.officialScan) ? 'blur-[2px] opacity-30' : ''}`}>/100</span>
               
-              {window.innerWidth <= 768 && (
+              {window.innerWidth <= 768 && !scan.officialScan && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center -top-2">
                   <div className="flex items-center gap-1.5 bg-yellow-500/15 border border-yellow-500/30 px-2.5 py-1 rounded-full backdrop-blur-md shadow-[0_0_20px_rgba(234,179,8,0.25)] scale-[0.85]">
                     <Lock size={10} className="text-yellow-500 fill-yellow-500/20" />
@@ -8505,15 +8510,14 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                 <div className="grid gap-3">
                   <div className="flex min-h-[7.25rem] flex-col items-center justify-center rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-3 text-center shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
                     <span className="mb-2 text-[10px] font-black uppercase tracking-[0.26em] text-white">Final Rating</span>
-                    <span className="mb-2 text-[10px] font-black uppercase tracking-[0.26em] text-white">Final Rating</span>
                     <div className="relative">
                       <span 
-                        className={`text-5xl font-black italic tracking-tight drop-shadow-[0_0_18px_${ratingTone.stroke || 'rgba(34,211,238,0.18)'}] ${isFreeModelResult ? 'blur-[8px] select-none' : ''}`}
+                        className={`text-5xl font-black italic tracking-tight drop-shadow-[0_0_18px_${ratingTone.stroke || 'rgba(34,211,238,0.18)'}] ${isFreeModelResult ? 'select-none' : ''}`}
                         style={{
                           background: '#ffffff',
                           WebkitBackgroundClip: 'text',
                           WebkitTextFillColor: 'transparent',
-                          filter: 'saturate(0.85)'
+                          filter: `saturate(0.85) ${isFreeModelResult ? 'blur(8px)' : ''}`
                         }}
                       >
                         {displayedFinalRating}
@@ -8659,23 +8663,23 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       <div className="relative leading-none">
                         <>
                           <span 
-                            className={`absolute inset-0 block text-6xl font-black italic tracking-tighter blur-[25.9px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none`}
+                            className={`absolute inset-0 block text-6xl font-black italic tracking-tighter animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none`}
                             style={{
                               background: '#ffffff',
                               WebkitBackgroundClip: 'text',
                               WebkitTextFillColor: 'transparent',
-                              filter: 'saturate(0.85)'
+                              filter: 'saturate(0.85) blur(25.9px)'
                             }}
                           >
                             {displayedFinalRating}
                           </span>
                           <span 
-                            className={`relative block text-6xl font-black italic tracking-tighter blur-[18.5px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_${ratingTone.stroke || 'rgba(74,222,128,0.4)'}]`}
+                            className={`relative block text-6xl font-black italic tracking-tighter animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_${ratingTone.stroke || 'rgba(74,222,128,0.4)'}]`}
                             style={{
                               background: '#ffffff',
                               WebkitBackgroundClip: 'text',
                               WebkitTextFillColor: 'transparent',
-                              filter: 'saturate(0.85)'
+                              filter: 'saturate(0.85) blur(18.5px)'
                             }}
                           >
                             {displayedFinalRating}
