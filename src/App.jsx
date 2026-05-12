@@ -2007,14 +2007,6 @@ const CommunityScanCard = ({
               </span>
               <span className={`text-[10px] text-zinc-400 font-bold uppercase tracking-widest ${(window.innerWidth <= 768 && !scan.officialScan) ? 'blur-[2px] opacity-30' : ''}`}>/100</span>
               
-              {window.innerWidth <= 768 && !scan.officialScan && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center -top-2">
-                  <div className="flex items-center gap-1.5 bg-yellow-500/15 border border-yellow-500/30 px-2.5 py-1 rounded-full backdrop-blur-md shadow-[0_0_20px_rgba(234,179,8,0.25)] scale-[0.85]">
-                    <Lock size={10} className="text-yellow-500 fill-yellow-500/20" />
-                    <span className="text-[7px] font-black uppercase tracking-[0.1em] text-yellow-500">Unlock Premium</span>
-                  </div>
-                </div>
-              )}
             </div>
             <div className="flex items-center gap-1.5">
               <Activity size={12} className="text-cyan-400" />
