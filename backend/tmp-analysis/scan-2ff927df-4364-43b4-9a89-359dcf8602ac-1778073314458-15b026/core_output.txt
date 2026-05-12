@@ -1,0 +1,288 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+8. PENIS GOAT 2
+9. PENIS GOAT 3
+
+[DEBUG] Model selected via API args: 2
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1778073313951-68533fea86e80800.jpg ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-2ff927df-4364-43b4-9a89-359dcf8602ac-1778073314458-15b026\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (264.3px)
+- Auto-Leveling: Corrected 16.88 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.915
+- IPD_Index (Geometric):    0.488
+- Mouth_Width_Index:        0.37
+- Nose_Width_Index:         0.234
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.285
+- Middle_Third_Length:      0.484
+- Lower_Third_Length:       0.558
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.059
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.123
+- Philtrum_Height_Index:    0.162
+- Total_Lip_Height_Index:   0.094
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.548
+- Midface_Ratio (Mid/IPD):  1.072
+- Canthal_Tilt_Degrees:     -0.11 (negative tilt; Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting Backup Model... (Press Ctrl+C to Cancel)
+[KEY_HEALTH] Skipping keys this scan: GEMINI_KEY_1:disabled, GEMINI_KEY_3:disabled
+[DEBUG] Google GenAI key order this scan: GEMINI_KEY_5, GEMINI_KEY_4, GEMINI_KEY_2
+[DEBUG] Trying Google GenAI GEMINI_KEY_5 (1/3)...
+[TOKEN_USAGE] {"scan_id":"scan-2ff927df-4364-43b4-9a89-359dcf8602ac","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":5,"attempt_number":1,"success":true,"duration_ms":98410,"input_token_count":7546,"output_token_count":2038,"total_token_count":10781,"estimated_input_tokens":8493,"max_output_tokens":1500,"image_included":true,"timestamp":1778073415139}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: Backup Model | Latency: 98.42s]
+{
+  "sex": "male",
+  "finalRating": 46,
+  "sideRating": null,
+  "tier": "low-tier",
+  "authenticityFlag": false,
+  "uncannyCueCount": 0,
+  "uncannyCues": [],
+  "visualBucket": "LOW-TIER/4-RANGE",
+  "facialFatDefinitionRead": "normal",
+  "technicalSummary": "Narrow facial width combined with significant vertical elongation in the lower third. Severe philtrum length and negative canthal tilt detract from eye and mouth area harmony.",
+  "appealAssessment": "Lower-average appeal. The face lacks structural breadth and suffers from several proportional bottlenecks and orbital tiredness that prevent an above-average read.",
+  "personalizedInterpretation": "A narrow, vertically stretched facial layout characterized by tired orbital regions and a disproportionately long philtrum.",
+  "categories": {
+    "Harmony": 42,
+    "Bone": 45,
+    "Symmetry": 68,
+    "Skin": 62,
+    "Dimorphism": 40,
+    "Maxillary/Cheekbone Projection": 48,
+    "Nose Projection": 60,
+    "Facial Fat": 55,
+    "Eye Depth": 42,
+    "Ear Shape": 50
+  },
+  "hexagonFront": {
+    "Harmony": 42,
+    "Bone": 45,
+    "Symmetry": 68,
+    "Skin": 62,
+    "Dimorphism": 40,
+    "Facial Fat": 55
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.548",
+      "score": 38,
+      "impact": "negative",
+      "note": "Clearly narrow; lacks the masculine breadth required for higher tiers."
+    },
+    {
+      "name": "Bigonial_Width_Index",
+      "value": "0.915",
+      "score": 72,
+      "impact": "neutral",
+      "note": "Acceptable jaw width, but negated by the overall narrow fWHR."
+    },
+    {
+      "name": "Midface_Ratio",
+      "value": "1.072",
+      "score": 55,
+      "impact": "negative",
+      "note": "Slightly elongated midface, contributing to a stretched look."
+    },
+    {
+      "name": "Philtrum_Height_Index",
+      "value": "0.162",
+      "score": 22,
+      "impact": "negative",
+      "note": "Severely elongated philtrum; a major aesthetic bottleneck."
+    },
+    {
+      "name": "Canthal_Tilt_Degrees",
+      "value": "-0.11",
+      "score": 45,
+      "impact": "negative",
+      "note": "Neutral to negative tilt, contributing to a tired eye appearance."
+    },
+    {
+      "name": "Lower_Third_Length",
+      "value": "0.558",
+      "score": 35,
+      "impact": "negative",
+      "note": "Excessively long lower third, creating vertical disharmony."
+    },
+    {
+      "name": "Upper_Third_Length",
+      "value": "0.285",
+      "score": 40,
+      "impact": "negative",
+      "note": "Compressed upper third, exacerbating the lower face elongation."
+    },
+    {
+      "name": "Mouth_Width_Index",
+      "value": "0.37",
+      "score": 92,
+      "impact": "positive",
+      "note": "Ideal mouth width relative to facial scale."
+    },
+    {
+      "name": "Nose_Width_Index",
+      "value": "0.234",
+      "score": 78,
+      "impact": "positive",
+      "note": "Balanced nasal width; does not disrupt harmony."
+    },
+    {
+      "name": "Total_Lip_Height_Index",
+      "value": "0.094",
+      "score": 42,
+      "impact": "negative",
+      "note": "Thin lips that lack presence and volume."
+    },
+    {
+      "name": "IPD_Index",
+      "value": "0.488",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Slightly wide-set eyes, though within acceptable limits."
+    },
+    {
+      "name": "Eye_Height_Index",
+      "value": "0.059",
+      "score": 75,
+      "impact": "neutral",
+      "note": "Balanced eye height, but undermined by orbital tiredness."
+    },
+    {
+      "name": "Brow_Compactness_Index",
+      "value": "0.123",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Moderate compactness; brow framing is adequate."
+    },
+    {
+      "name": "Facial Symmetry",
+      "value": "Visual",
+      "score": 68,
+      "impact": "positive",
+      "note": "Good overall symmetry across the frontal plane."
+    },
+    {
+      "name": "Skin Texture",
+      "value": "Visual",
+      "score": 62,
+      "impact": "neutral",
+      "note": "Generally clear skin, though under-eye puffiness is visible."
+    },
+    {
+      "name": "Orbital Support",
+      "value": "Visual",
+      "score": 38,
+      "impact": "negative",
+      "note": "Visible infraorbital puffiness and tired read."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Mouth Width",
+      "description": "The mouth width is mathematically ideal, providing a rare point of proportional balance."
+    },
+    {
+      "title": "Facial Symmetry",
+      "description": "Strong bilateral symmetry prevents further score degradation."
+    },
+    {
+      "title": "Nasal Proportions",
+      "description": "The nose width is well-integrated and does not appear overly broad or pinched."
+    },
+    {
+      "title": "Skin Clarity",
+      "description": "The skin is relatively clear of major blemishes or texture issues."
+    },
+    {
+      "title": "Brow Density",
+      "description": "Eyebrows are well-filled and provide decent framing for the upper face."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Severe Philtrum Length",
+      "description": "The distance between the nose and upper lip is excessively long, disrupting lower face harmony."
+    },
+    {
+      "title": "Narrow fWHR",
+      "description": "Lack of facial breadth creates a thin, less masculine appearance."
+    },
+    {
+      "title": "Vertical Disharmony",
+      "description": "The combination of a compressed upper third and an elongated lower third creates a stretched effect."
+    },
+    {
+      "title": "Orbital Tiredness",
+      "description": "Negative canthal tilt and infraorbital puffiness create a fatigued, low-energy eye area."
+    },
+    {
+      "title": "Thin Lip Volume",
+      "description": "Inconspicuous lip height reduces the aesthetic appeal of the mouth region."
+    }
+  ],
+  "pros": [
+    "Good symmetry",
+    "Balanced nose width",
+    "Ideal mouth width",
+    "Clear skin texture"
+  ],
+  "cons": [
+    "Very long philtrum",
+    "Narrow facial structure",
+    "Tired eye area",
+    "Poor vertical thirds balance"
+  ],
+  "mainLimitingFactor": "The combination of a severely elongated philtrum and narrow fWHR creates a stretched, low-dimorphism read that caps the score in the 40s.",
+  "qualityFlags": [
+    "Lighting is high-contrast",
+    "Beard obscures jawline definition"
+  ],
+  "confidenceFlags": [
+    "Jawline definition estimated due to facial hair"
+  ],
+  "debugJustification": "Band 4 (Low-tier). Score driven by narrow fWHR (1.548), severe philtrum length (0.162), and negative canthal tilt. Vertical imbalance (long lower third vs compressed upper third) creates a stretched appearance. No strong redeeming structural markers to lift it into the 50s."
+}

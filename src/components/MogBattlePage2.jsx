@@ -609,7 +609,7 @@ const MogBattlePage2 = ({ user, setCurrentPage }) => {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#030304] px-4 pb-24 pt-28 text-white sm:px-6 lg:px-8">
+    <div className="relative min-h-screen overflow-hidden bg-[#030304] px-4 pb-28 md:pb-24 pt-28 text-white sm:px-6 lg:px-8">
       <style>{`
         @keyframes mogBattle2Stats_ {
           from { opacity: 0; transform: translateY(-26px) scaleY(.92); filter: blur(8px); }
@@ -653,18 +653,61 @@ const MogBattlePage2 = ({ user, setCurrentPage }) => {
               </div>
             </div>
             
-            <div className="relative p-4 pb-0 space-y-2">
+            {/* Mobile: horizontal scroll, Desktop: vertical list */}
+            <div className="lg:hidden overflow-x-auto px-4 py-4">
+              <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
+                {leaderboardSlots.slice(0, 8).map((row, i) => (
+                  <div key={row?.key || `empty-${i}`} className="shrink-0 w-[140px]">
+                    {row ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const match = sortedBattles.find((battle) =>
+                            fighterName(battle.fighterA) === row.name || fighterName(battle.fighterB) === row.name
+                          );
+                          if (match) setActiveBattleId(match.id);
+                        }}
+                        className={`group relative flex w-full flex-col items-center gap-2 overflow-hidden rounded-2xl border p-3 text-center transition-all duration-300 hover:border-cyan-500/30 ${
+                          i < 3
+                            ? `bg-gradient-to-b ${['from-yellow-400/20 to-transparent border-yellow-400/30', 'from-zinc-300/20 to-transparent border-zinc-300/30', 'from-orange-400/20 to-transparent border-orange-400/30'][i]}`
+                            : 'border-transparent bg-white/[0.02]'
+                        }`}
+                      >
+                        <div className="relative">
+                          <img src={row.image} alt={row.name} className="h-14 w-14 rounded-xl object-cover shadow-lg" referrerPolicy="no-referrer" />
+                          {i === 0 && (
+                            <span className="absolute -right-1 -top-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-yellow-300/50 bg-yellow-400 text-black shadow-[0_0_12px_rgba(250,204,21,0.6)]">
+                              <Crown size={10} fill="currentColor" />
+                            </span>
+                          )}
+                        </div>
+                        <span className={`text-lg font-black italic ${['text-yellow-400', 'text-zinc-300', 'text-orange-400'][i] || 'text-zinc-600'}`}>#{i + 1}</span>
+                        <p className="truncate w-full text-[10px] font-black uppercase tracking-widest text-zinc-200">{row.name}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-500">{row.wins} Wins</p>
+                      </button>
+                    ) : (
+                      <div className="flex flex-col items-center rounded-2xl border border-transparent bg-white/[0.01] p-4">
+                        <span className="text-lg font-black text-zinc-800">#{i + 1}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Desktop: vertical list */}
+            <div className="relative p-4 pb-0 space-y-2 hidden lg:block">
               {leaderboardSlots.slice(0, 8).map((row, i) => renderLeaderboardRow(row, i))}
             </div>
             
-            <div className={`grid transition-all duration-700 ease-[cubic-bezier(.16,1,.3,1)] ${leaderboardExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+            <div className={`hidden lg:grid transition-all duration-700 ease-[cubic-bezier(.16,1,.3,1)] ${leaderboardExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
               <div className="overflow-hidden">
                 <div className="px-4 pb-0 space-y-2 pt-2">
                   {leaderboardSlots.slice(8, 16).map((row, i) => renderLeaderboardRow(row, i + 8))}
                 </div>
               </div>
             </div>
-            <div className="p-4 pt-2">
+            <div className="p-4 pt-2 hidden lg:block">
               <button
                 type="button"
                 onClick={() => setLeaderboardExpanded((prev) => !prev)}
@@ -733,24 +776,17 @@ const MogBattlePage2 = ({ user, setCurrentPage }) => {
                 return (
                   <div key={battle.id} className="relative">
                     {index > 0 && <div className="absolute -top-[48px] left-[15%] right-[15%] h-[1px] bg-white/[0.12]" />}
-                    <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,460px)_96px_minmax(0,460px)] lg:gap-0">
+                    <div className="grid items-start gap-3 grid-cols-[minmax(0,1fr)_60px_minmax(0,1fr)] lg:grid-cols-[minmax(0,460px)_96px_minmax(0,460px)] lg:gap-0">
                       <div className="flex justify-center">
                         <FighterBattleCard battle={battle} side="a" stats={bStats.a} hasVoted={hasVoted} onVote={() => castVote(battle, 'a')} currentUserUid={user?.uid} />
                       </div>
                       
-                      <div className="relative flex min-h-[560px] w-full items-center justify-center self-center">
-                        <div className="absolute inset-0 bg-[#02050a] [mask-image:linear-gradient(to_bottom,transparent_0%,black_15%,black_85%,transparent_100%)]" />
-
-                        <div className="absolute left-0 top-0 h-full w-[1px] bg-gradient-to-b from-transparent via-zinc-600 to-transparent opacity-50" />
-                        
-                        <div className="absolute right-0 top-0 h-full w-[1px] bg-gradient-to-b from-transparent via-zinc-600 to-transparent opacity-50" />
-
-                        <div className="absolute inset-0 bg-[radial-gradient(circle,#ffffff_1px,transparent_1px)] bg-[length:12px_12px] opacity-10 [mask-image:linear-gradient(to_bottom,transparent_15%,black_38%,black_62%,transparent_85%)]" />
-                        
-                        <div className="absolute h-32 w-32 rounded-full bg-zinc-500/10 blur-[35px] pointer-events-none" />
-
-                        <div className="relative z-10 flex h-[90px] w-[90px] shrink-0 items-center justify-center rounded-full bg-[#030304] border-[1px] border-zinc-700 shadow-[0_0_20px_rgba(255,255,255,0.05),inset_0_0_12px_rgba(255,255,255,0.02)] animate-[mogBattle2VsPulse__4s_ease-in-out_infinite]">
-                          <span className="text-[34px] font-black italic tracking-tighter text-zinc-300 drop-shadow-[0_2px_4px_rgba(0,0,0,1)] pr-1">VS</span>
+                      <div className="relative flex items-center justify-center self-center min-h-[200px] lg:min-h-[560px] w-full">
+                        <div className="absolute inset-0 bg-[#02050a] [mask-image:linear-gradient(to_bottom,transparent_0%,black_15%,black_85%,transparent_100%)] hidden lg:block" />
+                        <div className="absolute left-0 top-0 h-full w-[1px] bg-gradient-to-b from-transparent via-zinc-600 to-transparent opacity-50 hidden lg:block" />
+                        <div className="absolute right-0 top-0 h-full w-[1px] bg-gradient-to-b from-transparent via-zinc-600 to-transparent opacity-50 hidden lg:block" />
+                        <div className="relative z-10 flex h-[50px] w-[50px] lg:h-[90px] lg:w-[90px] shrink-0 items-center justify-center rounded-full bg-[#030304] border-[1px] border-zinc-700 shadow-[0_0_20px_rgba(255,255,255,0.05)]">
+                          <span className="text-[18px] lg:text-[34px] font-black italic tracking-tighter text-zinc-300 drop-shadow-[0_2px_4px_rgba(0,0,0,1)] pr-0.5">VS</span>
                         </div>
                       </div>
 

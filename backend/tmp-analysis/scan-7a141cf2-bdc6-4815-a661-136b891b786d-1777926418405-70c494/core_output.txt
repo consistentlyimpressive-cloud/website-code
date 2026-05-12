@@ -1,0 +1,251 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+8. PENIS GOAT 2
+
+[DEBUG] Model selected via API args: 8
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777926418397-f173e16598fd7e2b.jpg ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-7a141cf2-bdc6-4815-a661-136b891b786d-1777926418405-70c494\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (308.7px)
+- Auto-Leveling: Corrected 5.42 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.916
+- IPD_Index (Geometric):    0.429
+- Mouth_Width_Index:        0.336
+- Nose_Width_Index:         0.214
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.398
+- Middle_Third_Length:      0.434
+- Lower_Third_Length:       0.472
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.063
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.084
+- Philtrum_Height_Index:    0.112
+- Total_Lip_Height_Index:   0.109
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.832
+- Midface_Ratio (Mid/IPD):  1.084
+- Canthal_Tilt_Degrees:     6.06 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting PENIS GOAT 2... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-7a141cf2-bdc6-4815-a661-136b891b786d","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":13705,"input_token_count":2830,"output_token_count":1715,"total_token_count":4545,"estimated_input_tokens":2045,"max_output_tokens":4096,"image_included":true,"timestamp":1777926433747}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: PENIS GOAT 2 | Latency: 13.71s]
+{
+  "sex": "male",
+  "finalRating": 72,
+  "sideRating": null,
+  "tier": "High Tier",
+  "technicalSummary": "Strong underlying bone structure with excellent bizygomatic width and a highly masculine fWHR. Hairline occlusion override applied; upper third data disregarded due to hair volume. Soft tissue shows some signs of aging, but overall leanness and bone definition maintain elite status.",
+  "appealAssessment": "High masculine appeal driven by a wide, robust facial structure and striking eye color. While some soft tissue aging is present, the strong bone-to-skin tightness and dominant jawline preserve a highly attractive, rugged aesthetic.",
+  "personalizedInterpretation": "Benefiting from the 'Lean & Young' buffer logic due to exceptional bone structure and leanness, despite minor age-related soft tissue changes.",
+  "categories": {
+    "Harmony": 75,
+    "Bone": 85,
+    "Symmetry": 70,
+    "Skin": 60,
+    "Dimorphism": 88,
+    "Maxillary/Cheekbone Projection": 80,
+    "Nose Projection": 70,
+    "Facial Fat": 85,
+    "Eye Depth": 75,
+    "Ear Shape": 65
+  },
+  "hexagonFront": {
+    "Harmony": 75,
+    "Bone": 85,
+    "Symmetry": 70,
+    "Skin": 60,
+    "Dimorphism": 88,
+    "Facial Fat": 85
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.832",
+      "score": 90,
+      "impact": "positive",
+      "note": "Excellent facial width-to-height ratio, highly masculine."
+    },
+    {
+      "name": "Bigonial Width Index",
+      "value": "0.916",
+      "score": 85,
+      "impact": "positive",
+      "note": "Strong, wide jawline relative to cheekbones."
+    },
+    {
+      "name": "Midface Ratio",
+      "value": "1.084",
+      "score": 75,
+      "impact": "positive",
+      "note": "Compact midface, contributing to a robust appearance."
+    },
+    {
+      "name": "IPD Index",
+      "value": "0.429",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Average interpupillary distance."
+    },
+    {
+      "name": "Nose Width Index",
+      "value": "0.214",
+      "score": 70,
+      "impact": "neutral",
+      "note": "Proportionate nose width."
+    },
+    {
+      "name": "Mouth Width Index",
+      "value": "0.336",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Slightly narrow mouth relative to facial width."
+    },
+    {
+      "name": "Eye Height Index",
+      "value": "0.063",
+      "score": 75,
+      "impact": "positive",
+      "note": "Good vertically compact eye shape."
+    },
+    {
+      "name": "Brow Compactness",
+      "value": "0.084",
+      "score": 80,
+      "impact": "positive",
+      "note": "Low-set brows enhancing masculine framing."
+    },
+    {
+      "name": "Philtrum Height Index",
+      "value": "0.112",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Average philtrum length."
+    },
+    {
+      "name": "Total Lip Height Index",
+      "value": "0.109",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Moderate lip fullness."
+    },
+    {
+      "name": "Canthal Tilt",
+      "value": "6.06",
+      "score": 70,
+      "impact": "positive",
+      "note": "Positive canthal tilt, though slight upper eyelid exposure is present."
+    },
+    {
+      "name": "Lower Third Length",
+      "value": "0.472",
+      "score": 85,
+      "impact": "positive",
+      "note": "Dominant lower third, highly dimorphic."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Exceptional fWHR",
+      "description": "A highly masculine facial width-to-height ratio (1.832) creates a dominant, robust appearance."
+    },
+    {
+      "title": "Strong Jawline (Bigonial Width)",
+      "description": "The wide jawline (0.916 index) provides excellent lower face support and dimorphism."
+    },
+    {
+      "title": "Striking Eye Color",
+      "description": "Visually distinct light eyes contrast well with darker hair and skin tone."
+    },
+    {
+      "title": "Low-Set Brows",
+      "description": "Compact brow-to-eye distance enhances the intense, masculine gaze."
+    },
+    {
+      "title": "Facial Leanness",
+      "description": "Good bone-to-skin tightness highlights the underlying skeletal structure."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Upper Eyelid Exposure (UEE)",
+      "description": "Visible upper eyelid space slightly detracts from the otherwise strong eye area."
+    },
+    {
+      "title": "Soft Tissue Aging",
+      "description": "Minor signs of aging and skin laxity are visible, though offset by strong bone structure."
+    },
+    {
+      "title": "Slightly Narrow Mouth",
+      "description": "Mouth width is somewhat narrow relative to the exceptionally wide jaw and cheekbones."
+    },
+    {
+      "title": "Asymmetry",
+      "description": "Minor visual asymmetries in the eye and brow area."
+    },
+    {
+      "title": "Nasal Tip Refinement",
+      "description": "The nasal tip could be slightly more refined for optimal harmony."
+    }
+  ],
+  "pros": [
+    "Elite fWHR and facial width",
+    "Highly masculine jawline and chin",
+    "Striking eye color and low-set brows",
+    "Good facial leanness"
+  ],
+  "cons": [
+    "Some upper eyelid exposure",
+    "Minor soft tissue aging",
+    "Slightly narrow mouth relative to facial width"
+  ],
+  "mainLimitingFactor": "Upper eyelid exposure and minor soft tissue aging.",
+  "qualityFlags": [
+    "Hairline occluded by hair"
+  ],
+  "confidenceFlags": [
+    "High confidence in frontal bone structure assessment"
+  ],
+  "debugJustification": "Score driven by the 'Lean & Young' buffer logic; despite some age-related soft tissue changes, the exceptional bone structure, high fWHR, and overall leanness maintain a score in the low 70s."
+}

@@ -1,0 +1,262 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. ULTRA - Highest Quality
+2. Experimental Token Saver
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Gemini 3.1 Pro
+
+[DEBUG] Model selected via API args: 6
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777843619428-cd2206a31ef7759a.jpg ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-81977454-fa27-4c73-8f95-9a06222826f4-1777843619439-664775\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (523.9px)
+- Auto-Leveling: Corrected -2.84 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.911
+- IPD_Index (Geometric):    0.469
+- Mouth_Width_Index:        0.351
+- Nose_Width_Index:         0.222
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.363
+- Middle_Third_Length:      0.462
+- Lower_Third_Length:       0.475
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.063
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.09
+- Philtrum_Height_Index:    0.106
+- Total_Lip_Height_Index:   0.091
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.759
+- Midface_Ratio (Mid/IPD):  1.024
+- Canthal_Tilt_Degrees:     4.66 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting Gemini 3.1 Pro... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-81977454-fa27-4c73-8f95-9a06222826f4","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":18102,"input_token_count":8825,"output_token_count":2037,"total_token_count":10862,"estimated_input_tokens":10503,"max_output_tokens":4096,"image_included":true,"timestamp":1777843639971}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: Gemini 3.1 Pro | Latency: 18.11s]
+{
+  "sex": "male",
+  "finalRating": 74,
+  "sideRating": null,
+  "tier": "High-Tier",
+  "authenticityFlag": false,
+  "uncannyCueCount": 0,
+  "uncannyCues": [],
+  "visualBucket": "NATURAL/COHERENT HIGH-TIER",
+  "facialFatDefinitionRead": "lean",
+  "technicalSummary": "The subject presents a highly defined, angular facial structure with strong bigonial width and prominent cheekbones. The eye area is compact with positive canthal tilt, though some lower eyelid exposure is present.",
+  "appealAssessment": "A striking, highly masculine face driven by exceptional bone structure and leanness. The sharp jawline and prominent cheekbones create a powerful aesthetic, though slight asymmetry and minor eye area flaws prevent an elite score.",
+  "personalizedInterpretation": "Your facial structure is exceptionally strong, characterized by a sharp, wide jaw and prominent cheekbones. This level of definition is rare and highly attractive, though minor details in the eye area and slight asymmetry keep the score grounded.",
+  "categories": {
+    "Harmony": 72,
+    "Bone": 88,
+    "Symmetry": 68,
+    "Skin": 75,
+    "Dimorphism": 85,
+    "Maxillary/Cheekbone Projection": 82,
+    "Nose Projection": 0,
+    "Facial Fat": 85,
+    "Eye Depth": 70,
+    "Ear Shape": 0
+  },
+  "hexagonFront": {
+    "Harmony": 72,
+    "Bone": 88,
+    "Symmetry": 68,
+    "Skin": 75,
+    "Dimorphism": 85,
+    "Facial Fat": 85
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.759",
+      "score": 78,
+      "impact": "positive",
+      "note": "Good width-to-height ratio, contributing to a masculine appearance without being overly blocky."
+    },
+    {
+      "name": "Bigonial Width Index",
+      "value": "0.911",
+      "score": 85,
+      "impact": "positive",
+      "note": "Strong jaw width relative to cheekbones, creating a highly defined and angular lower third."
+    },
+    {
+      "name": "Midface Ratio",
+      "value": "1.024",
+      "score": 70,
+      "impact": "neutral",
+      "note": "Midface is slightly long but remains within an acceptable range, not significantly detracting from harmony."
+    },
+    {
+      "name": "IPD Index",
+      "value": "0.469",
+      "score": 75,
+      "impact": "positive",
+      "note": "Ideal interpupillary distance, ensuring well-spaced eyes."
+    },
+    {
+      "name": "Canthal Tilt",
+      "value": "4.66°",
+      "score": 80,
+      "impact": "positive",
+      "note": "Positive canthal tilt enhances the eye area, giving a more alert and attractive look."
+    },
+    {
+      "name": "Eye Height Index",
+      "value": "0.063",
+      "score": 72,
+      "impact": "neutral",
+      "note": "Balanced eye height, neither too narrow nor overly round."
+    },
+    {
+      "name": "Brow Compactness",
+      "value": "0.09",
+      "score": 82,
+      "impact": "positive",
+      "note": "Excellent brow compactness, framing the eyes well and adding to masculine dimorphism."
+    },
+    {
+      "name": "Nose Width Index",
+      "value": "0.222",
+      "score": 70,
+      "impact": "neutral",
+      "note": "Nose is slightly narrow but fits the overall angularity of the face."
+    },
+    {
+      "name": "Mouth Width Index",
+      "value": "0.351",
+      "score": 65,
+      "impact": "negative",
+      "note": "Mouth is slightly narrow relative to the strong jaw, creating a minor disharmony."
+    },
+    {
+      "name": "Philtrum Height Index",
+      "value": "0.106",
+      "score": 70,
+      "impact": "neutral",
+      "note": "Philtrum length is balanced and proportionate."
+    },
+    {
+      "name": "Total Lip Height Index",
+      "value": "0.091",
+      "score": 60,
+      "impact": "negative",
+      "note": "Lips are somewhat thin, which is a minor detractor from overall harmony."
+    },
+    {
+      "name": "Upper Third Length",
+      "value": "0.363",
+      "score": 75,
+      "impact": "positive",
+      "note": "Well-proportioned upper third."
+    },
+    {
+      "name": "Middle Third Length",
+      "value": "0.462",
+      "score": 72,
+      "impact": "neutral",
+      "note": "Middle third is balanced within the facial structure."
+    },
+    {
+      "name": "Lower Third Length",
+      "value": "0.475",
+      "score": 78,
+      "impact": "positive",
+      "note": "Strong lower third length, supporting the prominent jawline."
+    },
+    {
+      "name": "Facial Definition",
+      "value": "Lean",
+      "score": 88,
+      "impact": "positive",
+      "note": "Exceptional leanness highlights bone structure and angularity."
+    },
+    {
+      "name": "Symmetry",
+      "value": "Moderate",
+      "score": 65,
+      "impact": "negative",
+      "note": "Visible asymmetry in the jawline and eye placement slightly limits the score."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Bone Structure and Definition",
+      "description": "The face exhibits exceptional leanness, highlighting a very strong, angular jawline and prominent cheekbones. This creates a highly masculine and striking appearance."
+    },
+    {
+      "title": "Eye Area Framing",
+      "description": "Positive canthal tilt combined with excellent brow compactness provides a strong, intense frame for the eyes."
+    },
+    {
+      "title": "Lower Third Strength",
+      "description": "The bigonial width is very strong, providing a solid foundation for the face and enhancing overall dimorphism."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Slight Asymmetry",
+      "description": "There is noticeable asymmetry, particularly in the jawline and the alignment of the eyes, which disrupts overall harmony."
+    },
+    {
+      "title": "Thin Lips and Narrow Mouth",
+      "description": "The mouth is slightly narrow and the lips are thin, which contrasts with the very strong, wide jawline."
+    },
+    {
+      "title": "Minor Eye Area Flaws",
+      "description": "While the framing is good, there is some visible lower eyelid exposure and slight orbital tiredness."
+    }
+  ],
+  "pros": [
+    "Exceptional facial leanness and definition.",
+    "Strong, angular jawline with good bigonial width.",
+    "Positive canthal tilt and compact brows.",
+    "Prominent cheekbones."
+  ],
+  "cons": [
+    "Visible facial asymmetry.",
+    "Slightly thin lips and narrow mouth.",
+    "Minor lower eyelid exposure."
+  ],
+  "mainLimitingFactor": "Visible asymmetry and minor disharmony between the narrow mouth/thin lips and the very wide, strong jawline prevent the score from reaching the elite 80+ range.",
+  "qualityFlags": [],
+  "confidenceFlags": [],
+  "debugJustification": "Gemini anti-anchor check: Band chosen is 73-80 (High-Tier). The face has exceptional bone structure, leanness, and dimorphism, which drives the score up. However, it is capped at 74 due to visible asymmetry, thin lips/narrow mouth relative to the jaw, and slight eye area flaws (lower eyelid exposure). It is not defaulted to 66-68 because the bone structure and definition are genuinely standout and elevate the face above the 'decent' category, but the flaws prevent it from reaching the elite 80s."
+}

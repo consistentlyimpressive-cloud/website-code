@@ -1,0 +1,205 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+
+[DEBUG] Model selected via API args: 7
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777924235312-877f02b6b84fb666.png ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-88790098-0382-4486-aeb6-cf9be4d050c8-1777924235326-57489c\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (348.2px)
+- Auto-Leveling: Corrected 3.35 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.889
+- IPD_Index (Geometric):    0.455
+- Mouth_Width_Index:        0.343
+- Nose_Width_Index:         0.225
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.449
+- Middle_Third_Length:      0.474
+- Lower_Third_Length:       0.519
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.062
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.097
+- Philtrum_Height_Index:    0.108
+- Total_Lip_Height_Index:   0.122
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.72
+- Midface_Ratio (Mid/IPD):  1.067
+- Canthal_Tilt_Degrees:     5.42 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting penis goat... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-88790098-0382-4486-aeb6-cf9be4d050c8","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":19143,"input_token_count":3937,"output_token_count":1975,"total_token_count":5912,"estimated_input_tokens":2887,"max_output_tokens":4096,"image_included":true,"timestamp":1777924256362}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: penis goat | Latency: 19.15s]
+{
+  "ANALYSIS": {
+    "SEX": "Male",
+    "Final_Frontal_Rating": "55/100",
+    "Final_Side_Rating": "N/A",
+    "Max_Natural_Potential": "65/100",
+    "Max_Potential_with_Surgery": "75/100",
+    "Technical_Summary": "The subject presents with extreme **dimorphism** and robust **bone structure**, characterized by a highly prominent jawline and deep-set eyes. However, the **harmony** is severely disrupted by extreme vertical elongation, specifically in the middle and lower thirds. The `&red&` skin texture issues (acne/hyperpigmentation) further detract from the overall aesthetic. The extreme lower third length triggers a harmony ceiling.",
+    "Appeal_Assessment": "Hyper-masculine, striking phenotype. Appeals to niche high-fashion or specific rugged aesthetics, but lacks mainstream harmonious appeal due to extreme proportions.",
+    "Hexagon_Chart_Ratings_front": {
+      "Skin": 3,
+      "Bone": 9,
+      "Harmony": 2,
+      "Symmetry": 8,
+      "Dimorphism": 10
+    },
+    "Hexagon_Chart_Ratings_side": {
+      "Skin": 3,
+      "Bone": 8,
+      "Harmony": 4,
+      "Symmetry": 8,
+      "Dimorphism": 9
+    },
+    "CORE_CATEGORY_SCORES": {
+      "Harmony": "20 | N/A",
+      "Bone": "90 | N/A",
+      "Symmetry": "80 | N/A",
+      "Skin": "30 | 30",
+      "Dimorphism": "95 | N/A",
+      "Maxillary_Cheekbone_Projection": "85 | 85",
+      "Nose_Projection": "70 | 70",
+      "Facial_Fat": "10 | 10",
+      "Eye_Depth": "90 | 90",
+      "Ear_Shape": "70 | 70"
+    },
+    "CRITICAL_MARKERS": {
+      "BEST_FEATURE": "Jawline/Bigonial Width - Extremely robust and masculine, providing strong structural support.",
+      "WORST_FEATURE": "Lower Third Length - Severely elongated, disrupting facial harmony and triggering a scoring ceiling."
+    }
+  },
+  "DASHBOARD_DATA": {
+    "BEST_FEATURES": [
+      "Strong Bigonial Width",
+      "Deep-set Eyes",
+      "Prominent Cheekbones",
+      "Thick Eyebrows",
+      "Positive Canthal Tilt",
+      "N/A",
+      "N/A",
+      "N/A",
+      "N/A",
+      "N/A"
+    ],
+    "PRIMARY_FLAWS": [
+      "Extreme Lower Third Elongation",
+      "Extreme Middle Third Elongation",
+      "Poor Skin Texture (Acne)",
+      "Hollow Cheeks (Lack of Facial Fat)",
+      "Narrow Mouth Width relative to Jaw",
+      "N/A",
+      "N/A",
+      "N/A",
+      "N/A",
+      "N/A"
+    ]
+  },
+  "RATINGS": {
+    "Bigonial_Width_Index": "92/100",
+    "IPD_Index": "97/100",
+    "Mouth_Width_Index": "88/100",
+    "Nose_Width_Index": "95/100",
+    "Upper_Third_Length": "40/100",
+    "Middle_Third_Length": "28/100",
+    "Lower_Third_Length": "15/100",
+    "Eye_Height_Index": "64/100",
+    "Brow_Compactness_Index": "88/100",
+    "Philtrum_Height_Index": "96/100",
+    "Total_Lip_Height_Index": "97/100",
+    "fWHR": "77/100",
+    "Midface_Ratio": "94/100",
+    "Canthal_Tilt_Degrees": "89/100"
+  },
+  "Personalised_feedback": [
+    "1. SKIN TEXTURE IMPROVEMENT: The most immediate and impactful change you can make is addressing the acne and hyperpigmentation. This requires a dedicated skincare routine, potentially involving prescription retinoids (like Tretinoin) or Accutane if advised by a dermatologist. Clearing the skin will significantly improve your baseline aesthetic.",
+    "2. FACIAL FAT RESTORATION: Your face is extremely lean, which exacerbates the harshness of your bone structure and makes your face look even longer. Gaining overall body weight to increase facial fat, or considering fat grafting/fillers in the midface, could help soften the extreme angles and provide a more balanced look.",
+    "3. LOWER THIRD REDUCTION: The extreme length of your lower third is the primary structural flaw. While difficult to address non-surgically, orthognathic surgery (jaw surgery) or a sliding genioplasty (reduction) could theoretically shorten the vertical height of the chin/jaw, though this is a major intervention.",
+    "4. HAIR STYLING: The shaved head emphasizes the vertical length of your face. Growing out your hair and choosing a style with volume on the sides (to add width) and minimal volume on top can create an optical illusion of a shorter, wider face, improving perceived harmony.",
+    "5. BROW MAINTENANCE: Your brows are thick and masculine, which is a strong asset. Ensure they are kept tidy but maintain their natural thickness. Avoid over-plucking, as strong brows help balance the strong jawline."
+  ],
+  "ACTIONABLE_PROTOCOLS": [
+    "1. Dermatologist Consultation for Acne: High Impact",
+    "2. Prescription Retinoids (e.g., Tretinoin): High Impact",
+    "3. Caloric Surplus for Facial Fat Gain: High Impact",
+    "4. Grow Hair to Add Lateral Volume: Medium Impact",
+    "5. Consult Maxillofacial Surgeon regarding vertical excess: Medium Impact",
+    "6. Daily Sunscreen Application: Medium Impact",
+    "7. Chemical Peels for Hyperpigmentation: Medium Impact",
+    "8. Hydrating Skincare Routine: Medium Impact",
+    "9. Avoid High-Fade Haircuts: Medium Impact",
+    "10. Maintain Brow Thickness: Low Impact",
+    "11. Consider Midface Fillers (Consultation): Low Impact",
+    "12. Salicylic Acid Cleanser: Low Impact",
+    "13. Niacinamide Serum: Low Impact",
+    "14. Vitamin C Serum: Low Impact",
+    "15. Ensure Adequate Sleep: Low Impact",
+    "16. Stay Hydrated: Low Impact",
+    "17. Manage Stress Levels: Low Impact",
+    "18. Regular Exfoliation (Gentle): Low Impact",
+    "19. Avoid Touching Face: Low Impact",
+    "20. Change Pillowcases Regularly: Low Impact",
+    "21. Balanced Diet (Low Glycemic Index): Low Impact",
+    "22. Consider Microneedling (Post-Acne): Low Impact",
+    "23. Use Non-Comedogenic Products: Low Impact",
+    "24. Lip Balm for Hydration: Low Impact",
+    "25. Maintain Good Posture: Low Impact"
+  ],
+  "MOG_REPORT_REVISION": {
+    "Bigonial_Width_Index": "92",
+    "IPD_Index": "97",
+    "Mouth_Width_Index": "88",
+    "Nose_Width_Index": "95",
+    "Upper_Third_Length": "40",
+    "Middle_Third_Length": "28",
+    "Lower_Third_Length": "15",
+    "Eye_Height_Index": "64",
+    "Brow_Compactness_Index": "88",
+    "Philtrum_Height_Index": "96",
+    "Total_Lip_Height_Index": "97",
+    "fWHR": "77",
+    "Midface_Ratio": "94",
+    "Canthal_Tilt_Degrees": "89",
+    "JUSTIFICATION": "Scores reflect extreme deviations from target proportions, particularly in vertical thirds, triggering harmony limits. Skin texture deductions applied."
+  }
+}

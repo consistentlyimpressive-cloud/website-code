@@ -1,0 +1,225 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+
+[DEBUG] Model selected via API args: 7
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777923896628-2dde8b04a17af7b4.jpg ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-06249a4a-120b-45ee-8729-7e536dfe138d-1777923896641-80f8d3\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (213.2px)
+- Auto-Leveling: Corrected 7.47 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.874
+- IPD_Index (Geometric):    0.509
+- Mouth_Width_Index:        0.391
+- Nose_Width_Index:         0.261
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.403
+- Middle_Third_Length:      0.485
+- Lower_Third_Length:       0.483
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.063
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.107
+- Philtrum_Height_Index:    0.12
+- Total_Lip_Height_Index:   0.174
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.653
+- Midface_Ratio (Mid/IPD):  0.966
+- Canthal_Tilt_Degrees:     6.08 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting penis goat... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-06249a4a-120b-45ee-8729-7e536dfe138d","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":25238,"input_token_count":3917,"output_token_count":2564,"total_token_count":6481,"estimated_input_tokens":2887,"max_output_tokens":4096,"image_included":true,"timestamp":1777923923618}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: penis goat | Latency: 25.24s]
+{
+  "ANALYSIS": {
+    "SEX": "Male",
+    "Final_Frontal_Rating": "55/100",
+    "Final_Side_Rating": "55/100",
+    "Max_Natural_Potential": "60/100",
+    "Max_Potential_with_Surgery": "70/100",
+    "Technical_Summary": "The subject presents with a highly elongated middle and lower third, triggering the harmony ceiling. The **fWHR** is low at 1.653, indicating a vertically dominant face. The **Bigonial Width Index** is strong at 0.874. The **Midface Ratio** is 0.966, which is acceptable but visually elongated due to the overall vertical thirds. The **Canthal Tilt** is positive. The side profile is not provided, so lateral metrics are estimated based on frontal cues.",
+    "Appeal_Assessment": "The subject has a striking, somewhat unconventional look due to the elongated face and strong jawline. The appeal is niche, likely leaning towards high-fashion or edgy aesthetics rather than conventional commercial attractiveness.",
+    "Hexagon_Chart_Ratings_front": {
+      "Skin": "7",
+      "Bone": "6",
+      "Harmony": "4",
+      "Symmetry": "7",
+      "Dimorphism": "7"
+    },
+    "Hexagon_Chart_Ratings_side": {
+      "Skin": "7",
+      "Bone": "6",
+      "Harmony": "4",
+      "Symmetry": "N/A",
+      "Dimorphism": "7"
+    },
+    "CORE_CATEGORY_SCORES": {
+      "Harmony": "40 | 40",
+      "Bone": "65 | 65",
+      "Symmetry": "70 | N/A",
+      "Skin": "70 | 70",
+      "Dimorphism": "75 | 75",
+      "Maxillary_Cheekbone_Projection": "60 | 60",
+      "Nose_Projection": "60 | 60",
+      "Facial_Fat": "80 | 80",
+      "Eye_Depth": "65 | 65",
+      "Ear_Shape": "70 | 70"
+    },
+    "CRITICAL_MARKERS": {
+      "BEST_FEATURE": "Jawline - Strong bigonial width provides good masculine definition.",
+      "WORST_FEATURE": "Vertical Thirds - Extreme elongation of the middle and lower thirds disrupts facial harmony."
+    }
+  },
+  "DASHBOARD_DATA": {
+    "BEST_FEATURES": [
+      "Strong Bigonial Width",
+      "Positive Canthal Tilt",
+      "Good Facial Leanness",
+      "Clear Skin",
+      "Full Lips",
+      "Defined Jawline (Lateral Estimate)",
+      "Good Chin Projection (Lateral Estimate)",
+      "Prominent Cheekbones (Lateral Estimate)",
+      "Straight Nasal Bridge (Lateral Estimate)",
+      "Good Neck Posture (Lateral Estimate)"
+    ],
+    "PRIMARY_FLAWS": [
+      "Elongated Middle Third",
+      "Elongated Lower Third",
+      "Low fWHR",
+      "Wide IPD",
+      "Long Philtrum",
+      "Flat Maxilla (Lateral Estimate)",
+      "Recessed Orbital Vectors (Lateral Estimate)",
+      "Weak Submental Area (Lateral Estimate)",
+      "Poor Nasolabial Angle (Lateral Estimate)",
+      "Lack of Brow Ridge Prominence (Lateral Estimate)"
+    ]
+  },
+  "RATINGS": {
+    "Bigonial_Width_Index": "95/100",
+    "IPD_Index": "75/100",
+    "Mouth_Width_Index": "90/100",
+    "Nose_Width_Index": "85/100",
+    "Upper_Third_Length": "63/100",
+    "Middle_Third_Length": "22/100",
+    "Lower_Third_Length": "33/100",
+    "Eye_Height_Index": "66/100",
+    "Brow_Compactness_Index": "53/100",
+    "Philtrum_Height_Index": "80/100",
+    "Total_Lip_Height_Index": "90/100",
+    "fWHR": "70/100",
+    "Midface_Ratio": "93/100",
+    "Canthal_Tilt_Degrees": "87/100"
+  },
+  "Personalised_feedback": [
+    {
+      "Title": "ADDRESSING VERTICAL ELONGATION",
+      "Content": "The most significant issue is the extreme elongation of the middle and lower thirds. This is a structural bone issue that cannot be fixed with soft tissue manipulation. The face is simply too long relative to its width. \n\nSurgical options like orthognathic surgery (jaw surgery) could potentially impact the vertical dimension, but this is a major procedure. A more realistic approach is to focus on creating the illusion of width. This can be done through styling, such as growing the hair out on the sides to add volume and width to the upper face, which can help balance the proportions."
+    },
+    {
+      "Title": "IMPROVING FWHR",
+      "Content": "The low fWHR (Facial Width-to-Height Ratio) is directly tied to the vertical elongation. Since reducing the height of the face is difficult, increasing the perceived width is the goal. \n\nWhile bone structure cannot be easily widened without implants, maintaining a lean facial fat percentage is crucial. Excess fat can sometimes round out the face, but in this case, leanness highlights the existing bone structure. Consider jawline fillers or implants to slightly increase the bigonial width, which would improve the fWHR ratio."
+    },
+    {
+      "Title": "MANAGING THE PHILTRUM",
+      "Content": "The philtrum is slightly long, which contributes to the elongated lower third. A long philtrum can age the face and disrupt the balance between the nose and lips. \n\nA lip lift is a surgical procedure that shortens the philtrum by removing a small strip of skin just beneath the nose. This would elevate the upper lip, increasing tooth show and reducing the perceived length of the lower third. Alternatively, lip fillers can add volume to the upper lip, slightly reducing the visible philtrum length."
+    },
+    {
+      "Title": "ENHANCING EYE AREA",
+      "Content": "The eye area has a positive canthal tilt, which is a strong feature. However, the brow compactness is low, meaning the brows sit relatively high above the eyes. \n\nLowering the brows can create a more intense, masculine look. This is difficult to achieve naturally, but Botox can sometimes be used to subtly alter brow position. Additionally, ensuring the brows are thick and well-groomed can help them appear lower and more dominant."
+    },
+    {
+      "Title": "SKIN AND SOFT TISSUE",
+      "Content": "The skin quality appears generally good, but maintaining a consistent skincare routine is essential for maximizing overall appeal. \n\nFocus on hydration and exfoliation to keep the skin looking fresh. If there are any minor textural issues or hyperpigmentation, treatments like chemical peels or laser therapy could be beneficial. Maintaining low body fat will also keep the facial features sharp and defined."
+    }
+  ],
+  "ACTIONABLE_PROTOCOLS": [
+    "Orthognathic Surgery: Consult a maxillofacial surgeon to discuss options for reducing vertical facial height. [High Impact]",
+    "Lip Lift: Shorten the philtrum to improve lower third proportions. [High Impact]",
+    "Jaw Implants/Fillers: Increase bigonial width to improve fWHR. [High Impact]",
+    "Hair Styling: Grow hair on the sides to add visual width to the upper face. [Medium Impact]",
+    "Brow Grooming: Thicken and shape brows to appear lower and more compact. [Medium Impact]",
+    "Lip Fillers: Add volume to the upper lip to reduce perceived philtrum length. [Medium Impact]",
+    "Skincare Routine: Implement a consistent routine focusing on hydration and exfoliation. [Low Impact]",
+    "Maintain Low Body Fat: Keep facial features sharp and defined. [Low Impact]",
+    "Botox for Brow Position: Consult a professional about subtly lowering the brows. [Low Impact]",
+    "Cheek Fillers: Add subtle volume to the midface to improve projection. [Low Impact]",
+    "Rhinoplasty: Refine the nose shape if desired, though current width is acceptable. [Low Impact]",
+    "Chin Implant: Improve chin projection if lateral analysis reveals recession. [Low Impact]",
+    "Neck Training: Strengthen neck muscles for a more masculine appearance. [Low Impact]",
+    "Chemical Peels: Improve skin texture and tone. [Low Impact]",
+    "Laser Therapy: Address any hyperpigmentation or minor scarring. [Low Impact]",
+    "Microneedling: Stimulate collagen production for better skin quality. [Low Impact]",
+    "Facial Massage: Improve lymphatic drainage and reduce puffiness. [Low Impact]",
+    "Gua Sha: Enhance facial contours temporarily. [Low Impact]",
+    "Mewing: Maintain proper tongue posture for long-term structural support. [Low Impact]",
+    "Chewing Gum: Strengthen jaw muscles for a more defined look. [Low Impact]",
+    "Sunscreen: Protect skin from UV damage and premature aging. [Low Impact]",
+    "Retinoids: Improve skin cell turnover and reduce fine lines. [Low Impact]",
+    "Vitamin C Serum: Brighten skin and even out tone. [Low Impact]",
+    "Adequate Sleep: Ensure proper rest for optimal skin health and reduced eye bags. [Low Impact]",
+    "Hydration: Drink plenty of water to keep skin plump and healthy. [Low Impact]"
+  ],
+  "MOG_REPORT_REVISION": {
+    "Bigonial_Width_Index": "95",
+    "IPD_Index": "75",
+    "Mouth_Width_Index": "90",
+    "Nose_Width_Index": "85",
+    "Upper_Third_Length": "63",
+    "Middle_Third_Length": "22",
+    "Lower_Third_Length": "33",
+    "Eye_Height_Index": "66",
+    "Brow_Compactness_Index": "53",
+    "Philtrum_Height_Index": "80",
+    "Total_Lip_Height_Index": "90",
+    "fWHR": "70",
+    "Midface_Ratio": "93",
+    "Canthal_Tilt_Degrees": "87",
+    "Maxillary_Cheekbone_Projection": "60",
+    "Nose_Projection": "60",
+    "Facial_Fat": "80",
+    "Eye_Depth": "65",
+    "Ear_Shape": "70"
+  },
+  "JUSTIFICATION": "The scores reflect the extreme deviation from the target vertical thirds, which heavily impacted the overall harmony and final rating. The strong bigonial width and positive canthal tilt scored well, but could not overcome the structural elongation."
+}

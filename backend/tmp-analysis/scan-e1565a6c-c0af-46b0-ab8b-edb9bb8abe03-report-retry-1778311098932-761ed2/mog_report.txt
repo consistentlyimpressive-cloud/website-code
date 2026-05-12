@@ -1,0 +1,21 @@
+MOG-CHECK RETRY BIOMETRICS
+- fWHR (1.548): 55/100
+- Bigonial Width (0.915): 76/100
+- IPD Index (0.488): 70/100
+- Mouth Width (0.37): 58/100
+- Nose Width (0.234): 68/100
+- Upper Third Length (0.285): 64/100
+- Middle Third Length (0.484): 95/100
+- Lower Third Length (0.558): 76/100
+- Eye Height (0.059): 60/100
+- Brow Compactness (0.123): 73/100
+- Philtrum Height (0.162): 58/100
+- Total Lip Height (0.094): 63/100
+- Midface Ratio (1.072): 88/100
+- Canthal Tilt (-0.11): 43/100
+- Skin Texture (Visual): 68/100
+- Facial Fat (Visual): 58/100
+- Jaw Definition (Visual): 66/100
+- Symmetry (Visual): 73/100
+- Hairline (Visual): 68/100
+- Maxillary Prominence (Visual): 60/100

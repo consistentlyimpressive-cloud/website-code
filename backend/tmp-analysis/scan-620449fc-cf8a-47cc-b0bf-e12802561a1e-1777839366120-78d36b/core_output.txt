@@ -1,0 +1,197 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. ULTRA - Highest Quality
+2. Experimental Token Saver
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Gemini 3.1 Pro
+
+[DEBUG] Model selected via API args: 1
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777839365686-b2fcc35768c1b23f.jpeg ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-620449fc-cf8a-47cc-b0bf-e12802561a1e-1777839366120-78d36b\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (371.5px)
+- Auto-Leveling: Corrected 4.21 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.889
+- IPD_Index (Geometric):    0.454
+- Mouth_Width_Index:        0.332
+- Nose_Width_Index:         0.234
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.459
+- Middle_Third_Length:      0.498
+- Lower_Third_Length:       0.499
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.052
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.136
+- Philtrum_Height_Index:    0.101
+- Total_Lip_Height_Index:   0.167
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.67
+- Midface_Ratio (Mid/IPD):  1.03
+- Canthal_Tilt_Degrees:     5.94 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting ULTRA - Highest Quality... (Press Ctrl+C to Cancel)
+[KEY_HEALTH] Skipping keys this scan: GEMINI_KEY_1:disabled, GEMINI_KEY_3:disabled
+[DEBUG] Google GenAI key order this scan: GEMINI_KEY_2, GEMINI_KEY_4, GEMINI_KEY_5
+[DEBUG] Trying Google GenAI GEMINI_KEY_2 (1/3)...
+[TOKEN_USAGE] {"scan_id":"scan-620449fc-cf8a-47cc-b0bf-e12802561a1e","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":2,"attempt_number":1,"success":true,"duration_ms":111283,"input_token_count":11681,"output_token_count":1744,"total_token_count":15584,"estimated_input_tokens":13630,"max_output_tokens":null,"image_included":true,"timestamp":1777839479546}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: ULTRA - Highest Quality | Latency: 111.29s]
+### ANALYSIS MALE
+**Final Frontal Rating: 66/100**
+**Uncanny Cue Count:** 0 ()
+**Facial Fat / Definition Read:** normal - The subject has a youthful, balanced amount of facial fat with *moderate definition* in the jawline and cheeks.
+**Max Natural Potential: 72/100**
+**Max Potential with Surgery: 78/100**
+
+**Technical Summary:** The subject presents a *harmonious* East Asian phenotype. The bone structure is balanced, characterized by a *strong IPD* and ideal *vertical thirds*. While the fWHR is slightly on the narrower side, it remains within a conventional range. The eye area is a significant strength, featuring a *positive canthal tilt* and compact shape.
+
+**Appeal Assessment:** Likely race/ethnicity: East Asian. Sex: male. The subject possesses a *youthful, balanced* appeal. The phenotype is conventional and harmonious rather than aggressively dimorphic, making it universally appealing in a soft, approachable manner.
+
+**Hexagon Chart Ratings (front)**
+- Skin: 8
+- Bone: 6
+- Harmony: 7
+- Symmetry: 8
+- Dimorphism: 5
+
+**CORE CATEGORY SCORES (Front | Side):**
+- Harmony: 68 | N/A
+- Bone: 62 | N/A
+- Symmetry: 85 | N/A
+- Skin: 82 | N/A
+- Dimorphism: 55 | N/A
+- Maxillary/Cheekbone Projection: 65 | N/A
+- Nose Projection: 65 | N/A
+- Facial Fat: 70 | N/A
+- Eye Depth: 68 | N/A
+- Ear Shape: 70 | N/A
+
+**CRITICAL MARKERS:**
+- #1 BEST FEATURE: Eye Area - *Positive canthal tilt* combined with a compact, almond shape and low upper eyelid exposure.
+- #1 WORST FEATURE: Mouth Width - The *Mouth_Width_Index* is slightly below the ideal range, resulting in a marginally narrow appearance relative to the bizygomatic width.
+
+### DASHBOARD_DATA
+BEST FEATURES (10):
+1. [FRONT] Eye Shape - *Almond-shaped* and compact, providing a focused and alert look.
+2. [FRONT] Canthal Tilt - *Positive tilt* (5.94°) which enhances orbital aesthetics.
+3. [FRONT] Skin Quality - Very *clear and youthful* complexion with minimal blemishes.
+4. [FRONT] Symmetry - High degree of *bilateral balance* across the midface and lower face.
+5. [FRONT] Philtrum Length - *Ideal height* (0.101), contributing to lower-third harmony.
+6. [FRONT] Lip Fullness - *Balanced volume* and height, avoiding thinness.
+7. [FRONT] IPD Spacing - *Near-perfect* geometric spacing (0.454) relative to face width.
+8. [FRONT] Midface Ratio - *Balanced* vertical proportions (1.03) without excessive length.
+9. [FRONT] Nose Width - *Proportionate* alar base that fits the facial width well.
+10. [FRONT] Lower Third - *Balanced length* and a clean, tapered jawline.
+
+PRIMARY FLAWS (10):
+1. [FRONT] Mouth Width - Slightly *narrow* relative to the overall facial breadth.
+2. [FRONT] fWHR - Slightly *low width* (1.67), leaning toward a narrower facial structure.
+3. [FRONT] Brow Compactness - Slightly *high brow* position (0.136), reducing orbital intensity.
+4. [FRONT] Upper Third Length - Slightly *elongated* forehead area, though partially obscured by headwear.
+5. [FRONT] Eye Height - Slightly *narrow* vertical eye opening (0.052).
+6. [FRONT] Dimorphism - *Low masculine intensity*; the face reads as very youthful/soft.
+7. [FRONT] Jaw Definition - *Moderate definition*; could benefit from lower facial fat for more sharpness.
+8. [FRONT] Orbital Depth - *Average depth*; lacks the striking hollows of high-tier bone structure.
+9. [FRONT] Bigonial Width - *Average*; provides balance but not a standout structural strength.
+10. [FRONT] Facial Breadth - Overall *narrower* profile compared to elite-tier masculine standards.
+
+### RATINGS (USE THIS)
+- Bigonial_Width_Index: 85/100
+- IPD_Index (Geometric): 98/100
+- Mouth_Width_Index: 70/100
+- Nose_Width_Index: 85/100
+- Upper_Third_Length: 75/100
+- Middle_Third_Length: 95/100
+- Lower_Third_Length: 95/100
+- Eye_Height_Index: 75/100
+- Brow_Compactness_Index: 70/100
+- Philtrum_Height_Index: 98/100
+- Total_Lip_Height_Index: 95/100
+- fWHR (Zygo / Upper_Face): 75/100
+- Midface_Ratio (Mid/IPD): 90/100
+- Canthal_Tilt_Degrees: 95/100
+
+### MOG_REPORT_REVISION
+Bigonial_Width_Index: 85
+IPD_Index (Geometric): 98
+Mouth_Width_Index: 70
+Nose_Width_Index: 85
+Upper_Third_Length: 75
+Middle_Third_Length: 95
+Lower_Third_Length: 95
+Eye_Height_Index: 75
+Brow_Compactness_Index: 70
+Philtrum_Height_Index: 98
+Total_Lip_Height_Index: 95
+fWHR (Zygo / Upper_Face): 75
+Midface_Ratio (Mid/IPD): 90
+Canthal_Tilt_Degrees: 95
+
+**Debug Rating Justification:** The subject is a conventionally attractive male with high symmetry and excellent skin. The score is driven upward by the eye area (positive tilt, good spacing) and overall harmony. It is held back from the 70s/80s by a lack of striking bone structure (average fWHR and bigonial width) and a slightly narrow mouth. The read is "Natural/Coherent." No AI cap was applied.
+
+Positive reasons:
+1. Positive canthal tilt.
+2. Ideal IPD spacing.
+3. Clear, youthful skin.
+4. High bilateral symmetry.
+5. Balanced midface ratio.
+6. Ideal philtrum height.
+7. Full, balanced lips.
+8. Compact eye shape.
+9. Balanced lower third length.
+10. Balanced middle third length.
+11. Proportionate nose width.
+12. Low upper eyelid exposure.
+13. No visible scleral show.
+14. Youthful soft tissue.
+15. Coherent East Asian phenotype.
+
+Negative reasons:
+1. Slightly narrow mouth width.
+2. Slightly low fWHR.
+3. Slightly high brow position.
+4. Slightly elongated upper third.
+5. Narrow vertical eye height.
+6. Lack of aggressive dimorphism.
+7. Average bigonial width.
+8. Moderate jaw definition.
+9. Average orbital depth.
+10. Narrower overall facial breadth.
+11. Soft cheek definition.
+12. Lack of striking bone markers.
+13. Youthful softness reduces "edge."
+14. Brow compactness is slightly suboptimal.
+15. Overall structure is balanced but not elite.

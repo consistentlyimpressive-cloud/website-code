@@ -1,0 +1,271 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. ULTRA - Highest Quality
+2. Experimental Token Saver
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Gemini 3.1 Pro
+
+[DEBUG] Model selected via API args: 6
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777843081569-563fdad611114f06.png ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-d84e9b9c-7205-4c9c-af18-8d26d5e269fe-1777843081583-511fc4\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (403.0px)
+- Auto-Leveling: Corrected -0.15 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.881
+- IPD_Index (Geometric):    0.46
+- Mouth_Width_Index:        0.345
+- Nose_Width_Index:         0.213
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.371
+- Middle_Third_Length:      0.499
+- Lower_Third_Length:       0.499
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.075
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.12
+- Philtrum_Height_Index:    0.126
+- Total_Lip_Height_Index:   0.117
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.599
+- Midface_Ratio (Mid/IPD):  1.094
+- Canthal_Tilt_Degrees:     5.85 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting Gemini 3.1 Pro... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-d84e9b9c-7205-4c9c-af18-8d26d5e269fe","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":17404,"input_token_count":8817,"output_token_count":2007,"total_token_count":10824,"estimated_input_tokens":7923,"max_output_tokens":4096,"image_included":true,"timestamp":1777843100672}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: Gemini 3.1 Pro | Latency: 17.41s]
+{
+  "sex": "male",
+  "finalRating": 54,
+  "sideRating": null,
+  "tier": "Average",
+  "authenticityFlag": false,
+  "uncannyCueCount": 0,
+  "uncannyCues": [],
+  "visualBucket": "LOW-TIER/4-RANGE",
+  "facialFatDefinitionRead": "normal",
+  "technicalSummary": "The face presents with a slightly elongated midface and a narrow bigonial width relative to the bizygomatic width. The eye area shows some tiredness and mild asymmetry, while the lower third lacks strong definition.",
+  "appealAssessment": "The overall read is average, limited by a combination of a slightly long midface, a softer jawline, and some visible tiredness in the eye area. The features are generally proportionate but lack the structural definition required for a higher tier.",
+  "personalizedInterpretation": "Your facial structure is generally balanced, but the slightly longer midface and softer jawline reduce overall definition. Improving skin clarity and addressing the tired appearance around the eyes could enhance your natural features.",
+  "categories": {
+    "Harmony": 55,
+    "Bone": 52,
+    "Symmetry": 58,
+    "Skin": 48,
+    "Dimorphism": 50,
+    "Maxillary/Cheekbone Projection": 54,
+    "Nose Projection": 55,
+    "Facial Fat": 55,
+    "Eye Depth": 52,
+    "Ear Shape": 50
+  },
+  "hexagonFront": {
+    "Harmony": 55,
+    "Bone": 52,
+    "Symmetry": 58,
+    "Skin": 48,
+    "Dimorphism": 50,
+    "Facial Fat": 55
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.599",
+      "score": 55,
+      "impact": "negative",
+      "note": "Slightly narrow facial width-to-height ratio, reducing overall structural presence."
+    },
+    {
+      "name": "Bigonial Width Index",
+      "value": "0.881",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Acceptable jaw width relative to cheekbones, though visually appears slightly soft."
+    },
+    {
+      "name": "Midface Ratio",
+      "value": "1.094",
+      "score": 45,
+      "impact": "negative",
+      "note": "Elongated midface, which can disrupt vertical harmony."
+    },
+    {
+      "name": "IPD Index",
+      "value": "0.46",
+      "score": 75,
+      "impact": "positive",
+      "note": "Ideal interpupillary distance, providing good horizontal eye spacing."
+    },
+    {
+      "name": "Canthal Tilt",
+      "value": "5.85",
+      "score": 65,
+      "impact": "positive",
+      "note": "Positive canthal tilt, generally an attractive feature, though slightly offset by eye shape."
+    },
+    {
+      "name": "Eye Height Index",
+      "value": "0.075",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Balanced eye height, neither too narrow nor overly round."
+    },
+    {
+      "name": "Brow Compactness",
+      "value": "0.12",
+      "score": 65,
+      "impact": "positive",
+      "note": "Good brow compactness, framing the eyes well."
+    },
+    {
+      "name": "Nose Width Index",
+      "value": "0.213",
+      "score": 50,
+      "impact": "negative",
+      "note": "Slightly narrow nose width, which can appear slightly pinched."
+    },
+    {
+      "name": "Mouth Width Index",
+      "value": "0.345",
+      "score": 48,
+      "impact": "negative",
+      "note": "Slightly narrow mouth width relative to the face."
+    },
+    {
+      "name": "Philtrum Height Index",
+      "value": "0.126",
+      "score": 45,
+      "impact": "negative",
+      "note": "Slightly elongated philtrum, contributing to the longer midface read."
+    },
+    {
+      "name": "Total Lip Height Index",
+      "value": "0.117",
+      "score": 55,
+      "impact": "neutral",
+      "note": "Acceptable lip fullness, though slightly on the thinner side."
+    },
+    {
+      "name": "Upper Third Length",
+      "value": "0.371",
+      "score": 65,
+      "impact": "positive",
+      "note": "Balanced upper third length."
+    },
+    {
+      "name": "Middle Third Length",
+      "value": "0.499",
+      "score": 50,
+      "impact": "negative",
+      "note": "Slightly elongated middle third, affecting vertical proportions."
+    },
+    {
+      "name": "Lower Third Length",
+      "value": "0.499",
+      "score": 55,
+      "impact": "neutral",
+      "note": "Acceptable lower third length, though lacks strong definition."
+    },
+    {
+      "name": "Skin Quality",
+      "value": "Visual Estimate",
+      "score": 45,
+      "impact": "negative",
+      "note": "Visible texture, mild acne, and some unevenness."
+    },
+    {
+      "name": "Eye Area Tiredness",
+      "value": "Visual Estimate",
+      "score": 40,
+      "impact": "negative",
+      "note": "Visible tiredness and slight puffiness under the eyes."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Eye Spacing",
+      "description": "The interpupillary distance is ideal, providing a balanced horizontal layout for the upper face."
+    },
+    {
+      "title": "Canthal Tilt",
+      "description": "A positive canthal tilt adds a subtle upward sweep to the eyes, which is generally an attractive trait."
+    },
+    {
+      "title": "Brow Compactness",
+      "description": "The eyebrows are relatively low-set and compact, providing a good frame for the eye area."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Elongated Midface",
+      "description": "The midface ratio is slightly high, which stretches the central portion of the face and disrupts vertical harmony."
+    },
+    {
+      "title": "Eye Area Tiredness",
+      "description": "Visible tiredness and slight puffiness under the eyes detract from the overall freshness of the face."
+    },
+    {
+      "title": "Skin Texture",
+      "description": "Visible skin texture, mild acne, and unevenness reduce the overall clarity and health read of the skin."
+    },
+    {
+      "title": "Soft Lower Third",
+      "description": "The jawline and chin lack strong, sharp definition, resulting in a softer lower facial appearance."
+    }
+  ],
+  "pros": [
+    "Ideal eye spacing",
+    "Positive canthal tilt",
+    "Good brow compactness"
+  ],
+  "cons": [
+    "Elongated midface",
+    "Tired eye area",
+    "Visible skin texture",
+    "Soft jawline definition"
+  ],
+  "mainLimitingFactor": "The combination of an elongated midface, tired eye area, and softer lower third definition caps the score in the average range.",
+  "qualityFlags": [
+    "Slightly uneven lighting",
+    "Hair partially obscuring forehead"
+  ],
+  "confidenceFlags": [
+    "Upper third length estimated due to hair"
+  ],
+  "debugJustification": "Gemini anti-anchor check: Band chosen is 50-57 (Average). The main caps are the elongated midface (1.094), tired eye area, and softer jawline. The score is not defaulted to 66-68 because these structural and soft-tissue flaws prevent an above-average read. The face is natural but lacks the definition and harmony required for a higher tier."
+}

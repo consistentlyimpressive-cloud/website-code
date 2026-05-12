@@ -1,0 +1,272 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+
+[DEBUG] Model selected via API args: 7
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777925518528-bb3ecbd811ac5aab.jpg ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-87bfa38f-89ea-4c50-8dcd-8d68c48d7bb2-1777925518538-c901b6\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (266.4px)
+- Auto-Leveling: Corrected -3.61 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.893
+- IPD_Index (Geometric):    0.459
+- Mouth_Width_Index:        0.43
+- Nose_Width_Index:         0.238
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.467
+- Middle_Third_Length:      0.561
+- Lower_Third_Length:       0.5
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.088
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.129
+- Philtrum_Height_Index:    0.08
+- Total_Lip_Height_Index:   0.167
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.56
+- Midface_Ratio (Mid/IPD):  1.113
+- Canthal_Tilt_Degrees:     8.51 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting penis goat... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-87bfa38f-89ea-4c50-8dcd-8d68c48d7bb2","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":14120,"input_token_count":8153,"output_token_count":1884,"total_token_count":10037,"estimated_input_tokens":7702,"max_output_tokens":4096,"image_included":true,"timestamp":1777925534524}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: penis goat | Latency: 14.12s]
+{
+  "sex": "male",
+  "finalRating": 52,
+  "sideRating": null,
+  "tier": "Average",
+  "authenticityFlag": false,
+  "uncannyCueCount": 0,
+  "uncannyCues": [],
+  "visualBucket": "LOW-TIER/4-RANGE",
+  "facialFatDefinitionRead": "soft",
+  "technicalSummary": "The face presents with a slightly elongated midface, soft tissue fullness, and a prominent nasal structure. While the fWHR is moderate, the overall definition is lacking, and the eye area shows some upper eyelid exposure and mild asymmetry.",
+  "appealAssessment": "A conventional, approachable appearance that is limited by soft facial definition and a slightly elongated midface. The lack of sharp bone structure and the prominent nose reduce overall harmony and aesthetic impact.",
+  "personalizedInterpretation": "The face has a friendly, professional read but lacks the structural definition and harmony required for a higher aesthetic tier. Soft tissue fullness and a longer midface are the primary limiting factors.",
+  "categories": {
+    "Harmony": 50,
+    "Bone": 48,
+    "Symmetry": 55,
+    "Skin": 65,
+    "Dimorphism": 52,
+    "Maxillary/Cheekbone Projection": 45,
+    "Nose Projection": 40,
+    "Facial Fat": 40,
+    "Eye Depth": 45,
+    "Ear Shape": 50
+  },
+  "hexagonFront": {
+    "Harmony": 50,
+    "Bone": 48,
+    "Symmetry": 55,
+    "Skin": 65,
+    "Dimorphism": 52,
+    "Facial Fat": 40
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.56",
+      "score": 50,
+      "impact": "negative",
+      "note": "Slightly narrow, contributing to a longer facial read."
+    },
+    {
+      "name": "Bigonial_Width_Index",
+      "value": "0.893",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Acceptable jaw width relative to cheekbones, though lacking sharp definition."
+    },
+    {
+      "name": "Midface_Ratio",
+      "value": "1.113",
+      "score": 45,
+      "impact": "negative",
+      "note": "Elongated midface, which disrupts vertical harmony."
+    },
+    {
+      "name": "IPD_Index",
+      "value": "0.459",
+      "score": 75,
+      "impact": "positive",
+      "note": "Good interpupillary distance, well-balanced."
+    },
+    {
+      "name": "Canthal_Tilt_Degrees",
+      "value": "8.51",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Positive tilt, but the overall eye shape is somewhat round."
+    },
+    {
+      "name": "Eye_Height_Index",
+      "value": "0.088",
+      "score": 40,
+      "impact": "negative",
+      "note": "Eyes are somewhat round with visible upper eyelid exposure."
+    },
+    {
+      "name": "Nose_Width_Index",
+      "value": "0.238",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Nasal base width is within a normal range, though the nose appears prominent overall."
+    },
+    {
+      "name": "Mouth_Width_Index",
+      "value": "0.43",
+      "score": 45,
+      "impact": "negative",
+      "note": "Mouth is slightly wide relative to the face."
+    },
+    {
+      "name": "Upper_Third_Length",
+      "value": "0.467",
+      "score": 50,
+      "impact": "neutral",
+      "note": "Forehead is slightly long but acceptable."
+    },
+    {
+      "name": "Middle_Third_Length",
+      "value": "0.561",
+      "score": 40,
+      "impact": "negative",
+      "note": "Elongated middle third, a significant harmony bottleneck."
+    },
+    {
+      "name": "Lower_Third_Length",
+      "value": "0.5",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Lower third is relatively balanced vertically."
+    },
+    {
+      "name": "Brow_Compactness_Index",
+      "value": "0.129",
+      "score": 55,
+      "impact": "neutral",
+      "note": "Brows are moderately spaced from the eyes."
+    },
+    {
+      "name": "Philtrum_Height_Index",
+      "value": "0.08",
+      "score": 70,
+      "impact": "positive",
+      "note": "Philtrum length is well-proportioned."
+    },
+    {
+      "name": "Total_Lip_Height_Index",
+      "value": "0.167",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Lip fullness is adequate."
+    },
+    {
+      "name": "Facial Fat/Definition",
+      "value": "Soft",
+      "score": 40,
+      "impact": "negative",
+      "note": "Lack of sharp bone definition; soft tissue obscures underlying structure."
+    },
+    {
+      "name": "Skin Quality",
+      "value": "Clear",
+      "score": 70,
+      "impact": "positive",
+      "note": "Skin appears generally clear and healthy."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Skin Quality",
+      "description": "The skin appears clear and relatively healthy, providing a clean baseline."
+    },
+    {
+      "title": "Eye Spacing",
+      "description": "The interpupillary distance is well-balanced, contributing to a normal central facial layout."
+    },
+    {
+      "title": "Philtrum Proportion",
+      "description": "The philtrum length is balanced, avoiding an overly long upper lip appearance."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Soft Facial Definition",
+      "description": "The face lacks sharp bone structure, with soft tissue obscuring the jawline and cheekbones, reducing overall aesthetic impact."
+    },
+    {
+      "title": "Elongated Midface",
+      "description": "The middle third of the face is vertically long, which disrupts overall facial harmony and proportions."
+    },
+    {
+      "title": "Eye Area",
+      "description": "The eyes are somewhat round with visible upper eyelid exposure, lacking the compactness and depth associated with higher-tier aesthetics."
+    },
+    {
+      "title": "Nasal Prominence",
+      "description": "The nose appears somewhat prominent and lacks refinement, drawing attention away from other features."
+    }
+  ],
+  "pros": [
+    "Clear skin quality",
+    "Good eye spacing",
+    "Balanced philtrum length"
+  ],
+  "cons": [
+    "Soft facial definition",
+    "Elongated midface",
+    "Round eye shape with upper eyelid exposure",
+    "Prominent nasal structure"
+  ],
+  "mainLimitingFactor": "Soft facial definition and an elongated midface.",
+  "qualityFlags": [
+    "Good lighting",
+    "Clear frontal view"
+  ],
+  "confidenceFlags": [
+    "High confidence in frontal metrics",
+    "Smile may slightly alter lower face metrics"
+  ]
+}

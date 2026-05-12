@@ -1,0 +1,269 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+8. PENIS GOAT 2
+9. PENIS GOAT 3
+
+[DEBUG] Model selected via API args: 9
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777927949533-cd325bb654c6514f.jpg ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-cc564877-1921-4ddf-a6e2-d0754a10fe03-1777927949546-84f7dd\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (429.6px)
+- Auto-Leveling: Corrected 1.14 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.975
+- IPD_Index (Geometric):    0.442
+- Mouth_Width_Index:        0.391
+- Nose_Width_Index:         0.23
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.418
+- Middle_Third_Length:      0.414
+- Lower_Third_Length:       0.482
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.054
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.099
+- Philtrum_Height_Index:    0.117
+- Total_Lip_Height_Index:   0.06
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.884
+- Midface_Ratio (Mid/IPD):  0.974
+- Canthal_Tilt_Degrees:     1.61 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting PENIS GOAT 3... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-cc564877-1921-4ddf-a6e2-d0754a10fe03","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":19654,"input_token_count":3152,"output_token_count":2022,"total_token_count":5174,"estimated_input_tokens":2668,"max_output_tokens":4096,"image_included":true,"timestamp":1777927970970}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: PENIS GOAT 3 | Latency: 19.66s]
+{
+  "sex": "male",
+  "finalRating": 68,
+  "sideRating": null,
+  "tier": "High-Tier Masculine",
+  "technicalSummary": "Subject presents a highly masculine, robust bone structure with excellent bizygomatic width and a strong fWHR (1.88). Passes the Angularity Gate comfortably due to low facial fat and prominent jaw/cheekbones. Grooming is rugged but acceptable; however, significant skin aging (crow's feet, forehead rhytids) and slight upper eyelid exposure apply a moderate Skin/Texture Tax.",
+  "appealAssessment": "Rugged, hyper-masculine phenotype with high dimorphism. The combination of striking light eyes, a wide, angular jaw, and a high fWHR creates a dominant, 'leading man' vibe. Appeal is slightly tempered by visible signs of aging and skin weathering.",
+  "personalizedInterpretation": "A highly attractive, masculine face anchored by exceptional bone structure and striking eyes, though held back from elite tiers by skin aging and minor orbital flaws.",
+  "categories": {
+    "Harmony": 70,
+    "Bone": 85,
+    "Symmetry": 75,
+    "Skin": 50,
+    "Dimorphism": 88,
+    "Maxillary/Cheekbone Projection": 80,
+    "Nose Projection": 65,
+    "Facial Fat": 85,
+    "Eye Depth": 70,
+    "Ear Shape": 60
+  },
+  "hexagonFront": {
+    "Harmony": 70,
+    "Bone": 85,
+    "Symmetry": 75,
+    "Skin": 50,
+    "Dimorphism": 88,
+    "Facial Fat": 85
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.884",
+      "score": 90,
+      "impact": "positive",
+      "note": "Excellent width-to-height ratio, contributing heavily to masculine dominance."
+    },
+    {
+      "name": "Bigonial Width Index",
+      "value": "0.975",
+      "score": 88,
+      "impact": "positive",
+      "note": "Extremely strong jaw width relative to cheekbones."
+    },
+    {
+      "name": "IPD Index",
+      "value": "0.442",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Interpupillary distance is within normal ranges."
+    },
+    {
+      "name": "Mouth Width Index",
+      "value": "0.391",
+      "score": 70,
+      "impact": "positive",
+      "note": "Good mouth width, supporting the wide lower third."
+    },
+    {
+      "name": "Nose Width Index",
+      "value": "0.23",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Nose width is acceptable, though slightly fleshy at the tip."
+    },
+    {
+      "name": "Upper Third Length",
+      "value": "0.418",
+      "score": 70,
+      "impact": "neutral",
+      "note": "Proportionate forehead height."
+    },
+    {
+      "name": "Middle Third Length",
+      "value": "0.414",
+      "score": 75,
+      "impact": "positive",
+      "note": "Compact midface, enhancing overall harmony."
+    },
+    {
+      "name": "Lower Third Length",
+      "value": "0.482",
+      "score": 80,
+      "impact": "positive",
+      "note": "Strong, dominant lower third."
+    },
+    {
+      "name": "Eye Height Index",
+      "value": "0.054",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Average eye height; some upper eyelid exposure visible."
+    },
+    {
+      "name": "Brow Compactness",
+      "value": "0.099",
+      "score": 70,
+      "impact": "positive",
+      "note": "Good brow support, though slightly sparse at the tails."
+    },
+    {
+      "name": "Philtrum Height Index",
+      "value": "0.117",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Philtrum is slightly long but masked well by facial hair."
+    },
+    {
+      "name": "Total Lip Height Index",
+      "value": "0.06",
+      "score": 55,
+      "impact": "negative",
+      "note": "Thin lips, particularly the upper lip."
+    },
+    {
+      "name": "Midface Ratio",
+      "value": "0.974",
+      "score": 75,
+      "impact": "positive",
+      "note": "Compact midface ratio."
+    },
+    {
+      "name": "Canthal Tilt",
+      "value": "1.61",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Slightly positive tilt, but eye shape is somewhat rounded."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Exceptional fWHR",
+      "description": "A high facial width-to-height ratio (1.88) creates a highly masculine, dominant, and robust appearance."
+    },
+    {
+      "title": "Strong Bigonial Width",
+      "description": "The jaw is nearly as wide as the cheekbones, providing excellent lower-third support and angularity."
+    },
+    {
+      "title": "Striking Eye Color",
+      "description": "Light, piercing eyes contrast well with dark hair and skin tone, drawing immediate attention."
+    },
+    {
+      "title": "Low Facial Fat",
+      "description": "Excellent bone-to-soft-tissue ratio allows the underlying skeletal structure to show clearly."
+    },
+    {
+      "title": "Compact Midface",
+      "description": "A relatively short midface prevents the 'horse face' effect and maintains masculine proportions."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Skin Aging & Rhytids",
+      "description": "Visible forehead lines, crow's feet, and general skin weathering apply a significant Skin/Texture Tax."
+    },
+    {
+      "title": "Upper Eyelid Exposure (UEE)",
+      "description": "Visible upper eyelid space detracts from the 'hunter eye' aesthetic and reduces orbital compactness."
+    },
+    {
+      "title": "Thin Lips",
+      "description": "The lips, especially the upper lip, are quite thin, which can be a sign of aging or lower soft-tissue volume."
+    },
+    {
+      "title": "Slightly Fleshy Nasal Tip",
+      "description": "The nose lacks elite refinement at the tip, appearing slightly bulbous compared to the sharp jawline."
+    },
+    {
+      "title": "Asymmetry in Eye Shape",
+      "description": "Minor asymmetry in the orbital region, with the left eye appearing slightly more rounded."
+    }
+  ],
+  "pros": [
+    "Elite fWHR and jaw width",
+    "Striking eye color",
+    "Excellent angularity and low facial fat",
+    "Highly masculine phenotype"
+  ],
+  "cons": [
+    "Visible skin aging and wrinkles",
+    "Upper eyelid exposure",
+    "Thin lips",
+    "Slightly unrefined nasal tip"
+  ],
+  "mainLimitingFactor": "Skin aging and weathering (Skin/Texture Tax)",
+  "qualityFlags": [
+    "Good lighting",
+    "Frontal angle"
+  ],
+  "confidenceFlags": [
+    "High confidence in bone structure assessment",
+    "High confidence in skin assessment"
+  ],
+  "debugJustification": "Subject easily passes the Angularity Gate with a robust, wide jaw and low facial fat. The fWHR (1.88) and bigonial width are elite, pushing the base score high. However, the Skin/Texture Tax is applied heavily due to visible forehead rhytids, crow's feet, and general weathering. Orbital refinement is slightly penalized for UEE. Grooming is acceptable. Final score lands at 68: clearly attractive and highly masculine, but held back from the 70+ tier by aging and minor soft-tissue flaws."
+}

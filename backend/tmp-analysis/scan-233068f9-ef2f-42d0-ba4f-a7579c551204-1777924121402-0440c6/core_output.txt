@@ -1,0 +1,201 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+
+[DEBUG] Model selected via API args: 7
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777924121394-5aed8964a713177e.jpg ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-233068f9-ef2f-42d0-ba4f-a7579c551204-1777924121402-0440c6\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (266.4px)
+- Auto-Leveling: Corrected -3.61 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.893
+- IPD_Index (Geometric):    0.459
+- Mouth_Width_Index:        0.43
+- Nose_Width_Index:         0.238
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.467
+- Middle_Third_Length:      0.561
+- Lower_Third_Length:       0.5
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.088
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.129
+- Philtrum_Height_Index:    0.08
+- Total_Lip_Height_Index:   0.167
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.56
+- Midface_Ratio (Mid/IPD):  1.113
+- Canthal_Tilt_Degrees:     8.51 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting penis goat... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-233068f9-ef2f-42d0-ba4f-a7579c551204","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":22586,"input_token_count":3897,"output_token_count":2326,"total_token_count":6223,"estimated_input_tokens":3402,"max_output_tokens":4096,"image_included":true,"timestamp":1777924145855}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: penis goat | Latency: 22.59s]
+{
+  "ANALYSIS": {
+    "SEX": "Male",
+    "Final_Frontal_Rating": "48/100",
+    "Final_Side_Rating": "48/100",
+    "Max_Natural_Potential": "55/100",
+    "Max_Potential_with_Surgery": "65/100",
+    "Technical_Summary": "The subject presents with a **long midface** and **elongated lower third**, significantly impacting overall facial harmony. The **fWHR** is low at 1.56, indicating a vertically dominant face. The **Bigonial Width Index** is strong at 0.893, suggesting good jaw width, but the vertical elongation overshadows this. The **Eye Height Index** is slightly high, and **Canthal Tilt** appears slightly negative visually, despite the metadata. Skin quality is generally good, but there are signs of facial fat obscuring bone definition.",
+    "Appeal_Assessment": "The phenotype is vertically dominant with strong jaw width but elongated mid and lower thirds. Appeal is moderate, primarily hindered by vertical disharmony and lack of sharp bone definition due to facial fat.",
+    "Hexagon_Chart_Ratings_front": {
+      "Skin": 7,
+      "Bone": 6,
+      "Harmony": 4,
+      "Symmetry": 7,
+      "Dimorphism": 6
+    },
+    "Hexagon_Chart_Ratings_side": {
+      "Skin": 7,
+      "Bone": 5,
+      "Harmony": 4,
+      "Symmetry": 7,
+      "Dimorphism": 5
+    },
+    "CORE_CATEGORY_SCORES": {
+      "Harmony": "45 | 45",
+      "Bone": "55 | 50",
+      "Symmetry": "70 | N/A",
+      "Skin": "70 | 70",
+      "Dimorphism": "60 | 55",
+      "Maxillary_Cheekbone_Projection": "50 | 50",
+      "Nose_Projection": "55 | 55",
+      "Facial_Fat": "40 | 40",
+      "Eye_Depth": "50 | 50",
+      "Ear_Shape": "60 | 60"
+    },
+    "CRITICAL_MARKERS": {
+      "BEST_FEATURE": "Bigonial Width - Strong jaw width provides some masculine structure.",
+      "WORST_FEATURE": "Midface Length - The elongated midface severely disrupts vertical harmony."
+    }
+  },
+  "DASHBOARD_DATA": {
+    "BEST_FEATURES": [
+      "Bigonial Width",
+      "Skin Clarity",
+      "Hair Density",
+      "Symmetry",
+      "Mouth Width"
+    ],
+    "PRIMARY_FLAWS": [
+      "Elongated Midface",
+      "Elongated Lower Third",
+      "Low fWHR",
+      "Excess Facial Fat",
+      "Negative Canthal Tilt (Visual)"
+    ]
+  },
+  "RATINGS": {
+    "Bigonial_Width_Index": "91/100",
+    "IPD_Index": "100/100",
+    "Mouth_Width_Index": "94/100",
+    "Nose_Width_Index": "94/100",
+    "Upper_Third_Length": "31/100",
+    "Middle_Third_Length": "1/100",
+    "Lower_Third_Length": "25/100",
+    "Eye_Height_Index": "92/100",
+    "Brow_Compactness_Index": "79/100",
+    "Philtrum_Height_Index": "92/100",
+    "Total_Lip_Height_Index": "88/100",
+    "fWHR": "61/100",
+    "Midface_Ratio": "90/100",
+    "Canthal_Tilt_Degrees": "40/100"
+  },
+  "Personalised_feedback": [
+    "1. REDUCE OVERALL BODY FAT: The face currently holds excess fat, which obscures the underlying bone structure, particularly around the jawline and cheeks. Reducing overall body fat percentage through a caloric deficit and cardiovascular exercise will help reveal the jawline and cheekbones, improving facial definition and dimorphism.",
+    "2. ADDRESS VERTICAL ELONGATION: The midface and lower third are significantly elongated. While bone structure cannot be easily changed without invasive surgery (like orthognathic surgery), styling choices can help. Avoid hairstyles that add height to the top of the head. Consider facial hair styles that add width rather than length to the face.",
+    "3. IMPROVE EYE AREA SUPPORT: The eye area shows signs of poor infraorbital support, contributing to a tired appearance and a visually negative canthal tilt. While surgical options like canthoplasty or infraorbital implants exist, non-surgical options like dermal fillers in the tear trough area might provide temporary improvement in the appearance of under-eye hollows.",
+    "4. ENHANCE BROW DENSITY: The eyebrows appear somewhat sparse. Thicker, more defined eyebrows can help frame the face and draw attention upwards, slightly mitigating the appearance of a long midface. Consider using brow gels or serums to encourage growth, or microblading for a more permanent solution.",
+    "5. SKINCARE ROUTINE OPTIMIZATION: While skin quality is generally good, maintaining a consistent skincare routine focusing on hydration and sun protection is crucial. Incorporating a retinoid could help improve skin texture and firmness over time, ensuring the skin remains tight against the underlying structure as fat is lost."
+  ],
+  "ACTIONABLE_PROTOCOLS": [
+    "1. Caloric Deficit for Fat Loss: Implement a structured diet to reduce overall body fat percentage. [High Impact]",
+    "2. Cardiovascular Exercise: Incorporate regular cardio to aid in fat loss and improve circulation. [High Impact]",
+    "3. Resistance Training: Build muscle mass to improve overall metabolic rate and body composition. [High Impact]",
+    "4. Orthognathic Surgery Consultation: Consult a maxillofacial surgeon regarding the elongated midface and lower third. [High Impact]",
+    "5. Infraorbital Fillers: Consider dermal fillers to improve under-eye support and reduce hollows. [Medium Impact]",
+    "6. Canthoplasty Consultation: Explore surgical options for correcting the negative canthal tilt. [Medium Impact]",
+    "7. Hairstyle Modification: Adopt a hairstyle that adds width rather than height to balance the face shape. [Medium Impact]",
+    "8. Facial Hair Styling: Grow a beard style that adds horizontal width to the jawline. [Medium Impact]",
+    "9. Brow Enhancement: Use serums or microblading to increase eyebrow density and thickness. [Medium Impact]",
+    "10. Retinoid Skincare: Incorporate a retinoid to improve skin texture and firmness. [Medium Impact]",
+    "11. Daily Sunscreen: Use SPF daily to prevent premature aging and skin laxity. [Medium Impact]",
+    "12. Hydration: Ensure adequate daily water intake for optimal skin health. [Low Impact]",
+    "13. Sleep Hygiene: Maintain a consistent sleep schedule to reduce under-eye bags and fatigue. [Low Impact]",
+    "14. Sodium Reduction: Limit sodium intake to reduce facial bloating and water retention. [Low Impact]",
+    "15. Posture Correction: Improve neck and back posture to enhance the appearance of the jawline. [Low Impact]",
+    "16. Mewing/Tongue Posture: Practice proper tongue posture, though results in adults are debated. [Low Impact]",
+    "17. Chewing Gum: Chew mastic gum to potentially hypertrophy the masseter muscles for a wider jaw. [Low Impact]",
+    "18. Vitamin C Serum: Use a Vitamin C serum to brighten the skin and promote collagen production. [Low Impact]",
+    "19. Exfoliation: Regularly exfoliate to remove dead skin cells and improve skin texture. [Low Impact]",
+    "20. Stress Management: Practice stress-reduction techniques to lower cortisol levels, which can affect fat distribution. [Low Impact]",
+    "21. Limit Alcohol: Reduce alcohol consumption to minimize facial puffiness and dehydration. [Low Impact]",
+    "22. Facial Massage: Perform gentle facial massages to promote lymphatic drainage. [Low Impact]",
+    "23. Gua Sha: Use a Gua Sha tool to temporarily reduce facial swelling. [Low Impact]",
+    "24. Professional Facial: Get regular professional facials for deep cleaning and skin maintenance. [Low Impact]",
+    "25. Wardrobe Color Analysis: Wear colors that complement your skin tone to enhance overall appearance. [Low Impact]"
+  ],
+  "MOG_REPORT_REVISION": {
+    "Bigonial_Width_Index": "91",
+    "IPD_Index": "100",
+    "Mouth_Width_Index": "94",
+    "Nose_Width_Index": "94",
+    "Upper_Third_Length": "31",
+    "Middle_Third_Length": "1",
+    "Lower_Third_Length": "25",
+    "Eye_Height_Index": "92",
+    "Brow_Compactness_Index": "79",
+    "Philtrum_Height_Index": "92",
+    "Total_Lip_Height_Index": "88",
+    "fWHR": "61",
+    "Midface_Ratio": "90",
+    "Canthal_Tilt_Degrees": "40",
+    "Maxillary_Cheekbone_Projection": "50",
+    "Nose_Projection": "55",
+    "Facial_Fat": "40",
+    "Eye_Depth": "50",
+    "Ear_Shape": "60",
+    "Skin_Quality": "70"
+  },
+  "JUSTIFICATION": "The final score is heavily impacted by the extreme vertical elongation of the middle and lower thirds, triggering the harmony ceiling. The visual assessment of the eye area overrides the metadata for canthal tilt, resulting in a lower score for that specific metric. Facial fat also obscures bone definition, lowering the bone and dimorphism scores."
+}

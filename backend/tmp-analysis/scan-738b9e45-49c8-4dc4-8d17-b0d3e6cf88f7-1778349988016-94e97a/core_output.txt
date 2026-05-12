@@ -1,0 +1,312 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Premium Model
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Premium Model
+7. Premium Model
+8. Premium Model
+9. Premium Model
+
+[DEBUG] Model selected via API args: 2
+[ðŸš€] Gathering Lateral Data from engineside.py...
+[🚀] Consulting Gemini 3.1 Pro (Using Key 1)...
+[⚠️] Key 1 failed: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\nPlease retry in 28.295788696s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerDay-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerMinute-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '28s'}]}}
+[🔄] Rotating to next key...
+[🚀] Consulting Gemini 3.1 Pro (Using Key 2)...
+[⚠️] Key 2 failed: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\nPlease retry in 27.312035527s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerDay-FreeTier', 'quotaDimensions': {'model': 'gemini-3.1-pro', 'location': 'global'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerMinute-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'model': 'gemini-3.1-pro', 'location': 'global'}}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '27s'}]}}
+[🔄] Rotating to next key...
+[🚀] Consulting Gemini 3.1 Pro (Using Key 3)...
+[⚠️] Key 3 failed: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\nPlease retry in 26.305926878s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerDay-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerMinute-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '26s'}]}}
+[🔄] Rotating to next key...
+[🚀] Consulting Gemini 3.1 Pro (Using Key 4)...
+[⚠️] Key 4 failed: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\nPlease retry in 25.330627593s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerDay-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerMinute-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '25s'}]}}
+[🔄] Rotating to next key...
+[🚀] Consulting Gemini 3.1 Pro (Using Key 5)...
+[⚠️] Key 5 failed: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\nPlease retry in 24.375220831s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerDay-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerMinute-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '24s'}]}}
+[❌] All Gemini keys exhausted.
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1778349986241-e33950554150a525.jpg ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-738b9e45-49c8-4dc4-8d17-b0d3e6cf88f7-1778349988016-94e97a\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (830.4px)
+- Auto-Leveling: Corrected -0.1 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.887
+- IPD_Index (Geometric):    0.459
+- Mouth_Width_Index:        0.338
+- Nose_Width_Index:         0.213
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.366
+- Middle_Third_Length:      0.502
+- Lower_Third_Length:       0.484
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.076
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.116
+- Philtrum_Height_Index:    0.118
+- Total_Lip_Height_Index:   0.117
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.612
+- Midface_Ratio (Mid/IPD):  1.103
+- Canthal_Tilt_Degrees:     +5.27 (positive tilt; Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting Backup Model... (Press Ctrl+C to Cancel)
+[DEBUG] Gemma key order this scan: GEMINI_KEY_1, GEMINI_KEY_3, GEMINI_KEY_4, GEMINI_KEY_5, GEMINI_KEY_2
+[DEBUG] Trying Google GenAI GEMINI_KEY_1 (1/5) on gemma-4-31b-it...
+[TOKEN_USAGE] {"scan_id":"scan-738b9e45-49c8-4dc4-8d17-b0d3e6cf88f7","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":1,"attempt_number":1,"success":false,"duration_ms":1147,"error":"403 PERMISSION_DENIED. {'error': {'code': 403, 'message': 'Your project has been denied access. Please contact support.', 'status': 'PERMISSION_DENIED'}}","estimated_input_tokens":11572,"max_output_tokens":1500,"image_included":true,"timestamp":1778349997644}
+[KEY_HEALTH] Quarantine disabled; keeping GEMINI_KEY_1 available after: permission_denied
+      [!] Backup Model GEMINI_KEY_1 failed: 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': 'Your project has been denied access. Please contact support.', 'status': 'PERMISSION_DENIED'}}
+[DEBUG] Trying Google GenAI GEMINI_KEY_3 (2/5) on gemma-4-31b-it...
+[TOKEN_USAGE] {"scan_id":"scan-738b9e45-49c8-4dc4-8d17-b0d3e6cf88f7","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":3,"attempt_number":2,"success":false,"duration_ms":1259,"error":"403 PERMISSION_DENIED. {'error': {'code': 403, 'message': 'Your project has been denied access. Please contact support.', 'status': 'PERMISSION_DENIED'}}","estimated_input_tokens":11572,"max_output_tokens":1500,"image_included":true,"timestamp":1778349998904}
+[KEY_HEALTH] Quarantine disabled; keeping GEMINI_KEY_3 available after: permission_denied
+      [!] Backup Model GEMINI_KEY_3 failed: 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': 'Your project has been denied access. Please contact support.', 'status': 'PERMISSION_DENIED'}}
+[DEBUG] Trying Google GenAI GEMINI_KEY_4 (3/5) on gemma-4-31b-it...
+[TOKEN_USAGE] {"scan_id":"scan-738b9e45-49c8-4dc4-8d17-b0d3e6cf88f7","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":4,"attempt_number":3,"success":true,"duration_ms":107524,"input_token_count":7786,"output_token_count":2070,"total_token_count":11509,"estimated_input_tokens":11572,"max_output_tokens":1500,"image_included":true,"timestamp":1778350106428}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: Backup Model | Latency: 109.95s]
+```json
+{
+  "sex": "male",
+  "finalRating": 52,
+  "sideRating": 46,
+  "tier": "average/lower-average",
+  "authenticityFlag": false,
+  "uncannyCueCount": 0,
+  "uncannyCues": [],
+  "visualBucket": "NATURAL/COHERENT",
+  "facialFatDefinitionRead": "normal",
+  "technicalSummary": "The face exhibits a strong eye area with positive canthal tilt and ideal IPD, but is structurally limited by a narrow fWHR and a recessed chin. The side profile reveals a prominent nasal hump and soft jawline definition.",
+  "appealAssessment": "Average appeal. The subject possesses a pleasant upper-face harmony and symmetry, but the lack of lower-face projection and narrow mouth width prevent an above-average rating.",
+  "personalizedInterpretation": "A coherent face where the eye area is the primary asset, contrasted by a weak lower-third structure and mediocre skin texture.",
+  "categories": {
+    "Harmony": 55,
+    "Bone": 48,
+    "Symmetry": 78,
+    "Skin": 45,
+    "Dimorphism": 42,
+    "Maxillary/Cheekbone Projection": 50,
+    "Nose Projection": 40,
+    "Facial Fat": 60,
+    "Eye Depth": 65,
+    "Ear Shape": 60
+  },
+  "hexagonFront": {
+    "Harmony": 55,
+    "Bone": 48,
+    "Symmetry": 78,
+    "Skin": 45,
+    "Dimorphism": 42,
+    "Facial Fat": 60
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.61",
+      "score": 42,
+      "impact": "negative",
+      "note": "Clearly narrow, lacking the breadth associated with higher-tier masculine appeal."
+    },
+    {
+      "name": "Bigonial_Width_Index",
+      "value": "0.89",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Acceptable width, but lacks the definition to be a strength."
+    },
+    {
+      "name": "Midface_Ratio",
+      "value": "1.10",
+      "score": 58,
+      "impact": "neutral",
+      "note": "Slightly elongated midface, though not severely disruptive."
+    },
+    {
+      "name": "Canthal_Tilt_Degrees",
+      "value": "5.27",
+      "score": 82,
+      "impact": "positive",
+      "note": "Strong positive tilt contributing to an alert and attractive eye shape."
+    },
+    {
+      "name": "IPD_Index",
+      "value": "0.46",
+      "score": 92,
+      "impact": "positive",
+      "note": "Near-ideal interpupillary distance for facial harmony."
+    },
+    {
+      "name": "Mouth_Width_Index",
+      "value": "0.34",
+      "score": 45,
+      "impact": "negative",
+      "note": "Narrow mouth width reduces lower-face balance."
+    },
+    {
+      "name": "Nose_Width_Index",
+      "value": "0.21",
+      "score": 50,
+      "impact": "neutral",
+      "note": "Slightly pinched nasal base."
+    },
+    {
+      "name": "Philtrum_Height_Index",
+      "value": "0.12",
+      "score": 55,
+      "impact": "neutral",
+      "note": "Slightly long philtrum, adding to the vertical stretch of the lower face."
+    },
+    {
+      "name": "Total_Lip_Height_Index",
+      "value": "0.12",
+      "score": 48,
+      "impact": "negative",
+      "note": "Thin lips that lack fullness and presence."
+    },
+    {
+      "name": "Brow_Compactness_Index",
+      "value": "0.12",
+      "score": 75,
+      "impact": "positive",
+      "note": "Good brow-to-eye distance, providing strong framing."
+    },
+    {
+      "name": "Eye_Height_Index",
+      "value": "0.08",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Balanced eye height with moderate eyelid exposure."
+    },
+    {
+      "name": "Chin Projection",
+      "value": "Low",
+      "score": 38,
+      "impact": "negative",
+      "note": "Visibly recessed chin in side profile, weakening the jawline."
+    },
+    {
+      "name": "Jaw Definition",
+      "value": "Soft",
+      "score": 42,
+      "impact": "negative",
+      "note": "Lack of a sharp gonial angle or defined mandibular border."
+    },
+    {
+      "name": "Skin Texture",
+      "value": "Uneven",
+      "score": 45,
+      "impact": "negative",
+      "note": "Visible congestion and redness on the mid-cheek area."
+    },
+    {
+      "name": "Nose Profile",
+      "value": "Humped",
+      "score": 35,
+      "impact": "negative",
+      "note": "Prominent dorsal hump and slightly drooping tip."
+    },
+    {
+      "name": "Facial Symmetry",
+      "value": "High",
+      "score": 85,
+      "impact": "positive",
+      "note": "Excellent bilateral balance across the frontal plane."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Eye Area",
+      "description": "Positive canthal tilt and almond shape create a striking and alert gaze."
+    },
+    {
+      "title": "Brow Framing",
+      "description": "Full, well-positioned eyebrows provide strong structural framing for the upper face."
+    },
+    {
+      "title": "Frontal Symmetry",
+      "description": "High degree of symmetry across the midline, which enhances overall coherence."
+    },
+    {
+      "title": "IPD Balance",
+      "description": "Ideal eye spacing prevents the face from looking too wide or too narrow in the orbital region."
+    },
+    {
+      "title": "Upper Third Proportions",
+      "description": "The forehead height is well-balanced relative to the rest of the face."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Lower Third Weakness",
+      "description": "A recessed chin and soft jawline significantly reduce the masculine structural appeal."
+    },
+    {
+      "title": "Narrow fWHR",
+      "description": "The face lacks sufficient bizygomatic breadth, resulting in a narrow, less-dominant read."
+    },
+    {
+      "title": "Nasal Disharmony",
+      "description": "The side profile is compromised by a prominent dorsal hump and a drooping nasal tip."
+    },
+    {
+      "title": "Lip/Mouth Scale",
+      "description": "The combination of a narrow mouth and thin lips creates a lack of presence in the lower face."
+    },
+    {
+      "title": "Skin Quality",
+      "description": "Uneven skin texture and visible redness on the cheeks detract from the overall freshness."
+    }
+  ],
+  "pros": [
+    "Strong positive canthal tilt",
+    "Excellent frontal symmetry",
+    "Well-defined brow ridge",
+    "Ideal eye spacing",
+    "Youthful overall appearance"
+  ],
+  "cons": [
+    "Recessed chin projection",
+    "Narrow facial width (fWHR)",
+    "Prominent nasal hump",
+    "Thin, inconspicuous lips",
+    "Sub-optimal skin clarity"
+  ],
+  "mainLimitingFactor": "The combination of a recessed chin and narrow fWHR creates a weak lower-face foundation that caps the score despite a strong eye area.",
+  "qualityFlags": [
+    "Good lighting",
+    "Clear frontal and side angles"
+  ],
+  "confidenceFlags": [],
+  "debugJustification": "Band: 50-57. Score driven by strong eye area (canthal tilt, IPD) and symmetry. Capped by narrow fWHR (1.61), recessed chin, and nasal hump. Skin texture prevents a move into the 60s. Side profile is significantly weaker than frontal, dragging down the overall average."
+}
+```

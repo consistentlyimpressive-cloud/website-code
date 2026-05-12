@@ -1,0 +1,301 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Premium Model
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Premium Model
+7. Premium Model
+8. Premium Model
+9. Premium Model
+
+[DEBUG] Model selected via API args: 9
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1778387587738-deee30d39f52cda5.png ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-c10209e2-c777-490e-8d5e-788a2659c57d-1778387588443-47c021\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (694.8px)
+- Auto-Leveling: Corrected -7.37 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.878
+- IPD_Index (Geometric):    0.449
+- Mouth_Width_Index:        0.364
+- Nose_Width_Index:         0.231
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.162
+- Middle_Third_Length:      0.475
+- Lower_Third_Length:       0.499
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.05
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.145
+- Philtrum_Height_Index:    0.094
+- Total_Lip_Height_Index:   0.17
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.757
+- Midface_Ratio (Mid/IPD):  0.943
+- Canthal_Tilt_Degrees:     +2.69 (positive tilt; Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting Premium Model... (Press Ctrl+C to Cancel)
+[DEBUG] Gemma key order this scan: GEMINI_KEY_4, GEMINI_KEY_3, GEMINI_KEY_2, GEMINI_KEY_5, GEMINI_KEY_1
+[DEBUG] Trying Google GenAI GEMINI_KEY_4 (1/5) on gemma-4-31b-it...
+[TOKEN_USAGE] {"scan_id":"scan-c10209e2-c777-490e-8d5e-788a2659c57d","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":4,"attempt_number":1,"success":false,"duration_ms":2450,"error":"500 INTERNAL. {'error': {'code': 500, 'message': 'Internal error encountered.', 'status': 'INTERNAL'}}","estimated_input_tokens":4561,"max_output_tokens":1500,"image_included":true,"timestamp":1778387593606}
+      [!] Premium Model GEMINI_KEY_4 failed: 500 INTERNAL. {'error': {'code': 500, 'message': 'Internal error encountered.', 'status': 'INTERNAL'}}
+[DEBUG] Trying Google GenAI GEMINI_KEY_3 (2/5) on gemma-4-31b-it...
+[TOKEN_USAGE] {"scan_id":"scan-c10209e2-c777-490e-8d5e-788a2659c57d","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":3,"attempt_number":2,"success":false,"duration_ms":929,"error":"403 PERMISSION_DENIED. {'error': {'code': 403, 'message': 'Your project has been denied access. Please contact support.', 'status': 'PERMISSION_DENIED'}}","estimated_input_tokens":4561,"max_output_tokens":1500,"image_included":true,"timestamp":1778387594536}
+[KEY_HEALTH] Quarantine disabled; keeping GEMINI_KEY_3 available after: permission_denied
+      [!] Premium Model GEMINI_KEY_3 failed: 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': 'Your project has been denied access. Please contact support.', 'status': 'PERMISSION_DENIED'}}
+[DEBUG] Trying Google GenAI GEMINI_KEY_2 (3/5) on gemma-4-31b-it...
+[TOKEN_USAGE] {"scan_id":"scan-c10209e2-c777-490e-8d5e-788a2659c57d","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":2,"attempt_number":3,"success":true,"duration_ms":106432,"input_token_count":2665,"output_token_count":2012,"total_token_count":6298,"estimated_input_tokens":4561,"max_output_tokens":1500,"image_included":true,"timestamp":1778387700970}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: Premium Model | Latency: 109.82s]
+{
+  "sex": "male",
+  "finalRating": 67,
+  "sideRating": null,
+  "tier": "Attractive / Pretty Boy",
+  "technicalSummary": "Balanced bone-to-soft-tissue ratio. Subject passes the Angularity Gate due to a well-defined bigonial width, though lacks elite sub-zygomatic hollowing. Grooming is neutral; hair is acceptable but lacks structured volume.",
+  "appealAssessment": "East Asian phenotype exhibiting a 'pretty boy' aesthetic. Strong dimorphism provided by the jaw width, balanced by soft, harmonious features. The vibe is clean and youthful, leaning more toward harmony than striking masculine aggression.",
+  "personalizedInterpretation": "A highly harmonious face with strong foundational bone structure, limited only by a lack of extreme lean definition and slight vertical elongation.",
+  "categories": {
+    "Harmony": 78,
+    "Bone": 72,
+    "Symmetry": 82,
+    "Skin": 78,
+    "Dimorphism": 65,
+    "Maxillary/Cheekbone Projection": 68,
+    "Nose Projection": 75,
+    "Facial Fat": 65,
+    "Eye Depth": 62,
+    "Ear Shape": 70
+  },
+  "hexagonFront": {
+    "Harmony": 78,
+    "Bone": 72,
+    "Symmetry": 82,
+    "Skin": 78,
+    "Dimorphism": 65,
+    "Facial Fat": 65
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.757",
+      "score": 82,
+      "impact": "positive",
+      "note": "Strong masculine width-to-height ratio."
+    },
+    {
+      "name": "Bigonial Width",
+      "value": "0.878",
+      "score": 85,
+      "impact": "positive",
+      "note": "Excellent jaw base width."
+    },
+    {
+      "name": "Midface Ratio",
+      "value": "0.943",
+      "score": 88,
+      "impact": "positive",
+      "note": "Very compact midface, enhancing harmony."
+    },
+    {
+      "name": "IPD Index",
+      "value": "0.449",
+      "score": 78,
+      "impact": "positive",
+      "note": "Ideal eye spacing."
+    },
+    {
+      "name": "Canthal Tilt",
+      "value": "+2.69",
+      "score": 72,
+      "impact": "positive",
+      "note": "Positive tilt, though mild."
+    },
+    {
+      "name": "Nose Width",
+      "value": "0.231",
+      "score": 80,
+      "impact": "positive",
+      "note": "Refined and narrow nasal base."
+    },
+    {
+      "name": "Mouth Width",
+      "value": "0.364",
+      "score": 75,
+      "impact": "neutral",
+      "note": "Proportional to bizygomatic width."
+    },
+    {
+      "name": "Philtrum Height",
+      "value": "0.094",
+      "score": 70,
+      "impact": "neutral",
+      "note": "Standard length."
+    },
+    {
+      "name": "Upper Third",
+      "value": "0.162",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Slightly short relative to lower face."
+    },
+    {
+      "name": "Middle Third",
+      "value": "0.475",
+      "score": 70,
+      "impact": "neutral",
+      "note": "Balanced."
+    },
+    {
+      "name": "Lower Third",
+      "value": "0.499",
+      "score": 60,
+      "impact": "negative",
+      "note": "Slightly elongated vertical lower third."
+    },
+    {
+      "name": "Eye Height",
+      "value": "0.05",
+      "score": 72,
+      "impact": "neutral",
+      "note": "Standard almond aperture."
+    },
+    {
+      "name": "Brow Compactness",
+      "value": "0.145",
+      "score": 75,
+      "impact": "positive",
+      "note": "Good orbital support."
+    },
+    {
+      "name": "Skin Texture",
+      "value": "Visual",
+      "score": 78,
+      "impact": "positive",
+      "note": "Clear complexion, minimal blemishes."
+    },
+    {
+      "name": "Facial Fat",
+      "value": "Visual",
+      "score": 68,
+      "impact": "neutral",
+      "note": "Low fat, but lacks deep hollowing."
+    },
+    {
+      "name": "Symmetry",
+      "value": "Visual",
+      "score": 82,
+      "impact": "positive",
+      "note": "High bilateral symmetry."
+    },
+    {
+      "name": "Lip Fullness",
+      "value": "Visual",
+      "score": 80,
+      "impact": "positive",
+      "note": "Aesthetically pleasing volume."
+    },
+    {
+      "name": "Maxillary Prominence",
+      "value": "Visual",
+      "score": 70,
+      "impact": "neutral",
+      "note": "Adequate forward growth."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Bigonial Width",
+      "description": "Strong jaw width provides a masculine foundation and structural stability."
+    },
+    {
+      "title": "Midface Compactness",
+      "description": "The low midface ratio prevents the face from appearing overly long."
+    },
+    {
+      "title": "Nasal Refinement",
+      "description": "Straight bridge and narrow alar width contribute to a polished look."
+    },
+    {
+      "title": "Skin Clarity",
+      "description": "High skin quality and lack of texture issues boost overall vitality."
+    },
+    {
+      "title": "Eye Shape",
+      "description": "Almond shape with a positive canthal tilt creates an attractive gaze."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Lower Third Length",
+      "description": "Vertical elongation of the lower third slightly disrupts ideal facial thirds."
+    },
+    {
+      "title": "Sub-zygomatic Definition",
+      "description": "Lack of deep hollowing under the cheekbones reduces 'model-tier' angularity."
+    },
+    {
+      "title": "Upper Eyelid Exposure",
+      "description": "Mild UEE reduces the intensity of the orbital area."
+    },
+    {
+      "title": "Brow Framing",
+      "description": "Eyebrows could benefit from more definition and a slightly lower set."
+    },
+    {
+      "title": "Hair Volume",
+      "description": "Current styling is somewhat flat, failing to maximize forehead balance."
+    }
+  ],
+  "pros": [
+    "Strong jaw base",
+    "Excellent skin clarity",
+    "High facial symmetry",
+    "Refined nasal structure"
+  ],
+  "cons": [
+    "Slightly long lower third",
+    "Lack of extreme hollowing",
+    "Mild upper eyelid exposure"
+  ],
+  "mainLimitingFactor": "Lack of elite-tier bone definition (hollowing) and slight vertical imbalance in the lower third.",
+  "qualityFlags": [
+    "Low lighting"
+  ],
+  "confidenceFlags": [
+    "Front-only analysis"
+  ],
+  "debugJustification": "Score 67. Subject passed Angularity Gate (defined jaw) but failed to reach 70+ due to lack of sub-zygomatic hollowing and slight vertical imbalance (Lower Third Index 0.499). Skin/Texture Tax was not applied as skin is clear. Orbital refinement is good but not elite (mild UEE). Phenotype benchmarked against Cha Eun-woo; subject has the harmony but lacks the extreme orbital compactness and bone sharpness of the 80+ tier. Grooming adjustment: +2 for clean look, -2 for lack of structured hair."
+}

@@ -1457,7 +1457,7 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
 
   return (
     <nav className="fixed top-0 z-50 flex w-full items-center justify-between overflow-visible border-b border-zinc-900 bg-[#0c0d0e]/80 px-6 py-4 backdrop-blur-md md:grid md:grid-cols-[1fr_auto_1fr] md:items-center">
-      <div className="flex items-center justify-between md:block">
+      <div className="hidden md:flex items-center justify-between md:block">
       <div className="flex items-center cursor-pointer group w-fit" onClick={() => setCurrentPage('home')}>
         <div className="w-9 h-9 flex items-center justify-center group-hover:rotate-12 transition-transform">
           <MogCheckLogoMark size={36} className="w-9 h-9" />
@@ -1614,63 +1614,67 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
           <button onClick={() => setCurrentPage('login')} className="px-6 py-2 rounded-full bg-white text-black font-bold text-xs uppercase tracking-widest hover:bg-zinc-200 transition-colors">Login</button>
         )}
       </div>
-      <button className="md:hidden text-white" onClick={() => setIsOpen(!isOpen)}>{isOpen ? <X /> : <Menu />}</button>
-      {isOpen && (
-        <div className="absolute top-full left-0 w-full bg-[#0c0d0e] border-b border-zinc-900 flex flex-col items-center py-6 gap-6 md:hidden">
-        <button onClick={() => { setCurrentPage('home'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Home</button>
-
-        <button onClick={() => { setCurrentPage('mog-battles'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Swords size={14} className="text-cyan-500/90" /> Mog Battles</button>
-        {isAdminNavUser && (
-          <button onClick={() => { setCurrentPage('mog-battles-2'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Swords size={14} className="text-blue-500/90" /> Mog Battles 2</button>
-        )}
-        {showDashboard && (
-        <button onClick={() => { setCurrentPage('dashboard'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Activity size={14} /> Dashboard</button>
-        )}
-          <button onClick={() => { setCurrentPage('celebrity'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Scans</button>
-          {isAdminNavUser && (
-            <button onClick={() => { setCurrentPage('scans2'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold text-blue-500/90">Scans 2</button>
-          )}
+      {/* Mobile top-right: profile icon */}
+      <div className="md:hidden flex items-center gap-2">
+        {user ? (
           <button
-            onClick={() => {
-              setIsOpen(false);
-              if (currentPage === 'plans') setCurrentPage('plans');
-              else onOpenPremiumPlans?.();
-            }}
-            className="text-yellow-500/70 uppercase tracking-widest text-xs font-bold flex items-center gap-2"
+            type="button"
+            onClick={() => { setShowUserMenu(!showUserMenu); setShowNotifications(false); }}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-300 transition-all hover:border-cyan-500/40 hover:text-cyan-300"
           >
-            <Crown size={13} /> Plans
+            <User size={18} />
           </button>
-          {user ? (
-            <>
-              <button type="button" onClick={() => { setCurrentPage('photo-guide'); setIsOpen(false); }} className="flex h-11 w-11 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:text-cyan-100">
-                <Plus size={18} />
-              </button>
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-zinc-300 font-sans text-xs">{username}</span>
-                {planChip && (
-                  <span className={`px-2.5 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-widest ${planChip.className}`}>
-                    {planChip.label}
-                  </span>
-                )}
-              </div>
-              <button type="button" onClick={() => { setCurrentPage('settings'); setIsOpen(false); }} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
-                <Settings size={14} /> Account &amp; settings
-              </button>
-              <button type="button" onClick={() => { setCurrentPage('profile'); setIsOpen(false); }} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
-                <User size={14} /> Profile &amp; scans
-              </button>
-              <button type="button" onClick={() => { setShowNotifications(true); setIsOpen(false); loadNotifications(); }} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
-                <Bell size={14} /> Notifications {unreadNotificationCount > 0 ? `(${unreadNotificationCount})` : ''}
-              </button>
-              <button type="button" onClick={() => { onSignOut(); setIsOpen(false); }} className="flex items-center gap-2 px-8 py-2 rounded-full border border-zinc-800 text-red-400 hover:text-red-300 font-bold text-xs uppercase tracking-widest">
-                <LogOut size={14} /> Sign Out
-              </button>
-            </>
-          ) : (
-            <button onClick={() => { setCurrentPage('login'); setIsOpen(false); }} className="px-8 py-2 rounded-full bg-white text-black font-bold text-xs uppercase tracking-widest mt-2">Login</button>
-          )}
+        ) : (
+          <button onClick={() => setCurrentPage('login')} className="px-4 py-1.5 rounded-full bg-white text-black font-bold text-[10px] uppercase tracking-widest">Login</button>
+        )}
+      </div>
+      {/* Mobile user menu dropdown (top-right) */}
+      {showUserMenu && user && (
+        <div className="absolute right-4 top-full z-[100] mt-2 w-52 bg-[#0c0d0e] border border-zinc-800 rounded-xl shadow-2xl overflow-hidden md:hidden">
+          <div className="px-4 py-3 border-b border-zinc-800">
+            <p className="text-[10px] text-zinc-500 font-sans truncate">{user.email}</p>
+            {planChip && (
+              <p className={`mt-2 inline-flex items-center px-2 py-0.5 rounded-md border text-[9px] font-bold uppercase tracking-widest ${planChip.className}`}>
+                Plan: {planChip.label}
+              </p>
+            )}
+          </div>
+          <button type="button" onClick={() => { setCurrentPage('settings'); setShowUserMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800">
+            <Settings size={14} /> Settings
+          </button>
+          <button type="button" onClick={() => { setCurrentPage('photo-guide'); setShowUserMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800">
+            <Plus size={14} /> New Scan
+          </button>
+          <button type="button" onClick={() => { onSignOut(); setShowUserMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs text-red-400 hover:text-red-300 hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold">
+            <LogOut size={14} /> Sign Out
+          </button>
         </div>
       )}
+    </nav>
+    {/* Mobile Bottom Tab Bar */}
+    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
+      <div className="mx-3 mb-3 flex items-center justify-around rounded-[22px] border border-zinc-800 bg-[#111214]/95 px-2 py-2 backdrop-blur-xl shadow-[0_-4px_30px_rgba(0,0,0,0.5)]">
+        {[
+          { key: 'home', label: 'Home', icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
+          { key: 'celebrity', label: 'Scans', icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> },
+          { key: 'mog-battles', label: 'Battles', icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg> },
+          { key: user ? 'dashboard' : 'login', label: 'Profile', icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
+        ].map((tab) => {
+          const isActive = currentPage === tab.key || (tab.key === 'dashboard' && (currentPage === 'dashboard' || currentPage === 'profile'));
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setCurrentPage(tab.key)}
+              className={`flex flex-col items-center gap-1 px-4 py-1.5 rounded-2xl transition-all duration-200 ${isActive ? 'text-cyan-400' : 'text-zinc-500'}`}
+            >
+              {tab.icon}
+              <span className={`text-[9px] font-black uppercase tracking-[0.12em] ${isActive ? 'text-cyan-400' : 'text-zinc-500'}`}>{tab.label}</span>
+              {isActive && <span className="h-1 w-1 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.8)]" />}
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
 };
@@ -3038,7 +3042,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
       
       {/* Extracted Video: Placed directly in the header to avoid FadeUp's stacking context which breaks mix-blend-screen */}
       <div
-        className="pointer-events-none absolute left-1/2 top-[18vh] z-0 w-[min(118vw,1040px)] h-[min(82vh,760px)] origin-center -translate-x-1/2 -translate-y-[22%] sm:-translate-y-[27%] md:-translate-y-[32%] overflow-visible scale-[0.81] mix-blend-screen"
+        className="pointer-events-none absolute left-1/2 top-[18vh] z-0 w-[min(118vw,1040px)] h-[min(82vh,760px)] origin-center -translate-x-1/2 -translate-y-[22%] sm:-translate-y-[27%] md:-translate-y-[32%] overflow-visible scale-[0.81]"
         style={{ mixBlendMode: 'screen' }}
         aria-hidden
       >
@@ -3048,7 +3052,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           playsInline 
           preload="auto"
           className="w-full h-full object-contain object-center opacity-[0.92]"
-          style={{ filter: 'contrast(1.08)' }}
+          style={{ filter: 'contrast(1.08) brightness(1.05)', mixBlendMode: 'screen' }}
           src="/FaceANimationforwebsite.webm" 
         />
       </div>
@@ -3154,10 +3158,14 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4 uppercase italic [font-weight:950] drop-shadow-none [text-shadow:none]">Make The Impossible, Possible.</h2>
           <p className="text-zinc-400 font-sans text-sm max-w-2xl mx-auto uppercase tracking-widest">Join the many who cracked the aesthetic code</p>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 items-center">
           <ComparisonCard beforeImgSrc={compBefore1} afterImgSrc={compAfter1} beforeScore="4.8" afterScore="7.4" review={reviewsData[0]} />
           <ComparisonCard beforeImgSrc={compBefore2} afterImgSrc={compAfter2} beforeScore="5.2" afterScore="8.5" isActive={true} review={reviewsData[2]} />
-          <ComparisonCard beforeImgSrc={compAfter3} afterImgSrc={compBefore3} beforeScore="4.5" afterScore="7.1" review={reviewsData[1]} />
+          <div className="col-span-2 lg:col-span-1 flex justify-center">
+            <div className="w-full max-w-[280px] lg:max-w-none">
+              <ComparisonCard beforeImgSrc={compAfter3} afterImgSrc={compBefore3} beforeScore="4.5" afterScore="7.1" review={reviewsData[1]} />
+            </div>
+          </div>
         </div>
       </FadeUp>
     </section>
@@ -12082,7 +12090,7 @@ const ScansPage2 = ({ setCurrentPage, setSelectedCelebrity, user }) => {
         </div>
 
         {/* 3 Grid Layout */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full text-left pb-16">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 w-full text-left pb-24 md:pb-16">
           {filteredScans.map((rawScan, idx) => {
             const scan = hydrateCommunityScanEntry(rawScan, idx);
             const isOwnedCommunityScan = Boolean(user?.uid && scan.ownerUid && scan.ownerUid === user.uid && scan.scanId && !scan.officialScan);

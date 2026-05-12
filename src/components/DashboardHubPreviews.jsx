@@ -378,47 +378,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
   if (variant === 'sections') {
     return (
       <div className="mt-12 space-y-8 border-t border-zinc-800/80 pt-10">
-        <section className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-6">
-          <h3 className="mb-2 flex items-center gap-2 text-lg font-black uppercase tracking-widest text-cyan-400">
-            <Swords size={20} /> Mog Battles
-          </h3>
-          <p className="mb-6 text-sm font-sans text-zinc-500">Preview of recent matchups. Cast votes and climb the leaderboard on the full page.</p>
-          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {previewBattles.length ? (
-              previewBattles.map((battle) => {
-                const fighterA = battle.fighterA || {};
-                const fighterB = battle.fighterB || {};
-                return (
-                  <div key={battle.id} className="relative aspect-[4/3] overflow-hidden rounded-xl border border-zinc-800 bg-black/40">
-                    <div className="absolute inset-0 flex">
-                      {[fighterA, fighterB].map((fighter, index) => (
-                        <div key={index} className="relative flex-1">
-                          {getBattleImage(fighter) ? (
-                            <img loading="lazy" decoding="async" src={getBattleImage(fighter)} alt="" className="absolute inset-0 h-full w-full object-cover object-top grayscale-[35%]" />
-                          ) : (
-                            <div className="absolute inset-0 bg-zinc-950" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-2 text-center text-[10px] font-bold uppercase tracking-widest text-white">
-                      VS
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <p className="col-span-full text-sm text-zinc-600">Loading battles...</p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => setCurrentPage('mog-battles')}
-            className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/15 px-6 py-3 text-xs font-bold uppercase tracking-widest text-cyan-300 transition-colors hover:bg-cyan-500/25"
-          >
-            Go to Mog Battles <ChevronRight size={16} />
-          </button>
-        </section>
+
 
         {!hideCommunity && (
           <section className="border-t border-zinc-900 pt-8">
@@ -435,7 +395,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
                 <Plus size={16} /> Add Scan
               </button>
             </div>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
               {previewScans.map((scan) => (
                 <DashboardHubCommunityScanCard
                   key={scan.id}
@@ -473,47 +433,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
     <div className="mt-12 pt-10 border-t border-zinc-800/80">
       <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-6">Explore MogCheck</h3>
       <div className={hideCommunity ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'grid grid-cols-1 md:grid-cols-3 gap-4'}>
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-widest">
-            <Swords size={14} /> Mog Battles
-          </div>
-          {latestBattles.length ? (
-            <div className="space-y-2">
-              {latestBattles.map((battle) => {
-                const fighterA = battle.fighterA || {};
-                const fighterB = battle.fighterB || {};
-                return (
-                  <div key={battle.id} className="flex items-center gap-2 rounded-xl border border-zinc-800/80 bg-black/20 p-2">
-                    <div className="flex -space-x-2">
-                      {[getBattleImage(fighterA), getBattleImage(fighterB)].map((img, index) => (
-                        <div key={index} className="h-9 w-9 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950">
-                          {img ? <img loading="lazy" decoding="async" src={img} alt="" className="h-full w-full object-cover object-top" /> : null}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-[10px] font-black uppercase tracking-widest text-zinc-300">
-                        {fighterA.name || fighterA.displayName || 'Scan'} vs {fighterB.name || fighterB.displayName || 'Scan'}
-                      </p>
-                      <p className="text-[9px] font-sans uppercase tracking-[0.2em] text-zinc-600">
-                        {Number(battle.votesA || 0) + Number(battle.votesB || 0)} votes
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-zinc-500 text-[11px] font-sans leading-relaxed">No live battles yet. Start one and it will appear here.</p>
-          )}
-          <button
-            type="button"
-            onClick={() => setCurrentPage('mog-battles')}
-            className="mt-auto flex items-center justify-center gap-2 py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-bold uppercase tracking-widest hover:bg-cyan-500/20 transition-colors"
-          >
-            Go to Mog Battles <ChevronRight size={14} />
-          </button>
-        </div>
+
         {!hideCommunity && (
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 flex flex-col gap-3">
             <div className="flex items-center gap-2 text-emerald-400/90 text-xs font-bold uppercase tracking-widest">

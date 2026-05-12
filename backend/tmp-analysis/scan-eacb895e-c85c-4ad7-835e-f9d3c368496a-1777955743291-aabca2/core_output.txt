@@ -1,0 +1,254 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+8. PENIS GOAT 2
+9. PENIS GOAT 3
+
+[DEBUG] Model selected via API args: 9
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777955742846-602c7bfb1eb0dda4.png ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-eacb895e-c85c-4ad7-835e-f9d3c368496a-1777955743291-aabca2\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (219.3px)
+- Auto-Leveling: Corrected 1.63 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.882
+- IPD_Index (Geometric):    0.452
+- Mouth_Width_Index:        0.367
+- Nose_Width_Index:         0.219
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.27
+- Middle_Third_Length:      0.463
+- Lower_Third_Length:       0.47
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.073
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.11
+- Philtrum_Height_Index:    0.093
+- Total_Lip_Height_Index:   0.12
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.799
+- Midface_Ratio (Mid/IPD):  0.991
+- Canthal_Tilt_Degrees:     5.12 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting PENIS GOAT 3... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-eacb895e-c85c-4ad7-835e-f9d3c368496a","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":14932,"input_token_count":3178,"output_token_count":1701,"total_token_count":4879,"estimated_input_tokens":3184,"max_output_tokens":4096,"image_included":true,"timestamp":1777955759856}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: PENIS GOAT 3 | Latency: 14.94s]
+{
+  "sex": "male",
+  "finalRating": 58,
+  "sideRating": null,
+  "tier": "Above Average",
+  "technicalSummary": "Bone-to-soft-tissue ratio is moderate; the subject passes the Angularity Gate marginally but lacks elite sub-zygomatic hollowing. Grooming is adequate but the hairstyle adds unnecessary bulk to the upper third.",
+  "appealAssessment": "The subject presents a masculine, slightly rugged phenotype with decent dimorphism. The vibe is approachable but lacks the sharp, refined angularity required for high-tier modeling standards.",
+  "personalizedInterpretation": "A solid, above-average face with good baseline structure, held back by slight soft tissue fullness and unrefined grooming.",
+  "categories": {
+    "Harmony": 60,
+    "Bone": 58,
+    "Symmetry": 65,
+    "Skin": 62,
+    "Dimorphism": 65,
+    "Maxillary/Cheekbone Projection": 55,
+    "Nose Projection": 50,
+    "Facial Fat": 55,
+    "Eye Depth": 60,
+    "Ear Shape": 60
+  },
+  "hexagonFront": {
+    "Harmony": 60,
+    "Bone": 58,
+    "Symmetry": 65,
+    "Skin": 62,
+    "Dimorphism": 65,
+    "Facial Fat": 55
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.799",
+      "score": 65,
+      "impact": "positive",
+      "note": "Good width-to-height ratio, contributing to masculine appearance."
+    },
+    {
+      "name": "Midface_Ratio",
+      "value": "0.991",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Average midface compactness."
+    },
+    {
+      "name": "Bigonial_Width_Index",
+      "value": "0.882",
+      "score": 62,
+      "impact": "positive",
+      "note": "Decent jaw width relative to cheekbones."
+    },
+    {
+      "name": "IPD_Index",
+      "value": "0.452",
+      "score": 58,
+      "impact": "neutral",
+      "note": "Interpupillary distance is within normal ranges."
+    },
+    {
+      "name": "Mouth_Width_Index",
+      "value": "0.367",
+      "score": 55,
+      "impact": "neutral",
+      "note": "Mouth width is proportionate."
+    },
+    {
+      "name": "Nose_Width_Index",
+      "value": "0.219",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Nose width is acceptable but lacks elite refinement."
+    },
+    {
+      "name": "Upper_Third_Length",
+      "value": "0.27",
+      "score": 50,
+      "impact": "negative",
+      "note": "Forehead appears slightly compressed, exacerbated by hairstyle."
+    },
+    {
+      "name": "Middle_Third_Length",
+      "value": "0.463",
+      "score": 58,
+      "impact": "neutral",
+      "note": "Standard midface length."
+    },
+    {
+      "name": "Lower_Third_Length",
+      "value": "0.47",
+      "score": 60,
+      "impact": "positive",
+      "note": "Good lower third dominance."
+    },
+    {
+      "name": "Eye_Height_Index",
+      "value": "0.073",
+      "score": 55,
+      "impact": "neutral",
+      "note": "Average eye height."
+    },
+    {
+      "name": "Brow_Compactness_Index",
+      "value": "0.11",
+      "score": 65,
+      "impact": "positive",
+      "note": "Good brow compactness, adding to masculine intensity."
+    },
+    {
+      "name": "Philtrum_Height_Index",
+      "value": "0.093",
+      "score": 58,
+      "impact": "neutral",
+      "note": "Philtrum length is acceptable."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Brow Compactness",
+      "description": "Low-set, thick eyebrows provide good framing for the eyes and enhance masculine dimorphism."
+    },
+    {
+      "title": "fWHR",
+      "description": "A strong facial width-to-height ratio contributes to a robust, masculine facial structure."
+    },
+    {
+      "title": "Lower Third Dominance",
+      "description": "The lower third is well-proportioned, giving the face a grounded, masculine base."
+    },
+    {
+      "title": "Symmetry",
+      "description": "Overall facial symmetry is good, with no major deviations."
+    },
+    {
+      "title": "Jaw Width",
+      "description": "The bigonial width is decent, providing a solid foundation for the lower face."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Facial Fat / Soft Tissue",
+      "description": "Slight excess soft tissue obscures underlying bone structure, preventing elite angularity."
+    },
+    {
+      "title": "Hairstyle",
+      "description": "The heavy, forward-swept fringe compresses the upper third and lacks refinement."
+    },
+    {
+      "title": "Nasal Refinement",
+      "description": "The nose lacks sharp definition and bridge clarity required for higher tiers."
+    },
+    {
+      "title": "Skin Texture",
+      "description": "Skin appears slightly uneven, lacking the pristine clarity of elite models."
+    },
+    {
+      "title": "Eye Area Support",
+      "description": "While brows are good, the orbital area lacks the deep-set, hunter-eye aesthetic."
+    }
+  ],
+  "pros": [
+    "Good brow compactness",
+    "Strong fWHR",
+    "Decent lower third proportions",
+    "Acceptable symmetry"
+  ],
+  "cons": [
+    "Excess facial soft tissue",
+    "Unrefined hairstyle",
+    "Average nasal definition",
+    "Lack of elite angularity"
+  ],
+  "mainLimitingFactor": "Facial Fat / Soft Tissue",
+  "qualityFlags": [
+    "Low resolution",
+    "Slight blur"
+  ],
+  "confidenceFlags": [
+    "Frontal view only"
+  ],
+  "debugJustification": "Subject scores a 58. Passes the Angularity Gate marginally but lacks the sub-zygomatic hollowing for a 65+. Skin/Texture Tax applied for slight unevenness. Grooming adjustment: -2 points for the unrefined hairstyle that compresses the upper third. Phenotype benchmark: Solid above-average, but lacks elite refinement."
+}

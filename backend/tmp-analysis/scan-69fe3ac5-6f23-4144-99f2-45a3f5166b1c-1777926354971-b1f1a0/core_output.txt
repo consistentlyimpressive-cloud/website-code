@@ -1,0 +1,251 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+8. PENIS GOAT 2
+
+[DEBUG] Model selected via API args: 8
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777926354961-5f1aacfbf733ceff.png ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-69fe3ac5-6f23-4144-99f2-45a3f5166b1c-1777926354971-b1f1a0\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (403.0px)
+- Auto-Leveling: Corrected -0.15 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.881
+- IPD_Index (Geometric):    0.46
+- Mouth_Width_Index:        0.345
+- Nose_Width_Index:         0.213
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.371
+- Middle_Third_Length:      0.499
+- Lower_Third_Length:       0.499
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.075
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.12
+- Philtrum_Height_Index:    0.126
+- Total_Lip_Height_Index:   0.117
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.599
+- Midface_Ratio (Mid/IPD):  1.094
+- Canthal_Tilt_Degrees:     5.85 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting PENIS GOAT 2... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-69fe3ac5-6f23-4144-99f2-45a3f5166b1c","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":20006,"input_token_count":2812,"output_token_count":1762,"total_token_count":4574,"estimated_input_tokens":2302,"max_output_tokens":4096,"image_included":true,"timestamp":1777926376656}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: PENIS GOAT 2 | Latency: 20.01s]
+{
+  "sex": "male",
+  "finalRating": 46,
+  "sideRating": null,
+  "tier": "Below Average",
+  "technicalSummary": "The subject presents with a narrow bizygomatic width and a relatively long midface. The hairline is partially occluded by hair volume, so upper third measurements are visually estimated. The primary structural issues stem from poor under-eye support, high upper eyelid exposure, and a lack of angularity in the lower third, compounded by soft tissue laxity and skin texture issues.",
+  "appealAssessment": "The subject's appeal is significantly hindered by a combination of poor skin quality, tired-looking eyes with high upper eyelid exposure, and a lack of sharp bone definition. The overall impression is soft and unrefined, lacking the crispness required for higher tiers.",
+  "personalizedInterpretation": "The subject falls squarely into the 'Soft & Aged Penalty' category due to visible skin texture issues, lack of bone-to-skin tightness, and poor eye area support.",
+  "categories": {
+    "Harmony": 45,
+    "Bone": 42,
+    "Symmetry": 55,
+    "Skin": 35,
+    "Dimorphism": 48,
+    "Maxillary/Cheekbone Projection": 40,
+    "Nose Projection": 50,
+    "Facial Fat": 45,
+    "Eye Depth": 38,
+    "Ear Shape": 50
+  },
+  "hexagonFront": {
+    "Harmony": 45,
+    "Bone": 42,
+    "Symmetry": 55,
+    "Skin": 35,
+    "Dimorphism": 48,
+    "Facial Fat": 45
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.599",
+      "score": 40,
+      "impact": "negative",
+      "note": "Low fWHR contributes to a longer, narrower facial appearance."
+    },
+    {
+      "name": "Midface_Ratio",
+      "value": "1.094",
+      "score": 45,
+      "impact": "negative",
+      "note": "Slightly elongated midface relative to IPD."
+    },
+    {
+      "name": "Bigonial_Width_Index",
+      "value": "0.881",
+      "score": 50,
+      "impact": "neutral",
+      "note": "Average jaw width relative to cheekbones."
+    },
+    {
+      "name": "IPD_Index",
+      "value": "0.46",
+      "score": 55,
+      "impact": "neutral",
+      "note": "Interpupillary distance is within normal ranges."
+    },
+    {
+      "name": "Mouth_Width_Index",
+      "value": "0.345",
+      "score": 48,
+      "impact": "neutral",
+      "note": "Mouth width is proportionate."
+    },
+    {
+      "name": "Nose_Width_Index",
+      "value": "0.213",
+      "score": 52,
+      "impact": "neutral",
+      "note": "Nose width is acceptable."
+    },
+    {
+      "name": "Upper_Third_Length",
+      "value": "0.371",
+      "score": 50,
+      "impact": "neutral",
+      "note": "Visually estimated due to hair occlusion; appears proportionate."
+    },
+    {
+      "name": "Middle_Third_Length",
+      "value": "0.499",
+      "score": 42,
+      "impact": "negative",
+      "note": "Long middle third disrupts vertical harmony."
+    },
+    {
+      "name": "Lower_Third_Length",
+      "value": "0.499",
+      "score": 45,
+      "impact": "negative",
+      "note": "Lower third lacks strong definition despite length."
+    },
+    {
+      "name": "Eye_Height_Index",
+      "value": "0.075",
+      "score": 38,
+      "impact": "negative",
+      "note": "High upper eyelid exposure and poor under-eye support."
+    },
+    {
+      "name": "Brow_Compactness_Index",
+      "value": "0.12",
+      "score": 45,
+      "impact": "negative",
+      "note": "Brows are somewhat high set, reducing eye area intensity."
+    },
+    {
+      "name": "Canthal_Tilt_Degrees",
+      "value": "5.85",
+      "score": 40,
+      "impact": "negative",
+      "note": "Positive tilt is overshadowed by poor infraorbital support and droopy eyelid shape."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Hair Volume",
+      "description": "Thick, wavy hair provides good framing for the upper face."
+    },
+    {
+      "title": "Symmetry",
+      "description": "Facial features are relatively symmetrical without major deviations."
+    },
+    {
+      "title": "Nose Width",
+      "description": "The nose is not overly wide relative to the face."
+    },
+    {
+      "title": "Lip Fullness",
+      "description": "Lips have adequate volume and shape."
+    },
+    {
+      "title": "Eye Color",
+      "description": "Light eye color provides some contrast."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Poor Eye Area Support",
+      "description": "High upper eyelid exposure (UEE) and tired-looking under-eyes significantly detract from facial aesthetics."
+    },
+    {
+      "title": "Skin Quality",
+      "description": "Visible texture, uneven tone, and lack of tightness trigger the 'Soft & Aged Penalty'."
+    },
+    {
+      "title": "Long Midface",
+      "description": "The elongated middle third disrupts vertical facial harmony."
+    },
+    {
+      "title": "Weak Bone Definition",
+      "description": "Lack of sharp angularity in the jawline and cheekbones results in a soft appearance."
+    },
+    {
+      "title": "Low fWHR",
+      "description": "A narrow face shape reduces masculine dimorphism."
+    }
+  ],
+  "pros": [
+    "Good hair volume and texture",
+    "Acceptable facial symmetry",
+    "Light eye color"
+  ],
+  "cons": [
+    "High upper eyelid exposure and poor under-eye support",
+    "Poor skin texture and tone",
+    "Long midface and low fWHR",
+    "Lack of sharp bone definition"
+  ],
+  "mainLimitingFactor": "Poor eye area support combined with subpar skin quality.",
+  "qualityFlags": [
+    "Hairline partially occluded"
+  ],
+  "confidenceFlags": [
+    "Upper third measurements estimated due to hair"
+  ],
+  "debugJustification": "The subject's score is heavily driven by the 'Soft & Aged Penalty'. Despite being relatively young, the poor skin texture, lack of bone-to-skin tightness, and tired eye area (high UEE, poor infraorbital support) disqualify him from the 'Lean & Young Buffer'. The long midface and low fWHR further suppress the score into the 40s."
+}

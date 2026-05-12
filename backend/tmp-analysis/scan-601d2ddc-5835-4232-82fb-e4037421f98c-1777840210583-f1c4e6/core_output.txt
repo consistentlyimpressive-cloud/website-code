@@ -1,0 +1,203 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. ULTRA - Highest Quality
+2. Experimental Token Saver
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Gemini 3.1 Pro
+
+[DEBUG] Model selected via API args: 1
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777840203868-093e59eb285a15b8.png ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-601d2ddc-5835-4232-82fb-e4037421f98c-1777840210583-f1c4e6\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (688.9px)
+- Auto-Leveling: Corrected 21.51 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.949
+- IPD_Index (Geometric):    0.467
+- Mouth_Width_Index:        0.381
+- Nose_Width_Index:         0.234
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.345
+- Middle_Third_Length:      0.476
+- Lower_Third_Length:       0.473
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.063
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.159
+- Philtrum_Height_Index:    0.087
+- Total_Lip_Height_Index:   0.156
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.778
+- Midface_Ratio (Mid/IPD):  0.88
+- Canthal_Tilt_Degrees:     5.43 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting ULTRA - Highest Quality... (Press Ctrl+C to Cancel)
+[KEY_HEALTH] Skipping keys this scan: GEMINI_KEY_1:disabled, GEMINI_KEY_3:disabled
+[DEBUG] Google GenAI key order this scan: GEMINI_KEY_5, GEMINI_KEY_4, GEMINI_KEY_2
+[DEBUG] Trying Google GenAI GEMINI_KEY_5 (1/3)...
+[TOKEN_USAGE] {"scan_id":"scan-601d2ddc-5835-4232-82fb-e4037421f98c","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":5,"attempt_number":1,"success":false,"duration_ms":2559,"error":"500 INTERNAL. {'error': {'code': 500, 'message': 'Internal error encountered.', 'status': 'INTERNAL'}}","estimated_input_tokens":14146,"max_output_tokens":null,"image_included":true,"timestamp":1777840215806}
+      [!] ULTRA - Highest Quality GEMINI_KEY_5 failed: 500 INTERNAL. {'error': {'code': 500, 'message': 'Internal error encountered.', 'status': 'INTERNAL'}}
+[DEBUG] Trying Google GenAI GEMINI_KEY_4 (2/3)...
+[TOKEN_USAGE] {"scan_id":"scan-601d2ddc-5835-4232-82fb-e4037421f98c","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":4,"attempt_number":2,"success":false,"duration_ms":1722,"error":"500 INTERNAL. {'error': {'code': 500, 'message': 'Internal error encountered.', 'status': 'INTERNAL'}}","estimated_input_tokens":14146,"max_output_tokens":null,"image_included":true,"timestamp":1777840217530}
+      [!] ULTRA - Highest Quality GEMINI_KEY_4 failed: 500 INTERNAL. {'error': {'code': 500, 'message': 'Internal error encountered.', 'status': 'INTERNAL'}}
+[DEBUG] Trying Google GenAI GEMINI_KEY_2 (3/3)...
+[TOKEN_USAGE] {"scan_id":"scan-601d2ddc-5835-4232-82fb-e4037421f98c","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":2,"attempt_number":3,"success":true,"duration_ms":112789,"input_token_count":11683,"output_token_count":1832,"total_token_count":15573,"estimated_input_tokens":14146,"max_output_tokens":null,"image_included":true,"timestamp":1777840330321}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: ULTRA - Highest Quality | Latency: 117.09s]
+### ANALYSIS MALE
+**Final Frontal Rating: 79/100**
+**Uncanny Cue Count:** 0 ()
+**Facial Fat / Definition Read:** normal - Lean facial composition with clear mandibular definition and a well-defined jawline.
+**Max Natural Potential: 84/100**
+**Max Potential with Surgery: 88/100**
+
+**Technical Summary:** The subject exhibits *strong geometric harmony* with nearly ideal horizontal indices. The *bizygomatic-to-bigonial relationship* is highly balanced (0.949), providing a structured lower face without becoming blocky. The *eye area* is a significant strength, characterized by a positive canthal tilt and compact orbital shape. The only notable structural deviation is a slightly *high brow compactness index*, suggesting a higher-than-ideal brow position.
+
+**Appeal Assessment:** Likely race/ethnicity: East Asian. Sex: male. The subject possesses a *refined, harmonious phenotype* that blends masculine structure with youthful, clean features. The appeal is universally conventional, leaning towards a "pretty boy" or "idol" aesthetic due to the balance of a strong jaw with soft-tissue freshness and an attractive eye area.
+
+**Hexagon Chart Ratings (front)**
+- Skin: 9/10
+- Bone: 8/10
+- Harmony: 8/10
+- Symmetry: 9/10
+- Dimorphism: 7/10
+
+**CORE CATEGORY SCORES (Front | Side):**
+- Harmony: 82 | N/A
+- Bone: 80 | N/A
+- Symmetry: 88 | N/A
+- Skin: 90 | N/A
+- Dimorphism: 72 | N/A
+- Maxillary/Cheekbone Projection: 78 | N/A
+- Nose Projection: 82 | N/A
+- Facial Fat: 85 | N/A
+- Eye Depth: 80 | N/A
+- Ear Shape: 80 | N/A
+
+**CRITICAL MARKERS:**
+- #1 BEST FEATURE: Eye Area - Exceptional almond shape with a natural positive canthal tilt and low upper eyelid exposure.
+- #1 WORST FEATURE: Brow Compactness - The distance from the eye center to the brow is slightly elevated (0.159), reducing overall orbital compactness.
+
+### DASHBOARD_DATA
+BEST FEATURES (10):
+1. [FRONT] Eye Shape - Natural almond shape that creates an alert and attractive gaze.
+2. [FRONT] Canthal Tilt - Positive tilt (5.43°) contributing to a youthful and aesthetic eye area.
+3. [FRONT] Bigonial Width - Excellent jaw-to-cheekbone ratio (0.949) providing strong lower-face support.
+4. [FRONT] IPD Spacing - Nearly perfect geometric eye spacing (0.467) for facial balance.
+5. [FRONT] Mouth Width - Harmonious mouth-to-face width ratio (0.381).
+6. [FRONT] Midface Ratio - Compact midface (0.88) preventing a long-face appearance.
+7. [FRONT] Skin Quality - Very clear, fresh complexion with no visible aging or blemishes.
+8. [FRONT] Lower Third Length - Well-proportioned lower face (0.473) relative to total height.
+9. [FRONT] Symmetry - High degree of bilateral symmetry across all major landmarks.
+10. [FRONT] Philtrum Height - Balanced philtrum length (0.087) contributing to lower-face harmony.
+
+PRIMARY FLAWS (10):
+1. [FRONT] Brow Compactness - Slightly high brow position reduces the "hooded" or compact look of the eyes.
+2. [FRONT] fWHR - Slightly narrow facial width (1.778) compared to the ideal strong range.
+3. [FRONT] Upper Third Length - While balanced, it is on the lower end of the range, slightly limiting forehead framing.
+4. [FRONT] Nasal Base - Very slight width, though not disruptive to overall harmony.
+5. [FRONT] Dimorphism - Lacks aggressive masculine breadth, though remains harmonious.
+6. [FRONT] Orbital Depth - Moderate depth; could be more pronounced for a more "carved" look.
+7. [FRONT] Lip Fullness - Balanced, but could benefit from slightly more volume for elite tier.
+8. [FRONT] Brow Density - Slightly sparse in the outer tails, though not a major flaw.
+9. [FRONT] Lower Lip Definition - Slightly soft border on the lower lip.
+10. [FRONT] Facial Width - Overall narrowness prevents the face from hitting the "elite" bone structure bracket.
+
+### RATINGS (USE THIS)
+- Bigonial_Width_Index: 94/100
+- IPD_Index (Geometric): 98/100
+- Mouth_Width_Index: 96/100
+- Nose_Width_Index: 85/100
+- Upper_Third_Length: 90/100
+- Middle_Third_Length: 95/100
+- Lower_Third_Length: 95/100
+- Eye_Height_Index: 92/100
+- Brow_Compactness_Index: 62/100
+- Philtrum_Height_Index: 95/100
+- Total_Lip_Height_Index: 90/100
+- fWHR (Zygo / Upper_Face): 76/100
+- Midface_Ratio (Mid/IPD): 95/100
+- Canthal_Tilt_Degrees: 95/100
+
+### MOG_REPORT_REVISION
+Bigonial_Width_Index: 94
+IPD_Index (Geometric): 98
+Mouth_Width_Index: 96
+Nose_Width_Index: 85
+Upper_Third_Length: 90
+Middle_Third_Length: 95
+Lower_Third_Length: 95
+Eye_Height_Index: 92
+Brow_Compactness_Index: 62
+Philtrum_Height_Index: 95
+Total_Lip_Height_Index: 90
+fWHR (Zygo / Upper_Face): 76
+Midface_Ratio (Mid/IPD): 95
+Canthal_Tilt_Degrees: 95
+
+**Debug Rating Justification:** The subject is a high-tier attractive male with exceptional horizontal proportions. The score is driven upward by nearly perfect IPD, mouth width, and a very strong bigonial index. The eye area is a major positive driver due to the positive canthal tilt and almond shape. The rating is held back from the 80s/90s primarily by a slightly narrow fWHR and a high brow compactness index, which prevents the face from having a truly "elite" or "carved" orbital look. No authenticity caps or AI penalties were applied as the image is a natural human photograph.
+
+Positive reasons:
+1. Ideal IPD index.
+2. Strong bigonial width.
+3. Positive canthal tilt.
+4. Compact midface ratio.
+5. Clear, youthful skin.
+6. Balanced mouth width.
+7. Low upper eyelid exposure.
+8. Good mandibular definition.
+9. High bilateral symmetry.
+10. Balanced vertical thirds.
+11. Ideal philtrum height.
+12. Almond eye shape.
+13. No visible nasolabial folds.
+14. Lean facial fat.
+15. Harmonious nose width.
+
+Negative reasons:
+1. High brow compactness index.
+2. Slightly low fWHR.
+3. Lack of aggressive dimorphism.
+4. Moderate eye depth.
+5. Slightly narrow overall facial width.
+6. Brow tails could be denser.
+7. Upper third is slightly short.
+8. Lower lip border is soft.
+9. Not "elite" bone projection.
+10. Lacks "carved" hollows.
+11. Moderate lip volume.
+12. Slight nasal base width.
+13. Brow position is slightly too high.
+14. Overall width is more refined than strong.
+15. Lacks extreme orbital support.
