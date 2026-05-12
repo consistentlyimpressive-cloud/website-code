@@ -8476,7 +8476,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                 <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">Scan History</p>
                 <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">{freeHistoryCards.length} scans</span>
               </div>
-              <div className="flex gap-3 overflow-x-auto pb-4 -mx-6 px-6 custom-scrollbar scroll-smooth">
+              <div className="flex gap-2 overflow-x-auto pb-4 -mx-4 px-4 custom-scrollbar scroll-smooth">
                 {freeHistoryCards.map((scan, idx) => {
                   const isActive = scan?.frontImage === dashboardData?.frontImage && scan?.finalRating === dashboardData?.finalRating;
                   const rating = Number(scan.finalRating || 0);
@@ -8494,12 +8494,19 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                           .map((item) => Number(item?.finalRating))
                           .filter((rating) => Number.isFinite(rating)),
                       })}
-                      className={`relative flex-shrink-0 w-24 aspect-[4/5] rounded-2xl overflow-hidden border transition-all duration-300 ${isActive ? 'border-cyan-400 ring-4 ring-cyan-400/15 scale-[1.05] z-10' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}
+                      className={`relative flex-shrink-0 w-14 aspect-square rounded-xl overflow-hidden border transition-all duration-300 ${isActive ? 'border-cyan-400 ring-2 ring-cyan-400/15 scale-[1.05] z-10' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}
                     >
                       <img loading="lazy" decoding="async" src={scan.frontImage} className="w-full h-full object-cover" alt="" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                      <div className={`absolute bottom-2 left-0 right-0 text-center text-xs font-black italic ${tone.text}`}>
-                        {rating.toFixed(1)}
+                      <div className={`absolute bottom-1 left-0 right-0 text-center text-[9px] font-black italic ${tone.text} ${rating === 0 ? 'animate-free-rating-bg' : ''}`}
+                        style={{
+                          background: rating === 0 ? 'none' : 'white',
+                          WebkitBackgroundClip: rating === 0 ? 'text' : 'none',
+                          WebkitTextFillColor: rating === 0 ? 'transparent' : 'inherit',
+                          filter: rating === 0 ? 'blur(3.5px) saturate(0.85)' : 'none'
+                        }}
+                      >
+                        {rating === 0 ? freeRatingLoop : rating.toFixed(1)}
                       </div>
                     </button>
                   );
