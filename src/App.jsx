@@ -7850,7 +7850,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   }, [getCommunityScanShareUrl]);
 
   const renderBlurredOverlay = (title, compact = false) => (
-    <div className={`absolute inset-0 z-20 hidden md:flex flex-col items-center justify-center bg-[#0a0a0b]/60 backdrop-blur-[5.55px] rounded-3xl border border-zinc-800/50 group transition-all select-none ${compact ? 'py-3' : ''}`}>
+    <div className={`absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a0a0b]/60 backdrop-blur-[5.55px] rounded-3xl border border-zinc-800/50 group transition-all select-none ${compact ? 'py-3' : ''}`}>
       <Lock size={compact ? 14 : 32} className={`text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)] ${compact ? 'mb-2' : 'mb-3'}`} />
       <span className={`text-white font-black italic uppercase tracking-widest mb-1 drop-shadow-md ${compact ? 'text-base' : 'text-lg'}`}>PRO FEATURE</span>
       <span className={`text-zinc-300 font-sans text-[10px] uppercase tracking-widest text-center px-4 max-w-[min(100%,280px)] leading-relaxed ${compact ? 'mb-4' : 'mb-6'}`}>{title} requires a premium model</span>
@@ -8512,9 +8512,9 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                     <span className="mb-2 text-[10px] font-black uppercase tracking-[0.26em] text-white">Final Rating</span>
                     <div className="relative">
                       <span 
-                        className={`text-5xl font-black italic tracking-tight drop-shadow-[0_0_18px_${ratingTone.stroke || 'rgba(34,211,238,0.18)'}] ${isFreeModelResult ? 'select-none' : ''}`}
+                        className={`text-5xl font-black italic tracking-tight drop-shadow-[0_0_18px_${ratingTone.stroke || 'rgba(34,211,238,0.18)'}] ${isFreeModelResult ? 'select-none animate-free-rating-bg' : ''}`}
                         style={{
-                          background: '#ffffff',
+                          background: isFreeModelResult ? 'none' : '#ffffff',
                           WebkitBackgroundClip: 'text',
                           WebkitTextFillColor: 'transparent',
                           filter: `saturate(0.85) ${isFreeModelResult ? 'blur(8px)' : ''}`
@@ -8525,6 +8525,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                     </div>
                   </div>
                   <div className="relative flex min-h-[7.25rem] items-center justify-center overflow-hidden rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-4 shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
+                    {isFreeModelResult && renderBlurredOverlay("Detailed Ratios", true)}
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.08)_0%,transparent_72%)]" />
                     <div className="relative z-10 w-[88%] max-w-[7rem]">
                       <RadarChart data={radarData} finalScore={radarFinalScore} compact />
@@ -8663,9 +8664,9 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       <div className="relative leading-none">
                         <>
                           <span 
-                            className={`absolute inset-0 block text-6xl font-black italic tracking-tighter animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none`}
+                            className={`absolute inset-0 block text-6xl font-black italic tracking-tighter animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none animate-free-rating-bg`}
                             style={{
-                              background: '#ffffff',
+                              background: 'none',
                               WebkitBackgroundClip: 'text',
                               WebkitTextFillColor: 'transparent',
                               filter: 'saturate(0.85) blur(25.9px)'
@@ -8674,9 +8675,9 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                             {displayedFinalRating}
                           </span>
                           <span 
-                            className={`relative block text-6xl font-black italic tracking-tighter animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_${ratingTone.stroke || 'rgba(74,222,128,0.4)'}]`}
+                            className={`relative block text-6xl font-black italic tracking-tighter animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_${ratingTone.stroke || 'rgba(74,222,128,0.4)'}] animate-free-rating-bg`}
                             style={{
-                              background: '#ffffff',
+                              background: 'none',
                               WebkitBackgroundClip: 'text',
                               WebkitTextFillColor: 'transparent',
                               filter: 'saturate(0.85) blur(18.5px)'
@@ -8782,9 +8783,9 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       </span>
                       <div className="relative leading-none w-full flex justify-center">
                         <span 
-                          className={`block font-black tracking-tighter ${isFreeModelResult ? 'text-3xl' : 'text-[5.5rem] md:text-[6.5rem]'}`}
+                          className={`block font-black tracking-tighter ${isFreeModelResult ? 'text-3xl animate-free-rating-bg' : 'text-[5.5rem] md:text-[6.5rem]'}`}
                           style={{
-                            background: '#ffffff',
+                            background: isFreeModelResult ? 'none' : '#ffffff',
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
                             filter: 'saturate(0.85)'

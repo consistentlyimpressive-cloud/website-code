@@ -684,3 +684,17 @@
     pointer-events: none;
   }
 }
+
+@keyframes freeRatingBackgroundCycle {
+  0% { background-color: #ef4444; }
+  25% { background-color: #f97316; }
+  50% { background-color: #eab308; }
+  75% { background-color: #22c55e; }
+  100% { background-color: #ef4444; }
+}
+
+.animate-free-rating-bg {
+  animation: freeRatingBackgroundCycle 6s linear infinite !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
