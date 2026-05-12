@@ -6898,7 +6898,7 @@ const categoryToRadar10 = (v, fallbackRaw) => {
 
 const hexagonToRadarData = (hexagon, fallbackRaw) => {
   if (!hexagon || typeof hexagon !== 'object') return null;
-  const keyOrder = ['Skin', 'Dimorphism', 'Symmetry', 'Harmony'];
+  const keyOrder = ['Skin', 'Bone', 'Dimorphism', 'Symmetry', 'Harmony'];
   const normalizedHexagon = Object.fromEntries(
     Object.entries(hexagon).map(([key, value]) => [String(key).trim().toLowerCase(), value])
   );
@@ -7010,7 +7010,7 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
             return (
               <span 
                 key={i} 
-                className="absolute text-[6.5px] font-black font-sans text-cyan-400/80 uppercase tracking-[0.2em] whitespace-nowrap"
+                className={`absolute text-[6.5px] font-black font-sans uppercase tracking-[0.2em] whitespace-nowrap ${getRatingToneClasses(finalScore).text.split(' ')[0]}`}
                 style={{
                   left: `${x}%`,
                   top: `${y}%`,
@@ -7023,7 +7023,7 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
           })}
         </div>
       )}
-      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white font-black italic drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] ${compact ? 'text-sm' : 'text-lg'}`}>
+      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center font-black italic ${getRatingToneClasses(finalScore).text} ${compact ? 'text-sm' : 'text-lg'}`}>
         {scoreToDisplay10(finalScore) != null
           ? (scoreToDisplay10(finalScore) * progress).toFixed(1)
           : (data.reduce((a, b) => a + b.val * progress, 0) / data.length).toFixed(1)}
@@ -7963,6 +7963,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
 
   const defaultRadar = [
     { label: 'Skin', val: 6.4 },
+    { label: 'Bone', val: 7.2 },
     { label: 'Dimorphism', val: 7.8 },
     { label: 'Symmetry', val: 9.2 },
     { label: 'Harmony', val: 8.5 }
@@ -7981,6 +7982,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     (activeCats
       ? [
           { label: 'Skin', val: categoryToRadar10(activeCats.Skin, frForRadar) },
+          { label: 'Bone', val: categoryToRadar10(activeCats.Bone, frForRadar) },
           { label: 'Dimorphism', val: categoryToRadar10(activeCats.Dimorphism, frForRadar) },
           { label: 'Symmetry', val: categoryToRadar10(activeCats.Symmetry, frForRadar) },
           { label: 'Harmony', val: categoryToRadar10(activeCats.Harmony, frForRadar) },
@@ -7991,6 +7993,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     (oppositeCats
       ? [
           { label: 'Skin', val: categoryToRadar10(oppositeCats.Skin, oppositeRawRating) },
+          { label: 'Bone', val: categoryToRadar10(oppositeCats.Bone, oppositeRawRating) },
           { label: 'Dimorphism', val: categoryToRadar10(oppositeCats.Dimorphism, oppositeRawRating) },
           { label: 'Symmetry', val: categoryToRadar10(oppositeCats.Symmetry, oppositeRawRating) },
           { label: 'Harmony', val: categoryToRadar10(oppositeCats.Harmony, oppositeRawRating) },
@@ -8737,7 +8740,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                         {isFreeModelResult ? 'Analysis Type' : 'Final Rating'}
                       </span>
                       <div className="relative leading-none w-full flex justify-center">
-                        <span className={`block font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-400 drop-shadow-[0_0_20px_rgba(34,211,238,0.35)] ${isFreeModelResult ? 'text-3xl' : 'text-[5.5rem] md:text-[6.5rem]'}`}>
+                        <span className={`block font-black tracking-tighter ${ratingTone.text} ${isFreeModelResult ? 'text-3xl' : 'text-[5.5rem] md:text-[6.5rem]'}`}>
                           {displayedFinalRating}
                         </span>
                       </div>
