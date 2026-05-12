@@ -383,38 +383,27 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
   return (
     <div className="mt-12 pt-10 border-t border-zinc-800/80">
       <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-6">Explore MogCheck</h3>
-      <div className={hideCommunity ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}>
-
-        {!hideCommunity && (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-emerald-400/90 text-xs font-bold uppercase tracking-widest">
-              <Users size={14} /> Community Scans
-            </div>
-            <div className="flex gap-1">
-              {previewScans.map((scan) => (
-                <button
-                  key={scan.id}
-                  type="button"
-                  onClick={() => (onOpenCommunityScan ? onOpenCommunityScan(scan) : setCurrentPage('celebrity'))}
-                  className="group relative flex-1 aspect-[3/4] rounded-lg overflow-hidden border border-zinc-700/50 text-left hover:border-emerald-400/40 transition-colors"
-                >
-                  {getScanImage(scan) ? (
-                    <img loading="lazy" decoding="async" src={getScanImage(scan)} alt="" className="w-full h-full object-cover object-top" />
-                  ) : (
-                    <div className="h-full w-full bg-zinc-950" />
-                  )}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setCurrentPage('celebrity')}
-              className="mt-auto flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/15 transition-colors"
-            >
-              Go to Community Scans <ChevronRight size={14} />
-            </button>
-          </div>
-        )}
+      <div className="rounded-2xl border border-zinc-800 bg-[#070809]/40 p-4 md:p-6 flex flex-col gap-6">
+        <div className="flex items-center gap-2 text-emerald-400 text-xs font-black uppercase tracking-[0.2em]">
+          <Users size={16} /> Community Scans
+        </div>
+        <div className="grid grid-cols-3 gap-3 md:gap-4">
+          {previewScans.map((scan) => (
+            <DashboardHubCommunityScanCard
+              key={scan.id}
+              scan={scan}
+              compact={true}
+              onOpen={() => (onOpenCommunityScan ? onOpenCommunityScan(scan) : setCurrentPage('celebrity'))}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setCurrentPage('celebrity')}
+          className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-[0.25em] hover:bg-emerald-500/20 transition-all group"
+        >
+          Go to Community Scans <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+        </button>
       </div>
     </div>
   );
