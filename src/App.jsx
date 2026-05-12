@@ -1995,17 +1995,16 @@ const CommunityScanCard = ({
           <div className="flex items-baseline justify-between w-full pr-3 mb-1.5">
             <div className="flex items-baseline gap-1 relative">
               <span 
-                className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${(window.innerWidth <= 768 && !scan.officialScan) ? 'blur-[8px] select-none' : ''}`}
+                className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums`}
                 style={{
-                  background: (window.innerWidth <= 768 && !scan.officialScan) ? 'none' : `linear-gradient(to bottom, #ffffff 40%, ${ratingTone.stroke || '#22d3ee'})`,
+                  background: `linear-gradient(to bottom, #ffffff 40%, ${ratingTone.stroke || '#22d3ee'})`,
                   WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  filter: (window.innerWidth <= 768 && !scan.officialScan) ? 'blur(8px)' : 'none'
+                  WebkitTextFillColor: 'transparent'
                 }}
               >
                 {rating.toFixed(1)}
               </span>
-              <span className={`text-[10px] text-zinc-400 font-bold uppercase tracking-widest ${(window.innerWidth <= 768 && !scan.officialScan) ? 'blur-[2px] opacity-30' : ''}`}>/100</span>
+              <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
               
             </div>
             <div className="flex items-center gap-1.5">
