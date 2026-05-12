@@ -1456,226 +1456,148 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
   }, [loadNotifications, showNotifications, user]);
 
   return (
-    <nav className="fixed top-0 z-50 flex w-full items-center justify-between overflow-visible border-b border-zinc-900 bg-[#0c0d0e]/80 px-6 py-4 backdrop-blur-md md:grid md:grid-cols-[1fr_auto_1fr] md:items-center">
-      <div className="hidden md:flex items-center justify-between md:block">
-      <div className="flex items-center cursor-pointer group w-fit" onClick={() => setCurrentPage('home')}>
-        <div className="w-9 h-9 flex items-center justify-center group-hover:rotate-12 transition-transform">
-          <MogCheckLogoMark size={36} className="w-9 h-9" />
+    <>
+      {/* Top Navbar */}
+      <nav className="fixed top-0 z-50 flex w-full items-center justify-between overflow-visible border-b border-zinc-900 bg-[#0c0d0e]/80 px-4 md:px-6 py-3 md:py-4 backdrop-blur-md">
+        {/* Desktop Logo / Mobile Hidden if needed */}
+        <div className="hidden md:flex items-center cursor-pointer group" onClick={() => setCurrentPage('home')}>
+          <div className="w-9 h-9 flex items-center justify-center group-hover:rotate-12 transition-transform">
+            <MogCheckLogoMark size={36} className="w-9 h-9" />
+          </div>
         </div>
-      </div>
-      </div>
-      <div className="hidden md:flex items-center justify-center gap-8 text-xs font-bold justify-self-center">
-        <button onClick={() => setCurrentPage('home')} className={`${currentPage === 'home' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Home</button>
 
-        <button onClick={() => setCurrentPage('mog-battles')} className={`${currentPage === 'mog-battles' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>
-          <Swords size={14} className="text-cyan-500/90" /> Mog Battles
-        </button>
-        {showDashboard && (
-        <button onClick={() => setCurrentPage('dashboard')} className={`${currentPage === 'dashboard' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}><Activity size={14} /> Dashboard</button>
-        )}
-        <button onClick={() => setCurrentPage('celebrity')} className={`${currentPage === 'celebrity' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Scans</button>
-        <button
-          onClick={() => {
-            if (currentPage === 'plans') setCurrentPage('plans');
-            else onOpenPremiumPlans?.();
-          }}
-          className={`${currentPage === 'plans' ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'text-yellow-500/70'} hover:text-yellow-400 transition-all uppercase tracking-widest flex items-center gap-1`}
-        >
-          <Crown size={13} /> Plans
-        </button>
-      </div>
-      <div className="hidden md:block justify-self-end">
-        {user ? (
-          <div className="relative flex items-center gap-2" ref={menuRef}>
-            <button
-              type="button"
-              onClick={() => {
-                setCurrentPage('photo-guide');
-                setShowUserMenu(false);
-                setShowNotifications(false);
-              }}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 transition-all hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-cyan-100"
-              aria-label="Start scan"
-            >
-              <Plus size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowNotifications((v) => !v);
-                setShowUserMenu(false);
-                loadNotifications();
-              }}
-              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900 text-zinc-400 transition-all hover:border-cyan-500/35 hover:text-cyan-300"
-              aria-label="Notifications"
-            >
-              <Bell size={16} />
-              {unreadNotificationCount > 0 && (
-                <span className="absolute -right-1 -top-1 min-w-5 rounded-full border border-black bg-cyan-400 px-1.5 py-0.5 text-center text-[9px] font-black leading-none text-black">
-                  {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-3 rounded-full bg-zinc-900 border border-zinc-800 px-4 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all"
-            >
-              <span className="flex min-w-0 flex-col items-start leading-none">
-                <span className="max-w-[150px] truncate text-xs font-bold uppercase tracking-widest">{username}</span>
-                {planChip && (
-                  <span className={`mt-1 text-[9px] font-bold uppercase tracking-[0.16em] ${planChip.className.includes('text-') ? planChip.className.match(/text-[^\s]+/)?.[0] || 'text-zinc-500' : 'text-zinc-500'}`}>
-                    {planChip.label}
+        {/* Mobile Navigation Buttons (at the top) */}
+        <div className="md:hidden flex items-center gap-1.5 flex-1">
+          {[
+            { key: 'home', label: 'Home', icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
+            { key: 'celebrity', label: 'Scans', icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> },
+            { key: 'mog-battles', label: 'Battles', icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg> },
+            { key: user ? 'dashboard' : 'login', label: 'Profile', icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
+          ].map((tab) => {
+            const isActive = currentPage === tab.key || (tab.key === 'dashboard' && (currentPage === 'dashboard' || currentPage === 'profile'));
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setCurrentPage(tab.key)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all duration-200 ${isActive ? 'bg-zinc-800/60 text-cyan-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+              >
+                {tab.icon}
+                <span className={`text-[10px] font-black uppercase tracking-[0.08em] ${isActive ? 'text-white' : 'text-zinc-500'}`}>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Desktop Navigation Links */}
+        <div className="hidden md:flex items-center justify-center gap-8 text-xs font-bold absolute left-1/2 -translate-x-1/2">
+          <button onClick={() => setCurrentPage('home')} className={`${currentPage === 'home' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Home</button>
+          <button onClick={() => setCurrentPage('mog-battles')} className={`${currentPage === 'mog-battles' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>
+            <Swords size={14} className="text-cyan-500/90" /> Mog Battles
+          </button>
+          {showDashboard && (
+            <button onClick={() => setCurrentPage('dashboard')} className={`${currentPage === 'dashboard' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}><Activity size={14} /> Dashboard</button>
+          )}
+          <button onClick={() => setCurrentPage('celebrity')} className={`${currentPage === 'celebrity' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Scans</button>
+          <button
+            onClick={() => {
+              if (currentPage === 'plans') setCurrentPage('plans');
+              else onOpenPremiumPlans?.();
+            }}
+            className={`${currentPage === 'plans' ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'text-yellow-500/70'} hover:text-yellow-400 transition-all uppercase tracking-widest flex items-center gap-1`}
+          >
+            <Crown size={13} /> Plans
+          </button>
+        </div>
+
+        {/* Profile / Actions (Right side) */}
+        <div className="flex items-center gap-2">
+          {user ? (
+            <div className="relative flex items-center gap-2" ref={menuRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentPage('photo-guide');
+                  setShowUserMenu(false);
+                  setShowNotifications(false);
+                }}
+                className="hidden md:inline-flex h-10 w-10 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 transition-all hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-cyan-100"
+                aria-label="Start scan"
+              >
+                <Plus size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNotifications((v) => !v);
+                  setShowUserMenu(false);
+                  loadNotifications();
+                }}
+                className="relative flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900 text-zinc-400 transition-all hover:border-cyan-500/35 hover:text-cyan-300"
+                aria-label="Notifications"
+              >
+                <Bell size={16} />
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute -right-1 -top-1 min-w-5 rounded-full border border-black bg-cyan-400 px-1.5 py-0.5 text-center text-[9px] font-black leading-none text-black">
+                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
                   </span>
                 )}
-              </span>
-              <ChevronDown size={12} className={`transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
-            </button>
-            {showUserMenu && (
-              <div className="absolute right-0 top-full z-[100] mt-2 w-52 bg-[#0c0d0e] border border-zinc-800 rounded-xl shadow-2xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-zinc-800">
-                  <p className="text-[10px] text-zinc-500 font-sans truncate">{user.email}</p>
+              </button>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2 md:gap-3 rounded-full bg-zinc-900 border border-zinc-800 px-3 md:px-4 py-1.5 md:py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all"
+              >
+                <span className="hidden md:flex min-w-0 flex-col items-start leading-none">
+                  <span className="max-w-[150px] truncate text-xs font-bold uppercase tracking-widest">{username}</span>
                   {planChip && (
-                    <p className={`mt-2 inline-flex items-center px-2 py-0.5 rounded-md border text-[9px] font-bold uppercase tracking-widest ${planChip.className}`}>
-                      Plan: {planChip.label}
-                    </p>
+                    <span className={`mt-1 text-[9px] font-bold uppercase tracking-[0.16em] ${planChip.className.includes('text-') ? planChip.className.match(/text-[^\s]+/)?.[0] || 'text-zinc-500' : 'text-zinc-500'}`}>
+                      {planChip.label}
+                    </span>
                   )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setCurrentPage('settings'); setShowUserMenu(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800"
-                >
-                  <Settings size={14} /> Account &amp; settings
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setCurrentPage('profile'); setShowUserMenu(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800"
-                >
-                  <User size={14} /> Profile &amp; scans
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { onSignOut(); setShowUserMenu(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold"
-                >
-                  <LogOut size={14} /> Sign Out
-                </button>
-              </div>
-            )}
-            {showNotifications && (
-              <div className="absolute right-0 top-full z-[105] mt-2 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-zinc-800 bg-[#0c0d0e] shadow-2xl">
-                <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-cyan-400">Notifications</p>
-                    <p className="mt-1 text-[10px] text-zinc-600">{unreadNotificationCount} unread</p>
+                </span>
+                <User size={16} className="md:hidden text-zinc-400" />
+                <ChevronDown size={12} className={`transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+              </button>
+              {showUserMenu && (
+                <div className="absolute right-0 top-full z-[100] mt-2 w-52 bg-[#0c0d0e] border border-zinc-800 rounded-xl shadow-2xl overflow-hidden">
+                  <div className="px-4 py-3 border-b border-zinc-800">
+                    <p className="text-[10px] text-zinc-500 font-sans truncate">{user.email}</p>
+                    {planChip && (
+                      <p className={`mt-2 inline-flex items-center px-2 py-0.5 rounded-md border text-[9px] font-bold uppercase tracking-widest ${planChip.className}`}>
+                        Plan: {planChip.label}
+                      </p>
+                    )}
                   </div>
-                  <button type="button" onClick={() => setShowNotifications(false)} className="text-zinc-500 hover:text-white">
-                    <X size={16} />
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentPage('settings'); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800"
+                  >
+                    <Settings size={14} /> Account &amp; settings
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentPage('profile'); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800"
+                  >
+                    <User size={14} /> Profile &amp; scans
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { onSignOut(); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold"
+                  >
+                    <LogOut size={14} /> Sign Out
                   </button>
                 </div>
-                <div className="max-h-[420px] overflow-y-auto p-3">
-                  {notificationsLoading && !notifications.length ? (
-                    <div className="flex items-center justify-center gap-2 py-8 text-xs uppercase tracking-widest text-zinc-500">
-                      <Loader2 size={14} className="animate-spin text-cyan-400" /> Loading
-                    </div>
-                  ) : notifications.length ? (
-                    notifications.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          markNotificationRead(item.id);
-                          if (item.url) {
-                            window.history.pushState({}, '', item.url);
-                            window.dispatchEvent(new PopStateEvent('popstate'));
-                            setShowNotifications(false);
-                          }
-                        }}
-                        className={`mb-2 w-full rounded-xl border px-3 py-3 text-left transition-colors ${item.read ? 'border-zinc-800 bg-zinc-950/60' : 'border-cyan-500/25 bg-cyan-500/10'}`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-100">{item.title || 'MogCheck'}</p>
-                          {!item.read && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]" />}
-                        </div>
-                        {item.body && <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">{item.body}</p>}
-                      </button>
-                    ))
-                  ) : (
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-8 text-center text-xs text-zinc-500">
-                      No notifications yet.
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <button onClick={() => setCurrentPage('login')} className="px-6 py-2 rounded-full bg-white text-black font-bold text-xs uppercase tracking-widest hover:bg-zinc-200 transition-colors">Login</button>
-        )}
-      </div>
-      {/* Mobile top-right: profile icon */}
-      <div className="md:hidden flex items-center gap-2">
-        {user ? (
-          <button
-            type="button"
-            onClick={() => { setShowUserMenu(!showUserMenu); setShowNotifications(false); }}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900 text-zinc-300 transition-all hover:border-cyan-500/40 hover:text-cyan-300"
-          >
-            <User size={18} />
-          </button>
-        ) : (
-          <button onClick={() => setCurrentPage('login')} className="px-4 py-1.5 rounded-full bg-white text-black font-bold text-[10px] uppercase tracking-widest">Login</button>
-        )}
-      </div>
-      {/* Mobile user menu dropdown (top-right) */}
-      {showUserMenu && user && (
-        <div className="absolute right-4 top-full z-[100] mt-2 w-52 bg-[#0c0d0e] border border-zinc-800 rounded-xl shadow-2xl overflow-hidden md:hidden">
-          <div className="px-4 py-3 border-b border-zinc-800">
-            <p className="text-[10px] text-zinc-500 font-sans truncate">{user.email}</p>
-            {planChip && (
-              <p className={`mt-2 inline-flex items-center px-2 py-0.5 rounded-md border text-[9px] font-bold uppercase tracking-widest ${planChip.className}`}>
-                Plan: {planChip.label}
-              </p>
-            )}
-          </div>
-          <button type="button" onClick={() => { setCurrentPage('settings'); setShowUserMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800">
-            <Settings size={14} /> Settings
-          </button>
-          <button type="button" onClick={() => { setCurrentPage('photo-guide'); setShowUserMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800">
-            <Plus size={14} /> New Scan
-          </button>
-          <button type="button" onClick={() => { onSignOut(); setShowUserMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-xs text-red-400 hover:text-red-300 hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold">
-            <LogOut size={14} /> Sign Out
-          </button>
+              )}
+            </div>
+          ) : (
+            <button onClick={() => setCurrentPage('login')} className="px-4 md:px-6 py-1.5 md:py-2 rounded-full bg-white text-black font-bold text-[10px] md:text-xs uppercase tracking-widest hover:bg-zinc-200 transition-colors">Login</button>
+          )}
         </div>
-      )}
-    </nav>
-    {/* Mobile Bottom Tab Bar */}
-    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
-      <div className="mx-3 mb-3 flex items-center justify-around rounded-[22px] border border-zinc-800 bg-[#111214]/95 px-2 py-2 backdrop-blur-xl shadow-[0_-4px_30px_rgba(0,0,0,0.5)]">
-        {[
-          { key: 'home', label: 'Home', icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
-          { key: 'celebrity', label: 'Scans', icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> },
-          { key: 'mog-battles', label: 'Battles', icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg> },
-          { key: user ? 'dashboard' : 'login', label: 'Profile', icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
-        ].map((tab) => {
-          const isActive = currentPage === tab.key || (tab.key === 'dashboard' && (currentPage === 'dashboard' || currentPage === 'profile'));
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setCurrentPage(tab.key)}
-              className={`flex flex-col items-center gap-1 px-4 py-1.5 rounded-2xl transition-all duration-200 ${isActive ? 'text-cyan-400' : 'text-zinc-500'}`}
-            >
-              {tab.icon}
-              <span className={`text-[9px] font-black uppercase tracking-[0.12em] ${isActive ? 'text-cyan-400' : 'text-zinc-500'}`}>{tab.label}</span>
-              {isActive && <span className="h-1 w-1 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.8)]" />}
-            </button>
-          );
-        })}
-      </div>
-    </nav>
+      </nav>
+    </>
   );
 };
 
@@ -3043,7 +2965,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
       {/* Extracted Video: Placed directly in the header to avoid FadeUp's stacking context which breaks mix-blend-screen */}
       <div
         className="pointer-events-none absolute left-1/2 top-[18vh] z-0 w-[min(118vw,1040px)] h-[min(82vh,760px)] origin-center -translate-x-1/2 -translate-y-[22%] sm:-translate-y-[27%] md:-translate-y-[32%] overflow-visible scale-[0.81]"
-        style={{ mixBlendMode: 'screen' }}
+        style={{ mixBlendMode: 'plus-lighter' }}
         aria-hidden
       >
         <video
@@ -3052,7 +2974,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           playsInline 
           preload="auto"
           className="w-full h-full object-contain object-center opacity-[0.92]"
-          style={{ filter: 'contrast(1.08) brightness(1.05)', mixBlendMode: 'screen' }}
+          style={{ filter: 'contrast(1.08) brightness(1.05)', mixBlendMode: 'plus-lighter' }}
           src="/FaceANimationforwebsite.webm" 
         />
       </div>
@@ -3158,11 +3080,11 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4 uppercase italic [font-weight:950] drop-shadow-none [text-shadow:none]">Make The Impossible, Possible.</h2>
           <p className="text-zinc-400 font-sans text-sm max-w-2xl mx-auto uppercase tracking-widest">Join the many who cracked the aesthetic code</p>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8 items-center">
+        <div className="grid grid-cols-2 gap-4 md:gap-8 items-start max-w-5xl mx-auto">
           <ComparisonCard beforeImgSrc={compBefore1} afterImgSrc={compAfter1} beforeScore="4.8" afterScore="7.4" review={reviewsData[0]} />
           <ComparisonCard beforeImgSrc={compBefore2} afterImgSrc={compAfter2} beforeScore="5.2" afterScore="8.5" isActive={true} review={reviewsData[2]} />
-          <div className="col-span-2 lg:col-span-1 flex justify-center">
-            <div className="w-full max-w-[280px] lg:max-w-none">
+          <div className="col-span-2 flex justify-center -mt-2 md:-mt-4">
+            <div className="w-full max-w-[calc(50%-0.5rem)] md:max-w-[calc(50%-1rem)]">
               <ComparisonCard beforeImgSrc={compAfter3} afterImgSrc={compBefore3} beforeScore="4.5" afterScore="7.1" review={reviewsData[1]} />
             </div>
           </div>
@@ -3243,41 +3165,40 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
 
     <section className="w-full pt-16 pb-32 px-6 bg-[#0c0d0e]">
       <FadeUp>
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white mb-4">What Actually Matters</h2>
-          <p className="text-zinc-500 font-sans text-[10px] uppercase tracking-widest">What we do, how it works, and why it is repeatable.</p>
+        <div className="text-center mb-10 md:mb-16">
+          <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white mb-2 md:mb-4">What Actually Matters</h2>
+          <p className="text-zinc-500 font-sans text-[9px] md:text-[10px] uppercase tracking-widest">What we do, how it works, and why it is repeatable.</p>
         </div>
       </FadeUp>
-      <div className="w-full max-w-6xl mx-auto space-y-16 md:space-y-20">
+      <div className="w-full max-w-6xl mx-auto space-y-8 md:space-y-20">
         {whatMattersItems.map((item, idx) => {
           const imageFirst = idx % 2 === 0;
           return (
             <FadeUp key={item.step} delay={idx * 120}>
-              <div className="group/process grid gap-8 md:grid-cols-2 md:items-center md:gap-12">
+              <div className="group/process grid gap-6 md:gap-12 md:grid-cols-2 md:items-center">
                 <div
-                  className={`${imageFirst ? 'md:order-1' : 'md:order-2'} w-full`}
+                  className={`${imageFirst ? 'md:order-1' : 'md:order-2'} w-full order-1`}
                   style={{ animation: `homeFloat ${6.8 + idx * 0.35}s ease-in-out infinite`, animationDelay: `${idx * 0.35}s` }}
                 >
-                  <div className="relative overflow-hidden rounded-sm border border-zinc-800/70 shadow-[0_24px_70px_rgba(0,0,0,0.38)] transition-all duration-500 group-hover/process:-translate-y-3 group-hover/process:border-cyan-400/35 group-hover/process:shadow-[0_30px_80px_rgba(34,211,238,0.12)]">
+                  <div className="relative overflow-hidden rounded-2xl border border-zinc-800/70 shadow-[0_24px_70px_rgba(0,0,0,0.38)] transition-all duration-500 group-hover/process:-translate-y-2 group-hover/process:border-cyan-400/35">
                     <img
                       loading="lazy"
                       decoding="async"
                       src={item.imgSrc}
                       alt=""
-                      className="relative z-10 block h-auto w-full [filter:grayscale(100%)_saturate(0)] transition-all duration-700 group-hover/process:scale-[1.025] group-hover/process:brightness-110"
+                      className="relative z-10 block h-auto w-full [filter:grayscale(100%)_saturate(0)] transition-all duration-700 group-hover/process:scale-[1.02] group-hover/process:brightness-110"
                     />
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.12),transparent_45%)] opacity-20 transition-opacity duration-500 group-hover/process:opacity-100" />
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-cyan-300/18 to-transparent opacity-30 transition-opacity duration-500 group-hover/process:opacity-100" style={{ animation: 'processScanLine 3.6s ease-in-out infinite' }} />
                   </div>
                 </div>
-                <div className={`${imageFirst ? 'md:order-2 md:pl-4' : 'md:order-1 md:pr-4'} max-w-lg transition-transform duration-500 ease-out group-hover/process:translate-y-[-6px]`}>
-                  <p className="mb-3 font-sans text-[10px] font-bold uppercase tracking-[0.36em] text-cyan-400/80">{item.step}</p>
-                  <h3 className="text-2xl md:text-3xl font-black italic uppercase tracking-tight text-white">{item.title}</h3>
-                  <div className="my-5 h-px w-28 overflow-hidden bg-zinc-800">
+                <div className={`${imageFirst ? 'md:order-2 md:pl-4' : 'md:order-1 md:pr-4'} max-w-lg order-2 px-2 md:px-0`}>
+                  <p className="mb-1.5 font-sans text-[8px] md:text-[9px] font-bold uppercase tracking-[0.36em] text-cyan-400/80">{item.step}</p>
+                  <h3 className="text-lg md:text-3xl font-black italic uppercase tracking-tight text-white leading-tight">{item.title}</h3>
+                  <div className="my-2.5 md:my-5 h-[1.5px] w-12 md:w-28 overflow-hidden bg-zinc-800">
                     <div className="h-full w-full bg-gradient-to-r from-transparent via-cyan-300 to-transparent" style={{ animation: 'lineDrift 3.2s ease-in-out infinite' }} />
                   </div>
-                  <p className="font-sans text-sm md:text-base leading-7 text-zinc-300">{item.text}</p>
-                  <p className="mt-5 font-sans text-[10px] font-bold uppercase tracking-[0.26em] text-zinc-500">{item.note}</p>
+                  <p className="font-sans text-[11px] md:text-base leading-5 md:leading-7 text-zinc-400 md:text-zinc-300">{item.text}</p>
+                  <p className="mt-3 md:mt-5 font-sans text-[8px] md:text-[9px] font-bold uppercase tracking-[0.26em] text-zinc-600 md:text-zinc-500">{item.note}</p>
                 </div>
               </div>
             </FadeUp>
@@ -8510,6 +8431,46 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
               </span>
             )}
           </div>
+
+          {/* Mobile Scan History Strip (Free) */}
+          {!isEmbedded && isFreeModelResult && freeHistoryCards.length > 1 && (
+            <div className="mb-4 md:hidden">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">Scan History</p>
+                <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">{freeHistoryCards.length} scans</span>
+              </div>
+              <div className="flex gap-3 overflow-x-auto pb-4 -mx-6 px-6 custom-scrollbar scroll-smooth">
+                {freeHistoryCards.map((scan, idx) => {
+                  const isActive = scan?.frontImage === dashboardData?.frontImage && scan?.finalRating === dashboardData?.finalRating;
+                  const rating = Number(scan.finalRating || 0);
+                  const tone = getRatingToneClasses(rating);
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => onOpenHistoryScan?.({
+                        ...scan,
+                        scanHistory: freeHistoryCards.slice().reverse(),
+                        ratingHistory: freeHistoryCards
+                          .slice()
+                          .reverse()
+                          .map((item) => Number(item?.finalRating))
+                          .filter((rating) => Number.isFinite(rating)),
+                      })}
+                      className={`relative flex-shrink-0 w-24 aspect-[4/5] rounded-2xl overflow-hidden border transition-all duration-300 ${isActive ? 'border-cyan-400 ring-4 ring-cyan-400/15 scale-[1.05] z-10' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}
+                    >
+                      <img loading="lazy" decoding="async" src={scan.frontImage} className="w-full h-full object-cover" alt="" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                      <div className={`absolute bottom-2 left-0 right-0 text-center text-xs font-black italic ${tone.text}`}>
+                        {rating.toFixed(1)}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {(isRestrictedPreview || !isFreeModelResult) && (
             <div className="space-y-4 md:hidden">
               <div className="grid grid-cols-[1.15fr_0.85fr] gap-3">
@@ -8586,76 +8547,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
             >
               <ArrowLeft size={14} /> Back to Profiles
             </button>
-          )}
-          {!isEmbedded && isFreeModelResult && freeHistoryCards.length > 0 && (
-            <section className="w-full scroll-mt-28">
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <h2 className="text-2xl font-black uppercase tracking-[0.25em] text-white">Face Analysis</h2>
-                  <p className="mt-1 text-sm font-sans text-zinc-500">Snapshot of your latest scan, trajectory, and quick signals.</p>
-                </div>
-                {freeHistoryCards.length > 1 && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => scrollFreeHistoryStrip(-1)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
-                      aria-label="Previous scans"
-                    >
-                      <ChevronLeft size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => scrollFreeHistoryStrip(1)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
-                      aria-label="Next scans"
-                    >
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div ref={freeHistoryStripRef} className="flex gap-3 overflow-x-auto pb-2">
-                {freeHistoryCards.map((scan, index) => {
-                  const isActive =
-                    scan?.frontImage === dashboardData?.frontImage &&
-                    scan?.sideImage === dashboardData?.sideImage &&
-                    scan?.finalRating === dashboardData?.finalRating;
-                  const scanIsFree = isFreeHistoryScan(scan);
-                  const numericRating = Number(scan?.finalRating);
-                  return (
-                    <button
-                      key={`${scan.frontImage || 'scan'}-${scan.scannedAt || index}-${index}`}
-                      type="button"
-                      onClick={() => onOpenHistoryScan?.({
-                        ...scan,
-                        scanHistory: freeHistoryCards.slice().reverse(),
-                        ratingHistory: freeHistoryCards
-                          .slice()
-                          .reverse()
-                          .map((item) => Number(item?.finalRating))
-                          .filter((rating) => Number.isFinite(rating)),
-                      })}
-                      className={`group relative flex h-24 w-48 shrink-0 overflow-hidden rounded-2xl border bg-[#0c0d0e] text-left transition-all ${isActive ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.18)]' : 'border-zinc-800'}`}
-                    >
-                      <div className={`absolute left-2 top-2 z-10 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold ${
-                        scanIsFree
-                          ? 'text-emerald-300 blur-[2.775px] drop-shadow-[0_0_10px_rgba(16,185,129,0.75)]'
-                          : 'text-cyan-300'
-                      }`}>
-                        {scanIsFree ? freeRatingLoop.toFixed(1) : (Number.isFinite(numericRating) ? numericRating.toFixed(1) : '-')}
-                      </div>
-                      <div className="relative flex-1 border-r border-zinc-900">
-                        <img loading="lazy" decoding="async" src={scan.frontImage || placeholderProfileImage} alt="Front profile" className="h-full w-full object-cover" />
-                      </div>
-                      <div className="relative flex-1">
-                        <img loading="lazy" decoding="async" src={scan.sideImage || scan.frontImage || placeholderProfileImage} alt="Side profile" className="h-full w-full object-cover object-top" />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
           )}
           {/* Top Section: Subject & History */}
           {!hideTopSection && (

@@ -1143,18 +1143,15 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const navTabs = hasActiveAnalysis
     ? [
         { id: 'overview', label: 'Overview', icon: <Activity size={16} /> },
         { id: 'analysis', label: 'Analysis', icon: <Target size={16} /> },
-        { id: 'mog-battles', label: 'Mog Battles', icon: <Swords size={16} /> },
         { id: 'community', label: 'Community Scans', icon: <Users size={16} /> },
         { id: 'news', label: 'News & Updates', icon: <Newspaper size={16} /> },
       ]
     : [
         { id: 'profiles', label: 'Profiles', icon: <Users size={16} /> },
         { id: 'news', label: 'News & Updates', icon: <Newspaper size={16} /> },
-        { id: 'mog-battles', label: 'Mog Battles', icon: <Swords size={16} /> },
         { id: 'community', label: 'Community Scans', icon: <Users size={16} /> },
       ];
 
@@ -1310,6 +1307,45 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
             >
               <Plus size={13} /> New Scan
             </button>
+          </div>
+        )}
+
+        {/* Mobile Scan History Strip */}
+        {showAnalysisShell && historyCards.length > 0 && (
+          <div className="mb-6 md:hidden">
+            <div className="flex items-center justify-between mb-2.5 px-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">Scan History</p>
+              <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">{historyCards.length} scans</span>
+            </div>
+            <div className="flex gap-2.5 overflow-x-auto pb-4 -mx-6 px-6 custom-scrollbar scroll-smooth">
+              {historyCards.map((scan, idx) => {
+                const isActive = getScanId(scan) === activeDashboardScanId;
+                const rating = Number(scan.finalRating || 0);
+                const ratingTone = getCommunityRatingTone(rating);
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSelectScan(scan)}
+                    className={`relative flex-shrink-0 w-20 aspect-[4/5.5] rounded-xl overflow-hidden border transition-all duration-300 ${isActive ? 'border-cyan-400 ring-2 ring-cyan-400/20 scale-[1.05] z-10' : 'border-zinc-800 opacity-70 hover:opacity-100'}`}
+                  >
+                    <img loading="lazy" decoding="async" src={scan.frontImage} className="w-full h-full object-cover" alt="" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+                    <div className={`absolute bottom-1.5 left-0 right-0 text-center text-[11px] font-black italic ${ratingTone.text}`}>
+                      {rating.toFixed(1)}
+                    </div>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => handleCreateProfileAndScan(mobileNewScanModel)}
+                className="relative flex-shrink-0 w-20 aspect-[4/5.5] rounded-xl overflow-hidden border border-zinc-800 border-dashed bg-zinc-900/40 flex flex-col items-center justify-center gap-1.5 text-zinc-500 hover:text-cyan-400 hover:border-cyan-500/50 transition-all"
+              >
+                <Plus size={18} />
+                <span className="text-[8px] font-black uppercase tracking-widest">New</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -1617,51 +1653,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
               </section>
             )}
 
-            <section ref={mogBattlesRef} className="scroll-mt-28 space-y-6 border-t border-zinc-900 pt-8">
-              <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-6">
-                <h2 className="text-lg font-black uppercase tracking-widest text-cyan-400 mb-2 flex items-center gap-2">
-                  <Swords size={20} /> Mog Battles
-                </h2>
-                <p className="text-zinc-500 text-sm font-sans mb-6">Preview of recent matchups. Cast votes and climb the leaderboard on the full page.</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                  {mogPreviewBattles.length === 0 ? (
-                  <p className="text-zinc-600 text-sm col-span-full">Loading battles...</p>
-                  ) : (
-                    mogPreviewBattles.map((b) => (
-                      <div key={b.id} className="rounded-xl overflow-hidden border border-zinc-800 bg-black/40 aspect-[4/3] relative">
-                        <div className="absolute inset-0 flex">
-                          <div className="flex-1 relative">
-                            <img loading="lazy" decoding="async"
-                              src={b.fighterA?.frontImage || b.fighterA?.imgSrc}
-                              alt=""
-                              className="absolute inset-0 w-full h-full object-cover object-top"
-                            />
-                          </div>
-                          <div className="w-px bg-zinc-800" />
-                          <div className="flex-1 relative">
-                            <img loading="lazy" decoding="async"
-                              src={b.fighterB?.frontImage || b.fighterB?.imgSrc}
-                              alt=""
-                              className="absolute inset-0 w-full h-full object-cover object-top"
-                            />
-                          </div>
-                        </div>
-                        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-2 text-[10px] font-bold text-white uppercase tracking-widest text-center">
-                          VS
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage('mog-battles')}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 text-xs font-bold uppercase tracking-widest hover:bg-cyan-500/25 transition-colors"
-                >
-                  Go to Mog Battles <ChevronRight size={16} />
-                </button>
-              </div>
-            </section>
+
 
             <section ref={communityRef} className="scroll-mt-28 border-t border-zinc-900 pt-8">
               <div className="flex flex-col gap-6">
@@ -1678,7 +1670,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                     <Plus size={16} /> Add Scan
                   </button>
                 </div>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-2 gap-3 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {communityGallery.map((scan) => {
                     return (
                       <DashboardCommunityScanCard
@@ -1786,7 +1778,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       }
                     }}
                     className={[
-                      "relative rounded-2xl p-6 cursor-pointer transition-all hover:-translate-y-1 hover:z-30 focus-within:z-30 group flex flex-col",
+                      "relative rounded-2xl p-4 md:p-6 cursor-pointer transition-all hover:-translate-y-1 hover:z-30 focus-within:z-30 group flex flex-col",
                       p.isDemoProfile
                         ? "overflow-visible border border-amber-300/55 bg-[radial-gradient(circle_at_18%_0%,rgba(251,191,36,0.22),transparent_34%),linear-gradient(135deg,rgba(120,53,15,0.62),rgba(9,9,11,0.80)_58%,rgba(202,138,4,0.18))] hover:border-amber-200/80 shadow-[0_0_36px_rgba(251,191,36,0.15)] hover:shadow-[0_0_52px_rgba(251,191,36,0.23)]"
                         : "bg-zinc-900/40 border border-zinc-800 hover:border-cyan-500/50 hover:shadow-[0_0_20px_rgba(34,211,238,0.1)]"
@@ -1915,53 +1907,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
           </div>
         )}
 
-        {!hasActiveAnalysis && activeSection === 'mog-battles' && (
-          <div className="space-y-6">
-            <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-6">
-              <h2 className="text-lg font-black uppercase tracking-widest text-cyan-400 mb-2 flex items-center gap-2">
-                <Swords size={20} /> Mog Battles
-              </h2>
-              <p className="text-zinc-500 text-sm font-sans mb-6">Preview of recent matchups. Cast votes and climb the leaderboard on the full page.</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                {mogPreviewBattles.length === 0 ? (
-                  <p className="text-zinc-600 text-sm col-span-full">Loading battles...</p>
-                ) : (
-                  mogPreviewBattles.map((b) => (
-                    <div key={b.id} className="rounded-xl overflow-hidden border border-zinc-800 bg-black/40 aspect-[4/3] relative">
-                      <div className="absolute inset-0 flex">
-                        <div className="flex-1 relative">
-                          <img loading="lazy" decoding="async"
-                            src={b.fighterA?.frontImage || b.fighterA?.imgSrc}
-                            alt=""
-                            className="absolute inset-0 w-full h-full object-cover object-top"
-                          />
-                        </div>
-                        <div className="w-px bg-zinc-800" />
-                        <div className="flex-1 relative">
-                          <img loading="lazy" decoding="async"
-                            src={b.fighterB?.frontImage || b.fighterB?.imgSrc}
-                            alt=""
-                            className="absolute inset-0 w-full h-full object-cover object-top"
-                          />
-                        </div>
-                      </div>
-                      <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-2 text-[10px] font-bold text-white uppercase tracking-widest text-center">
-                        VS
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setCurrentPage('mog-battles')}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 text-xs font-bold uppercase tracking-widest hover:bg-cyan-500/25 transition-colors"
-              >
-                Go to Mog Battles <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-        )}
+
 
         {!hasActiveAnalysis && activeSection === 'community' && (
           <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/5 p-6">
@@ -1980,7 +1926,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                 <Plus size={14} /> Add Scan
               </button>
             </div>
-            <div className="mb-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {communityPreview.map((scan) => (
                 <DashboardCommunityScanCard
                   key={scan.id}
