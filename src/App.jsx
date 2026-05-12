@@ -8504,21 +8504,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                 </button>
                 <div className="grid gap-3">
                   <div className="flex min-h-[7.25rem] flex-col items-center justify-center rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-3 text-center shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
-<<<<<<< HEAD
-                    <span className={`mb-2 text-[9px] font-black uppercase tracking-[0.26em] ${ratingTone.text.split(' ')[0]}`}>Final Rating</span>
-                    <div className="relative">
-                      <span className={`text-5xl font-black italic tracking-tight text-zinc-200 drop-shadow-[0_0_18px_${ratingTone.stroke || 'rgba(34,211,238,0.18)'}] ${isFreeModelResult ? 'blur-[8px] select-none' : ''}`}>
-                        {displayedFinalRating}
-                      </span>
-                      {isFreeModelResult && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                          <div className="flex items-center gap-1.5 bg-yellow-500/15 border border-yellow-500/30 px-3 py-1.5 rounded-full backdrop-blur-md shadow-[0_0_20px_rgba(234,179,8,0.3)]">
-                            <Lock size={12} className="text-yellow-500 fill-yellow-500/20" />
-                            <span className="text-[8px] font-black uppercase tracking-[0.12em] text-yellow-500">Unlock Premium</span>
-                          </div>
-                        </div>
-                      )}
-=======
+                    <span className="mb-2 text-[10px] font-black uppercase tracking-[0.26em] text-white">Final Rating</span>
                     <span className="mb-2 text-[10px] font-black uppercase tracking-[0.26em] text-white">Final Rating</span>
                     <div className="relative">
                       <span 
@@ -8532,7 +8518,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       >
                         {displayedFinalRating}
                       </span>
->>>>>>> 1a9cce8 (UI refinement for mobile scans and dashboard)
                     </div>
                   </div>
                   <div className="relative flex min-h-[7.25rem] items-center justify-center overflow-hidden rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-4 shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
