@@ -1143,6 +1143,8 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const showAnalysisShell = hasActiveAnalysis;
+  const navTabs = showAnalysisShell
     ? [
         { id: 'overview', label: 'Overview', icon: <Activity size={16} /> },
         { id: 'analysis', label: 'Analysis', icon: <Target size={16} /> },
@@ -1157,7 +1159,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
   const communityPreview = (dashboardCommunityScans.length ? dashboardCommunityScans : COMMUNITY_SCANS).slice(0, 4);
   const communityGallery = dashboardCommunityScans.length ? dashboardCommunityScans : COMMUNITY_SCANS;
-  const showAnalysisShell = hasActiveAnalysis;
   const activeDashboardScanId = getScanId(dashboardData);
   const activeDashboardVisibility = normalizeVisibility(scanVisibilityOverrides[activeDashboardScanId] || dashboardData?.visibility || 'private');
 
