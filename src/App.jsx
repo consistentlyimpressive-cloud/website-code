@@ -1863,7 +1863,7 @@ const CommunityScanCard = ({
 
   const rotateY = (mousePos.x - 50) * 0.22;
   const rotateX = (50 - mousePos.y) * 0.18;
-  const modelLabel = scan.officialScan ? 'MogCheck verified' : getAnalysisModelLabel(scan.dashboardData?.selectedModel || scan.model);
+  const modelLabel = scan.officialScan ? '' : getAnalysisModelLabel(scan.dashboardData?.selectedModel || scan.model);
 
   const votesCount = useMemo(() => {
     const id = String(scan.id || scan.frontImage || '');
@@ -2353,7 +2353,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
         <h2 className="text-3xl font-black italic uppercase tracking-widest text-white mb-2">Scans</h2>
         <p className="text-zinc-500 uppercase tracking-widest text-xs mb-8">Verified scans and live community scans with shareable links.</p>
         <div className="grid w-full grid-cols-1 gap-5 lg:grid-cols-2">
-          {renderScanColumn('Verified Scans', `${verifiedScans.length} MogCheck verified`, verifiedScans)}
+          {renderScanColumn('Verified Scans', `${verifiedScans.length} Scans`, verifiedScans)}
           {renderScanColumn(
             'Community Scans',
             `${sortedCommunityScans.length} public community scans`,
@@ -7845,7 +7845,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   }, [getCommunityScanShareUrl]);
 
   const renderBlurredOverlay = (title, compact = false) => (
-    <div className={`absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#0a0a0b]/60 backdrop-blur-[5.55px] rounded-3xl border border-zinc-800/50 group transition-all select-none ${compact ? 'py-3' : ''}`}>
+    <div className={`absolute inset-0 z-20 hidden md:flex flex-col items-center justify-center bg-[#0a0a0b]/60 backdrop-blur-[5.55px] rounded-3xl border border-zinc-800/50 group transition-all select-none ${compact ? 'py-3' : ''}`}>
       <Lock size={compact ? 14 : 32} className={`text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)] ${compact ? 'mb-2' : 'mb-3'}`} />
       <span className={`text-white font-black italic uppercase tracking-widest mb-1 drop-shadow-md ${compact ? 'text-base' : 'text-lg'}`}>PRO FEATURE</span>
       <span className={`text-zinc-300 font-sans text-[10px] uppercase tracking-widest text-center px-4 max-w-[min(100%,280px)] leading-relaxed ${compact ? 'mb-4' : 'mb-6'}`}>{title} requires a premium model</span>
@@ -8504,6 +8504,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                 </button>
                 <div className="grid gap-3">
                   <div className="flex min-h-[7.25rem] flex-col items-center justify-center rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-3 text-center shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
+<<<<<<< HEAD
                     <span className={`mb-2 text-[9px] font-black uppercase tracking-[0.26em] ${ratingTone.text.split(' ')[0]}`}>Final Rating</span>
                     <div className="relative">
                       <span className={`text-5xl font-black italic tracking-tight text-zinc-200 drop-shadow-[0_0_18px_${ratingTone.stroke || 'rgba(34,211,238,0.18)'}] ${isFreeModelResult ? 'blur-[8px] select-none' : ''}`}>
@@ -8517,6 +8518,21 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                           </div>
                         </div>
                       )}
+=======
+                    <span className="mb-2 text-[10px] font-black uppercase tracking-[0.26em] text-white">Final Rating</span>
+                    <div className="relative">
+                      <span 
+                        className={`text-5xl font-black italic tracking-tight drop-shadow-[0_0_18px_${ratingTone.stroke || 'rgba(34,211,238,0.18)'}] ${isFreeModelResult ? 'blur-[8px] select-none' : ''}`}
+                        style={{
+                          background: '#ffffff',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          filter: 'saturate(0.85)'
+                        }}
+                      >
+                        {displayedFinalRating}
+                      </span>
+>>>>>>> 1a9cce8 (UI refinement for mobile scans and dashboard)
                     </div>
                   </div>
                   <div className="relative flex min-h-[7.25rem] items-center justify-center overflow-hidden rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-4 shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
@@ -8654,13 +8670,29 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   {/* Left Column Stack: Final Rating then Categories */}
                   <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden text-center flex flex-col justify-center h-[180px] shadow-lg group hover:border-zinc-700 transition-colors">
                     <div className="relative z-10 flex flex-col items-center justify-center">
-                      <span className={`font-sans text-[10px] uppercase tracking-[0.45em] mb-4 ${ratingTone.text.split(' ')[0]}/80`}>Final Rating</span>
+                      <span className="font-sans text-[11px] uppercase tracking-[0.45em] mb-4 text-white">Final Rating</span>
                       <div className="relative leading-none">
                         <>
-                          <span className={`absolute inset-0 block text-6xl font-black italic tracking-tighter ${ratingTone.text.split(' ')[0]}/90 blur-[25.9px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none`}>
+                          <span 
+                            className={`absolute inset-0 block text-6xl font-black italic tracking-tighter blur-[25.9px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none`}
+                            style={{
+                              background: '#ffffff',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              filter: 'saturate(0.85)'
+                            }}
+                          >
                             {displayedFinalRating}
                           </span>
-                          <span className={`relative block text-6xl font-black italic tracking-tighter ${ratingTone.text.split(' ')[0]} blur-[18.5px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_${ratingTone.stroke || 'rgba(74,222,128,0.4)'}]`}>
+                          <span 
+                            className={`relative block text-6xl font-black italic tracking-tighter blur-[18.5px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_${ratingTone.stroke || 'rgba(74,222,128,0.4)'}]`}
+                            style={{
+                              background: '#ffffff',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              filter: 'saturate(0.85)'
+                            }}
+                          >
                             {displayedFinalRating}
                           </span>
                         </>
@@ -8756,11 +8788,19 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   {/* Left Column Stack: Final Rating then Categories */}
                   <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden text-center flex flex-col justify-center flex-1 min-h-[240px] shadow-lg group hover:border-zinc-700 transition-colors">
                     <div className="relative z-10 flex flex-col items-center justify-center">
-                      <span className="font-sans text-[10px] uppercase tracking-[0.45em] mb-4 text-cyan-400/80">
-                        {isFreeModelResult ? 'Analysis Type' : 'Final Rating'}
+                      <span className="font-sans text-[11px] uppercase tracking-[0.45em] mb-4 text-white">
+                        {'Final Rating'}
                       </span>
                       <div className="relative leading-none w-full flex justify-center">
-                        <span className={`block font-black tracking-tighter ${ratingTone.text} ${isFreeModelResult ? 'text-3xl' : 'text-[5.5rem] md:text-[6.5rem]'}`}>
+                        <span 
+                          className={`block font-black tracking-tighter ${isFreeModelResult ? 'text-3xl' : 'text-[5.5rem] md:text-[6.5rem]'}`}
+                          style={{
+                            background: '#ffffff',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            filter: 'saturate(0.85)'
+                          }}
+                        >
                           {displayedFinalRating}
                         </span>
                       </div>

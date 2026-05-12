@@ -181,12 +181,12 @@ const modelLabel = (model) => ({
 
 function getCommunityRatingTone(score) {
   const n = Number(score) || 0;
-  if (n >= 90) return { text: 'text-emerald-200', border: 'border-emerald-300/70 hover:border-emerald-200', glow: 'shadow-[0_0_36px_rgba(16,185,129,0.18)]' };
-  if (n >= 80) return { text: 'text-emerald-300', border: 'border-emerald-400/60 hover:border-emerald-300', glow: 'shadow-[0_0_30px_rgba(16,185,129,0.14)]' };
-  if (n >= 70) return { text: 'text-cyan-300', border: 'border-cyan-400/55 hover:border-cyan-300', glow: 'shadow-[0_0_26px_rgba(34,211,238,0.13)]' };
-  if (n >= 60) return { text: 'text-yellow-300', border: 'border-yellow-500/45 hover:border-yellow-400', glow: 'shadow-[0_0_24px_rgba(234,179,8,0.10)]' };
-  if (n >= 50) return { text: 'text-orange-400', border: 'border-orange-500/50 hover:border-orange-400', glow: 'shadow-[0_0_24px_rgba(249,115,22,0.12)]' };
-  return { text: 'text-rose-400', border: 'border-rose-500/55 hover:border-rose-400', glow: 'shadow-[0_0_24px_rgba(244,63,94,0.12)]' };
+  if (n >= 90) return { text: 'text-emerald-200', stroke: '#10b981', border: 'border-emerald-300/70 hover:border-emerald-200', glow: 'shadow-[0_0_36px_rgba(16,185,129,0.18)]' };
+  if (n >= 80) return { text: 'text-emerald-300', stroke: '#34d399', border: 'border-emerald-400/60 hover:border-emerald-300', glow: 'shadow-[0_0_30px_rgba(16,185,129,0.14)]' };
+  if (n >= 70) return { text: 'text-cyan-300', stroke: '#22d3ee', border: 'border-cyan-400/55 hover:border-cyan-300', glow: 'shadow-[0_0_26px_rgba(34,211,238,0.13)]' };
+  if (n >= 60) return { text: 'text-yellow-300', stroke: '#eab308', border: 'border-yellow-500/45 hover:border-yellow-400', glow: 'shadow-[0_0_24px_rgba(234,179,8,0.10)]' };
+  if (n >= 50) return { text: 'text-orange-400', stroke: '#f97316', border: 'border-orange-500/50 hover:border-orange-400', glow: 'shadow-[0_0_24px_rgba(249,115,22,0.12)]' };
+  return { text: 'text-rose-400', stroke: '#f43f5e', border: 'border-rose-500/55 hover:border-rose-400', glow: 'shadow-[0_0_24px_rgba(244,63,94,0.12)]' };
 }
 
 function getCommunityTierBadgeClass(scanTier) {
@@ -271,20 +271,19 @@ function DashboardHubCommunityScanCard({ scan, compact = false, onOpen }) {
           </div>
 
           <div className={`absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black via-black/80 to-transparent ${compact ? 'p-3' : 'p-4'} flex flex-col items-start [transform:translateZ(32px)]`}>
-            <div className="mb-2 flex items-baseline gap-1 relative">
-              <span className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${ratingTone.text} ${window.innerWidth <= 768 ? 'blur-[8px] select-none' : ''}`}>
+            <div className="mb-2 flex items-baseline gap-1">
+              <span 
+                className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums`}
+                style={{
+                  background: `linear-gradient(to top, ${ratingTone.stroke || '#22d3ee'}, #ffffff)`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  filter: 'saturate(0.85)'
+                }}
+              >
                 {rating.toFixed(1)}
               </span>
-              <span className={`text-[10px] font-bold uppercase tracking-widest text-zinc-400 ${window.innerWidth <= 768 ? 'blur-[2.5px] opacity-25' : ''}`}>/100</span>
-              
-              {window.innerWidth <= 768 && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center -top-4">
-                  <div className="flex items-center gap-1.5 bg-yellow-500/15 border border-yellow-500/30 px-2.5 py-1 rounded-full backdrop-blur-md shadow-[0_0_20px_rgba(234,179,8,0.25)] scale-[0.85]">
-                    <Lock size={10} className="text-yellow-500 fill-yellow-500/20" />
-                    <span className="text-[7px] font-black uppercase tracking-[0.1em] text-yellow-500">Unlock Premium</span>
-                  </div>
-                </div>
-              )}
+              <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">/100</span>
             </div>
             <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-500">
               Community Scan - {modelLabel(dd?.selectedModel || scan?.model)}

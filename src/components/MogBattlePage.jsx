@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Crown, ChevronDown, Plus, History, X, ShieldCheck, Swords, Trophy, Sparkles, Activity, Share2, Heart, Copy, ExternalLink, Trash2 } from 'lucide-react';
 import { getAllFeaturedBattles, getMetricRowsForBattle, aiWinner } from '../data/mogBattles';
 import {
