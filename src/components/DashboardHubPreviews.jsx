@@ -287,6 +287,37 @@ function DashboardHubCommunityScanCard({ scan, compact = false, onOpen }) {
   );
 }
 
+function DashboardHubBattlePreviewCard({ battle, onOpen }) {
+  const f1 = battle?.fighterA || battle?.contenderA;
+  const f2 = battle?.fighterB || battle?.contenderB;
+  
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      className="group relative flex aspect-[2.2/1] w-full items-center gap-1.5 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/40 p-1.5 transition-all hover:border-cyan-500/40 hover:bg-zinc-900/40 outline-none"
+    >
+      <div className="relative flex-1 h-full overflow-hidden rounded-xl border border-zinc-800/50">
+        <img loading="lazy" decoding="async" src={getBattleImage(f1)} alt="" className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-110" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+      </div>
+      
+      <div className="flex flex-col items-center gap-0.5 px-0.5">
+        <span className="text-[8px] font-black italic tracking-tighter text-cyan-500/80 uppercase">vs</span>
+      </div>
+
+      <div className="relative flex-1 h-full overflow-hidden rounded-xl border border-zinc-800/50">
+        <img loading="lazy" decoding="async" src={getBattleImage(f2)} alt="" className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-110" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+      </div>
+
+      {/* Hover Glow */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-500 bg-gradient-to-r from-cyan-500/5 via-transparent to-cyan-500/5" />
+    </div>
+  );
+}
+
 
 /**
  * Compact explore strip for the dashboard. It polls the same public endpoints used by
@@ -409,26 +440,48 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
         </div>
 
         {/* Mog Battles */}
-        <div className="rounded-2xl border border-cyan-500/10 bg-[#070809]/40 p-5 md:p-6 flex flex-col justify-between relative overflow-hidden group/battle">
+        <div className="rounded-2xl border border-cyan-500/10 bg-[#070809]/40 p-5 md:p-6 flex flex-col relative overflow-hidden group/battle">
           <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 blur-3xl rounded-full -mr-16 -mt-16 group-hover/battle:bg-cyan-500/10 transition-colors" />
           
-          <div>
-            <div className="flex items-center gap-2 text-cyan-500 text-[10px] font-black uppercase tracking-[0.2em] mb-4">
-              <Swords size={14} /> Live Matchups
+          <div className="relative z-10 flex flex-col gap-5 h-full">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-cyan-500 text-[10px] font-black uppercase tracking-[0.2em]">
+                <Swords size={14} /> Live Matchups
+              </div>
+              <span className="flex h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
             </div>
-            <h4 className="text-2xl font-black uppercase tracking-tighter italic text-white mb-2">Mog Battles</h4>
-            <p className="text-[11px] font-sans leading-relaxed text-zinc-500 max-w-[240px]">
-              Compare scans head-to-head, track community voting, and follow the rankings.
-            </p>
-          </div>
 
-          <button
-            type="button"
-            onClick={() => setCurrentPage('mog-battles')}
-            className="mt-6 flex items-center justify-center gap-2 py-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-black uppercase tracking-[0.25em] hover:bg-cyan-500/20 transition-all group"
-          >
-            Open Mog Battles <Swords size={14} className="group-hover:rotate-12 transition-transform" />
-          </button>
+            <div className="flex flex-col gap-2">
+              <h4 className="text-2xl font-black uppercase tracking-tighter italic text-white leading-none">Mog Battles</h4>
+              <p className="text-[10px] font-sans leading-relaxed text-zinc-500">
+                Vote in live community matchups.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2 mt-1">
+              {previewBattles.length > 0 ? (
+                previewBattles.map((battle, idx) => (
+                  <DashboardHubBattlePreviewCard
+                    key={battle.id || idx}
+                    battle={battle}
+                    onOpen={() => setCurrentPage('mog-battles')}
+                  />
+                ))
+              ) : (
+                <div className="aspect-[2.2/1] rounded-2xl border border-zinc-800/50 bg-zinc-900/20 flex items-center justify-center">
+                   <Swords size={20} className="text-zinc-800" />
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setCurrentPage('mog-battles')}
+              className="mt-auto flex items-center justify-center gap-2 py-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-black uppercase tracking-[0.25em] hover:bg-cyan-500/20 transition-all group"
+            >
+              Open Mog Battles <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
