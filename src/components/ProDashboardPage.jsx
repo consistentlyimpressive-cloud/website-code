@@ -433,7 +433,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   const overviewRef = useRef(null);
   const analysisRef = useRef(null);
   const profilesRef = useRef(null);
-  const newsRef = useRef(null);
   const mogBattlesRef = useRef(null);
   const communityRef = useRef(null);
   const historyStripRef = useRef(null);
@@ -1144,16 +1143,14 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   };
 
   const showAnalysisShell = hasActiveAnalysis;
-  const navTabs = showAnalysisShell
+    const navTabs = showAnalysisShell
     ? [
         { id: 'overview', label: 'Overview', icon: <Activity size={16} /> },
         { id: 'analysis', label: 'Analysis', icon: <Target size={16} /> },
         { id: 'community', label: 'Community Scans', icon: <Users size={16} /> },
-        { id: 'news', label: 'News & Updates', icon: <Newspaper size={16} /> },
       ]
     : [
         { id: 'profiles', label: 'Profiles', icon: <Users size={16} /> },
-        { id: 'news', label: 'News & Updates', icon: <Newspaper size={16} /> },
         { id: 'community', label: 'Community Scans', icon: <Users size={16} /> },
       ];
 
@@ -1411,18 +1408,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                 <p className="text-sm font-sans leading-relaxed text-zinc-300" style={{ ...clampTextStyle, WebkitLineClamp: 6 }}>
                   {dashboardData?.technicalSummary || 'Run a scan to surface your strongest traits and biggest improvement opportunities.'}
                 </p>
-              </div>
-              <div className="rounded-3xl border border-zinc-800 bg-zinc-900/45 p-5">
-                <div className="mb-4 flex items-center gap-3 text-zinc-300">
-                  <Newspaper size={18} />
-                  <p className="text-[10px] font-sans uppercase tracking-[0.28em]">News & Updates</p>
-                </div>
-                <p className="text-sm font-sans leading-relaxed text-zinc-400" style={{ ...clampTextStyle, WebkitLineClamp: 4 }}>
-                  Patch notes, research drops, and product updates stay one click away.
-                </p>
-                <button type="button" onClick={() => setCurrentPage('news')} className="mt-4 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.28em] text-cyan-300 hover:text-cyan-200 transition-colors">
-                  Open News <ChevronRight size={14} />
-                </button>
               </div>
             </div>
 
@@ -1690,24 +1675,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
               </div>
             </section>
 
-            <section ref={newsRef} className="scroll-mt-28 border-t border-zinc-900 pt-8">
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/25 p-8 max-w-2xl">
-                <div className="flex items-center gap-3 text-violet-400 mb-4">
-                  <Newspaper size={22} />
-                  <h2 className="text-xl font-black uppercase tracking-widest italic">News &amp; Media</h2>
-                </div>
-                <p className="text-zinc-400 font-sans text-sm leading-relaxed mb-6">
-                    Full feed: YouTube updates, articles, and MogCheck announcements - open the dedicated page for the live experience.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage('news')}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-violet-500/15 border border-violet-500/35 text-violet-200 text-xs font-bold uppercase tracking-widest hover:bg-violet-500/25 transition-colors"
-                >
-                  Go to News &amp; Media <ChevronRight size={16} />
-                </button>
-              </div>
-            </section>
           </div>
         )}
 
@@ -1889,24 +1856,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
           </div>
         )}
 
-        {!hasActiveAnalysis && activeSection === 'news' && (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/25 p-8 max-w-2xl">
-            <div className="flex items-center gap-3 text-violet-400 mb-4">
-              <Newspaper size={22} />
-              <h2 className="text-xl font-black uppercase tracking-widest italic">News &amp; Media</h2>
-            </div>
-            <p className="text-zinc-400 font-sans text-sm leading-relaxed mb-6">
-                    Full feed: YouTube updates, articles, and MogCheck announcements - open the dedicated page for the live experience.
-            </p>
-            <button
-              type="button"
-              onClick={() => setCurrentPage('news')}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-violet-500/15 border border-violet-500/35 text-violet-200 text-xs font-bold uppercase tracking-widest hover:bg-violet-500/25 transition-colors"
-            >
-              Go to News &amp; Media <ChevronRight size={16} />
-            </button>
-          </div>
-        )}
 
 
 

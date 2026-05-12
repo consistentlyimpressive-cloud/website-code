@@ -6,8 +6,7 @@ import { getApiBase } from '../utils/apiBase';
 import { resolveMediaUrl } from '../utils/mediaUrl';
 
 const API_BASE = getApiBase();
-const NEWS_FEED_URL =
-  'https://news.google.com/rss/search?q=looksmaxxing%20OR%20facial%20aesthetics%20OR%20blackpill%20OR%20QOVES&hl=en-US&gl=US&ceid=US:en';
+const API_BASE = getApiBase();
 
 function getScanImage(scan) {
   return resolveMediaUrl(
@@ -289,26 +288,6 @@ function DashboardHubCommunityScanCard({ scan, compact = false, onOpen }) {
   );
 }
 
-function decodeText(value) {
-  if (!value) return '';
-  const textarea = document.createElement('textarea');
-  textarea.innerHTML = String(value);
-  return textarea.value.replace(/\s+/g, ' ').trim();
-}
-
-async function fetchLatestNews() {
-  const res = await fetch(`${API_BASE}/api/proxy-rss?url=${encodeURIComponent(NEWS_FEED_URL)}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error('Failed to fetch news');
-  const xml = await res.text();
-  const doc = new DOMParser().parseFromString(xml, 'text/xml');
-  if (doc.querySelector('parsererror')) return [];
-  return Array.from(doc.querySelectorAll('item')).slice(0, 2).map((item, index) => {
-    const title = decodeText(item.querySelector('title')?.textContent || 'Latest read').replace(/\s+-\s+Google News$/i, '');
-    const source = decodeText(item.querySelector('source')?.textContent || 'News');
-    const link = item.querySelector('link')?.textContent || '';
-    return { id: `${source}-${index}-${title}`, title, source, link };
-  });
-}
 
 /**
  * Compact explore strip for the dashboard. It polls the same public endpoints used by
@@ -317,20 +296,18 @@ async function fetchLatestNews() {
 export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = false, onOpenCommunityScan = null, variant = 'compact', onAddScan = null }) {
   const [latestScans, setLatestScans] = useState([]);
   const [latestBattles, setLatestBattles] = useState([]);
-  const [latestNews, setLatestNews] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadLatest = async () => {
-      const [scansResult, battlesResult, newsResult] = await Promise.allSettled([
+      const [scansResult, battlesResult] = await Promise.allSettled([
         fetch(`${API_BASE}/api/community-scans?limit=${variant === 'sections' ? 12 : 3}`, { cache: 'no-store' }).then((res) =>
           res.ok ? res.json() : Promise.reject(new Error('community scans failed'))
         ),
         fetch(`${API_BASE}/api/mog-battle/community`, { cache: 'no-store' }).then((res) =>
           res.ok ? res.json() : Promise.reject(new Error('mog battles failed'))
         ),
-        fetchLatestNews(),
       ]);
 
       if (cancelled) return;
@@ -345,9 +322,6 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
       }
       if (battlesResult.status === 'fulfilled') {
         setLatestBattles(Array.isArray(battlesResult.value?.battles) ? battlesResult.value.battles.slice(0, 2) : []);
-      }
-      if (newsResult.status === 'fulfilled') {
-        setLatestNews(Array.isArray(newsResult.value) ? newsResult.value.slice(0, 2) : []);
       }
     };
 
@@ -369,10 +343,6 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
   const previewBattles = useMemo(
     () => latestBattles.slice(0, 3),
     [latestBattles]
-  );
-  const previewNews = useMemo(
-    () => latestNews.slice(0, 3),
-    [latestNews]
   );
 
   if (variant === 'sections') {
@@ -407,24 +377,6 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
           </section>
         )}
 
-        <section className="border-t border-zinc-900 pt-8">
-          <div className="max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-900/25 p-8">
-            <div className="mb-4 flex items-center gap-3 text-violet-400">
-              <Newspaper size={22} />
-              <h3 className="text-xl font-black uppercase tracking-widest italic">News &amp; Media</h3>
-            </div>
-            <p className="mb-6 text-sm font-sans leading-relaxed text-zinc-400">
-              Full feed: YouTube updates, articles, and MogCheck announcements - open the dedicated page for the live experience.
-            </p>
-            <button
-              type="button"
-              onClick={() => setCurrentPage('news')}
-              className="inline-flex items-center gap-2 rounded-xl border border-violet-500/35 bg-violet-500/15 px-6 py-3 text-xs font-bold uppercase tracking-widest text-violet-200 transition-colors hover:bg-violet-500/25"
-            >
-              Go to News &amp; Media <ChevronRight size={16} />
-            </button>
-          </div>
-        </section>
       </div>
     );
   }
@@ -432,7 +384,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
   return (
     <div className="mt-12 pt-10 border-t border-zinc-800/80">
       <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-6">Explore MogCheck</h3>
-      <div className={hideCommunity ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'grid grid-cols-1 md:grid-cols-3 gap-4'}>
+      <div className={hideCommunity ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}>
 
         {!hideCommunity && (
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 flex flex-col gap-3">
@@ -464,36 +416,6 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
             </button>
           </div>
         )}
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-violet-400 text-xs font-bold uppercase tracking-widest">
-            <Newspaper size={14} /> News &amp; Media
-          </div>
-          {latestNews.length ? (
-            <div className="space-y-2">
-              {latestNews.map((item) => (
-                <a
-                  key={item.id}
-                  href={item.link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block rounded-xl border border-zinc-800/80 bg-black/20 p-2 transition-colors hover:border-violet-400/30"
-                >
-                  <p className="line-clamp-2 text-[11px] font-bold leading-snug text-zinc-300">{item.title}</p>
-                  <p className="mt-1 text-[9px] font-sans uppercase tracking-[0.2em] text-violet-300/70">{item.source}</p>
-                </a>
-              ))}
-            </div>
-          ) : (
-            <p className="text-zinc-500 text-[11px] font-sans leading-relaxed">No latest reads loaded yet.</p>
-          )}
-          <button
-            type="button"
-            onClick={() => setCurrentPage('news')}
-            className="mt-auto flex items-center justify-center gap-2 py-2.5 rounded-xl bg-violet-500/10 border border-violet-500/25 text-violet-300 text-[10px] font-bold uppercase tracking-widest hover:bg-violet-500/20 transition-colors"
-          >
-            Go to News &amp; Media <ChevronRight size={14} />
-          </button>
-        </div>
       </div>
     </div>
   );
