@@ -159,12 +159,23 @@ const fighterGenderLabel = (fighter) => {
 };
 
 const fighterAnalysisPath = (fighter, currentUserUid = '') => {
+  const model = String(fighter?.model || fighter?.payload?.model || '').trim();
+  if (model === '3' || model === 'free') {
+    return null;
+  }
+
   const ownerUid = String(fighter?.ownerUid || fighter?.uid || currentUserUid || '').trim();
-  const scanId = String(fighter?.scanId || '').trim();
+  const scanId = String(fighter?.scanId || fighter?.id || '').trim();
   const profileId = String(fighter?.profileId || '').trim();
-  if (!ownerUid) return null;
-  if (scanId) return `/scan/${encodeURIComponent(ownerUid)}/${encodeURIComponent(scanId)}`;
-  if (profileId) return `/users/${encodeURIComponent(ownerUid)}/${encodeURIComponent(profileId)}`;
+  const isOfficial = Boolean(fighter?.officialScan || (!ownerUid && (scanId || fighter?.name)));
+
+  if (ownerUid && scanId && !isOfficial) return `/scan/${encodeURIComponent(ownerUid)}/${encodeURIComponent(scanId)}`;
+  if (ownerUid && profileId && !isOfficial) return `/users/${encodeURIComponent(ownerUid)}/${encodeURIComponent(profileId)}`;
+  
+  if (isOfficial) {
+    return `/celebrity?scan=${encodeURIComponent(scanId || fighter?.name || 'community')}`;
+  }
+  
   return null;
 };
 
@@ -391,10 +402,13 @@ const MetricBreakdown = ({ battle }) => {
 };
 
 const FighterMiniCard = ({ fighter, scoreTone = 'text-cyan-300', hidden = false, analysisPath = null }) => (
-  <div className="rounded-2xl border border-zinc-800 bg-black/30 p-3">
+  <div 
+    onClick={() => { if (!hidden && analysisPath) openInternalPath(analysisPath); }}
+    className={`rounded-2xl border border-zinc-800 bg-black/30 p-3 ${!hidden && analysisPath ? 'cursor-pointer hover:border-cyan-500/30 transition-colors' : ''}`}
+  >
     <div className="flex items-center gap-3">
       {analysisPath ? (
-        <button type="button" onClick={() => openInternalPath(analysisPath)} className="shrink-0">
+        <button type="button" onClick={(e) => { e.stopPropagation(); openInternalPath(analysisPath); }} className="shrink-0">
           <img loading="lazy" decoding="async"
             src={fighterImage(fighter)}
             alt={fighterLabel(fighter)}
@@ -417,7 +431,7 @@ const FighterMiniCard = ({ fighter, scoreTone = 'text-cyan-300', hidden = false,
           {analysisPath ? (
             <button
               type="button"
-              onClick={() => openInternalPath(analysisPath)}
+              onClick={(e) => { e.stopPropagation(); openInternalPath(analysisPath); }}
               className="inline-flex items-center gap-1 rounded-full border border-cyan-400/25 bg-cyan-400/[0.06] px-2 py-1 font-mono text-[8px] font-black uppercase tracking-[0.12em] text-cyan-100 transition-colors hover:border-cyan-300/50 hover:text-white"
             >
               View full analysis <ExternalLink size={9} />
@@ -670,21 +684,33 @@ const VoteBattleModal = ({ battle, user, onClose, onVoteComplete }) => {
         <div className="grid gap-3 md:grid-cols-2">
           <button
             type="button"
-            onClick={() => handleVote('a')}
-            disabled={submitting || hasLockedVote}
-            className="rounded-[24px] border border-cyan-500/35 bg-cyan-500/8 px-4 py-4 text-left transition-all duration-300 hover:scale-[1.01] hover:border-cyan-400/60 hover:bg-cyan-500/12 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => {
+              if (hasLockedVote) {
+                if (analysisPathA) openInternalPath(analysisPathA);
+              } else {
+                handleVote('a');
+              }
+            }}
+            disabled={submitting || (hasLockedVote && !analysisPathA)}
+            className={`rounded-[24px] border border-cyan-500/35 bg-cyan-500/8 px-4 py-4 text-left transition-all duration-300 hover:scale-[1.01] hover:border-cyan-400/60 hover:bg-cyan-500/12 ${submitting || (hasLockedVote && !analysisPathA) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
           >
-            <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300">Vote for</p>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300">{hasLockedVote && analysisPathA ? 'View Analysis' : 'Vote for'}</p>
             <p className="mt-1 text-[13px] font-black uppercase tracking-[0.08em] text-white md:text-[14px]">{fighterLabel(battle.fighterA)}</p>
             {myVote === 'a' ? <p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Vote locked</p> : null}
           </button>
           <button
             type="button"
-            onClick={() => handleVote('b')}
-            disabled={submitting || hasLockedVote}
-            className="rounded-[24px] border border-emerald-500/35 bg-emerald-500/8 px-4 py-4 text-left transition-all duration-300 hover:scale-[1.01] hover:border-emerald-400/60 hover:bg-emerald-500/12 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => {
+              if (hasLockedVote) {
+                if (analysisPathB) openInternalPath(analysisPathB);
+              } else {
+                handleVote('b');
+              }
+            }}
+            disabled={submitting || (hasLockedVote && !analysisPathB)}
+            className={`rounded-[24px] border border-emerald-500/35 bg-emerald-500/8 px-4 py-4 text-left transition-all duration-300 hover:scale-[1.01] hover:border-emerald-400/60 hover:bg-emerald-500/12 ${submitting || (hasLockedVote && !analysisPathB) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
           >
-            <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-300">Vote for</p>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-300">{hasLockedVote && analysisPathB ? 'View Analysis' : 'Vote for'}</p>
             <p className="mt-1 text-[13px] font-black uppercase tracking-[0.08em] text-white md:text-[14px]">{fighterLabel(battle.fighterB)}</p>
             {myVote === 'b' ? <p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">Vote locked</p> : null}
           </button>
@@ -1841,15 +1867,15 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                   </div>
                 </div>
                 <div className="relative">
-                  <select
+                  <CustomSelectDropdown
                     value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="appearance-none rounded-full border border-white/10 bg-white/[0.03] px-4 py-3 pr-10 font-mono text-[11px] font-black uppercase tracking-[0.24em] text-white outline-none transition-colors focus:border-cyan-400/40"
-                  >
-                    <option value="latest">Latest</option>
-                    <option value="popular">Most popular</option>
-                  </select>
-                  <ChevronDown size={14} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    onChange={setSortBy}
+                    options={[
+                      { value: 'latest', label: 'Latest' },
+                      { value: 'popular', label: 'Most popular' }
+                    ]}
+                    className="appearance-none rounded-full border border-white/10 bg-white/[0.03] px-4 py-3 text-[11px] font-black uppercase tracking-[0.24em] text-white focus:border-cyan-400/40"
+                  />
                 </div>
               </div>
               <div className="mog-scroll max-h-[920px] space-y-8 overflow-y-auto px-5 py-5 md:px-6 md:py-6">
@@ -2031,3 +2057,52 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
 };
 
 export default MogBattlePage;
+
+const CustomSelectDropdown = ({ value, onChange, options, className }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(o => o.value === value) || options[0];
+
+  return (
+    <div className="relative shrink-0 w-full md:w-auto" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex w-full items-center justify-between gap-4 outline-none transition-colors ${className}`}
+      >
+        <span>{selectedOption?.label}</span>
+        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-cyan-200' : 'text-zinc-500'}`} />
+      </button>
+      
+      {isOpen && (
+        <div className="absolute top-full right-0 mt-2 w-full min-w-[200px] z-[100] rounded-[20px] border border-white/10 bg-[#06080a] p-2 shadow-[0_12px_40px_rgba(0,0,0,0.8),0_0_20px_rgba(0,240,255,0.05)] backdrop-blur-xl animate-[mogBattle2NoticeIn__0.2s_ease-out] flex flex-col gap-1">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setIsOpen(false); }}
+              className={`w-full text-left px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.18em] transition-all duration-200 ${
+                value === opt.value 
+                  ? 'bg-white/10 text-white border border-white/10 shadow-[inset_0_0_10px_rgba(255,255,255,0.05)]' 
+                  : 'text-zinc-400 hover:bg-white/5 hover:text-white border border-transparent'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};

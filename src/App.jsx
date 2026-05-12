@@ -26,8 +26,9 @@ import { getFirestore, doc, onSnapshot } from 'firebase/firestore';
 import { getApiBase } from './utils/apiBase';
 import { resolveMediaUrl } from './utils/mediaUrl';
 
-const NewsPage = React.lazy(() => import('./components/NewsPage'));
+
 const MogBattlePage = React.lazy(() => import('./components/MogBattlePage'));
+const MogBattlePage2 = React.lazy(() => import('./components/MogBattlePage2'));
 const ProDashboardPage = React.lazy(() => import('./components/ProDashboardPage'));
 const PublicProfilePage = React.lazy(() => import('./components/PublicProfilePage'));
 const TermsOfServicePage = React.lazy(() => import('./components/TermsOfServicePage'));
@@ -1392,6 +1393,12 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
   const menuRef = useRef(null);
   const username = user?.email?.split('@')[0] || '';
   const planChip = user ? getNavbarPlanChip(userPlan, user) : null;
+  const isAdminNavUser = Boolean(user?.email && (
+    user.email === 'laithbu07@gmail.com' ||
+    user.email === 'admin@looksmaxxing.com' ||
+    user.email === 'serenity.eyb@gmail.com' ||
+    user.email.endsWith('@looksmaxxing.com')
+  ));
   const unreadNotificationCount = notifications.filter((item) => !item.read).length;
 
   const loadNotifications = useCallback(async () => {
@@ -1456,7 +1463,7 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
       </div>
       <div className="hidden md:flex items-center justify-center gap-8 text-xs font-bold justify-self-center">
         <button onClick={() => setCurrentPage('home')} className={`${currentPage === 'home' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Home</button>
-        <button onClick={() => setCurrentPage('news')} className={`${currentPage === 'news' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>News</button>
+
         <button onClick={() => setCurrentPage('mog-battles')} className={`${currentPage === 'mog-battles' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>
           <Swords size={14} className="text-cyan-500/90" /> Mog Battles
         </button>
@@ -1608,12 +1615,18 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
       {isOpen && (
         <div className="absolute top-full left-0 w-full bg-[#0c0d0e] border-b border-zinc-900 flex flex-col items-center py-6 gap-6 md:hidden">
         <button onClick={() => { setCurrentPage('home'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Home</button>
-        <button onClick={() => { setCurrentPage('news'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2">News</button>
+
         <button onClick={() => { setCurrentPage('mog-battles'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Swords size={14} className="text-cyan-500/90" /> Mog Battles</button>
+        {isAdminNavUser && (
+          <button onClick={() => { setCurrentPage('mog-battles-2'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Swords size={14} className="text-blue-500/90" /> Mog Battles 2</button>
+        )}
         {showDashboard && (
         <button onClick={() => { setCurrentPage('dashboard'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Activity size={14} /> Dashboard</button>
         )}
           <button onClick={() => { setCurrentPage('celebrity'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Scans</button>
+          {isAdminNavUser && (
+            <button onClick={() => { setCurrentPage('scans2'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold text-blue-500/90">Scans 2</button>
+          )}
           <button
             onClick={() => {
               setIsOpen(false);
@@ -1923,6 +1936,16 @@ const CommunityScanCard = ({
   const rotateX = (50 - mousePos.y) * 0.18;
   const modelLabel = scan.officialScan ? 'MogCheck verified' : getAnalysisModelLabel(scan.dashboardData?.selectedModel || scan.model);
 
+  const votesCount = useMemo(() => {
+    const id = String(scan.id || scan.frontImage || '');
+    if (!id) return 40;
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = id.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return 40 + (Math.abs(hash) % 53);
+  }, [scan.id, scan.frontImage]);
+
   return (
     <div
       role="button"
@@ -2040,9 +2063,15 @@ const CommunityScanCard = ({
         )}
 
         <div className={`absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black via-black/80 to-transparent ${compact ? 'p-3' : 'p-4'} flex flex-col items-start [transform:translateZ(32px)]`}>
-          <div className="flex items-baseline gap-1 mb-1.5">
-            <span className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${ratingTone.text}`}>{rating.toFixed(1)}</span>
-            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
+          <div className="flex items-baseline justify-between w-full pr-3 mb-1.5">
+            <div className="flex items-baseline gap-1">
+              <span className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${ratingTone.text}`}>{rating.toFixed(1)}</span>
+              <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Activity size={12} className="text-cyan-400" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">{votesCount} Votes</span>
+            </div>
           </div>
           <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-[0.2em]">
             Community Scan - {modelLabel}
@@ -2390,17 +2419,15 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
             'Community Scans',
             `${sortedCommunityScans.length} public community scans`,
             sortedCommunityScans,
-            <div className="relative shrink-0">
-              <select
+              <CustomSelectDropdown
                 value={communitySort}
-                onChange={(e) => setCommunitySort(e.target.value)}
-                className="appearance-none rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-2 pr-8 font-mono text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100 outline-none transition-colors focus:border-cyan-300/50"
-              >
-                <option value="latest">Latest</option>
-                <option value="highest">Highest score</option>
-              </select>
-              <ChevronDown size={12} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-cyan-200/70" />
-            </div>
+                onChange={setCommunitySort}
+                options={[
+                  { value: 'latest', label: 'Latest' },
+                  { value: 'highest', label: 'Highest score' }
+                ]}
+                className="appearance-none rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100 focus:border-cyan-300/50"
+              />
           )}
         </div>
       </div>
@@ -2420,6 +2447,55 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
         <SiteModal title="Community Scan" onClose={() => setCommunityNotice('')} maxWidth="max-w-lg">
           <p className="text-sm leading-relaxed text-zinc-300">{communityNotice}</p>
         </SiteModal>
+      )}
+    </div>
+  );
+};
+
+const CustomSelectDropdown = ({ value, onChange, options, className }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(o => o.value === value) || options[0];
+
+  return (
+    <div className="relative shrink-0 w-full md:w-auto" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex w-full items-center justify-between gap-4 outline-none transition-colors ${className}`}
+      >
+        <span>{selectedOption?.label}</span>
+        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-cyan-200' : 'text-cyan-200/70'}`} />
+      </button>
+      
+      {isOpen && (
+        <div className="absolute top-full right-0 mt-2 w-full min-w-[200px] z-[100] rounded-[20px] border border-cyan-500/30 bg-[#06080a] p-2 shadow-[0_12px_40px_rgba(0,0,0,0.8),0_0_20px_rgba(0,240,255,0.1)] backdrop-blur-xl animate-[mogBattle2NoticeIn__0.2s_ease-out] flex flex-col gap-1">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setIsOpen(false); }}
+              className={`w-full text-left px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.18em] transition-all duration-200 ${
+                value === opt.value 
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/20 shadow-[inset_0_0_10px_rgba(0,240,255,0.1)]' 
+                  : 'text-zinc-400 hover:bg-cyan-950/40 hover:text-cyan-100 border border-transparent'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -6890,7 +6966,7 @@ const categoryToRadar10 = (v, fallbackRaw) => {
 
 const hexagonToRadarData = (hexagon, fallbackRaw) => {
   if (!hexagon || typeof hexagon !== 'object') return null;
-  const keyOrder = ['Skin', 'Dimorphism', 'Symmetry', 'Harmony', 'Bone'];
+  const keyOrder = ['Skin', 'Dimorphism', 'Symmetry', 'Harmony'];
   const normalizedHexagon = Object.fromEntries(
     Object.entries(hexagon).map(([key, value]) => [String(key).trim().toLowerCase(), value])
   );
@@ -6955,49 +7031,67 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
     return () => cancelAnimationFrame(frame);
   }, [dataKey]);
 
+  const numPoints = data.length;
+  const getPoint = (val, i) => {
+    const angle = (Math.PI / 2) + (2 * Math.PI * i / numPoints);
+    const x = 50 + val * 35 * Math.cos(angle);
+    const y = 50 - val * 35 * Math.sin(angle);
+    return { x, y };
+  };
+
   const points = data.map((d, i) => {
-    const angle = (Math.PI / 2) + (2 * Math.PI * i / data.length);
-    const val = (d.val * progress) / 10;
-    const x = 50 + val * 40 * Math.cos(angle);
-    const y = 50 - val * 40 * Math.sin(angle);
+    const { x, y } = getPoint((d.val * progress) / 10, i);
+    return `${x},${y}`;
+  }).join(' ');
+
+  const bgPoints100 = Array.from({ length: numPoints }, (_, i) => {
+    const { x, y } = getPoint(1, i);
+    return `${x},${y}`;
+  }).join(' ');
+
+  const bgPoints50 = Array.from({ length: numPoints }, (_, i) => {
+    const { x, y } = getPoint(0.5, i);
     return `${x},${y}`;
   }).join(' ');
 
   return (
     <div className="relative w-full aspect-square">
-      <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-[162deg]">
-        <polygon points="50,10 88,38 73,82 27,82 12,38" fill="rgba(255,255,255,0.05)" stroke="#3f3f46" strokeWidth="0.5" />
-        <polygon points="50,30 69,44 62,66 38,66 31,44" fill="rgba(255,255,255,0.1)" stroke="#52525b" strokeWidth="0.5" />
-        <line x1="50" y1="50" x2="50" y2="10" stroke="#3f3f46" strokeWidth="0.5" />
-        <line x1="50" y1="50" x2="88" y2="38" stroke="#3f3f46" strokeWidth="0.5" />
-        <line x1="50" y1="50" x2="73" y2="82" stroke="#3f3f46" strokeWidth="0.5" />
-        <line x1="50" y1="50" x2="27" y2="82" stroke="#3f3f46" strokeWidth="0.5" />
-        <line x1="50" y1="50" x2="12" y2="38" stroke="#3f3f46" strokeWidth="0.5" />
+      <svg viewBox="0 0 100 100" className="w-full h-full">
+        <polygon points={bgPoints100} fill="rgba(255,255,255,0.05)" stroke="#3f3f46" strokeWidth="0.5" />
+        <polygon points={bgPoints50} fill="rgba(255,255,255,0.1)" stroke="#52525b" strokeWidth="0.5" />
+        {Array.from({ length: numPoints }).map((_, i) => {
+          const { x, y } = getPoint(1, i);
+          return <line key={i} x1="50" y1="50" x2={x} y2={y} stroke="#3f3f46" strokeWidth="0.5" />;
+        })}
         <polygon points={points} fill="rgba(34,211,238,0.2)" stroke="#22d3ee" strokeWidth="1" className="drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
         {data.map((d, i) => {
-          const angle = (Math.PI / 2) + (2 * Math.PI * i / data.length);
-          const val = (d.val * progress) / 10;
-          const x = 50 + val * 40 * Math.cos(angle);
-          const y = 50 - val * 40 * Math.sin(angle);
-          return <circle key={i} cx={x} cy={y} r="1.5" fill="#fff" className="drop-shadow-[0_0_4px_rgba(255,255,255,1)]" />;
+          const { x, y } = getPoint((d.val * progress) / 10, i);
+          return <circle key={i} cx={x} cy={y} r="1.2" fill="#fff" className="drop-shadow-[0_0_4px_rgba(255,255,255,1)]" />;
         })}
       </svg>
       {!compact && (
-        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2">
-          <div className="flex justify-between w-full px-2 mt-4">
-             <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[3].label}</span>
-             <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[2].label}</span>
-          </div>
-          <div className="flex justify-between w-full px-0 -mt-2">
-             <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[4].label}</span>
-             <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[1].label}</span>
-          </div>
-          <div className="flex justify-center w-full mb-1">
-             <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[0].label}</span>
-          </div>
+        <div className="absolute inset-0 pointer-events-none">
+          {data.map((d, i) => {
+            const angle = (Math.PI / 2) + (2 * Math.PI * i / numPoints);
+            const x = 50 + 50 * Math.cos(angle);
+            const y = 50 - 50 * Math.sin(angle);
+            return (
+              <span 
+                key={i} 
+                className="absolute text-[6.5px] font-black font-sans text-cyan-400/80 uppercase tracking-[0.2em] whitespace-nowrap"
+                style={{
+                  left: `${x}%`,
+                  top: `${y}%`,
+                  transform: 'translate(-50%, -50%)'
+                }}
+              >
+                {d.label}
+              </span>
+            );
+          })}
         </div>
       )}
-      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white font-black italic drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] ${compact ? 'text-sm' : 'text-xl'}`}>
+      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white font-black italic drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] ${compact ? 'text-sm' : 'text-lg'}`}>
         {scoreToDisplay10(finalScore) != null
           ? (scoreToDisplay10(finalScore) * progress).toFixed(1)
           : (data.reduce((a, b) => a + b.val * progress, 0) / data.length).toFixed(1)}
@@ -7005,6 +7099,46 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
     </div>
   );
 };
+
+const HexagonStats = ({ radarData4, radarData5, finalScore }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  return (
+    <div 
+      className="relative w-full h-full flex items-center justify-center p-4"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Radar Chart Layer */}
+      <div className={`w-full h-full transition-all duration-500 ${isHovered ? 'opacity-15 blur-lg scale-90' : 'opacity-100 blur-0 scale-100'}`}>
+        <RadarChart data={radarData5} finalScore={finalScore} />
+      </div>
+
+      {/* Stats Overlay Layer */}
+      <div className={`absolute inset-0 flex flex-col justify-center p-6 gap-4 transition-all duration-500 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+        {radarData4.map((item, idx) => (
+          <div key={item.label} className="flex flex-col">
+            <div className="flex flex-col mb-1.5 px-0.5">
+              <span className="text-[7px] font-black uppercase tracking-[0.3em] text-cyan-500/50 mb-0.5">Category</span>
+              <div className="flex justify-between items-end">
+                <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white/90">{item.label}</span>
+                <span className="text-[14px] font-black italic text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">{item.val.toFixed(1)}</span>
+              </div>
+            </div>
+            <div className="h-1.5 w-full bg-cyan-900/30 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.7)] transition-all duration-700 ease-out" 
+                style={{ width: isHovered ? `${(item.val / 10) * 100}%` : '0%' }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+
 
 // --- Metric Bar Component ---
 const MetricBar = ({ label, score, max = 100, displayValue, isFreePlan = false }) => {
@@ -7027,19 +7161,24 @@ const MetricBar = ({ label, score, max = 100, displayValue, isFreePlan = false }
   
   let colorClass = 'bg-gradient-to-r from-red-600 via-red-500 to-rose-400';
   let shadowClass = 'shadow-[0_0_15px_rgba(225,29,72,0.5)]';
+  let textColorClass = 'text-rose-400';
   if (percentage >= 70) {
     colorClass = 'bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-400';
     shadowClass = 'shadow-[0_0_15px_rgba(20,184,166,0.5)]';
+    textColorClass = 'text-emerald-400';
   } else if (percentage >= 40) {
     colorClass = 'bg-gradient-to-r from-orange-600 via-orange-500 to-amber-400';
     shadowClass = 'shadow-[0_0_15px_rgba(251,191,36,0.5)]';
+    textColorClass = 'text-amber-400';
   }
 
   return (
     <div className="flex flex-col relative group">
       <div className="flex justify-between items-end gap-3 text-[10px] uppercase font-sans text-zinc-400 mb-1.5">
         <span className="tracking-[0.22em] font-bold leading-tight">{label}</span>
-        <span className="font-black text-white text-sm bg-zinc-900/80 px-2 py-0.5 rounded shadow-sm border border-zinc-800">{isFreePlan ? `${Math.round(progress)}/100` : (displayValue ? displayValue : `${progress.toFixed(1)}${max === 100 ? '%' : ''}`)}</span>
+        <span className={`font-black ${textColorClass} text-sm bg-zinc-900/80 px-2.5 py-0.5 rounded-md shadow-sm border border-zinc-800 transition-colors duration-500`}>
+          {isFreePlan ? `${Math.round(progress)}/100` : (displayValue ? displayValue : `${progress.toFixed(1)}${max === 100 ? '%' : ''}`)}
+        </span>
       </div>
       <div className="w-full h-2.5 bg-zinc-800/80 rounded-full relative overflow-hidden flex items-center shadow-inner">
         <div 
@@ -7284,27 +7423,118 @@ const mapFeatureToCoordinates = (title, desc) => {
   return { x: 50, y: 50 };
 };
 
+const HoloCube = ({ data }) => {
+  const [rot, setRot] = useState({ x: -10, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const lastMouse = useRef({ x: 0, y: 0 });
+
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    lastMouse.current = { x: e.clientX, y: e.clientY };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDragging) return;
+      const deltaX = e.clientX - lastMouse.current.x;
+      const deltaY = e.clientY - lastMouse.current.y;
+      setRot(prev => ({ 
+        x: Math.max(-60, Math.min(60, prev.x - deltaY * 0.5)), 
+        y: prev.y + deltaX * 0.5 
+      }));
+      lastMouse.current = { x: e.clientX, y: e.clientY };
+    };
+    const handleMouseUp = () => setIsDragging(false);
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  return (
+    <div 
+      className={`relative w-full h-full flex items-center justify-center [perspective:1000px] select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      onMouseDown={handleMouseDown}
+    >
+      <div 
+        className="relative w-36 h-36 [transform-style:preserve-3d] transition-transform duration-150 ease-out"
+        style={{ transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)` }}
+      >
+        {[0, 90, 180, 270].map((ry, idx) => {
+          const item = data[idx];
+          const faceAngle = (ry + rot.y) % 360;
+          const normalized = ((faceAngle + 180) % 360 + 360) % 360 - 180;
+          const cos = Math.cos(normalized * (Math.PI / 180));
+          const opacity = Math.max(0.05, cos); 
+
+          return (
+            <div 
+              key={item.label} 
+              className="absolute inset-0 bg-cyan-500/[0.04] backdrop-blur-[1px] border border-cyan-400/30 shadow-[0_0_15px_rgba(34,211,238,0.1)] flex flex-col items-center justify-center p-4 transition-opacity duration-300"
+              style={{ 
+                transform: `rotateY(${ry}deg) translateZ(72px)`,
+                backgroundImage: 'linear-gradient(rgba(34,211,238,0.05) 1px, transparent 1px)',
+                backgroundSize: '100% 4px',
+                opacity: opacity
+              }}
+            >
+              <div 
+                className="w-full flex flex-col items-center justify-center transition-transform duration-150 ease-out"
+                style={{ transform: `rotateY(${-rot.y - ry}deg) rotateX(${-rot.x}deg)` }}
+              >
+                <p className="text-[6px] font-black uppercase tracking-[0.3em] text-cyan-400/50 mb-1">Live Telemetry</p>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-white/90 mb-2 text-center">{item.label}</h4>
+                
+                <div className="relative w-full px-1">
+                  <div className="flex justify-between items-end mb-1">
+                    <span className="text-[14px] font-black italic text-cyan-400 drop-shadow-[0_0_5px_rgba(34,211,238,0.4)]">
+                      {item.val.toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="h-[2px] w-full bg-cyan-900/20 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"
+                      style={{ width: `${(item.val / 10) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <div className="absolute inset-0 bg-cyan-500/[0.02] border border-cyan-500/10 [transform:rotateX(90deg)_translateZ(72px)] opacity-20" />
+        <div className="absolute inset-0 bg-cyan-500/[0.02] border border-cyan-500/10 [transform:rotateX(-90deg)_translateZ(72px)] opacity-20" />
+      </div>
+    </div>
+  );
+};
+
 const FeatureHighlightCard = ({ type, feature, onHover }) => {
   const isBest = type === 'best';
   if (!feature) return null;
   const cardClass = isBest
-    ? 'p-5 bg-green-900/10 border border-green-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(34,197,94,0.05)] cursor-default transition-all duration-300 hover:scale-[1.02]'
-    : 'p-5 bg-red-900/10 border border-red-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(239,68,68,0.05)] cursor-default transition-all duration-300 hover:scale-[1.02]';
+    ? 'p-7 bg-green-900/10 border border-green-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(34,197,94,0.05)] cursor-default transition-all duration-300 hover:scale-[1.02]'
+    : 'p-7 bg-red-900/10 border border-red-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(239,68,68,0.05)] cursor-default transition-all duration-300 hover:scale-[1.02]';
   const railClass = isBest
-    ? 'absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-green-400 to-green-600'
-    : 'absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-red-400 to-red-600';
+    ? 'absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-green-400 to-green-600'
+    : 'absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-red-400 to-red-600';
   const labelClass = isBest
-    ? 'text-green-500/50 text-[10px] uppercase font-black tracking-widest mb-1 block'
-    : 'text-red-500/50 text-[10px] uppercase font-black tracking-widest mb-1 block';
+    ? 'text-green-500/50 text-[11px] uppercase font-black tracking-widest mb-1.5 block'
+    : 'text-red-500/50 text-[11px] uppercase font-black tracking-widest mb-1.5 block';
   const titleClass = isBest
-    ? 'text-green-400 font-bold uppercase text-sm tracking-widest mb-2'
-    : 'text-red-400 font-bold uppercase text-sm tracking-widest mb-2';
+    ? 'text-green-400 font-bold uppercase text-lg tracking-widest mb-2.5'
+    : 'text-red-400 font-bold uppercase text-lg tracking-widest mb-2.5';
   return (
     <div className={cardClass}>
       <div className={railClass} />
       <span className={labelClass}>{isBest ? 'Best Feature' : 'Primary Flaw'}</span>
       <h4 className={titleClass}>{stripInlineMarkers(feature.title)}</h4>
-      <p className="text-zinc-400 text-[12px] font-sans leading-relaxed">{renderMarkedText(feature.description)}</p>
+      <p className="text-zinc-300 text-[14px] font-sans leading-relaxed">{renderMarkedText(feature.description)}</p>
     </div>
   );
 };
@@ -7329,7 +7559,7 @@ const PersonalizedFeedbackCard = ({ item, delay = 0 }) => (
   </div>
 );
 
-const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, onImageClick }) => {
+const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, onImageClick, showAnchors = false, anchorImageUrl = null }) => {
   const [landmarker, setLandmarker] = useState(null);
   const [landmarks, setLandmarks] = useState(null);
   const imgRef = useRef(null);
@@ -7609,18 +7839,27 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
     <button
       type="button"
       onClick={() => onImageClick?.(activeImageUrl)}
-      className="relative w-60 sm:w-64 md:w-[18rem] aspect-[3/4] shrink-0 bg-[#060708] rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 mx-auto text-left transition-colors hover:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+      className="relative w-72 sm:w-72 md:w-[21rem] aspect-[3/4] shrink-0 bg-[#060708] rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 mx-auto text-left transition-colors hover:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
     >
-      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-[#0a0a0b]/20 to-transparent z-10 pointer-events-none" />
       <img 
         ref={imgRef}
         src={activeImageUrl} 
         loading="eager"
         decoding="async"
         onLoad={detectCurrentImage}
-        className="absolute inset-0 w-full h-full object-cover object-center scale-[1.14] duration-700"
+        className={`absolute inset-0 w-full h-full object-cover object-center scale-[1.14] transition-all duration-700 ${showAnchors && anchorImageUrl ? 'opacity-30 grayscale brightness-50' : 'opacity-100'}`}
         alt="face map"
       />
+      {showAnchors && anchorImageUrl && (
+        <img 
+          src={anchorImageUrl} 
+          loading="eager"
+          decoding="async"
+          className="absolute inset-0 w-full h-full object-cover object-center scale-[1.14] z-10 mix-blend-screen opacity-100"
+          alt="anchors overlay"
+        />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-[#0a0a0b]/20 to-transparent z-20 pointer-events-none" />
     </button>
   );
 };
@@ -7794,8 +8033,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     { label: 'Skin', val: 6.4 },
     { label: 'Dimorphism', val: 7.8 },
     { label: 'Symmetry', val: 9.2 },
-    { label: 'Harmony', val: 8.5 },
-    { label: 'Bone', val: 8.8 }
+    { label: 'Harmony', val: 8.5 }
   ];
 
   const frForRadar = isSideView
@@ -7814,7 +8052,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           { label: 'Dimorphism', val: categoryToRadar10(activeCats.Dimorphism, frForRadar) },
           { label: 'Symmetry', val: categoryToRadar10(activeCats.Symmetry, frForRadar) },
           { label: 'Harmony', val: categoryToRadar10(activeCats.Harmony, frForRadar) },
-          { label: 'Bone', val: categoryToRadar10(activeCats.Bone, frForRadar) },
         ]
       : defaultRadar);
   const secondaryRadarData =
@@ -7825,7 +8062,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           { label: 'Dimorphism', val: categoryToRadar10(oppositeCats.Dimorphism, oppositeRawRating) },
           { label: 'Symmetry', val: categoryToRadar10(oppositeCats.Symmetry, oppositeRawRating) },
           { label: 'Harmony', val: categoryToRadar10(oppositeCats.Harmony, oppositeRawRating) },
-          { label: 'Bone', val: categoryToRadar10(oppositeCats.Bone, oppositeRawRating) },
         ]
       : null);
   const radarData = effectiveCohesiveEnabled
@@ -7945,6 +8181,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const detailedReportStartedMs = Date.parse(dashboardData?.reportStartedAt || dashboardData?.payload?.reportStartedAt || '');
 
   const [activeHover, setActiveHover] = useState(null);
+  const [showAnchorOverlay, setShowAnchorOverlay] = useState(false);
   const [reportNowMs, setReportNowMs] = useState(Date.now());
   const [reportRetrying, setReportRetrying] = useState(false);
   const [reportRetryError, setReportRetryError] = useState('');
@@ -8589,15 +8826,15 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           ) : (
             <>
               <div className="hidden md:grid md:grid-cols-4 gap-6">
-                <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
+                <div className="col-span-1 md:col-span-1 flex flex-col gap-6 h-full">
                   {/* Left Column Stack: Final Rating then Categories */}
-                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden text-center flex flex-col justify-center h-[180px] shadow-lg group hover:border-zinc-700 transition-colors">
+                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden text-center flex flex-col justify-center flex-1 min-h-[240px] shadow-lg group hover:border-zinc-700 transition-colors">
                     <div className="relative z-10 flex flex-col items-center justify-center">
                       <span className="font-sans text-[10px] uppercase tracking-[0.45em] mb-4 text-cyan-400/80">
                         {isFreeModelResult ? 'Analysis Type' : 'Final Rating'}
                       </span>
-                      <div className="relative leading-none">
-                        <span className={`block font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-500 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)] ${isFreeModelResult ? 'text-3xl' : 'text-6xl'}`}>
+                      <div className="relative leading-none w-full flex justify-center">
+                        <span className={`block font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-400 drop-shadow-[0_0_20px_rgba(34,211,238,0.35)] ${isFreeModelResult ? 'text-3xl' : 'text-[5.5rem] md:text-[6.5rem]'}`}>
                           {displayedFinalRating}
                         </span>
                       </div>
@@ -8613,30 +8850,34 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       )}
                     </div>
                   </div>
-                  <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg group hover:border-zinc-700 transition-colors p-4">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.05)_0%,transparent_70%)] pointer-events-none" />
-                    <div className="w-[85%] max-w-[200px] relative z-10">
-                      <RadarChart data={radarData} finalScore={radarFinalScore} />
-                    </div>
+                  <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg overflow-hidden transition-all duration-500 hover:border-zinc-700">
+                    <HexagonStats 
+                      radarData4={radarData} 
+                      radarData5={[
+                        ...radarData,
+                        { label: 'Bone', val: categoryToRadar10(dashboardData?.categories?.Bone || 8.5, radarFinalScore) }
+                      ]}
+                      finalScore={radarFinalScore} 
+                    />
                   </div>
                 </div>
 
                 <div className="col-span-1 md:col-span-3 bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
                   {cohesiveExperimentToggle}
                   <div className="mb-6 flex items-center justify-between gap-3">
-                    <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest flex items-center gap-2">
-                      <Target size={14} className="text-zinc-500" /> Structure
-                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowAnchorOverlay(!showAnchorOverlay)}
+                      className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-[0.25em] transition-all duration-300 ${
+                        showAnchorOverlay 
+                          ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200 shadow-[0_0_15px_rgba(34,211,238,0.25)]' 
+                          : 'border-zinc-800 bg-zinc-900/50 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'
+                      }`}
+                    >
+                      <Target size={14} className={showAnchorOverlay ? 'text-cyan-400' : 'text-zinc-500'} />
+                      {showAnchorOverlay ? 'Anchors Active' : 'Anchor Points'}
+                    </button>
                     <div className="flex flex-wrap justify-end gap-2">
-                      {debugAnchorsImage && (
-                        <button
-                          type="button"
-                          onClick={() => setScanLightbox({ src: debugAnchorsImage, subtitle: 'Debug anchors - landmark overlay' })}
-                          className="inline-flex items-center gap-2 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-cyan-200 transition-colors hover:border-cyan-300/50 hover:bg-cyan-500/15"
-                        >
-                          <Eye size={12} /> Debug
-                        </button>
-                      )}
                       <button
                         type="button"
                         onClick={openAnimationsViewer}
@@ -8653,16 +8894,18 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       primaryFlaw={primaryFlawFeature} 
                       activeHover={showBestFlaw ? activeHover : null}
                       onImageClick={(src) => setScanLightbox({ src, subtitle: `${effectiveProfileView === 'side' ? 'Side' : 'Front'} profile` })}
+                      showAnchors={showAnchorOverlay}
+                      anchorImageUrl={debugAnchorsImage}
                     />
-                    <div className="flex-grow space-y-3 w-full flex flex-col justify-center max-w-[15rem]">
-                       <div className={`flex gap-2 mb-1 w-full ${hasSideProfileImage ? 'max-w-[13rem]' : 'max-w-[8rem]'} mx-auto md:mx-0`}>
-                         <div onClick={() => setActiveProfileView('front')} className={`relative ${hasSideProfileImage ? 'flex-1' : 'w-full'} aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                    <div className="flex-grow space-y-4 w-full flex flex-col justify-center max-w-[20rem]">
+                       <div className={`flex gap-2 mb-1 w-full ${hasSideProfileImage ? 'max-w-[18rem]' : 'max-w-[10rem]'} mx-auto md:mx-0`}>
+                         <div onClick={() => setActiveProfileView('front')} className={`relative ${hasSideProfileImage ? 'flex-1' : 'w-full'} aspect-[16/10] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
                           <img loading="lazy" decoding="async" src={dashboardData?.frontImage || placeholderProfileImage} className="w-full h-full object-cover object-center scale-[1.08]" alt="Front" />
                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                            <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${effectiveProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
                          </div>
                          {hasSideProfileImage && (
-                           <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                           <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[16/10] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
                             <img loading="lazy" decoding="async" src={dashboardData?.sideImage || placeholderProfileImage} className="w-full h-full object-cover scale-[1.08]" style={{objectPosition: 'center top'}} alt="Side" />
                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                              <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${effectiveProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
@@ -11484,18 +11727,18 @@ const App = () => {
         )}
         {currentPage === 'plans' && <PlansPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'mog-battles' && (
-          <MogBattlePage user={user} userPlan={userPlan} setCurrentPage={setCurrentPage} dashboardData={dashboardData} />
+          <MogBattlePage2 user={user} setCurrentPage={setCurrentPage} />
         )}
         {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} user={user} />}
-        {currentPage === 'news' && <NewsPage />}
+
         {currentPage === 'public-profile' && (
           <PublicProfilePage routeParams={routeParams} user={user} />
         )}
         {currentPage === 'profile' && (
           <UserProfilePage user={user} userPlan={userPlan} setCurrentPage={setCurrentPage} />
         )}
-        {currentPage === 'celebrity' && <CelebrityRatingPage setCurrentPage={setCurrentPage} setSelectedCelebrity={setSelectedCelebrity} user={user} />}
+        {currentPage === 'celebrity' && <ScansPage2 setCurrentPage={setCurrentPage} setSelectedCelebrity={setSelectedCelebrity} user={user} />}
         {currentPage === 'celebrity-stats' && selectedCelebrity && <CelebrityStatsPage celeb={selectedCelebrity} setCurrentPage={setCurrentPage} />}
         {currentPage === 'public-scan' && (
           <PublicProfilePage
@@ -11551,6 +11794,351 @@ const App = () => {
           </div>
           <p className="text-zinc-600 text-[10px] font-sans uppercase tracking-[0.5em]">Peak Performance Aesthetics (c) 2026</p>
         </footer>
+      )}
+    </div>
+  );
+};
+
+// --- Scans Page 2 ---
+const ScansPage2 = ({ setCurrentPage, setSelectedCelebrity, user }) => {
+  const [communityScans, setCommunityScans] = useState([]);
+  const [filterMode, setFilterMode] = useState('all');
+  const [communitySort, setCommunitySort] = useState('latest');
+  const [communityPeek, setCommunityPeek] = useState(null);
+  const [communityRemovalIntent, setCommunityRemovalIntent] = useState(null);
+  const [communityNotice, setCommunityNotice] = useState('');
+  const [communityMenuId, setCommunityMenuId] = useState(null);
+  const isAdmin = Boolean(user?.email && (
+    user.email === 'laithbu07@gmail.com' ||
+    user.email === 'admin@looksmaxxing.com' ||
+    user.email === 'serenity.eyb@gmail.com' ||
+    user.email.endsWith('@looksmaxxing.com')
+  ));
+
+  useEffect(() => {
+    if (!communityPeek) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [communityPeek]);
+
+  useEffect(() => {
+    const fetchCommunity = async () => {
+      try {
+        const { fetchCommunityScans, fetchCommunityBattles } = await import('./api/mogBattleVotes');
+        const res = await fetchCommunityScans(80);
+        let loadedScans = (res.scans || [])
+          .map((scan, idx) => hydrateCommunityScanEntry(scan, idx))
+          .filter((scan) => scan?.dashboardData && scan?.frontImage);
+
+        if (loadedScans.length === 0) {
+          const battleRes = await fetchCommunityBattles();
+          const scansMap = new Map();
+          battleRes.battles.forEach(b => {
+            if (b.fighterA) scansMap.set(b.fighterA.scanId || b.fighterA.profileId || b.fighterA.name, { ...b.fighterA, isCommunity: true });
+            if (b.fighterB) scansMap.set(b.fighterB.scanId || b.fighterB.profileId || b.fighterB.name, { ...b.fighterB, isCommunity: true });
+          });
+          loadedScans = Array.from(scansMap.values())
+            .map((scan, idx) => hydrateCommunityScanEntry(scan, idx))
+            .filter((scan) => scan?.dashboardData && scan?.frontImage);
+        }
+
+        if (loadedScans.length === 0) {
+          loadedScans = COMMUNITY_SCANS.map((s, i) =>
+            hydrateCommunityScanEntry({ ...s, name: `User ${i + 1}`, isCommunity: true, profileId: `mock-${i}` }, i)
+          );
+        }
+        
+        const merged = new Map();
+        [...OFFICIAL_CELEBRITY_COMMUNITY_SCANS, ...loadedScans].forEach((scan, idx) => {
+          const hydrated = hydrateCommunityScanEntry(scan, idx);
+          const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
+          if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
+        });
+
+        setCommunityScans(Array.from(merged.values()));
+      } catch(e) {
+        console.error(e);
+        const merged = new Map();
+        [
+          ...OFFICIAL_CELEBRITY_COMMUNITY_SCANS,
+          ...COMMUNITY_SCANS.map((scan, idx) =>
+            hydrateCommunityScanEntry({ ...scan, name: scan.name || `User ${idx + 1}`, isCommunity: true, profileId: scan.profileId || `mock-${idx}` }, idx)
+          ),
+        ].forEach((scan, idx) => {
+          const hydrated = hydrateCommunityScanEntry(scan, idx);
+          const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
+          if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
+        });
+
+        setCommunityScans(Array.from(merged.values()));
+      }
+    };
+    fetchCommunity();
+  }, []);
+
+  const getCelebrityScanShareUrl = useCallback((scan) => {
+    const ownerUid = String(scan?.ownerUid || scan?.uid || '').trim();
+    const scanId = String(scan?.scanId || scan?.id || '').trim();
+    if (ownerUid && scanId && !scan?.officialScan) {
+      return `${window.location.origin}/scan/${encodeURIComponent(ownerUid)}/${encodeURIComponent(scanId)}`;
+    }
+    return `${window.location.origin}/celebrity?scan=${encodeURIComponent(scanId || scan?.id || 'community')}`;
+  }, []);
+
+  const shareCommunityScan = useCallback(async (scan) => {
+    const url = getCelebrityScanShareUrl(scan);
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setCommunityNotice('Scan link copied.');
+      } else {
+        setCommunityNotice(url);
+      }
+    } catch {
+      setCommunityNotice(url);
+    }
+  }, [getCelebrityScanShareUrl]);
+
+  const removeOwnedCommunityScan = async (scan) => {
+    if (!user || !scan?.scanId) return;
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/api/user/scans/${encodeURIComponent(scan.scanId)}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibility: 'private' }),
+      });
+      if (!res.ok) throw new Error('Failed to update scan visibility');
+      setCommunityScans((prev) => prev.filter((item) => item.id !== scan.id && item.scanId !== scan.scanId));
+      setCommunityNotice('Scan removed from Community Scans. It is still saved privately on your dashboard.');
+    } catch (e) {
+      setCommunityNotice(e.message || 'Failed to remove scan from Community Scans.');
+    } finally {
+      setCommunityRemovalIntent(null);
+    }
+  };
+
+  const removeAdminCommunityScan = async (scan) => {
+    const password = window.localStorage.getItem('mogcheck_admin_pw') || '';
+    if (!password || !scan?.id) {
+      setCommunityNotice('Admin password is required. Log into the admin panel once, then try again.');
+      setCommunityRemovalIntent(null);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/community-scans/${encodeURIComponent(scan.id)}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-password': password },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Failed to remove community scan listing');
+      setCommunityScans((prev) => prev.filter((item) => item.id !== scan.id && item.scanId !== scan.scanId));
+      setCommunityNotice('Community scan listing removed. The saved user scan was not deleted.');
+    } catch (e) {
+      setCommunityNotice(e.message || 'Failed to remove community scan listing.');
+    } finally {
+      setCommunityRemovalIntent(null);
+      setCommunityMenuId(null);
+    }
+  };
+
+  const removeCommunityScan = async (scan) => {
+    const isOwner = Boolean(user?.uid && scan?.ownerUid && scan.ownerUid === user.uid && scan?.scanId);
+    if (isOwner) return removeOwnedCommunityScan(scan);
+    if (isAdmin) return removeAdminCommunityScan(scan);
+    setCommunityRemovalIntent(null);
+    return undefined;
+  };
+
+  const markCommunityScanOfficial = async (scan, official = true) => {
+    const password = window.localStorage.getItem('mogcheck_admin_pw') || '';
+    if (!password || !scan?.id) {
+      setCommunityNotice('Admin password is required. Log into the admin panel once, then try again.');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/community-scans/${encodeURIComponent(scan.id)}/official`, {
+        method: 'POST',
+        headers: { 'x-admin-password': password, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ official }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Failed to update official status');
+      setCommunityScans((prev) => prev.map((item) => (item.id === scan.id ? { ...item, officialScan: official, official } : item)));
+      setCommunityNotice(official ? 'Scan marked as official.' : 'Scan turned back into a normal community scan.');
+    } catch (e) {
+      setCommunityNotice(e.message || 'Failed to update official status.');
+    } finally {
+      setCommunityMenuId(null);
+    }
+  };
+
+  const filteredScans = useMemo(() => {
+    let scans = communityScans.filter((rawScan) => rawScan?.dashboardData && rawScan?.frontImage);
+    if (filterMode === 'verified') {
+      scans = scans.filter(s => s.officialScan);
+    } else if (filterMode === 'community') {
+      scans = scans.filter(s => !s.officialScan);
+    }
+    
+    return scans.sort((a, b) => {
+      if (communitySort === 'highest') {
+        const ratingDiff = (Number(b.finalRating) || 0) - (Number(a.finalRating) || 0);
+        if (ratingDiff) return ratingDiff;
+      }
+      return timestampToMillis(b.timestamp || b.scannedAt || b.createdAt) - timestampToMillis(a.timestamp || a.scannedAt || a.createdAt);
+    });
+  }, [communityScans, filterMode, communitySort]);
+
+  return (
+    <div className="w-full flex-grow pt-28 pb-16 px-4 sm:px-6 relative flex flex-col items-center overflow-x-hidden min-h-screen">
+      {communityPeek && communityPeek.dashboardData && (
+        <div
+          className="fixed inset-0 z-[220] flex flex-col bg-[#0a0a0b] overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+        >
+          <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-zinc-800 bg-[#0a0a0b]/95 px-4 py-3 backdrop-blur-md md:px-8">
+            <button
+              type="button"
+              onClick={() => setCommunityPeek(null)}
+              className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 font-sans text-xs font-bold uppercase tracking-widest text-zinc-200 hover:border-cyan-500/50 hover:text-cyan-300 transition-colors"
+            >
+              <ArrowLeft size={16} />
+              Community Scans
+            </button>
+            <div className="min-w-0 flex-1">
+              <p className="font-sans text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+                Community scan{communityPeek?.tier ? ` - ${communityPeek.tier}` : ''}
+              </p>
+              <h2 className="truncate font-black uppercase italic tracking-tight text-white">
+                Community Scan
+              </h2>
+            </div>
+          </header>
+          <div className="flex-1 px-4 pb-16 pt-6 md:px-8">
+            <button
+              type="button"
+              onClick={() => setCommunityPeek(null)}
+              className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/[0.07] px-4 py-2 font-sans text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100 transition-colors hover:border-cyan-300/60 hover:bg-cyan-400/10"
+            >
+              <ArrowLeft size={14} />
+              Go to previous page
+            </button>
+            <DashboardPage
+              dashboardData={forceCommunityScanFrontOnly(communityPeek.dashboardData)}
+              setCurrentPage={setCurrentPage}
+              userPlan={{ plan: 'pro', scanCredits: 0 }}
+              user={null}
+              hideTopSection
+              hideProtocols
+              hideActionableProtocols
+              hideUnlockPotential
+              hidePersonalizedFeedback
+              isEmbedded
+            />
+          </div>
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0c0d0e] via-zinc-900/20 to-[#0c0d0e] -z-10" />
+      <div className="w-full max-w-[1400px] mx-auto flex flex-col items-center text-center">
+        <h2 className="text-3xl font-black italic uppercase tracking-widest text-white mb-2">Scans 2</h2>
+        <p className="text-zinc-500 uppercase tracking-widest text-xs mb-8">Verified scans and live community scans with shareable links.</p>
+
+        {/* Filters */}
+        <div className="flex flex-col md:flex-row items-center gap-6 mb-10 w-full justify-between max-w-2xl bg-black/40 border border-white/5 p-4 rounded-[28px] shadow-[0_10px_40px_rgba(0,0,0,0.3)] backdrop-blur-md z-10 relative">
+          <div className="flex bg-zinc-900/50 p-1 rounded-full border border-white/5 w-full md:w-auto">
+            {['all', 'verified', 'community'].map(mode => (
+              <button
+                key={mode}
+                onClick={() => setFilterMode(mode)}
+                className={`flex-1 md:flex-none px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.18em] transition-all duration-300 ${
+                  filterMode === mode
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
+                    : 'text-zinc-500 hover:text-white border border-transparent'
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+
+            <CustomSelectDropdown
+              value={communitySort}
+              onChange={setCommunitySort}
+              options={[
+                { value: 'latest', label: 'Latest' },
+                { value: 'highest', label: 'Highest score' }
+              ]}
+              className="appearance-none rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-5 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100 focus:border-cyan-300/50"
+            />
+        </div>
+
+        {/* 3 Grid Layout */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full text-left pb-16">
+          {filteredScans.map((rawScan, idx) => {
+            const scan = hydrateCommunityScanEntry(rawScan, idx);
+            const isOwnedCommunityScan = Boolean(user?.uid && scan.ownerUid && scan.ownerUid === user.uid && scan.scanId && !scan.officialScan);
+            const rating = Number(scan.finalRating || 0);
+            const ratingTone = getRatingToneClasses(rating);
+            const scanTier = scan.tier || '-';
+            const tierUpper = String(scanTier).toUpperCase();
+            const tierBadgeClass =
+              tierUpper.includes('S') && tierUpper.includes('TIER')
+                ? 'bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+                : tierUpper.includes('A') && tierUpper.includes('TIER')
+                  ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.6)]'
+                  : 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
+
+            return (
+              <CommunityScanCard
+                key={scan.id || idx}
+                scan={scan}
+                rating={rating}
+                ratingTone={ratingTone}
+                tierBadgeClass={tierBadgeClass}
+                scanTier={scanTier}
+                isOwnedCommunityScan={isOwnedCommunityScan}
+                isAdmin={isAdmin}
+                communityMenuId={communityMenuId}
+                compact={false}
+                onOpen={() => {
+                  if (!scan.dashboardData) return;
+                  setCommunityPeek(scan);
+                }}
+                onShare={() => shareCommunityScan(scan)}
+                onRemove={() => setCommunityRemovalIntent(scan)}
+                onToggleMenu={() => setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id))}
+                onMarkOfficial={(official) => markCommunityScanOfficial(scan, official)}
+              />
+            );
+          })}
+        </div>
+        
+        {filteredScans.length === 0 && (
+          <p className="py-24 text-center text-sm text-zinc-500 w-full font-bold uppercase tracking-widest">No scans found in this category.</p>
+        )}
+
+      </div>
+      {communityRemovalIntent && (
+        <ConfirmDialog
+          title="Remove From Community?"
+          body={isAdmin && !(user?.uid && communityRemovalIntent?.ownerUid === user.uid)
+            ? 'This removes the public Community Scans listing only. The saved user scan will not be deleted.'
+            : 'This will set the scan back to private. It will stay saved on your dashboard, but it will disappear from Community Scans.'}
+          confirmLabel="Remove"
+          tone="danger"
+          onClose={() => setCommunityRemovalIntent(null)}
+          onConfirm={() => removeCommunityScan(communityRemovalIntent)}
+        />
+      )}
+      {communityNotice && (
+        <SiteModal title="Community Scan" onClose={() => setCommunityNotice('')} maxWidth="max-w-lg">
+          <p className="text-sm leading-relaxed text-zinc-300">{communityNotice}</p>
+        </SiteModal>
       )}
     </div>
   );
