@@ -8060,7 +8060,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     normalizeMetricLabelForMatching(value).replace(/\s+/g, '');
   const FRONTAL_KEYWORDS = [
     'bigonial', 'jaw', 'chin', 'mandibular',
-    'ipd', 'eye spacing', 'eye height', 'eye shape', 'eye area', 'eyelid exposure',
+    'ipd', 'eye spacing', 'eye width', 'eye height', 'eye shape', 'eye area', 'eyelid exposure',
     'mouth', 'nose width', 'nose length', 'nose projection',
     'upper third', 'middle third', 'lower third', 'facial thirds',
     'brow compactness', 'philtrum', 'lip height', 'total lip height',
