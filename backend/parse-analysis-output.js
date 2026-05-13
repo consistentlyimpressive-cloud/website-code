@@ -415,6 +415,20 @@ function parseExperimentalJsonOutput(rawOutput, backendDir) {
   const bestFeatures = jsonFeatureArray(data.bestFeatures || data.strongestFeatures || data.pros, 5);
   const primaryFlaws = jsonFeatureArray(data.primaryFlaws || data.weakestFeatures || data.cons, 5);
   const biometrics = jsonBiometricArray(data.keyRatios || data.metrics || data.facialMetrics || data.ratios || data.biometrics, 20, rawOutput);
+  const rawValues = readMogReportRawValues(rawOutput, backendDir);
+  for (const rawLabel of ['Eye Width Index (Horizontal)', 'Total Lip Height Index']) {
+    const hasMetricAlready = biometrics.some((entry) => normalizeMetricName(entry?.label).includes(normalizeMetricName(rawLabel)));
+    const rawValue = rawValues[rawLabel];
+    if (hasMetricAlready || rawValue === undefined) continue;
+    const score = deterministicBiometricScore(rawLabel, rawValue, rawOutput);
+    biometrics.push({
+      label: `${rawLabel} (${rawValue})`,
+      displayValue: Number.isFinite(score) ? `${Math.round(score)}/100` : compactString(rawValue),
+      score: Number.isFinite(score) ? score : null,
+      impact: '',
+      note: '',
+    });
+  }
   const technicalSummary = compactString(data.technicalSummary || data.summary || data.mainLimitingFactor, DEFAULT_SUMMARY) || DEFAULT_SUMMARY;
   const interpretation = compactString(data.personalizedInterpretation || data.interpretation || '');
   const appealAssessment = compactString(data.appealAssessment || interpretation || data.tier || data.mainLimitingFactor);
@@ -1903,6 +1917,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
 
   const requiredRawMetricLabels = [
     'Eye Width Index (Horizontal)',
+    'Total Lip Height Index',
   ];
   for (const rawLabel of requiredRawMetricLabels) {
     const hasMetricAlready = biometrics.some((entry) => normalizeMetricName(entry?.label).includes(normalizeMetricName(rawLabel)));
