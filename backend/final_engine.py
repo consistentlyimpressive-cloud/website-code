@@ -1208,7 +1208,8 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
 
         *OVERRIDE 2: Punish harsh ageing signs VERY VERY STRICTLY. Do not give ratings from a "age-relative" perspective (eg. he's a 60/100 because he looks good for his age). You are rating closer to like how
         attractive the subject would be perceived by 18-30 year olds. Punish for wrinkles, saggy skin, crows feet eyes, saggy neck, balding, etc.
-        *OVERRIDE 3: Be very consistent on philtrum scoring. 0.090-0.100 is ideal and should score very high. 0.080-0.110 is balanced. 0.111-0.120 is mildly long. 0.121-0.140 is clearly long and should score noticeably lower than balanced values. Above 0.140 is severe. 0.070-0.079 is mildly short. Below 0.070 is clearly short. Do not let a clearly long philtrum outscore a balanced one unless the image is ambiguous or the landmark is unreliable. 0.11 and longer are considered flaws.
+        *OVERRIDE 3: Be very consistent on philtrum scoring. 0.090-0.100 is ideal and should score very high. 0.080-0.110 is balanced. 0.111-0.120 is mildly long. 0.121-0.140 is clearly long and should score noticeably lower than balanced values. Above 0.140 is severe. 0.070-0.079 is mildly short. Below 0.070 is clearly short. Do not let a clearly long philtrum outscore a balanced one unless the image is ambiguous or the landmark is unreliable. 0.11 and higher are considered flaws and must be rated <50.
+
 
         DASHBOARD OUTPUT ADAPTATION:
         - Return JSON only. No markdown. No prose outside JSON.
