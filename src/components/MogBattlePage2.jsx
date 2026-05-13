@@ -5,13 +5,18 @@ import {
   adminDeleteCommunityBattle,
   deleteCommunityBattle,
   fetchCommunityBattles,
+  fetchCommunityScans,
   fetchFollowedMogBattles,
   fetchMogBattleTallies,
   fetchMyMogBattleVote,
+  postCommunityBattle,
   postMogBattleVote,
   setMogBattleFollow,
 } from '../api/mogBattleVotes';
+import { getApiBase } from '../utils/apiBase';
 import { resolveMediaUrl } from '../utils/mediaUrl';
+
+const API_BASE = getApiBase();
 
 const FOLLOWED_BATTLES_STORAGE_KEY = 'mogcheck-followed-battles';
 
@@ -30,6 +35,56 @@ const timestampToMillis = (value) => {
   if (typeof value?._seconds === 'number') return value._seconds * 1000;
   const parsed = new Date(value).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const MOG_BATTLE_BANNED_NAME_TERMS = [
+  'porn', 'porno', 'xxx', 'nsfw', 'nude', 'nudes', 'naked', 'sex', 'sexual',
+  'onlyfans', 'pornhub', 'xvideos', 'xnxx',
+  'dick', 'cock', 'penis', 'pussy', 'vagina', 'boob', 'boobs', 'tits',
+  'fuck', 'fucker', 'fucking', 'shit', 'bitch', 'cunt', 'whore', 'slut',
+  'nigger', 'nigga', 'faggot', 'retard'
+];
+const MOG_BATTLE_COMPACT_BANNED_NAME_TERMS = new Set([
+  'porn', 'porno', 'xxx', 'nsfw', 'onlyfans', 'pornhub', 'xvideos', 'xnxx',
+  'penis', 'pussy', 'vagina', 'boobs', 'fucker', 'fucking', 'cunt', 'whore', 'slut',
+  'nigger', 'nigga', 'faggot', 'retard'
+]);
+
+const getMogBattleNameError = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (/(https?:\/\/|www\.|[a-z0-9-]+\.(?:com|net|org|gg|io|co|app|xyz|link|site|me)\b)/i.test(raw)) {
+    return 'Mog Battle names cannot contain links.';
+  }
+  const normalized = raw.toLowerCase().replace(/[^a-z0-9]+/g, ' ');
+  const compact = raw.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const hasBannedTerm = MOG_BATTLE_BANNED_NAME_TERMS.some((term) => {
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|\\s)${escaped}(\\s|$)`, 'i').test(normalized) ||
+      (MOG_BATTLE_COMPACT_BANNED_NAME_TERMS.has(term) && compact.includes(term));
+  });
+  return hasBannedTerm ? 'Mog Battle names cannot contain inappropriate words.' : null;
+};
+
+const getPseudoVotes = (battleId, side, createdAt) => {
+  const seed = String(battleId || 'battle') + side;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash << 5) - hash + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  const absHash = Math.abs(hash);
+  const baseVotes = 20 + (absHash % 11); // 20-30
+
+  // Use a very recent date (May 10 2026) to ensure we stay in double digits
+  const createdTime = timestampToMillis(createdAt) || 1746835200000;
+  const daysPassed = Math.floor((Date.now() - createdTime) / (1000 * 60 * 60 * 24));
+
+  const dailyInc = 2 + (Math.abs(hash * 13) % 5); // 2-6
+  const totalInc = Math.max(0, daysPassed) * dailyInc;
+
+  // Double digits only (20-99)
+  return Math.min(99, baseVotes + totalInc);
 };
 
 const fighterName = (fighter, fallback = 'Fighter') =>
@@ -80,11 +135,11 @@ const fighterAnalysisPath = (fighter, currentUserUid = '') => {
 
   if (ownerUid && scanId && !isOfficial) return `/scan/${encodeURIComponent(ownerUid)}/${encodeURIComponent(scanId)}`;
   if (ownerUid && profileId && !isOfficial) return `/users/${encodeURIComponent(ownerUid)}/${encodeURIComponent(profileId)}`;
-  
+
   if (isOfficial) {
     return `/celebrity?scan=${encodeURIComponent(scanId || fighter?.name || 'community')}`;
   }
-  
+
   return null;
 };
 
@@ -101,6 +156,40 @@ const readFollowedBattleIds = () => {
   } catch {
     return [];
   }
+};
+
+const scanMetricRows = (scan) => {
+  const source = scan?.stats || scan?.biometrics || scan?.metrics || scan?.payload?.stats || scan?.payload?.biometrics || [];
+  if (!Array.isArray(source)) return [];
+  return source
+    .map((metric) => ({
+      label: metric?.label || metric?.name || metric?.key || 'Metric',
+      score: Number(metric?.score ?? metric?.value ?? metric?.rating) || 0,
+    }))
+    .filter((metric) => metric.label && metric.score > 0)
+    .slice(0, 8);
+};
+
+const scanToBattleFighter = (scan, fallback = 'Scan') => {
+  const payload = scan?.payload && typeof scan.payload === 'object' ? scan.payload : {};
+  const finalRating = Number(scan?.finalRating ?? payload.finalRating ?? payload.rating);
+  return {
+    ...payload,
+    ...scan,
+    name: scan?.name || payload.profileName || payload.displayName || payload.name || fallback,
+    frontImage: resolveMediaUrl(scan?.frontImage || scan?.frontImageUrl || payload.frontImage || payload.imgSrc || null),
+    sideImage: resolveMediaUrl(scan?.sideImage || scan?.sideImageUrl || payload.sideImage || null),
+    finalRating: Number.isFinite(finalRating) ? finalRating : 0,
+    stats: scanMetricRows(scan).length ? scanMetricRows(scan) : scanMetricRows(payload),
+    technicalSummary: scan?.technicalSummary || payload.technicalSummary || payload.summary || scan?.summary || '',
+    ownerUid: scan?.ownerUid || scan?.uid || payload.ownerUid || payload.uid || '',
+    profileId: scan?.profileId || payload.profileId || '',
+    scanId: scan?.scanId || scan?.id || payload.scanId || '',
+    visibility: scan?.visibility || payload.visibility || 'private',
+    sex: scan?.sex || payload.sex || payload.gender || '',
+    model: scan?.model || payload.model || payload.modelUsed || '',
+    cohesiveFrontSide: Boolean(scan?.cohesiveFrontSide || payload.cohesiveFrontSide),
+  };
 };
 
 const normalizeStats = (fighter) => {
@@ -129,14 +218,16 @@ const normalizeBattle = (battle) => {
     rating: fighterScore(battle.fighterB),
     stats: normalizeStats(battle.fighterB),
   };
+  const bId = String(battle.id || `${fighterA.name}-vs-${fighterB.name}`).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const cAt = battle.createdAt || battle.timestamp || battle.created_at || null;
   return {
     ...battle,
-    id: String(battle.id || `${fighterA.name}-vs-${fighterB.name}`).toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    id: bId,
     fighterA,
     fighterB,
-    votesA: Number(battle.votesA || battle.a || 0),
-    votesB: Number(battle.votesB || battle.b || 0),
-    createdAt: battle.createdAt || battle.timestamp || battle.created_at || null,
+    votesA: Number(battle.votesA || battle.a || 0) + getPseudoVotes(bId, 'a', cAt),
+    votesB: Number(battle.votesB || battle.b || 0) + getPseudoVotes(bId, 'b', cAt),
+    createdAt: cAt,
   };
 };
 
@@ -200,7 +291,7 @@ const BattleMetricStack = ({ fighter, fallbackRows, side, tone = 'green' }) => {
 const FighterBattleCard = ({ battle, side, stats, onVote, currentUserUid, actionSlot = null, hasVoted = false }) => {
   const fighter = side === 'a' ? battle.fighterA : battle.fighterB;
   const isWinner = Boolean(stats?.isWinner);
-  
+
   const tone = hasVoted ? (isWinner ? 'green' : 'red') : 'neutral';
   const toneText = hasVoted ? (isWinner ? 'text-emerald-400' : 'text-rose-400') : 'text-white';
   const toneBorder = hasVoted ? (isWinner ? 'border-emerald-500/70' : 'border-rose-500/70') : 'border-white/10';
@@ -212,7 +303,7 @@ const FighterBattleCard = ({ battle, side, stats, onVote, currentUserUid, action
   const path = fighterAnalysisPath(fighter, currentUserUid);
 
   return (
-    <div 
+    <div
       onClick={() => {
         if (hasVoted && path) openInternalPath(path);
       }}
@@ -254,9 +345,9 @@ const FighterBattleCard = ({ battle, side, stats, onVote, currentUserUid, action
           )}
           <button
             type="button"
-            onClick={(e) => { 
+            onClick={(e) => {
               e.stopPropagation();
-              if (!hasVoted) onVote(side); 
+              if (!hasVoted) onVote(side);
             }}
             className={`mt-3 md:mt-5 w-full rounded-lg px-3 py-2 md:px-5 md:py-3.5 text-[10px] md:text-sm font-black uppercase tracking-[0.18em] transition-all duration-300 ${!hasVoted ? 'hover:-translate-y-0.5' : 'cursor-default'} ${voteClass}`}
           >
@@ -312,6 +403,146 @@ const MogBattlePage2 = ({ user, setCurrentPage }) => {
   const [followedBattleIds, setFollowedBattleIds] = useState([]);
   const [notice, setNotice] = useState('');
   const [isNewBattleModalOpen, setIsNewBattleModalOpen] = useState(false);
+  const [newBattleMode, setNewBattleMode] = useState('choice'); // 'choice', 'history', 'community'
+  const [userScans, setUserScans] = useState([]);
+  const [communityScansForModal, setCommunityScansForModal] = useState([]);
+  const [loadingModalScans, setLoadingModalScans] = useState(false);
+  const [fighterAId, setFighterAId] = useState('');
+  const [fighterBId, setFighterBId] = useState('');
+  const [nameA, setNameA] = useState('');
+  const [nameB, setNameB] = useState('');
+  const [modalError, setModalError] = useState('');
+  const [submittingBattle, setSubmittingBattle] = useState(false);
+
+  const fetchUserScans = useCallback(async () => {
+    if (!user) return;
+    setLoadingModalScans(true);
+    setModalError('');
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/api/user/scans`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not load your scans.');
+      const normalized = (data.scans || [])
+        .map((scan, index) => scanToBattleFighter(scan, `Scan ${index + 1}`))
+        .filter((scan) => scan.frontImage);
+      setUserScans(normalized);
+    } catch (e) {
+      setModalError(e.message || 'Could not load your scans.');
+    } finally {
+      setLoadingModalScans(false);
+    }
+  }, [user]);
+
+  const fetchPublicCommunityScansForModal = useCallback(async () => {
+    setLoadingModalScans(true);
+    setModalError('');
+    try {
+      const data = await fetchCommunityScans(60);
+      const normalized = (data.scans || data.items || [])
+        .map((scan, index) => ({
+          ...scanToBattleFighter(scan, `Community Scan ${index + 1}`),
+          visibility: scan.visibility || 'community',
+        }))
+        .filter((scan) => scan.frontImage);
+      setCommunityScansForModal(normalized);
+    } catch (e) {
+      setModalError(e.message || 'Could not load public community scans.');
+    } finally {
+      setLoadingModalScans(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isNewBattleModalOpen) {
+      setNewBattleMode('choice');
+      setFighterAId('');
+      setFighterBId('');
+      setNameA('');
+      setNameB('');
+      setModalError('');
+      return;
+    }
+    if (newBattleMode === 'history' && !userScans.length && user) {
+      fetchUserScans();
+    } else if (newBattleMode === 'community' && !communityScansForModal.length) {
+      fetchPublicCommunityScansForModal();
+    }
+  }, [isNewBattleModalOpen, newBattleMode, user, userScans.length, communityScansForModal.length, fetchUserScans, fetchPublicCommunityScansForModal]);
+
+  const activeModalScans = newBattleMode === 'community' ? communityScansForModal : userScans;
+  const fighterA = activeModalScans.find((scan) => scan.id === fighterAId) || null;
+  const fighterB = activeModalScans.find((scan) => scan.id === fighterBId) || null;
+
+  const makeBattleScanUnlisted = async (fighter, token) => {
+    const ownerUid = String(fighter?.ownerUid || fighter?.uid || '').trim();
+    const scanId = String(fighter?.scanId || '').trim();
+    const profileId = String(fighter?.profileId || '').trim();
+    const visibility = String(fighter?.visibility || '').trim().toLowerCase();
+    if (!scanId || ownerUid !== user?.uid) return fighter;
+
+    let nextVisibility = visibility;
+    if (!['unlisted', 'community', 'public'].includes(visibility)) {
+      const scanRes = await fetch(`${API_BASE}/api/user/scans/${encodeURIComponent(scanId)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ visibility: 'unlisted' }),
+      });
+      const data = await scanRes.json().catch(() => ({}));
+      if (!scanRes.ok) throw new Error(data.error || 'Could not update scan visibility.');
+      nextVisibility = data.scan?.visibility || 'unlisted';
+    }
+
+    if (profileId) {
+      await fetch(`${API_BASE}/api/user/profiles/${encodeURIComponent(profileId)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ visibility: 'unlisted' }),
+      });
+    }
+    return { ...fighter, visibility: nextVisibility || 'unlisted' };
+  };
+
+  const submitBattle = async () => {
+    if (!user) { setModalError('Sign in to create a battle.'); return; }
+    if (!fighterA || !fighterB) { setModalError('Pick two scans first.'); return; }
+    if (fighterA.id === fighterB.id) { setModalError('Choose two different scans.'); return; }
+
+    const displayNameA = nameA.trim() || fighterA.name || 'Scan';
+    const displayNameB = nameB.trim() || fighterB.name || 'Scan';
+    const nameErr = getMogBattleNameError(displayNameA) || getMogBattleNameError(displayNameB);
+    if (nameErr) { setModalError(nameErr); return; }
+
+    setSubmittingBattle(true);
+    setModalError('');
+    try {
+      const token = await user.getIdToken();
+      const [unlistedA, unlistedB] = await Promise.all([
+        makeBattleScanUnlisted(fighterA, token),
+        makeBattleScanUnlisted(fighterB, token),
+      ]);
+      const res = await postCommunityBattle(token, { ...unlistedA, name: displayNameA }, { ...unlistedB, name: displayNameB });
+      if (!res.ok) throw new Error(res.data?.error || 'Could not create battle.');
+      const created = normalizeBattle(res.data?.battle ? { id: res.data.battle.id || res.data.id, ...res.data.battle } : null);
+      if (created) {
+        setCommunityBattles(prev => [created, ...prev]);
+        refreshTallies();
+      }
+      setIsNewBattleModalOpen(false);
+    } catch (e) {
+      setModalError(e.message || 'Could not create battle.');
+    } finally {
+      setSubmittingBattle(false);
+    }
+  };
   const [isFollowingModalOpen, setIsFollowingModalOpen] = useState(false);
   const admin = isAdminAccount(user);
   const [leaderboardExpanded, setLeaderboardExpanded] = useState(false);
@@ -324,7 +555,14 @@ const MogBattlePage2 = ({ user, setCurrentPage }) => {
     });
     return combined.map((battle) => {
       const tally = talliesByBattle[battle.id];
-      return tally ? { ...battle, votesA: tally.a, votesB: tally.b } : battle;
+      if (tally) {
+        return {
+          ...battle,
+          votesA: (Number(tally.a) || 0) + getPseudoVotes(battle.id, 'a', battle.createdAt),
+          votesB: (Number(tally.b) || 0) + getPseudoVotes(battle.id, 'b', battle.createdAt)
+        };
+      }
+      return battle;
     });
   }, [communityBattles, talliesByBattle]);
 
@@ -652,7 +890,7 @@ const MogBattlePage2 = ({ user, setCurrentPage }) => {
                 </div>
               </div>
             </div>
-            
+
             {/* Mobile: horizontal scroll, Desktop: vertical list */}
             <div className="lg:hidden overflow-x-auto px-4 py-4 custom-scrollbar">
               <div className="flex gap-4" style={{ minWidth: 'max-content' }}>
@@ -699,7 +937,7 @@ const MogBattlePage2 = ({ user, setCurrentPage }) => {
             <div className="relative p-4 pb-0 space-y-2 hidden lg:block">
               {leaderboardSlots.slice(0, 8).map((row, i) => renderLeaderboardRow(row, i))}
             </div>
-            
+
             <div className={`hidden lg:grid transition-all duration-700 ease-[cubic-bezier(.16,1,.3,1)] ${leaderboardExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
               <div className="overflow-hidden">
                 <div className="px-4 pb-0 space-y-2 pt-2">
@@ -765,7 +1003,7 @@ const MogBattlePage2 = ({ user, setCurrentPage }) => {
                 const scoreA = fighterScore(battle.fighterA);
                 const scoreB = fighterScore(battle.fighterB);
                 const winnerSide = scoreA >= scoreB ? 'a' : 'b';
-                
+
                 const bStats = {
                   a: { percent: percentA, votes: votesA, isWinner: winnerSide === 'a' },
                   b: { percent: percentB, votes: votesB, isWinner: winnerSide === 'b' }
@@ -780,7 +1018,7 @@ const MogBattlePage2 = ({ user, setCurrentPage }) => {
                       <div className="flex justify-center">
                         <FighterBattleCard battle={battle} side="a" stats={bStats.a} hasVoted={hasVoted} onVote={() => castVote(battle, 'a')} currentUserUid={user?.uid} />
                       </div>
-                      
+
                       <div className="relative flex items-center justify-center self-center min-h-[200px] lg:min-h-[560px] w-full">
                         <div className="absolute inset-0 bg-[#02050a] [mask-image:linear-gradient(to_bottom,transparent_0%,black_15%,black_85%,transparent_100%)] hidden lg:block" />
                         <div className="absolute left-0 top-0 h-full w-[1px] bg-gradient-to-b from-transparent via-zinc-600 to-transparent opacity-50 hidden lg:block" />
@@ -845,7 +1083,7 @@ const MogBattlePage2 = ({ user, setCurrentPage }) => {
       {isFollowingModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/90 backdrop-blur-xl">
           <div className="w-full max-w-3xl rounded-[32px] border border-white/10 bg-black/40 shadow-[0_0_80px_rgba(52,211,153,0.1)] relative animate-[mogBattle2NoticeIn__0.4s_cubic-bezier(0.16,1,0.3,1)] overflow-hidden flex flex-col max-h-[85vh]">
-            
+
             {/* Header */}
             <div className="px-10 py-8 flex justify-between items-center shrink-0 border-b border-white/5 relative">
               <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent" />
@@ -857,14 +1095,14 @@ const MogBattlePage2 = ({ user, setCurrentPage }) => {
                   Tracked Battles
                 </p>
               </div>
-              <button 
-                onClick={() => setIsFollowingModalOpen(false)} 
+              <button
+                onClick={() => setIsFollowingModalOpen(false)}
                 className="text-zinc-500 hover:text-white transition-all duration-300 p-3 rounded-full hover:bg-white/10"
               >
                 <X size={20} />
               </button>
             </div>
-            
+
             {/* Body */}
             <div className="p-10 overflow-y-auto flex-1 flex flex-col gap-6">
               {sortedBattles.slice(0, 2).map((battle) => {
@@ -875,23 +1113,23 @@ const MogBattlePage2 = ({ user, setCurrentPage }) => {
 
                 return (
                   <div key={`track-${battle.id}`} className="flex flex-col md:flex-row md:items-center justify-between p-6 rounded-[24px] bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.04] hover:border-emerald-500/30 transition-all duration-500 group shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] gap-6">
-                    
+
                     <div className="flex items-center gap-6">
                       <div className="flex items-center">
-                        <img 
-                          src={resolveMediaUrl(imgA)} 
-                          alt={nameA} 
-                          className="w-16 h-16 rounded-xl object-cover border-2 border-black z-10 shadow-lg group-hover:scale-105 transition-transform duration-500" 
-                          referrerPolicy="no-referrer" 
+                        <img
+                          src={resolveMediaUrl(imgA)}
+                          alt={nameA}
+                          className="w-16 h-16 rounded-xl object-cover border-2 border-black z-10 shadow-lg group-hover:scale-105 transition-transform duration-500"
+                          referrerPolicy="no-referrer"
                         />
-                        <img 
-                          src={resolveMediaUrl(imgB)} 
-                          alt={nameB} 
-                          className="w-16 h-16 rounded-xl object-cover border-2 border-black -ml-5 z-0 shadow-lg group-hover:scale-105 transition-transform duration-500" 
-                          referrerPolicy="no-referrer" 
+                        <img
+                          src={resolveMediaUrl(imgB)}
+                          alt={nameB}
+                          className="w-16 h-16 rounded-xl object-cover border-2 border-black -ml-5 z-0 shadow-lg group-hover:scale-105 transition-transform duration-500"
+                          referrerPolicy="no-referrer"
                         />
                       </div>
-                      
+
                       <div className="flex flex-col justify-center">
                         <div className="flex items-center gap-3">
                           <span className="text-base font-black uppercase tracking-widest text-white">{nameA}</span>
@@ -913,32 +1151,126 @@ const MogBattlePage2 = ({ user, setCurrentPage }) => {
       )}
 
       {isNewBattleModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-2xl rounded-3xl border border-zinc-800 bg-[#0b0c10] p-8 shadow-2xl relative animate-[mogBattle2NoticeIn__0.3s_ease-out]">
-            <button onClick={() => setIsNewBattleModalOpen(false)} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors">
-              <X size={24} />
-            </button>
-            <h2 className="text-xl font-black uppercase tracking-widest text-white mb-2">New Battle</h2>
-            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-8">Upload a new scan or pick from your history</p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <button 
-                onClick={() => { setIsNewBattleModalOpen(false); setCurrentPage('upload'); }} 
-                className="flex flex-col text-left group relative overflow-hidden rounded-[24px] border border-cyan-500/20 bg-cyan-950/10 p-6 transition-all duration-300 hover:bg-cyan-900/20 hover:border-cyan-400/40"
-              >
-                <Plus size={24} className="text-cyan-400 mb-6 group-hover:scale-110 transition-transform" />
-                <h3 className="text-lg font-black uppercase tracking-widest text-white mb-3">Add New Scans</h3>
-                <p className="text-sm text-zinc-400 leading-relaxed font-medium">Jump to the upload page, create fresh scans, then come back here to battle them.</p>
-              </button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/90 backdrop-blur-xl">
+          <div className="w-full max-w-4xl rounded-[32px] border border-white/10 bg-black/40 shadow-[0_0_80px_rgba(34,211,238,0.1)] relative animate-[mogBattle2NoticeIn__0.4s_cubic-bezier(0.16,1,0.3,1)] overflow-hidden flex flex-col max-h-[90vh]">
 
-              <button 
-                onClick={() => { setIsNewBattleModalOpen(false); setCurrentPage('history'); }} 
-                className="flex flex-col text-left group relative overflow-hidden rounded-[24px] border border-zinc-800 bg-zinc-900/20 p-6 transition-all duration-300 hover:bg-zinc-800/40 hover:border-zinc-700"
+            <div className="px-10 py-8 flex justify-between items-center shrink-0 border-b border-white/5 relative">
+              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent" />
+              <div>
+                <h2 className="text-2xl font-black uppercase tracking-[0.2em] bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-500 mb-1">
+                  New Battle
+                </h2>
+                <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-cyan-400/80">
+                  Pick your fighters
+                </p>
+              </div>
+              <button
+                onClick={() => setIsNewBattleModalOpen(false)}
+                className="text-zinc-500 hover:text-white transition-all duration-300 p-3 rounded-full hover:bg-white/10"
               >
-                <History size={24} className="text-zinc-300 mb-6 group-hover:scale-110 transition-transform" />
-                <h3 className="text-lg font-black uppercase tracking-widest text-white mb-3">Pick From History</h3>
-                <p className="text-sm text-zinc-400 leading-relaxed font-medium">Use scans already on your account, then type names to show on the leaderboard and voting cards.</p>
+                <X size={20} />
               </button>
+            </div>
+
+            <div className="p-10 overflow-y-auto flex-1">
+              {newBattleMode === 'choice' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <button
+                    onClick={() => { setIsNewBattleModalOpen(false); setCurrentPage('upload'); }}
+                    className="flex flex-col text-left group relative overflow-hidden rounded-[24px] border border-cyan-500/20 bg-white/[0.02] p-8 transition-all duration-500 hover:bg-white/[0.04] hover:border-cyan-500/40 hover:scale-[1.02]"
+                  >
+                    <Plus size={32} className="text-cyan-400 mb-6 group-hover:scale-110 transition-transform duration-500" />
+                    <h3 className="text-lg font-black uppercase tracking-widest text-white mb-3">Add New Scans</h3>
+                    <p className="text-sm text-zinc-400 leading-relaxed font-medium">Jump to the upload page to create fresh scans.</p>
+                  </button>
+
+                  <button
+                    onClick={() => setNewBattleMode('history')}
+                    className="flex flex-col text-left group relative overflow-hidden rounded-[24px] border border-zinc-800 bg-white/[0.02] p-8 transition-all duration-500 hover:bg-white/[0.04] hover:border-zinc-700 hover:scale-[1.02]"
+                  >
+                    <History size={32} className="text-zinc-300 mb-6 group-hover:scale-110 transition-transform duration-500" />
+                    <h3 className="text-lg font-black uppercase tracking-widest text-white mb-3">Your History</h3>
+                    <p className="text-sm text-zinc-400 leading-relaxed font-medium">Use scans already on your account.</p>
+                  </button>
+
+                  <button
+                    onClick={() => setNewBattleMode('community')}
+                    className="flex flex-col text-left group relative overflow-hidden rounded-[24px] border border-emerald-500/20 bg-white/[0.02] p-8 transition-all duration-500 hover:bg-white/[0.04] hover:border-emerald-500/40 hover:scale-[1.02]"
+                  >
+                    <Activity size={32} className="text-emerald-400 mb-6 group-hover:scale-110 transition-transform duration-500" />
+                    <h3 className="text-lg font-black uppercase tracking-widest text-white mb-3">Community Scans</h3>
+                    <p className="text-sm text-zinc-400 leading-relaxed font-medium">Pick from public community scans.</p>
+                  </button>
+                </div>
+              )}
+
+              {newBattleMode !== 'choice' && (
+                <div className="space-y-8 animate-[mogBattle2NoticeIn__0.3s_ease-out]">
+                  {modalError && (
+                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold uppercase tracking-widest flex items-center gap-3">
+                      <X size={16} /> {modalError}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Fighter A */}
+                    <div className="space-y-4">
+                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">Fighter A</label>
+                      <select
+                        value={fighterAId}
+                        onChange={(e) => setFighterAId(e.target.value)}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-5 py-4 text-white text-sm focus:border-cyan-500/50 outline-none transition-all"
+                      >
+                        <option value="">Select a scan...</option>
+                        {activeModalScans.map(s => <option key={s.id} value={s.id}>{s.name} ({s.finalRating})</option>)}
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Display Name (optional)"
+                        value={nameA}
+                        onChange={(e) => setNameA(e.target.value)}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-5 py-4 text-white text-sm focus:border-cyan-500/50 outline-none transition-all"
+                      />
+                    </div>
+
+                    {/* Fighter B */}
+                    <div className="space-y-4">
+                      <label className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">Fighter B</label>
+                      <select
+                        value={fighterBId}
+                        onChange={(e) => setFighterBId(e.target.value)}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-5 py-4 text-white text-sm focus:border-cyan-500/50 outline-none transition-all"
+                      >
+                        <option value="">Select a scan...</option>
+                        {activeModalScans.map(s => <option key={s.id} value={s.id}>{s.name} ({s.finalRating})</option>)}
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Display Name (optional)"
+                        value={nameB}
+                        onChange={(e) => setNameB(e.target.value)}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-5 py-4 text-white text-sm focus:border-cyan-500/50 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row gap-4">
+                    <button
+                      onClick={() => submitBattle()}
+                      disabled={submittingBattle || !fighterAId || !fighterBId}
+                      className="flex-1 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-30 disabled:hover:bg-cyan-500 text-black font-black uppercase tracking-[0.2em] py-5 rounded-2xl transition-all duration-300 shadow-[0_0_30px_rgba(6,182,212,0.2)]"
+                    >
+                      {submittingBattle ? 'Creating...' : 'Create Battle'}
+                    </button>
+                    <button
+                      onClick={() => setNewBattleMode('choice')}
+                      className="px-10 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 font-black uppercase tracking-[0.2em] py-5 rounded-2xl transition-all duration-300"
+                    >
+                      Back
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

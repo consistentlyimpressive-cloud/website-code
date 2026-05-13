@@ -11721,13 +11721,7 @@ const App = () => {
             )
         )}
         {currentPage === 'plans' && <PlansPage setCurrentPage={setCurrentPage} user={user} />}
-        {currentPage === 'mog-battles' && (
-          window.innerWidth > 768 ? (
-            <MogBattlePage user={user} setCurrentPage={setCurrentPage} />
-          ) : (
-            <MogBattlePage2 user={user} setCurrentPage={setCurrentPage} />
-          )
-        )}
+        {currentPage === 'mog-battles' && <MogBattlePage2 user={user} setCurrentPage={setCurrentPage} />}
         {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} user={user} />}
 
