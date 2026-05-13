@@ -1,0 +1,284 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+
+[DEBUG] Model selected via API args: 6
+[ðŸš€] Gathering Lateral Data from engineside.py...
+[🚀] Consulting Gemini 3.1 Pro (Using Key 1)...
+[⚠️] Key 1 failed: 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': 'Your project has been denied access. Please contact support.', 'status': 'PERMISSION_DENIED'}}
+[🔄] Rotating to next key...
+[🚀] Consulting Gemini 3.1 Pro (Using Key 2)...
+[⚠️] Key 2 failed: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\nPlease retry in 8.596227434s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerMinute-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerDay-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '8s'}]}}
+[🔄] Rotating to next key...
+[🚀] Consulting Gemini 3.1 Pro (Using Key 3)...
+[⚠️] Key 3 failed: 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': 'Your project has been denied access. Please contact support.', 'status': 'PERMISSION_DENIED'}}
+[🔄] Rotating to next key...
+[🚀] Consulting Gemini 3.1 Pro (Using Key 4)...
+[⚠️] Key 4 failed: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\nPlease retry in 6.431892022s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerDay-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'model': 'gemini-3.1-pro', 'location': 'global'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerMinute-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3.1-pro'}}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '6s'}]}}
+[🔄] Rotating to next key...
+[🚀] Consulting Gemini 3.1 Pro (Using Key 5)...
+[⚠️] Key 5 failed: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_input_token_count, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-pro\nPlease retry in 5.4231053s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerDay-FreeTier', 'quotaDimensions': {'model': 'gemini-3.1-pro', 'location': 'global'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count', 'quotaId': 'GenerateContentInputTokensPerModelPerMinute-FreeTier', 'quotaDimensions': {'model': 'gemini-3.1-pro', 'location': 'global'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'model': 'gemini-3.1-pro', 'location': 'global'}}, {'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'model': 'gemini-3.1-pro', 'location': 'global'}}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '5s'}]}}
+[❌] All Gemini keys exhausted.
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777875885267-b2912780bd5507bf.png ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-93ff47fd-1c5e-4616-b872-f3d58c0ce9d2-1777875887412-eebf34\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (423.0px)
+- Auto-Leveling: Corrected -0.28 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.885
+- IPD_Index (Geometric):    0.447
+- Mouth_Width_Index:        0.393
+- Nose_Width_Index:         0.235
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.38
+- Middle_Third_Length:      0.44
+- Lower_Third_Length:       0.477
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.046
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.101
+- Philtrum_Height_Index:    0.103
+- Total_Lip_Height_Index:   0.138
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.842
+- Midface_Ratio (Mid/IPD):  0.982
+- Canthal_Tilt_Degrees:     4.67 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting Expert Mode (Very Accurate)... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-93ff47fd-1c5e-4616-b872-f3d58c0ce9d2","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":41297,"input_token_count":9860,"output_token_count":2122,"total_token_count":11982,"estimated_input_tokens":11004,"max_output_tokens":4096,"image_included":true,"timestamp":1777875935510}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: Expert Mode (Very Accurate) | Latency: 41.32s]
+{
+  "sex": "male",
+  "finalRating": 68,
+  "sideRating": 65,
+  "tier": "Attractive",
+  "authenticityFlag": false,
+  "uncannyCueCount": 0,
+  "uncannyCues": [],
+  "visualBucket": "NATURAL/COHERENT HIGH-TIER",
+  "facialFatDefinitionRead": "normal",
+  "technicalSummary": "The face displays strong structural width and good midface compactness, supported by a solid jawline and balanced facial thirds. The eye area is decent but features slight upper eyelid exposure and neutral-to-positive tilt, while the side profile shows acceptable projection with a slightly softer chin.",
+  "appealAssessment": "A naturally attractive face with a strong masculine base, driven by good fWHR and bigonial width. The overall harmony is solid, though minor skin texture issues and slight upper eyelid exposure keep it from reaching the elite tier.",
+  "personalizedInterpretation": "Your strongest assets are your facial width and compact midface, which give you a grounded, masculine look. Improving skin clarity and managing soft tissue definition could further enhance your natural structure.",
+  "categories": {
+    "Harmony": 70,
+    "Bone": 75,
+    "Symmetry": 72,
+    "Skin": 60,
+    "Dimorphism": 74,
+    "Maxillary/Cheekbone Projection": 68,
+    "Nose Projection": 65,
+    "Facial Fat": 68,
+    "Eye Depth": 65,
+    "Ear Shape": 70
+  },
+  "hexagonFront": {
+    "Harmony": 70,
+    "Bone": 75,
+    "Symmetry": 72,
+    "Skin": 60,
+    "Dimorphism": 74,
+    "Facial Fat": 68
+  },
+  "hexagonSide": {
+    "Harmony": 65,
+    "Bone": 68,
+    "Symmetry": 70,
+    "Skin": 60,
+    "Dimorphism": 65,
+    "Facial Fat": 65
+  },
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.842",
+      "score": 82,
+      "impact": "positive",
+      "note": "Strong width-to-height ratio, providing a solid masculine base without being overly blocky."
+    },
+    {
+      "name": "Bigonial_Width_Index",
+      "value": "0.885",
+      "score": 80,
+      "impact": "positive",
+      "note": "Good jaw width relative to cheekbones, contributing to a strong lower third."
+    },
+    {
+      "name": "Midface_Ratio",
+      "value": "0.982",
+      "score": 78,
+      "impact": "positive",
+      "note": "Compact midface, which enhances overall facial harmony and youthfulness."
+    },
+    {
+      "name": "IPD_Index",
+      "value": "0.447",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Eye spacing is within the acceptable range, leaning slightly close-set but not disruptive."
+    },
+    {
+      "name": "Canthal_Tilt_Degrees",
+      "value": "4.67",
+      "score": 75,
+      "impact": "positive",
+      "note": "Positive canthal tilt adds a sharp, alert quality to the eye area."
+    },
+    {
+      "name": "Eye_Height_Index",
+      "value": "0.046",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Eyes are slightly narrow vertically, which can look masculine but limits expressiveness."
+    },
+    {
+      "name": "Brow_Compactness_Index",
+      "value": "0.101",
+      "score": 70,
+      "impact": "positive",
+      "note": "Good brow compactness, framing the eyes well without being overly heavy."
+    },
+    {
+      "name": "Nose_Width_Index",
+      "value": "0.235",
+      "score": 72,
+      "impact": "positive",
+      "note": "Nose width is well-proportioned to the face, maintaining central harmony."
+    },
+    {
+      "name": "Mouth_Width_Index",
+      "value": "0.393",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Mouth is slightly wide, but fits the broader lower third structure."
+    },
+    {
+      "name": "Philtrum_Height_Index",
+      "value": "0.103",
+      "score": 70,
+      "impact": "positive",
+      "note": "Philtrum length is balanced, avoiding any elongated or compressed look."
+    },
+    {
+      "name": "Total_Lip_Height_Index",
+      "value": "0.138",
+      "score": 68,
+      "impact": "neutral",
+      "note": "Lip fullness is average and balanced with the surrounding features."
+    },
+    {
+      "name": "Upper_Third_Length",
+      "value": "0.38",
+      "score": 75,
+      "impact": "positive",
+      "note": "Forehead height is well-proportioned, contributing to balanced facial thirds."
+    },
+    {
+      "name": "Middle_Third_Length",
+      "value": "0.44",
+      "score": 70,
+      "impact": "positive",
+      "note": "Middle third is balanced, supporting the compact midface read."
+    },
+    {
+      "name": "Lower_Third_Length",
+      "value": "0.477",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Lower third is slightly dominant but fits the masculine jaw structure."
+    },
+    {
+      "name": "Skin Quality",
+      "value": "Visual Estimate",
+      "score": 55,
+      "impact": "negative",
+      "note": "Visible texture and minor blemishes slightly detract from overall freshness."
+    },
+    {
+      "name": "Side Profile Chin Projection",
+      "value": "Visual Estimate",
+      "score": 60,
+      "impact": "negative",
+      "note": "Chin projection is acceptable but slightly soft from the side profile."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Strong Facial Width",
+      "description": "A high fWHR (1.84) and solid bigonial width give the face a grounded, masculine, and robust appearance."
+    },
+    {
+      "title": "Compact Midface",
+      "description": "The midface ratio is well-balanced, preventing any elongated or drawn-out look and maintaining youthful harmony."
+    },
+    {
+      "title": "Positive Canthal Tilt",
+      "description": "The upward tilt of the eyes adds a sharp, alert aesthetic to the upper face."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Skin Texture",
+      "description": "Visible blemishes and uneven skin texture slightly reduce the overall freshness and clarity of the face."
+    },
+    {
+      "title": "Slight Upper Eyelid Exposure",
+      "description": "There is some visible upper eyelid exposure, which slightly softens the intensity of the eye area."
+    },
+    {
+      "title": "Side Profile Chin Support",
+      "description": "From the side, the chin projection is slightly soft, lacking the sharp definition seen from the front."
+    }
+  ],
+  "pros": [
+    "Strong fWHR and bigonial width",
+    "Compact midface ratio",
+    "Positive canthal tilt",
+    "Balanced facial thirds"
+  ],
+  "cons": [
+    "Minor skin texture issues",
+    "Slight upper eyelid exposure",
+    "Slightly soft chin projection from the side"
+  ],
+  "mainLimitingFactor": "Skin texture and slight upper eyelid exposure prevent the face from reaching the high-tier (73+) range, despite strong underlying bone structure.",
+  "qualityFlags": [],
+  "confidenceFlags": [],
+  "debugJustification": "Band: 65-72 (Attractive). The face has a strong masculine base with good fWHR (1.84) and bigonial width, plus a compact midface. However, it is capped at 68 due to visible skin texture issues, slight upper eyelid exposure, and a slightly soft side profile chin. It avoids the 70s because the eye area and skin lack elite refinement. Gemini anti-anchor check: Band is 65-72, cap is skin/eye refinement, score is 68 because the structure is genuinely strong but not flawless."
+}

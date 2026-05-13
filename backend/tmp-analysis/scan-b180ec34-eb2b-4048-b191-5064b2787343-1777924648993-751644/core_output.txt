@@ -1,0 +1,269 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+
+[DEBUG] Model selected via API args: 6
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777924648983-7e13595c2a11ec00.webp ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-b180ec34-eb2b-4048-b191-5064b2787343-1777924648993-751644\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (232.8px)
+- Auto-Leveling: Corrected -1.83 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.889
+- IPD_Index (Geometric):    0.466
+- Mouth_Width_Index:        0.337
+- Nose_Width_Index:         0.235
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.332
+- Middle_Third_Length:      0.456
+- Lower_Third_Length:       0.49
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.057
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.132
+- Philtrum_Height_Index:    0.102
+- Total_Lip_Height_Index:   0.15
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.79
+- Midface_Ratio (Mid/IPD):  0.905
+- Canthal_Tilt_Degrees:     2.95 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting Expert Mode (Very Accurate)... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-b180ec34-eb2b-4048-b191-5064b2787343","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":18530,"input_token_count":8877,"output_token_count":2067,"total_token_count":10944,"estimated_input_tokens":7938,"max_output_tokens":4096,"image_included":true,"timestamp":1777924669141}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: Expert Mode (Very Accurate) | Latency: 18.53s]
+{
+  "sex": "male",
+  "finalRating": 54,
+  "sideRating": null,
+  "tier": "Average",
+  "authenticityFlag": false,
+  "uncannyCueCount": 0,
+  "uncannyCues": [],
+  "visualBucket": "LOW-TIER/4-RANGE",
+  "facialFatDefinitionRead": "soft",
+  "technicalSummary": "The subject presents with a relatively balanced fWHR and decent midface ratio, but suffers from poor facial definition and soft tissue laxity. The eye area lacks compactness, and the lower third is obscured by soft tissue fullness.",
+  "appealAssessment": "While the underlying bone structure shows some width, the overall aesthetic is heavily limited by a lack of definition, soft facial fat, and a somewhat tired eye area. The face reads as average due to these soft tissue bottlenecks.",
+  "personalizedInterpretation": "Your facial width provides a solid foundation, but the lack of leanness and definition hides your bone structure. Improving facial leanness would likely reveal a stronger jawline and better overall harmony.",
+  "categories": {
+    "Harmony": 55,
+    "Bone": 58,
+    "Symmetry": 65,
+    "Skin": 60,
+    "Dimorphism": 52,
+    "Maxillary/Cheekbone Projection": 50,
+    "Nose Projection": 55,
+    "Facial Fat": 40,
+    "Eye Depth": 50,
+    "Ear Shape": 55
+  },
+  "hexagonFront": {
+    "Harmony": 55,
+    "Bone": 58,
+    "Symmetry": 65,
+    "Skin": 60,
+    "Dimorphism": 52,
+    "Facial Fat": 40
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.79",
+      "score": 72,
+      "impact": "positive",
+      "note": "Good facial width, providing a solid structural base."
+    },
+    {
+      "name": "Bigonial_Width_Index",
+      "value": "0.889",
+      "score": 68,
+      "impact": "positive",
+      "note": "Decent jaw width relative to cheekbones, though obscured by soft tissue."
+    },
+    {
+      "name": "Midface_Ratio",
+      "value": "0.905",
+      "score": 55,
+      "impact": "negative",
+      "note": "Slightly compressed midface, affecting vertical harmony."
+    },
+    {
+      "name": "IPD_Index",
+      "value": "0.466",
+      "score": 75,
+      "impact": "positive",
+      "note": "Well-spaced eyes, contributing to upper face balance."
+    },
+    {
+      "name": "Canthal_Tilt_Degrees",
+      "value": "2.95",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Slight positive tilt, generally favorable but not striking."
+    },
+    {
+      "name": "Eye_Height_Index",
+      "value": "0.057",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Average eye height, neither overly narrow nor overly round."
+    },
+    {
+      "name": "Brow_Compactness_Index",
+      "value": "0.132",
+      "score": 45,
+      "impact": "negative",
+      "note": "High-set brows, reducing eye area intensity and compactness."
+    },
+    {
+      "name": "Nose_Width_Index",
+      "value": "0.235",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Balanced nose width, fitting well within the midface."
+    },
+    {
+      "name": "Mouth_Width_Index",
+      "value": "0.337",
+      "score": 45,
+      "impact": "negative",
+      "note": "Slightly narrow mouth width, which can make the lower third look heavier."
+    },
+    {
+      "name": "Philtrum_Height_Index",
+      "value": "0.102",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Average philtrum length, not a major detractor."
+    },
+    {
+      "name": "Total_Lip_Height_Index",
+      "value": "0.15",
+      "score": 65,
+      "impact": "positive",
+      "note": "Good lip fullness, adding some soft tissue appeal."
+    },
+    {
+      "name": "Upper_Third_Length",
+      "value": "0.332",
+      "score": 50,
+      "impact": "negative",
+      "note": "Slightly compressed upper third, affecting overall vertical proportions."
+    },
+    {
+      "name": "Middle_Third_Length",
+      "value": "0.456",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Balanced middle third length."
+    },
+    {
+      "name": "Lower_Third_Length",
+      "value": "0.49",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Adequate lower third length, though visually heavy due to fat."
+    },
+    {
+      "name": "Facial Fat/Definition",
+      "value": "Soft",
+      "score": 35,
+      "impact": "negative",
+      "note": "Significant lack of leanness, obscuring bone structure and jawline."
+    },
+    {
+      "name": "Skin Quality",
+      "value": "Average",
+      "score": 55,
+      "impact": "neutral",
+      "note": "Generally clear but lacks tightness and freshness."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Facial Width (fWHR)",
+      "description": "A solid fWHR of 1.79 provides a good structural foundation, preventing the face from looking narrow or weak."
+    },
+    {
+      "title": "Eye Spacing",
+      "description": "The IPD index indicates well-spaced eyes, which helps maintain balance in the upper face."
+    },
+    {
+      "title": "Lip Fullness",
+      "description": "The lips have good volume, adding a positive soft tissue element to the lower face."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Poor Facial Definition",
+      "description": "A significant amount of soft facial fat obscures the jawline and cheekbones, making the face look round and undefined."
+    },
+    {
+      "title": "Weak Eye Area Compactness",
+      "description": "High-set eyebrows and a lack of deep-set eyes reduce the intensity and masculinity of the eye area."
+    },
+    {
+      "title": "Narrow Mouth Width",
+      "description": "The mouth is slightly narrow relative to the facial width, which can make the lower cheeks and jaw appear heavier than they are."
+    }
+  ],
+  "pros": [
+    "Good facial width (fWHR)",
+    "Well-spaced eyes",
+    "Adequate lip fullness"
+  ],
+  "cons": [
+    "Lack of facial leanness and definition",
+    "High-set eyebrows reducing eye compactness",
+    "Slightly narrow mouth width",
+    "Soft tissue fullness obscuring the jawline"
+  ],
+  "mainLimitingFactor": "The primary bottleneck is the lack of facial definition and soft tissue fullness, which hides the underlying bone structure and creates a rounded, less masculine appearance.",
+  "qualityFlags": [
+    "Frontal angle is good",
+    "Lighting is somewhat flat, potentially exaggerating softness"
+  ],
+  "confidenceFlags": [
+    "High confidence in frontal metrics",
+    "Side profile metrics unavailable"
+  ],
+  "debugJustification": "Band: 50-57 (Average). The face has decent underlying width (fWHR 1.79) but is heavily capped by poor facial definition, soft tissue fullness, and a weak eye area (high brows, lack of compactness). The score is not defaulted to 66-68 because the lack of leanness and definition is a major visual bottleneck that prevents it from reaching the above-average tier. Anti-anchor check: Band is Average, main cap is soft tissue/lack of definition, score is 54 because the flaws are visually dominant despite okay raw width."
+}

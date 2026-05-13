@@ -1,0 +1,311 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Premium Model
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Premium Model
+7. Premium Model
+8. Premium Model
+9. Premium Model
+
+[DEBUG] Model selected via API args: 9
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1778343963291-73cba52c368ebb46.png ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-089be747-9649-4f32-8a11-1276bd1573e9-1778343964399-3cebe5\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (298.7px)
+- Auto-Leveling: Corrected -1.03 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.887
+- IPD_Index (Geometric):    0.463
+- Mouth_Width_Index:        0.346
+- Nose_Width_Index:         0.223
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.442
+- Middle_Third_Length:      0.473
+- Lower_Third_Length:       0.495
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.064
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.099
+- Philtrum_Height_Index:    0.132
+- Total_Lip_Height_Index:   0.108
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.652
+- Midface_Ratio (Mid/IPD):  1.096
+- Canthal_Tilt_Degrees:     +4.16 (positive tilt; Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting Premium Model... (Press Ctrl+C to Cancel)
+[DEBUG] Gemma key order this scan: GEMINI_KEY_1, GEMINI_KEY_4, GEMINI_KEY_5, GEMINI_KEY_2, GEMINI_KEY_3
+[DEBUG] Trying Google GenAI GEMINI_KEY_1 (1/5) on gemma-4-31b-it...
+[TOKEN_USAGE] {"scan_id":"scan-089be747-9649-4f32-8a11-1276bd1573e9","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":1,"attempt_number":1,"success":false,"duration_ms":1117,"error":"403 PERMISSION_DENIED. {'error': {'code': 403, 'message': 'Your project has been denied access. Please contact support.', 'status': 'PERMISSION_DENIED'}}","estimated_input_tokens":3014,"max_output_tokens":1500,"image_included":true,"timestamp":1778343968576}
+[KEY_HEALTH] Quarantine disabled; keeping GEMINI_KEY_1 available after: permission_denied
+      [!] Premium Model GEMINI_KEY_1 failed: 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': 'Your project has been denied access. Please contact support.', 'status': 'PERMISSION_DENIED'}}
+[DEBUG] Trying Google GenAI GEMINI_KEY_4 (2/5) on gemma-4-31b-it...
+[TOKEN_USAGE] {"scan_id":"scan-089be747-9649-4f32-8a11-1276bd1573e9","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":4,"attempt_number":2,"success":true,"duration_ms":112514,"input_token_count":2667,"output_token_count":2077,"total_token_count":6460,"estimated_input_tokens":3014,"max_output_tokens":1500,"image_included":true,"timestamp":1778344081090}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: Premium Model | Latency: 113.64s]
+{
+  "sex": "male",
+  "finalRating": 48,
+  "sideRating": null,
+  "tier": "Average / Below Average",
+  "technicalSummary": "Moderate bone-to-soft-tissue ratio. Subject failed the Angularity Gate due to a lack of sub-zygomatic hollowing and soft mandibular definition. Grooming is basic and provides no additive value to the overall score.",
+  "appealAssessment": "European phenotype with masculine width but lacking refinement. The overall vibe is 'tired' and 'unrefined,' with dimorphism present in the jaw width but heavily undermined by poor skin quality and soft tissue distribution.",
+  "personalizedInterpretation": "A solid structural foundation that is significantly obscured by poor skin texture and a lack of lean facial definition.",
+  "categories": {
+    "Harmony": 50,
+    "Bone": 62,
+    "Symmetry": 65,
+    "Skin": 30,
+    "Dimorphism": 55,
+    "Maxillary/Cheekbone Projection": 50,
+    "Nose Projection": 60,
+    "Facial Fat": 55,
+    "Eye Depth": 50,
+    "Ear Shape": 60
+  },
+  "hexagonFront": {
+    "Harmony": 50,
+    "Bone": 62,
+    "Symmetry": 65,
+    "Skin": 30,
+    "Dimorphism": 55,
+    "Facial Fat": 55
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.652",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Within masculine range but lacks elite compactness."
+    },
+    {
+      "name": "Bigonial Width",
+      "value": "0.887",
+      "score": 75,
+      "impact": "positive",
+      "note": "Strong horizontal jaw width provides a masculine base."
+    },
+    {
+      "name": "IPD Index",
+      "value": "0.463",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Standard eye spacing."
+    },
+    {
+      "name": "Midface Ratio",
+      "value": "1.096",
+      "score": 55,
+      "impact": "neutral",
+      "note": "Acceptable, though slightly long."
+    },
+    {
+      "name": "Canthal Tilt",
+      "value": "+4.16",
+      "score": 70,
+      "impact": "positive",
+      "note": "Positive tilt prevents a droopy orbital appearance."
+    },
+    {
+      "name": "Mouth Width",
+      "value": "0.346",
+      "score": 50,
+      "impact": "neutral",
+      "note": "Average width relative to zygomatic scale."
+    },
+    {
+      "name": "Philtrum Height",
+      "value": "0.132",
+      "score": 45,
+      "impact": "negative",
+      "note": "Slightly elongated, disrupting lower third harmony."
+    },
+    {
+      "name": "Upper Third",
+      "value": "0.442",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Balanced forehead height."
+    },
+    {
+      "name": "Middle Third",
+      "value": "0.473",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Standard midface length."
+    },
+    {
+      "name": "Lower Third",
+      "value": "0.495",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Proportional to the rest of the face."
+    },
+    {
+      "name": "Eye Height",
+      "value": "0.064",
+      "score": 50,
+      "impact": "neutral",
+      "note": "Average vertical eye aperture."
+    },
+    {
+      "name": "Brow Compactness",
+      "value": "0.099",
+      "score": 55,
+      "impact": "neutral",
+      "note": "Moderate brow support."
+    },
+    {
+      "name": "Skin Texture",
+      "value": "Visual",
+      "score": 30,
+      "impact": "negative",
+      "note": "Significant acne scarring and pitting on cheeks."
+    },
+    {
+      "name": "Jaw Definition",
+      "value": "Visual",
+      "score": 45,
+      "impact": "negative",
+      "note": "Soft tissue obscures the mandibular border."
+    },
+    {
+      "name": "Sub-zygomatic Hollowing",
+      "value": "Visual",
+      "score": 35,
+      "impact": "negative",
+      "note": "Lack of hollowing prevents high-tier angularity."
+    },
+    {
+      "name": "Nasal Refinement",
+      "value": "Visual",
+      "score": 65,
+      "impact": "positive",
+      "note": "Straight bridge and well-proportioned tip."
+    },
+    {
+      "name": "Scleral Show",
+      "value": "Visual",
+      "score": 50,
+      "impact": "neutral",
+      "note": "Minimal to no significant scleral show."
+    },
+    {
+      "name": "Facial Symmetry",
+      "value": "Visual",
+      "score": 65,
+      "impact": "positive",
+      "note": "Good bilateral balance."
+    },
+    {
+      "name": "Hairline Balance",
+      "value": "Visual",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Standard hairline for phenotype."
+    },
+    {
+      "name": "Lip Fullness",
+      "value": "Visual",
+      "score": 50,
+      "impact": "neutral",
+      "note": "Average volume."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Bigonial Width",
+      "description": "Strong horizontal jaw width provides a masculine structural base."
+    },
+    {
+      "title": "Canthal Tilt",
+      "description": "Positive tilt prevents a tired or droopy orbital look."
+    },
+    {
+      "title": "Nasal Bridge",
+      "description": "Straight and well-defined, contributing to central harmony."
+    },
+    {
+      "title": "Facial Symmetry",
+      "description": "High degree of bilateral balance across the midface."
+    },
+    {
+      "title": "Eye Contrast",
+      "description": "Natural eye color and clarity provide a focal point of appeal."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Skin Texture",
+      "description": "Significant acne scarring and pitting on the cheeks create a rough texture."
+    },
+    {
+      "title": "Tear Troughs",
+      "description": "Deep hollows under the eyes contribute to a fatigued appearance."
+    },
+    {
+      "title": "Lack of Angularity",
+      "description": "Absence of sub-zygomatic hollowing prevents a 'model' look."
+    },
+    {
+      "title": "Jaw Definition",
+      "description": "Soft tissue obscures the sharp transition from jaw to neck."
+    },
+    {
+      "title": "Philtrum Length",
+      "description": "Slightly elongated philtrum disrupts the ideal lower-third ratio."
+    }
+  ],
+  "pros": [
+    "Masculine jaw width",
+    "Positive canthal tilt",
+    "Good facial symmetry"
+  ],
+  "cons": [
+    "Poor skin quality/scarring",
+    "Tired orbital area",
+    "Lack of lean definition"
+  ],
+  "mainLimitingFactor": "Skin texture and lack of facial leaness/angularity.",
+  "qualityFlags": [
+    "Frontal only"
+  ],
+  "confidenceFlags": [
+    "High confidence in skin/bone analysis"
+  ],
+  "debugJustification": "Score set to 48. Subject failed the Angularity Gate (no hollowing/soft jaw), triggering a cap below 65. Heavy Skin/Texture Tax applied due to visible acne scarring and deep tear troughs. Bone structure is actually decent (good bigonial width), but soft tissue and skin quality are the primary anchors. Grooming is neutral. Phenotype is standard European; no specific benchmark penalty applied other than general modeling standards."
+}

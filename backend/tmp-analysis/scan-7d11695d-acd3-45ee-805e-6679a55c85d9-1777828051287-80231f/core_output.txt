@@ -1,0 +1,257 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. ULTRA - Highest Quality
+2. Experimental Token Saver
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+
+[DEBUG] Model selected via API args: 2
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777828051277-7625fe9d4971da69.jpg ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-7d11695d-acd3-45ee-805e-6679a55c85d9-1777828051287-80231f\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (329.8px)
+- Auto-Leveling: Corrected -9.51 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.97
+- IPD_Index (Geometric):    0.477
+- Mouth_Width_Index:        0.387
+- Nose_Width_Index:         0.234
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.429
+- Middle_Third_Length:      0.409
+- Lower_Third_Length:       0.488
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.065
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.105
+- Philtrum_Height_Index:    0.131
+- Total_Lip_Height_Index:   0.06
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.851
+- Midface_Ratio (Mid/IPD):  0.895
+- Canthal_Tilt_Degrees:     3.55 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting Experimental Token Saver... (Press Ctrl+C to Cancel)
+[KEY_HEALTH] Skipping keys this scan: GEMINI_KEY_1:disabled, GEMINI_KEY_3:disabled
+[DEBUG] Gemma key order this scan: GEMINI_KEY_4, GEMINI_KEY_5, GEMINI_KEY_2
+[DEBUG] Trying Google GenAI/Gemma GEMINI_KEY_4 (1/3)...
+[TOKEN_USAGE] {"scan_id":"scan-7d11695d-acd3-45ee-805e-6679a55c85d9","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":4,"attempt_number":1,"success":true,"duration_ms":83637,"input_token_count":4341,"output_token_count":1693,"total_token_count":7155,"estimated_input_tokens":4917,"max_output_tokens":1500,"image_included":true,"timestamp":1777828136772}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: Experimental Token Saver | Latency: 83.64s]
+{
+  "sex": "male",
+  "finalRating": 79,
+  "sideRating": null,
+  "tier": "Attractive / Model-Tier",
+  "technicalSummary": "Strong facial harmony characterized by a compact midface and high symmetry. Bone structure is well-supported with a balanced fWHR and clear mandibular definition.",
+  "appealAssessment": "A highly cohesive and attractive read with refined masculine features. The balance between the midface and lower face creates a polished, symmetrical appearance.",
+  "personalizedInterpretation": "Your facial structure is very balanced, with a compact midface that significantly boosts overall harmony. Minor eyelid exposure is the only notable deviation from an elite read.",
+  "categories": {
+    "Harmony": 85,
+    "Bone": 80,
+    "Symmetry": 88,
+    "Skin": 85,
+    "Dimorphism": 82,
+    "Maxillary/Cheekbone Projection": 78,
+    "Nose Projection": 80,
+    "Facial Fat": 82,
+    "Eye Depth": 76,
+    "Ear Shape": 75
+  },
+  "hexagonFront": {
+    "Harmony": 85,
+    "Bone": 80,
+    "Symmetry": 88,
+    "Skin": 85,
+    "Dimorphism": 82,
+    "Facial Fat": 82
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.85",
+      "score": 85,
+      "impact": "positive",
+      "note": "Strong masculine width-to-height ratio."
+    },
+    {
+      "name": "Midface Ratio",
+      "value": "0.89",
+      "score": 88,
+      "impact": "positive",
+      "note": "Compact midface significantly enhances harmony."
+    },
+    {
+      "name": "Bigonial Width",
+      "value": "0.97",
+      "score": 82,
+      "impact": "positive",
+      "note": "Balanced jaw width providing solid structural support."
+    },
+    {
+      "name": "Canthal Tilt",
+      "value": "3.55°",
+      "score": 78,
+      "impact": "positive",
+      "note": "Positive tilt creates an alert and attractive eye shape."
+    },
+    {
+      "name": "Symmetry",
+      "value": "High",
+      "score": 88,
+      "impact": "positive",
+      "note": "Excellent bilateral balance across all facial regions."
+    },
+    {
+      "name": "Skin Clarity",
+      "value": "Clear",
+      "score": 85,
+      "impact": "positive",
+      "note": "Healthy texture with minimal blemishes or aging markers."
+    },
+    {
+      "name": "Eye Area / Eyelid Exposure",
+      "value": "Moderate",
+      "score": 74,
+      "impact": "neutral",
+      "note": "Slight upper eyelid exposure prevents a more hooded, elite look."
+    },
+    {
+      "name": "Nose Width",
+      "value": "0.23",
+      "score": 80,
+      "impact": "positive",
+      "note": "Well-proportioned nasal base relative to the midface."
+    },
+    {
+      "name": "Facial Thirds Balance",
+      "value": "Slightly Long Lower",
+      "score": 72,
+      "impact": "neutral",
+      "note": "Lower third is slightly elongated but balanced by chin support."
+    },
+    {
+      "name": "IPD / Eye Spacing",
+      "value": "0.47",
+      "score": 80,
+      "impact": "positive",
+      "note": "Ideal spacing relative to overall facial width."
+    },
+    {
+      "name": "Brow Compactness",
+      "value": "0.10",
+      "score": 78,
+      "impact": "positive",
+      "note": "Good brow-to-eye distance providing decent orbital depth."
+    },
+    {
+      "name": "Jaw Definition",
+      "value": "Strong",
+      "score": 78,
+      "impact": "positive",
+      "note": "Crisp mandibular border, though softened by facial hair."
+    },
+    {
+      "name": "Cheekbone Projection",
+      "value": "Moderate",
+      "score": 76,
+      "impact": "positive",
+      "note": "Good maxillary support and visible ogee curve."
+    },
+    {
+      "name": "Facial Fat / Leanness",
+      "value": "Lean",
+      "score": 82,
+      "impact": "positive",
+      "note": "Low facial adiposity allows bone structure to show."
+    },
+    {
+      "name": "Philtrum Height",
+      "value": "0.13",
+      "score": 75,
+      "impact": "neutral",
+      "note": "Standard philtrum length, fits lower face harmony."
+    },
+    {
+      "name": "Hairline Balance",
+      "value": "Balanced",
+      "score": 80,
+      "impact": "positive",
+      "note": "Healthy hairline density and forehead proportion."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Midface Compactness",
+      "description": "The short midface ratio is a primary driver of the face's high harmony."
+    },
+    {
+      "title": "Facial Symmetry",
+      "description": "Exceptional balance between the left and right sides of the face."
+    },
+    {
+      "title": "Skin Vitality",
+      "description": "Clear, healthy skin tone with very few imperfections."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Upper Eyelid Exposure",
+      "description": "Visible eyelid skin reduces the intensity of the eye area."
+    },
+    {
+      "title": "Lower Third Proportion",
+      "description": "The lower third is slightly longer than the middle third, affecting perfect ratio balance."
+    }
+  ],
+  "pros": [
+    "Strong fWHR",
+    "Positive canthal tilt",
+    "Lean facial composition",
+    "High symmetry"
+  ],
+  "cons": [
+    "Moderate eyelid exposure",
+    "Slightly elongated lower face"
+  ],
+  "mainLimitingFactor": "Minor eyelid exposure and slight lower-third elongation prevent a jump into the 85+ elite range.",
+  "qualityFlags": [
+    "Frontal only",
+    "Facial hair obscures jawline detail"
+  ],
+  "confidenceFlags": [
+    "High confidence in frontal metrics"
+  ],
+  "debugJustification": "Score of 79 is justified by strong harmony, compact midface, and high symmetry. Capped below 85 due to moderate upper eyelid exposure and a slightly long lower third. No authenticity issues detected; natural human features."
+}

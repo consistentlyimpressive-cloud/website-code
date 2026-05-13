@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Sparkles, Bell, Trash2, Bug, Share2, Sun, Moon } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Sparkles, Bell, Trash2, Bug, Share2 } from 'lucide-react';
 import { ConfirmDialog, ImageLightbox, SiteModal } from './components/ui/SiteModal';
 import { DashboardHubPreviewsCompact } from './components/DashboardHubPreviews';
 import { getNavbarPlanChip, hasEffectiveProAccess, canAlwaysAccessDashboard, isProPlan, normalizePlanValue } from './utils/planAccess';
@@ -26,8 +26,9 @@ import { getFirestore, doc, onSnapshot } from 'firebase/firestore';
 import { getApiBase } from './utils/apiBase';
 import { resolveMediaUrl } from './utils/mediaUrl';
 
-const NewsPage = React.lazy(() => import('./components/NewsPage'));
+
 const MogBattlePage = React.lazy(() => import('./components/MogBattlePage'));
+const MogBattlePage2 = React.lazy(() => import('./components/MogBattlePage2'));
 const ProDashboardPage = React.lazy(() => import('./components/ProDashboardPage'));
 const PublicProfilePage = React.lazy(() => import('./components/PublicProfilePage'));
 const TermsOfServicePage = React.lazy(() => import('./components/TermsOfServicePage'));
@@ -72,7 +73,6 @@ const PREMIUM_DEMO_FACES = [
     name: 'Henry Cavill',
     shortName: 'Henry',
     image: '/premium-demo/henry-cavill.jpg',
-    sideImage: '/premium-demo/henry-cavill-side.jpg',
     payloadSrc: '/premium-demo/henry-cavill-scan.json',
     score: 82,
     enabled: true,
@@ -82,7 +82,6 @@ const PREMIUM_DEMO_FACES = [
     name: "Sean O'Pry",
     shortName: 'Sean',
     image: '/premium-demo/sean-opry.webp',
-    sideImage: '/premium-demo/sean-opry-side.jpg',
     payloadSrc: '/premium-demo/sean-opry-scan.json',
     score: 77,
     enabled: true,
@@ -146,14 +145,6 @@ function parseAppLocation(pathname, userUid = null) {
     return {
       page: 'public-scan',
       routeParams: { uid: parts[1], scanId: parts[2], scanOnly: true },
-      dashboardRoute: { slug: null, profileId: null },
-    };
-  }
-
-  if (parts[0] === 'score-card' && parts.length >= 3) {
-    return {
-      page: 'public-score-card',
-      routeParams: { uid: parts[1], scanId: parts[2], scanOnly: true, scoreCardOnly: true },
       dashboardRoute: { slug: null, profileId: null },
     };
   }
@@ -388,21 +379,7 @@ function isBalancedMouthStandaloneFeature(feature, dashboardData) {
   return Number.isFinite(rawIndex) && rawIndex >= 0.36 && rawIndex <= 0.38;
 }
 
-function isStructuralBestFeature(feature) {
-  const text = `${feature?.title || ''} ${feature?.description || ''}`.toLowerCase();
-  return /\bharmony\b|\bsymmetr(?:y|ical)\b|\bcheekbones?\b|\bmaxill(?:a|ary)\b|\bjaw(?:line)?\b|\bbigonial\b|\bchin\b|\bprojection\b|\bthirds?\b|\bmidface\b|\bfwhr\b|\bproportion(?:s|al)?\b|\bbrow compactness\b|\beye structure\b|\borbital\b|\bbone structure\b|\bstructure\b/.test(text);
-}
-
 function sanitizeResolvedFeatures(features, dashboardData, type) {
-  if (type === 'best') {
-    const structural = [];
-    const other = [];
-    for (const feature of features || []) {
-      if (isStructuralBestFeature(feature)) structural.push(feature);
-      else other.push(feature);
-    }
-    return [...structural, ...other];
-  }
   if (type !== 'flaw') return features;
   const conventionalCue = hasConventionalAppealCue(dashboardData);
   const authenticityFlag = getAuthenticityFlag(dashboardData);
@@ -611,6 +588,7 @@ function forceCommunityScanFrontOnly(data) {
         sidePrimaryFlaws: [],
         sideBiometrics: [],
         hexagonSide: null,
+        cohesiveFrontSide: false,
       }
     : data.payload;
 
@@ -625,6 +603,7 @@ function forceCommunityScanFrontOnly(data) {
     sidePrimaryFlaws: [],
     sideBiometrics: [],
     hexagonSide: null,
+    cohesiveFrontSide: false,
     communityFrontOnly: true,
   };
 }
@@ -909,13 +888,6 @@ const signInWithGoogleProvider = async () => {
   return signInWithPopup(auth, googleProvider);
 };
 
-function shouldDefaultUploadToPremium(user, userPlan) {
-  if (!user) return false;
-  if (canAlwaysAccessDashboard(user)) return true;
-  if (isProPlan(userPlan)) return true;
-  return normalizePlanValue(userPlan?.plan) === 'single_scan' && Number(userPlan?.scanCredits || 0) > 0;
-}
-
 const PADDLE_CLIENT_TOKEN =
   String(import.meta.env.VITE_PADDLE_CLIENT_TOKEN || 'live_41a7033635d9efa677b7d3a8521').trim();
 const PADDLE_ENVIRONMENT =
@@ -1125,8 +1097,8 @@ function buildPremiumDemoScanPayload(payload = {}, overrides = {}) {
     model: PREMIUM_DEMO_MODEL_ID,
     frontImage: face?.image || PREMIUM_DEMO_FRONT_IMAGE,
     frontImageUrl: face?.image || PREMIUM_DEMO_FRONT_IMAGE,
-    sideImage: face?.sideImage || payload.sideImage || payload.sideImageUrl || null,
-    sideImageUrl: face?.sideImage || payload.sideImageUrl || payload.sideImage || null,
+    sideImage: null,
+    sideImageUrl: null,
     isPremiumDemo: true,
     demoScan: true,
     demoId,
@@ -1195,51 +1167,54 @@ function appendUniqueScan(items, scan) {
 
 function getRatingToneClasses(score) {
   const n = Number(score) || 0;
-  if (n >= 90) {
+  if (n >= 90) { // Emerald Green
     return {
-      text: 'text-emerald-200 drop-shadow-[0_0_16px_rgba(110,231,183,0.55)]',
+      text: 'text-emerald-400 drop-shadow-[0_0_16px_rgba(16,185,129,0.55)]',
       glow: 'group-hover:shadow-[0_24px_70px_rgba(16,185,129,0.22)]',
       border: 'border-emerald-300/45 group-hover:border-emerald-200/70',
       badge: 'border-emerald-300/35 bg-emerald-400/15 text-emerald-200',
+      fill: 'rgba(16,185,129,0.2)',
+      stroke: '#10b981',
     };
   }
-  if (n >= 80) {
-    return {
-      text: 'text-emerald-400 drop-shadow-[0_0_14px_rgba(52,211,153,0.45)]',
-      glow: 'group-hover:shadow-[0_24px_65px_rgba(52,211,153,0.16)]',
-      border: 'border-emerald-500/35 group-hover:border-emerald-400/60',
-      badge: 'border-emerald-500/30 bg-emerald-500/12 text-emerald-300',
-    };
-  }
-  if (n >= 70) {
+  if (n >= 75) { // Greenish Yellow / Lime
     return {
       text: 'text-lime-300 drop-shadow-[0_0_13px_rgba(163,230,53,0.35)]',
       glow: 'group-hover:shadow-[0_24px_65px_rgba(163,230,53,0.12)]',
       border: 'border-lime-500/30 group-hover:border-lime-400/55',
       badge: 'border-lime-500/30 bg-lime-500/12 text-lime-300',
+      fill: 'rgba(163,230,53,0.2)',
+      stroke: '#a3e635',
     };
   }
-  if (n >= 60) {
+  if (n >= 60) { // Yellow
     return {
       text: 'text-yellow-300 drop-shadow-[0_0_13px_rgba(250,204,21,0.35)]',
       glow: 'group-hover:shadow-[0_24px_65px_rgba(250,204,21,0.1)]',
       border: 'border-yellow-500/30 group-hover:border-yellow-400/55',
       badge: 'border-yellow-500/30 bg-yellow-500/12 text-yellow-300',
+      fill: 'rgba(250,204,21,0.2)',
+      stroke: '#facc15',
     };
   }
-  if (n >= 50) {
+  if (n >= 50) { // Orange
     return {
       text: 'text-orange-400 drop-shadow-[0_0_13px_rgba(251,146,60,0.35)]',
       glow: 'group-hover:shadow-[0_24px_65px_rgba(249,115,22,0.12)]',
       border: 'border-orange-500/35 group-hover:border-orange-400/60',
       badge: 'border-orange-500/30 bg-orange-500/12 text-orange-300',
+      fill: 'rgba(249,115,22,0.2)',
+      stroke: '#f97316',
     };
   }
+  // Red
   return {
-    text: 'text-rose-400 drop-shadow-[0_0_13px_rgba(251,113,133,0.35)]',
-    glow: 'group-hover:shadow-[0_24px_65px_rgba(244,63,94,0.14)]',
-    border: 'border-rose-500/35 group-hover:border-rose-400/60',
-    badge: 'border-rose-500/30 bg-rose-500/12 text-rose-300',
+    text: 'text-red-500 drop-shadow-[0_0_13px_rgba(239,68,68,0.35)]',
+    glow: 'group-hover:shadow-[0_24px_65px_rgba(239,68,68,0.14)]',
+    border: 'border-red-500/35 group-hover:border-red-400/60',
+    badge: 'border-red-500/30 bg-red-500/12 text-red-300',
+    fill: 'rgba(239,68,68,0.2)',
+    stroke: '#ef4444',
   };
 }
 
@@ -1412,7 +1387,7 @@ const PremiumProofModal = ({ onClose, onContinue }) => (
 );
 
 // --- Navbar ---
-const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignOut, userPlan, showDashboard, colorMode = 'dark', onToggleColorMode }) => {
+const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignOut, userPlan, showDashboard }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -1421,6 +1396,12 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
   const menuRef = useRef(null);
   const username = user?.email?.split('@')[0] || '';
   const planChip = user ? getNavbarPlanChip(userPlan, user) : null;
+  const isAdminNavUser = Boolean(user?.email && (
+    user.email === 'laithbu07@gmail.com' ||
+    user.email === 'admin@looksmaxxing.com' ||
+    user.email === 'serenity.eyb@gmail.com' ||
+    user.email.endsWith('@looksmaxxing.com')
+  ));
   const unreadNotificationCount = notifications.filter((item) => !item.read).length;
 
   const loadNotifications = useCallback(async () => {
@@ -1475,228 +1456,148 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
   }, [loadNotifications, showNotifications, user]);
 
   return (
-    <nav className="fixed top-0 z-50 flex w-full items-center justify-between overflow-visible border-b border-zinc-900 bg-[#0c0d0e]/80 px-6 py-4 backdrop-blur-md md:grid md:grid-cols-[1fr_auto_1fr] md:items-center">
-      <div className="flex items-center justify-between md:block">
-      <div className="flex items-center cursor-pointer group w-fit" onClick={() => setCurrentPage('home')}>
-        <div className="w-9 h-9 flex items-center justify-center group-hover:rotate-12 transition-transform">
-          <MogCheckLogoMark size={36} className="w-9 h-9" />
-        </div>
-      </div>
-      </div>
-      <div className="hidden md:flex items-center justify-center gap-8 text-xs font-bold justify-self-center">
-        <button onClick={() => setCurrentPage('home')} className={`${currentPage === 'home' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Home</button>
-        <button onClick={() => setCurrentPage('news')} className={`${currentPage === 'news' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>News</button>
-        <button onClick={() => setCurrentPage('mog-battles')} className={`${currentPage === 'mog-battles' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>
-          <Swords size={14} className="text-cyan-500/90" /> Mog Battles
-        </button>
-        {showDashboard && (
-        <button onClick={() => setCurrentPage('dashboard')} className={`${currentPage === 'dashboard' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}><Activity size={14} /> Dashboard</button>
-        )}
-        <button onClick={() => setCurrentPage('celebrity')} className={`${currentPage === 'celebrity' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Scans</button>
-        <button
-          onClick={() => {
-            if (currentPage === 'plans') setCurrentPage('plans');
-            else onOpenPremiumPlans?.();
-          }}
-          className={`${currentPage === 'plans' ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'text-yellow-500/70'} hover:text-yellow-400 transition-all uppercase tracking-widest flex items-center gap-1`}
-        >
-          <Crown size={13} /> Plans
-        </button>
-      </div>
-      <div className="hidden md:block justify-self-end">
-        {user ? (
-          <div className="relative flex items-center gap-2" ref={menuRef}>
-            <button
-              type="button"
-              onClick={() => {
-                setCurrentPage('photo-guide');
-                setShowUserMenu(false);
-                setShowNotifications(false);
-              }}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 transition-all hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-cyan-100"
-              aria-label="Start scan"
-            >
-              <Plus size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowNotifications((v) => !v);
-                setShowUserMenu(false);
-                loadNotifications();
-              }}
-              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900 text-zinc-400 transition-all hover:border-cyan-500/35 hover:text-cyan-300"
-              aria-label="Notifications"
-            >
-              <Bell size={16} />
-              {unreadNotificationCount > 0 && (
-                <span className="absolute -right-1 -top-1 min-w-5 rounded-full border border-black bg-cyan-400 px-1.5 py-0.5 text-center text-[9px] font-black leading-none text-black">
-                  {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-3 rounded-full bg-zinc-900 border border-zinc-800 px-4 py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all"
-            >
-              <span className="flex min-w-0 flex-col items-start leading-none">
-                <span className="max-w-[150px] truncate text-xs font-bold uppercase tracking-widest">{username}</span>
-                {planChip && (
-                  <span className={`mt-1 text-[9px] font-bold uppercase tracking-[0.16em] ${planChip.className.includes('text-') ? planChip.className.match(/text-[^\s]+/)?.[0] || 'text-zinc-500' : 'text-zinc-500'}`}>
-                    {planChip.label}
-                  </span>
-                )}
-              </span>
-              <ChevronDown size={12} className={`transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
-            </button>
-            {showUserMenu && (
-              <div className="absolute right-0 top-full z-[100] mt-2 w-52 bg-[#0c0d0e] border border-zinc-800 rounded-xl shadow-2xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-zinc-800">
-                  <p className="text-[10px] text-zinc-500 font-sans truncate">{user.email}</p>
-                  {planChip && (
-                    <p className={`mt-2 inline-flex items-center px-2 py-0.5 rounded-md border text-[9px] font-bold uppercase tracking-widest ${planChip.className}`}>
-                      Plan: {planChip.label}
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setCurrentPage('settings'); setShowUserMenu(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800"
-                >
-                  <Settings size={14} /> Account &amp; settings
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setCurrentPage('profile'); setShowUserMenu(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800"
-                >
-                  <User size={14} /> Profile &amp; scans
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { onToggleColorMode?.(); setShowUserMenu(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800"
-                >
-                  {colorMode === 'light' ? <Moon size={14} /> : <Sun size={14} />}
-                  {colorMode === 'light' ? 'Dark mode' : 'Light mode'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { onSignOut(); setShowUserMenu(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold"
-                >
-                  <LogOut size={14} /> Sign Out
-                </button>
-              </div>
-            )}
-            {showNotifications && (
-              <div className="absolute right-0 top-full z-[105] mt-2 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-zinc-800 bg-[#0c0d0e] shadow-2xl">
-                <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-cyan-400">Notifications</p>
-                    <p className="mt-1 text-[10px] text-zinc-600">{unreadNotificationCount} unread</p>
-                  </div>
-                  <button type="button" onClick={() => setShowNotifications(false)} className="text-zinc-500 hover:text-white">
-                    <X size={16} />
-                  </button>
-                </div>
-                <div className="max-h-[420px] overflow-y-auto p-3">
-                  {notificationsLoading && !notifications.length ? (
-                    <div className="flex items-center justify-center gap-2 py-8 text-xs uppercase tracking-widest text-zinc-500">
-                      <Loader2 size={14} className="animate-spin text-cyan-400" /> Loading
-                    </div>
-                  ) : notifications.length ? (
-                    notifications.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          markNotificationRead(item.id);
-                          if (item.url) {
-                            window.history.pushState({}, '', item.url);
-                            window.dispatchEvent(new PopStateEvent('popstate'));
-                            setShowNotifications(false);
-                          }
-                        }}
-                        className={`mb-2 w-full rounded-xl border px-3 py-3 text-left transition-colors ${item.read ? 'border-zinc-800 bg-zinc-950/60' : 'border-cyan-500/25 bg-cyan-500/10'}`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-100">{item.title || 'MogCheck'}</p>
-                          {!item.read && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]" />}
-                        </div>
-                        {item.body && <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">{item.body}</p>}
-                      </button>
-                    ))
-                  ) : (
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-8 text-center text-xs text-zinc-500">
-                      No notifications yet.
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+    <>
+      {/* Top Navbar */}
+      <nav className="fixed top-0 z-50 flex w-full items-center justify-between overflow-visible border-b border-zinc-900 bg-[#0c0d0e]/80 px-4 md:px-6 py-3 md:py-4 backdrop-blur-md">
+        {/* Desktop Logo / Mobile Hidden if needed */}
+        <div className="hidden md:flex items-center cursor-pointer group" onClick={() => setCurrentPage('home')}>
+          <div className="w-9 h-9 flex items-center justify-center group-hover:rotate-12 transition-transform">
+            <MogCheckLogoMark size={36} className="w-9 h-9" />
           </div>
-        ) : (
-          <button onClick={() => setCurrentPage('login')} className="px-6 py-2 rounded-full bg-white text-black font-bold text-xs uppercase tracking-widest hover:bg-zinc-200 transition-colors">Login</button>
-        )}
-      </div>
-      <button className="md:hidden text-white" onClick={() => setIsOpen(!isOpen)}>{isOpen ? <X /> : <Menu />}</button>
-      {isOpen && (
-        <div className="absolute top-full left-0 w-full bg-[#0c0d0e] border-b border-zinc-900 flex flex-col items-center py-6 gap-6 md:hidden">
-        <button onClick={() => { setCurrentPage('home'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Home</button>
-        <button onClick={() => { setCurrentPage('news'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2">News</button>
-        <button onClick={() => { setCurrentPage('mog-battles'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Swords size={14} className="text-cyan-500/90" /> Mog Battles</button>
-        {showDashboard && (
-        <button onClick={() => { setCurrentPage('dashboard'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold flex items-center gap-2"><Activity size={14} /> Dashboard</button>
-        )}
-          <button onClick={() => { setCurrentPage('celebrity'); setIsOpen(false); }} className="text-zinc-400 uppercase tracking-widest text-xs font-bold">Scans</button>
+        </div>
+
+        {/* Mobile Navigation Buttons (at the top) */}
+        <div className="md:hidden flex items-center gap-1.5 flex-1">
+          {[
+            { key: 'home', label: 'Home', icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
+            { key: 'celebrity', label: 'Scans', icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> },
+            { key: 'mog-battles', label: 'Battles', icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg> },
+            { key: user ? 'dashboard' : 'login', label: 'Profile', icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
+          ].map((tab) => {
+            const isActive = currentPage === tab.key || (tab.key === 'dashboard' && (currentPage === 'dashboard' || currentPage === 'profile'));
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setCurrentPage(tab.key)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all duration-200 ${isActive ? 'bg-zinc-800/60 text-cyan-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+              >
+                {tab.icon}
+                <span className={`text-[10px] font-black uppercase tracking-[0.08em] ${isActive ? 'text-white' : 'text-zinc-500'}`}>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Desktop Navigation Links */}
+        <div className="hidden md:flex items-center justify-center gap-8 text-xs font-bold absolute left-1/2 -translate-x-1/2">
+          <button onClick={() => setCurrentPage('home')} className={`${currentPage === 'home' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Home</button>
+          <button onClick={() => setCurrentPage('mog-battles')} className={`${currentPage === 'mog-battles' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>
+            <Swords size={14} className="text-cyan-500/90" /> Mog Battles
+          </button>
+          {showDashboard && (
+            <button onClick={() => setCurrentPage('dashboard')} className={`${currentPage === 'dashboard' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}><Activity size={14} /> Dashboard</button>
+          )}
+          <button onClick={() => setCurrentPage('celebrity')} className={`${currentPage === 'celebrity' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Scans</button>
           <button
             onClick={() => {
-              setIsOpen(false);
               if (currentPage === 'plans') setCurrentPage('plans');
               else onOpenPremiumPlans?.();
             }}
-            className="text-yellow-500/70 uppercase tracking-widest text-xs font-bold flex items-center gap-2"
+            className={`${currentPage === 'plans' ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'text-yellow-500/70'} hover:text-yellow-400 transition-all uppercase tracking-widest flex items-center gap-1`}
           >
             <Crown size={13} /> Plans
           </button>
+        </div>
+
+        {/* Profile / Actions (Right side) */}
+        <div className="flex items-center gap-2">
           {user ? (
-            <>
-              <button type="button" onClick={() => { setCurrentPage('photo-guide'); setIsOpen(false); }} className="flex h-11 w-11 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:text-cyan-100">
+            <div className="relative flex items-center gap-2" ref={menuRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentPage('photo-guide');
+                  setShowUserMenu(false);
+                  setShowNotifications(false);
+                }}
+                className="hidden md:inline-flex h-10 w-10 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 transition-all hover:border-cyan-400/60 hover:bg-cyan-500/20 hover:text-cyan-100"
+                aria-label="Start scan"
+              >
                 <Plus size={18} />
               </button>
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-zinc-300 font-sans text-xs">{username}</span>
-                {planChip && (
-                  <span className={`px-2.5 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-widest ${planChip.className}`}>
-                    {planChip.label}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNotifications((v) => !v);
+                  setShowUserMenu(false);
+                  loadNotifications();
+                }}
+                className="relative flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900 text-zinc-400 transition-all hover:border-cyan-500/35 hover:text-cyan-300"
+                aria-label="Notifications"
+              >
+                <Bell size={16} />
+                {unreadNotificationCount > 0 && (
+                  <span className="absolute -right-1 -top-1 min-w-5 rounded-full border border-black bg-cyan-400 px-1.5 py-0.5 text-center text-[9px] font-black leading-none text-black">
+                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
                   </span>
                 )}
-              </div>
-              <button type="button" onClick={() => { setCurrentPage('settings'); setIsOpen(false); }} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
-                <Settings size={14} /> Account &amp; settings
               </button>
-              <button type="button" onClick={() => { setCurrentPage('profile'); setIsOpen(false); }} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
-                <User size={14} /> Profile &amp; scans
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex items-center gap-2 md:gap-3 rounded-full bg-zinc-900 border border-zinc-800 px-3 md:px-4 py-1.5 md:py-2 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all"
+              >
+                <span className="hidden md:flex min-w-0 flex-col items-start leading-none">
+                  <span className="max-w-[150px] truncate text-xs font-bold uppercase tracking-widest">{username}</span>
+                  {planChip && (
+                    <span className={`mt-1 text-[9px] font-bold uppercase tracking-[0.16em] ${planChip.className.includes('text-') ? planChip.className.match(/text-[^\s]+/)?.[0] || 'text-zinc-500' : 'text-zinc-500'}`}>
+                      {planChip.label}
+                    </span>
+                  )}
+                </span>
+                <User size={16} className="md:hidden text-zinc-400" />
+                <ChevronDown size={12} className={`transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
               </button>
-              <button type="button" onClick={() => { onToggleColorMode?.(); setIsOpen(false); }} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
-                {colorMode === 'light' ? <Moon size={14} /> : <Sun size={14} />}
-                {colorMode === 'light' ? 'Dark mode' : 'Light mode'}
-              </button>
-              <button type="button" onClick={() => { setShowNotifications(true); setIsOpen(false); loadNotifications(); }} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
-                <Bell size={14} /> Notifications {unreadNotificationCount > 0 ? `(${unreadNotificationCount})` : ''}
-              </button>
-              <button type="button" onClick={() => { onSignOut(); setIsOpen(false); }} className="flex items-center gap-2 px-8 py-2 rounded-full border border-zinc-800 text-red-400 hover:text-red-300 font-bold text-xs uppercase tracking-widest">
-                <LogOut size={14} /> Sign Out
-              </button>
-            </>
+              {showUserMenu && (
+                <div className="absolute right-0 top-full z-[100] mt-2 w-52 bg-[#0c0d0e] border border-zinc-800 rounded-xl shadow-2xl overflow-hidden">
+                  <div className="px-4 py-3 border-b border-zinc-800">
+                    <p className="text-[10px] text-zinc-500 font-sans truncate">{user.email}</p>
+                    {planChip && (
+                      <p className={`mt-2 inline-flex items-center px-2 py-0.5 rounded-md border text-[9px] font-bold uppercase tracking-widest ${planChip.className}`}>
+                        Plan: {planChip.label}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentPage('settings'); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800"
+                  >
+                    <Settings size={14} /> Account &amp; settings
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentPage('profile'); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800"
+                  >
+                    <User size={14} /> Profile &amp; scans
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { onSignOut(); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold"
+                  >
+                    <LogOut size={14} /> Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
-            <button onClick={() => { setCurrentPage('login'); setIsOpen(false); }} className="px-8 py-2 rounded-full bg-white text-black font-bold text-xs uppercase tracking-widest mt-2">Login</button>
+            <button onClick={() => setCurrentPage('login')} className="px-4 md:px-6 py-1.5 md:py-2 rounded-full bg-white text-black font-bold text-[10px] md:text-xs uppercase tracking-widest hover:bg-zinc-200 transition-colors">Login</button>
           )}
         </div>
-      )}
-    </nav>
+      </nav>
+    </>
   );
 };
 
@@ -1752,7 +1653,7 @@ const ComparisonCard = ({ beforeImgSrc, afterImgSrc, beforeScore, afterScore, is
       
       {/* Integrated Review */}
       {review && (
-        <div className="absolute bottom-4 left-[7.5%] right-[7.5%] w-[85%] z-40 p-4 bg-black/25 backdrop-blur-md border border-blue-500/20 rounded-xl transform-gpu transition-all duration-500 hover:scale-[1.02] hover:bg-black/45">
+        <div className="absolute bottom-4 left-[7.5%] right-[7.5%] w-[85%] z-40 p-4 bg-black/25 backdrop-blur-md border border-blue-500/20 rounded-xl transform-gpu transition-all duration-500 hover:scale-[1.02] hover:bg-black/45 hidden md:block">
           <div className="flex gap-1 mb-2 text-blue-400">
             {[...Array(review.rating)].map((_, i) => (
               <svg key={i} className="w-2.5 h-2.5 fill-current drop-shadow-[0_0_5px_rgba(96,165,250,0.8)]" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
@@ -1962,7 +1863,17 @@ const CommunityScanCard = ({
 
   const rotateY = (mousePos.x - 50) * 0.22;
   const rotateX = (50 - mousePos.y) * 0.18;
-  const modelLabel = scan.officialScan ? 'MogCheck verified' : getAnalysisModelLabel(scan.dashboardData?.selectedModel || scan.model);
+  const modelLabel = scan.officialScan ? '' : getAnalysisModelLabel(scan.dashboardData?.selectedModel || scan.model);
+
+  const votesCount = useMemo(() => {
+    const id = String(scan.id || scan.frontImage || '');
+    if (!id) return 40;
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = id.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return 40 + (Math.abs(hash) % 53);
+  }, [scan.id, scan.frontImage]);
 
   return (
     <div
@@ -2081,9 +1992,24 @@ const CommunityScanCard = ({
         )}
 
         <div className={`absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black via-black/80 to-transparent ${compact ? 'p-3' : 'p-4'} flex flex-col items-start [transform:translateZ(32px)]`}>
-          <div className="flex items-baseline gap-1 mb-1.5">
-            <span className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${ratingTone.text}`}>{rating.toFixed(1)}</span>
-            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
+          <div className="flex items-baseline justify-between w-full pr-3 mb-1.5">
+            <div className="flex items-baseline gap-1 relative">
+              <span 
+                className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums`}
+                style={{
+                  background: `linear-gradient(to bottom, #ffffff 40%, ${ratingTone.stroke || '#22d3ee'})`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent'
+                }}
+              >
+                {rating.toFixed(1)}
+              </span>
+              <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
+              
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Activity size={12} className="text-cyan-400" />
+            </div>
           </div>
           <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-[0.2em]">
             Community Scan - {modelLabel}
@@ -2426,22 +2352,20 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
         <h2 className="text-3xl font-black italic uppercase tracking-widest text-white mb-2">Scans</h2>
         <p className="text-zinc-500 uppercase tracking-widest text-xs mb-8">Verified scans and live community scans with shareable links.</p>
         <div className="grid w-full grid-cols-1 gap-5 lg:grid-cols-2">
-          {renderScanColumn('Verified Scans', `${verifiedScans.length} MogCheck verified`, verifiedScans)}
+          {renderScanColumn('Verified Scans', `${verifiedScans.length} Scans`, verifiedScans)}
           {renderScanColumn(
             'Community Scans',
             `${sortedCommunityScans.length} public community scans`,
             sortedCommunityScans,
-            <div className="relative shrink-0">
-              <select
+              <CustomSelectDropdown
                 value={communitySort}
-                onChange={(e) => setCommunitySort(e.target.value)}
-                className="appearance-none rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-2 pr-8 font-mono text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100 outline-none transition-colors focus:border-cyan-300/50"
-              >
-                <option value="latest">Latest</option>
-                <option value="highest">Highest score</option>
-              </select>
-              <ChevronDown size={12} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-cyan-200/70" />
-            </div>
+                onChange={setCommunitySort}
+                options={[
+                  { value: 'latest', label: 'Latest' },
+                  { value: 'highest', label: 'Highest score' }
+                ]}
+                className="appearance-none rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100 focus:border-cyan-300/50"
+              />
           )}
         </div>
       </div>
@@ -2461,6 +2385,55 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
         <SiteModal title="Community Scan" onClose={() => setCommunityNotice('')} maxWidth="max-w-lg">
           <p className="text-sm leading-relaxed text-zinc-300">{communityNotice}</p>
         </SiteModal>
+      )}
+    </div>
+  );
+};
+
+const CustomSelectDropdown = ({ value, onChange, options, className }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(o => o.value === value) || options[0];
+
+  return (
+    <div className="relative shrink-0 w-full md:w-auto" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex w-full items-center justify-between gap-4 outline-none transition-colors ${className}`}
+      >
+        <span>{selectedOption?.label}</span>
+        <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-cyan-200' : 'text-cyan-200/70'}`} />
+      </button>
+      
+      {isOpen && (
+        <div className="absolute top-full right-0 mt-2 w-full min-w-[200px] z-[100] rounded-[20px] border border-cyan-500/30 bg-[#06080a] p-2 shadow-[0_12px_40px_rgba(0,0,0,0.8),0_0_20px_rgba(0,240,255,0.1)] backdrop-blur-xl animate-[mogBattle2NoticeIn__0.2s_ease-out] flex flex-col gap-1">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setIsOpen(false); }}
+              className={`w-full text-left px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.18em] transition-all duration-200 ${
+                value === opt.value 
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/20 shadow-[inset_0_0_10px_rgba(0,240,255,0.1)]' 
+                  : 'text-zinc-400 hover:bg-cyan-950/40 hover:text-cyan-100 border border-transparent'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -3000,8 +2973,8 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
       
       {/* Extracted Video: Placed directly in the header to avoid FadeUp's stacking context which breaks mix-blend-screen */}
       <div
-        className="pointer-events-none absolute left-1/2 top-[18vh] z-0 w-[min(118vw,1040px)] h-[min(82vh,760px)] origin-center -translate-x-1/2 -translate-y-[22%] sm:-translate-y-[27%] md:-translate-y-[32%] overflow-visible scale-[0.81] mix-blend-screen"
-        style={{ mixBlendMode: 'screen' }}
+        className="pointer-events-none absolute left-1/2 top-[18vh] z-0 w-[min(118vw,1040px)] h-[min(82vh,760px)] origin-center -translate-x-1/2 -translate-y-[22%] sm:-translate-y-[27%] md:-translate-y-[32%] overflow-visible scale-[0.81]"
+        style={{ mixBlendMode: 'plus-lighter' }}
         aria-hidden
       >
         <video
@@ -3010,7 +2983,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           playsInline 
           preload="auto"
           className="w-full h-full object-contain object-center opacity-[0.92]"
-          style={{ filter: 'contrast(1.08)' }}
+          style={{ filter: 'contrast(1.08) brightness(1.05)', mixBlendMode: 'plus-lighter' }}
           src="/FaceANimationforwebsite.webm" 
         />
       </div>
@@ -3116,10 +3089,14 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-4 uppercase italic [font-weight:950] drop-shadow-none [text-shadow:none]">Make The Impossible, Possible.</h2>
           <p className="text-zinc-400 font-sans text-sm max-w-2xl mx-auto uppercase tracking-widest">Join the many who cracked the aesthetic code</p>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+        <div className="grid grid-cols-2 gap-4 md:gap-8 items-start max-w-5xl mx-auto">
           <ComparisonCard beforeImgSrc={compBefore1} afterImgSrc={compAfter1} beforeScore="4.8" afterScore="7.4" review={reviewsData[0]} />
           <ComparisonCard beforeImgSrc={compBefore2} afterImgSrc={compAfter2} beforeScore="5.2" afterScore="8.5" isActive={true} review={reviewsData[2]} />
-          <ComparisonCard beforeImgSrc={compAfter3} afterImgSrc={compBefore3} beforeScore="4.5" afterScore="7.1" review={reviewsData[1]} />
+          <div className="col-span-2 flex justify-center -mt-2 md:-mt-4">
+            <div className="w-full max-w-[calc(50%-0.5rem)] md:max-w-[calc(50%-1rem)]">
+              <ComparisonCard beforeImgSrc={compAfter3} afterImgSrc={compBefore3} beforeScore="4.5" afterScore="7.1" review={reviewsData[1]} />
+            </div>
+          </div>
         </div>
       </FadeUp>
     </section>
@@ -3197,41 +3174,40 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
 
     <section className="w-full pt-16 pb-32 px-6 bg-[#0c0d0e]">
       <FadeUp>
-        <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white mb-4">What Actually Matters</h2>
-          <p className="text-zinc-500 font-sans text-[10px] uppercase tracking-widest">What we do, how it works, and why it is repeatable.</p>
+        <div className="text-center mb-10 md:mb-16">
+          <h2 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white mb-2 md:mb-4">What Actually Matters</h2>
+          <p className="text-zinc-500 font-sans text-[9px] md:text-[10px] uppercase tracking-widest">What we do, how it works, and why it is repeatable.</p>
         </div>
       </FadeUp>
-      <div className="w-full max-w-6xl mx-auto space-y-16 md:space-y-20">
+      <div className="w-full max-w-6xl mx-auto space-y-8 md:space-y-20">
         {whatMattersItems.map((item, idx) => {
           const imageFirst = idx % 2 === 0;
           return (
             <FadeUp key={item.step} delay={idx * 120}>
-              <div className="group/process grid gap-8 md:grid-cols-2 md:items-center md:gap-12">
+              <div className="group/process grid gap-6 md:gap-12 md:grid-cols-2 md:items-center">
                 <div
-                  className={`${imageFirst ? 'md:order-1' : 'md:order-2'} w-full`}
+                  className={`${imageFirst ? 'md:order-1' : 'md:order-2'} w-full order-1`}
                   style={{ animation: `homeFloat ${6.8 + idx * 0.35}s ease-in-out infinite`, animationDelay: `${idx * 0.35}s` }}
                 >
-                  <div className="relative overflow-hidden rounded-sm border border-zinc-800/70 shadow-[0_24px_70px_rgba(0,0,0,0.38)] transition-all duration-500 group-hover/process:-translate-y-3 group-hover/process:border-cyan-400/35 group-hover/process:shadow-[0_30px_80px_rgba(34,211,238,0.12)]">
+                  <div className="relative overflow-hidden rounded-2xl border border-zinc-800/70 shadow-[0_24px_70px_rgba(0,0,0,0.38)] transition-all duration-500 group-hover/process:-translate-y-2 group-hover/process:border-cyan-400/35">
                     <img
                       loading="lazy"
                       decoding="async"
                       src={item.imgSrc}
                       alt=""
-                      className="relative z-10 block h-auto w-full [filter:grayscale(100%)_saturate(0)] transition-all duration-700 group-hover/process:scale-[1.025] group-hover/process:brightness-110"
+                      className="relative z-10 block h-auto w-full [filter:grayscale(100%)_saturate(0)] transition-all duration-700 group-hover/process:scale-[1.02] group-hover/process:brightness-110"
                     />
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.12),transparent_45%)] opacity-20 transition-opacity duration-500 group-hover/process:opacity-100" />
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-cyan-300/18 to-transparent opacity-30 transition-opacity duration-500 group-hover/process:opacity-100" style={{ animation: 'processScanLine 3.6s ease-in-out infinite' }} />
                   </div>
                 </div>
-                <div className={`${imageFirst ? 'md:order-2 md:pl-4' : 'md:order-1 md:pr-4'} max-w-lg transition-transform duration-500 ease-out group-hover/process:translate-y-[-6px]`}>
-                  <p className="mb-3 font-sans text-[10px] font-bold uppercase tracking-[0.36em] text-cyan-400/80">{item.step}</p>
-                  <h3 className="text-2xl md:text-3xl font-black italic uppercase tracking-tight text-white">{item.title}</h3>
-                  <div className="my-5 h-px w-28 overflow-hidden bg-zinc-800">
+                <div className={`${imageFirst ? 'md:order-2 md:pl-4' : 'md:order-1 md:pr-4'} max-w-lg order-2 px-2 md:px-0`}>
+                  <p className="mb-1.5 font-sans text-[8px] md:text-[9px] font-bold uppercase tracking-[0.36em] text-cyan-400/80">{item.step}</p>
+                  <h3 className="text-lg md:text-3xl font-black italic uppercase tracking-tight text-white leading-tight">{item.title}</h3>
+                  <div className="my-2.5 md:my-5 h-[1.5px] w-12 md:w-28 overflow-hidden bg-zinc-800">
                     <div className="h-full w-full bg-gradient-to-r from-transparent via-cyan-300 to-transparent" style={{ animation: 'lineDrift 3.2s ease-in-out infinite' }} />
                   </div>
-                  <p className="font-sans text-sm md:text-base leading-7 text-zinc-300">{item.text}</p>
-                  <p className="mt-5 font-sans text-[10px] font-bold uppercase tracking-[0.26em] text-zinc-500">{item.note}</p>
+                  <p className="font-sans text-[11px] md:text-base leading-5 md:leading-7 text-zinc-400 md:text-zinc-300">{item.text}</p>
+                  <p className="mt-3 md:mt-5 font-sans text-[8px] md:text-[9px] font-bold uppercase tracking-[0.26em] text-zinc-600 md:text-zinc-500">{item.note}</p>
                 </div>
               </div>
             </FadeUp>
@@ -6914,7 +6890,13 @@ const ResultsPage = () => (
   </div>
 );
 
-/** Category scores may be stored as 0-100 or 0-10; UI shows 0-10. */
+  /** Category and overall scores may be stored as 0-100 or 0-10; UI shows 0-10. */
+const scoreToDisplay10 = (fs) => {
+  if (fs == null || fs === '' || Number.isNaN(Number(fs))) return null;
+  const n = Number(fs);
+  return n > 10 ? n / 10 : n;
+};
+
 const categoryToRadar10 = (v, fallbackRaw) => {
   const fb = Number(fallbackRaw);
   const fallback = Number.isNaN(fb) ? 5 : fb > 10 ? fb / 10 : fb;
@@ -6923,9 +6905,9 @@ const categoryToRadar10 = (v, fallbackRaw) => {
   return n > 10 ? n / 10 : n;
 };
 
-const hexagonToCategorySignals = (hexagon, fallbackRaw) => {
+const hexagonToRadarData = (hexagon, fallbackRaw) => {
   if (!hexagon || typeof hexagon !== 'object') return null;
-  const keyOrder = ['Skin', 'Dimorphism', 'Symmetry', 'Harmony', 'Bone'];
+  const keyOrder = ['Skin', 'Bone', 'Dimorphism', 'Symmetry', 'Harmony'];
   const normalizedHexagon = Object.fromEntries(
     Object.entries(hexagon).map(([key, value]) => [String(key).trim().toLowerCase(), value])
   );
@@ -6947,27 +6929,157 @@ const hexagonToCategorySignals = (hexagon, fallbackRaw) => {
   }));
 };
 
-const CategorySignalsList = ({ data = [], blurred = false, size = 'normal' }) => (
-  <div className={size === 'large' ? 'space-y-3' : 'space-y-2'}>
-    {data.map((item) => {
-      const value = Math.max(0, Math.min(10, Number(item.val) || 0));
-      return (
-        <div key={item.label}>
-          <div className="mb-1 flex items-center justify-between gap-2">
-            <span className={`${size === 'large' ? 'text-[10px]' : 'text-[9px]'} font-bold uppercase tracking-[0.18em] text-zinc-500`}>{item.label}</span>
-            <span className={`${size === 'large' ? 'text-xs' : 'text-[10px]'} font-black tabular-nums text-cyan-200 ${blurred ? 'blur-[3px]' : ''}`}>{value.toFixed(1)}</span>
-          </div>
-          <div className={`${size === 'large' ? 'h-2' : 'h-1.5'} overflow-hidden rounded-full bg-zinc-800`}>
-            <div
-              className={`h-full rounded-full bg-cyan-400 ${blurred ? 'blur-[2px]' : 'shadow-[0_0_10px_rgba(34,211,238,0.55)]'}`}
-              style={{ width: `${value * 10}%` }}
-            />
-          </div>
+const blendNumeric = (primaryValue, secondaryValue, weight = 0.18) => {
+  const primary = Number(primaryValue);
+  if (Number.isNaN(primary)) return null;
+  const secondary = Number(secondaryValue);
+  if (Number.isNaN(secondary)) return primary;
+  return Math.round((primary * (1 - weight) + secondary * weight) * 10) / 10;
+};
+
+const blendRadarSets = (primaryData, secondaryData, weight = 0.18) => {
+  if (!Array.isArray(primaryData) || primaryData.length === 0) return primaryData;
+  if (!Array.isArray(secondaryData) || secondaryData.length === 0) return primaryData;
+
+  const secondaryByLabel = new Map(
+    secondaryData.map((item) => [String(item?.label || '').toLowerCase(), Number(item?.val)])
+  );
+
+  return primaryData.map((item) => {
+    const secondary = secondaryByLabel.get(String(item?.label || '').toLowerCase());
+    const blended = blendNumeric(item?.val, secondary, weight);
+    return {
+      ...item,
+      val: blended == null ? item?.val : blended,
+    };
+  });
+};
+
+// --- Radar Chart Component ---
+const RadarChart = ({ data, finalScore, compact = false }) => {
+  const [progress, setProgress] = useState(0);
+  const dataKey = data.map((d) => `${d.label}:${d.val}`).join('|');
+  useEffect(() => {
+    let start = Date.now();
+    let frame;
+    const update = () => {
+      const p = Math.min((Date.now() - start) / 1500, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      setProgress(ease);
+      if (p < 1) frame = requestAnimationFrame(update);
+    };
+    frame = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(frame);
+  }, [dataKey]);
+
+  const numPoints = data.length;
+  const getPoint = (val, i) => {
+    const angle = (Math.PI / 2) + (2 * Math.PI * i / numPoints);
+    const x = 50 + val * 35 * Math.cos(angle);
+    const y = 50 - val * 35 * Math.sin(angle);
+    return { x, y };
+  };
+
+  const points = data.map((d, i) => {
+    const { x, y } = getPoint((d.val * progress) / 10, i);
+    return `${x},${y}`;
+  }).join(' ');
+
+  const bgPoints100 = Array.from({ length: numPoints }, (_, i) => {
+    const { x, y } = getPoint(1, i);
+    return `${x},${y}`;
+  }).join(' ');
+
+  const bgPoints50 = Array.from({ length: numPoints }, (_, i) => {
+    const { x, y } = getPoint(0.5, i);
+    return `${x},${y}`;
+  }).join(' ');
+
+  return (
+    <div className="relative w-full aspect-square">
+      <svg viewBox="0 0 100 100" className="w-full h-full">
+        <polygon points={bgPoints100} fill="rgba(255,255,255,0.05)" stroke="#3f3f46" strokeWidth="0.5" />
+        <polygon points={bgPoints50} fill="rgba(255,255,255,0.1)" stroke="#52525b" strokeWidth="0.5" />
+        {Array.from({ length: numPoints }).map((_, i) => {
+          const { x, y } = getPoint(1, i);
+          return <line key={i} x1="50" y1="50" x2={x} y2={y} stroke="#3f3f46" strokeWidth="0.5" />;
+        })}
+        <polygon points={points} fill={getRatingToneClasses(finalScore).fill || "rgba(34,211,238,0.2)"} stroke={getRatingToneClasses(finalScore).stroke || "#22d3ee"} strokeWidth="1" style={{ filter: `drop-shadow(0 0 4px ${getRatingToneClasses(finalScore).stroke || "rgba(34,211,238,0.8)"})` }} />
+        {data.map((d, i) => {
+          const { x, y } = getPoint((d.val * progress) / 10, i);
+          return <circle key={i} cx={x} cy={y} r="1.2" fill="#fff" className="drop-shadow-[0_0_4px_rgba(255,255,255,1)]" />;
+        })}
+      </svg>
+      {!compact && (
+        <div className="absolute inset-0 pointer-events-none">
+          {data.map((d, i) => {
+            const angle = (Math.PI / 2) + (2 * Math.PI * i / numPoints);
+            const x = 50 + 50 * Math.cos(angle);
+            const y = 50 - 50 * Math.sin(angle);
+            return (
+              <span 
+                key={i} 
+                className={`absolute text-[6.5px] font-black font-sans uppercase tracking-[0.2em] whitespace-nowrap ${getRatingToneClasses(finalScore).text.split(' ')[0]}`}
+                style={{
+                  left: `${x}%`,
+                  top: `${y}%`,
+                  transform: 'translate(-50%, -50%)'
+                }}
+              >
+                {d.label}
+              </span>
+            );
+          })}
         </div>
-      );
-    })}
-  </div>
-);
+      )}
+      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center font-black italic ${getRatingToneClasses(finalScore).text} ${compact ? 'text-sm' : 'text-lg'}`}>
+        {scoreToDisplay10(finalScore) != null
+          ? (scoreToDisplay10(finalScore) * progress).toFixed(1)
+          : (data.reduce((a, b) => a + b.val * progress, 0) / data.length).toFixed(1)}
+      </div>
+    </div>
+  );
+};
+
+const HexagonStats = ({ radarData4, radarData5, finalScore }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  return (
+    <div 
+      className="relative w-full h-full flex items-center justify-center p-4"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Radar Chart Layer */}
+      <div className={`w-full h-full transition-all duration-500 ${isHovered ? 'opacity-15 blur-lg scale-90' : 'opacity-100 blur-0 scale-100'}`}>
+        <RadarChart data={radarData5} finalScore={finalScore} />
+      </div>
+
+      {/* Stats Overlay Layer */}
+      <div className={`absolute inset-0 flex flex-col justify-center p-6 gap-4 transition-all duration-500 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+        {radarData4.map((item, idx) => (
+          <div key={item.label} className="flex flex-col">
+            <div className="flex flex-col mb-1.5 px-0.5">
+              <span className="text-[7px] font-black uppercase tracking-[0.3em] text-cyan-500/50 mb-0.5">Category</span>
+              <div className="flex justify-between items-end">
+                <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white/90">{item.label}</span>
+                <span className="text-[14px] font-black italic text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">{item.val.toFixed(1)}</span>
+              </div>
+            </div>
+            <div className="h-1.5 w-full bg-cyan-900/30 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.7)] transition-all duration-700 ease-out" 
+                style={{ width: isHovered ? `${(item.val / 10) * 100}%` : '0%' }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+
 
 // --- Metric Bar Component ---
 const MetricBar = ({ label, score, max = 100, displayValue, isFreePlan = false }) => {
@@ -6990,19 +7102,24 @@ const MetricBar = ({ label, score, max = 100, displayValue, isFreePlan = false }
   
   let colorClass = 'bg-gradient-to-r from-red-600 via-red-500 to-rose-400';
   let shadowClass = 'shadow-[0_0_15px_rgba(225,29,72,0.5)]';
+  let textColorClass = 'text-rose-400';
   if (percentage >= 70) {
     colorClass = 'bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-400';
     shadowClass = 'shadow-[0_0_15px_rgba(20,184,166,0.5)]';
+    textColorClass = 'text-emerald-400';
   } else if (percentage >= 40) {
     colorClass = 'bg-gradient-to-r from-orange-600 via-orange-500 to-amber-400';
     shadowClass = 'shadow-[0_0_15px_rgba(251,191,36,0.5)]';
+    textColorClass = 'text-amber-400';
   }
 
   return (
     <div className="flex flex-col relative group">
       <div className="flex justify-between items-end gap-3 text-[10px] uppercase font-sans text-zinc-400 mb-1.5">
         <span className="tracking-[0.22em] font-bold leading-tight">{label}</span>
-        <span className="font-black text-white text-sm bg-zinc-900/80 px-2 py-0.5 rounded shadow-sm border border-zinc-800">{isFreePlan ? `${Math.round(progress)}/100` : (displayValue ? displayValue : `${progress.toFixed(1)}${max === 100 ? '%' : ''}`)}</span>
+        <span className={`font-black ${textColorClass} text-sm bg-zinc-900/80 px-2.5 py-0.5 rounded-md shadow-sm border border-zinc-800 transition-colors duration-500`}>
+          {isFreePlan ? `${Math.round(progress)}/100` : (displayValue ? displayValue : `${progress.toFixed(1)}${max === 100 ? '%' : ''}`)}
+        </span>
       </div>
       <div className="w-full h-2.5 bg-zinc-800/80 rounded-full relative overflow-hidden flex items-center shadow-inner">
         <div 
@@ -7247,27 +7364,118 @@ const mapFeatureToCoordinates = (title, desc) => {
   return { x: 50, y: 50 };
 };
 
+const HoloCube = ({ data }) => {
+  const [rot, setRot] = useState({ x: -10, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const lastMouse = useRef({ x: 0, y: 0 });
+
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    lastMouse.current = { x: e.clientX, y: e.clientY };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDragging) return;
+      const deltaX = e.clientX - lastMouse.current.x;
+      const deltaY = e.clientY - lastMouse.current.y;
+      setRot(prev => ({ 
+        x: Math.max(-60, Math.min(60, prev.x - deltaY * 0.5)), 
+        y: prev.y + deltaX * 0.5 
+      }));
+      lastMouse.current = { x: e.clientX, y: e.clientY };
+    };
+    const handleMouseUp = () => setIsDragging(false);
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  return (
+    <div 
+      className={`relative w-full h-full flex items-center justify-center [perspective:1000px] select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      onMouseDown={handleMouseDown}
+    >
+      <div 
+        className="relative w-36 h-36 [transform-style:preserve-3d] transition-transform duration-150 ease-out"
+        style={{ transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)` }}
+      >
+        {[0, 90, 180, 270].map((ry, idx) => {
+          const item = data[idx];
+          const faceAngle = (ry + rot.y) % 360;
+          const normalized = ((faceAngle + 180) % 360 + 360) % 360 - 180;
+          const cos = Math.cos(normalized * (Math.PI / 180));
+          const opacity = Math.max(0.05, cos); 
+
+          return (
+            <div 
+              key={item.label} 
+              className="absolute inset-0 bg-cyan-500/[0.04] backdrop-blur-[1px] border border-cyan-400/30 shadow-[0_0_15px_rgba(34,211,238,0.1)] flex flex-col items-center justify-center p-4 transition-opacity duration-300"
+              style={{ 
+                transform: `rotateY(${ry}deg) translateZ(72px)`,
+                backgroundImage: 'linear-gradient(rgba(34,211,238,0.05) 1px, transparent 1px)',
+                backgroundSize: '100% 4px',
+                opacity: opacity
+              }}
+            >
+              <div 
+                className="w-full flex flex-col items-center justify-center transition-transform duration-150 ease-out"
+                style={{ transform: `rotateY(${-rot.y - ry}deg) rotateX(${-rot.x}deg)` }}
+              >
+                <p className="text-[6px] font-black uppercase tracking-[0.3em] text-cyan-400/50 mb-1">Live Telemetry</p>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-white/90 mb-2 text-center">{item.label}</h4>
+                
+                <div className="relative w-full px-1">
+                  <div className="flex justify-between items-end mb-1">
+                    <span className="text-[14px] font-black italic text-cyan-400 drop-shadow-[0_0_5px_rgba(34,211,238,0.4)]">
+                      {item.val.toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="h-[2px] w-full bg-cyan-900/20 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"
+                      style={{ width: `${(item.val / 10) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <div className="absolute inset-0 bg-cyan-500/[0.02] border border-cyan-500/10 [transform:rotateX(90deg)_translateZ(72px)] opacity-20" />
+        <div className="absolute inset-0 bg-cyan-500/[0.02] border border-cyan-500/10 [transform:rotateX(-90deg)_translateZ(72px)] opacity-20" />
+      </div>
+    </div>
+  );
+};
+
 const FeatureHighlightCard = ({ type, feature, onHover }) => {
   const isBest = type === 'best';
   if (!feature) return null;
   const cardClass = isBest
-    ? 'p-5 bg-green-900/10 border border-green-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(34,197,94,0.05)] cursor-default transition-all duration-300 hover:scale-[1.02]'
-    : 'p-5 bg-red-900/10 border border-red-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(239,68,68,0.05)] cursor-default transition-all duration-300 hover:scale-[1.02]';
+    ? 'p-7 bg-green-900/10 border border-green-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(34,197,94,0.05)] cursor-default transition-all duration-300 hover:scale-[1.02]'
+    : 'p-7 bg-red-900/10 border border-red-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(239,68,68,0.05)] cursor-default transition-all duration-300 hover:scale-[1.02]';
   const railClass = isBest
-    ? 'absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-green-400 to-green-600'
-    : 'absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-red-400 to-red-600';
+    ? 'absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-green-400 to-green-600'
+    : 'absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-red-400 to-red-600';
   const labelClass = isBest
-    ? 'text-green-500/50 text-[10px] uppercase font-black tracking-widest mb-1 block'
-    : 'text-red-500/50 text-[10px] uppercase font-black tracking-widest mb-1 block';
+    ? 'text-green-500/50 text-[11px] uppercase font-black tracking-widest mb-1.5 block'
+    : 'text-red-500/50 text-[11px] uppercase font-black tracking-widest mb-1.5 block';
   const titleClass = isBest
-    ? 'text-green-400 font-bold uppercase text-sm tracking-widest mb-2'
-    : 'text-red-400 font-bold uppercase text-sm tracking-widest mb-2';
+    ? 'text-green-400 font-bold uppercase text-lg tracking-widest mb-2.5'
+    : 'text-red-400 font-bold uppercase text-lg tracking-widest mb-2.5';
   return (
     <div className={cardClass}>
       <div className={railClass} />
       <span className={labelClass}>{isBest ? 'Best Feature' : 'Primary Flaw'}</span>
       <h4 className={titleClass}>{stripInlineMarkers(feature.title)}</h4>
-      <p className="text-zinc-400 text-[12px] font-sans leading-relaxed">{renderMarkedText(feature.description)}</p>
+      <p className="text-zinc-300 text-[14px] font-sans leading-relaxed">{renderMarkedText(feature.description)}</p>
     </div>
   );
 };
@@ -7292,7 +7500,7 @@ const PersonalizedFeedbackCard = ({ item, delay = 0 }) => (
   </div>
 );
 
-const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, onImageClick }) => {
+const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, onImageClick, showAnchors = false, anchorImageUrl = null }) => {
   const [landmarker, setLandmarker] = useState(null);
   const [landmarks, setLandmarks] = useState(null);
   const imgRef = useRef(null);
@@ -7572,18 +7780,27 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
     <button
       type="button"
       onClick={() => onImageClick?.(activeImageUrl)}
-      className="relative w-60 sm:w-64 md:w-[18rem] aspect-[3/4] shrink-0 bg-[#060708] rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 mx-auto text-left transition-colors hover:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+      className="relative w-72 sm:w-72 md:w-[21rem] aspect-[3/4] shrink-0 bg-[#060708] rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 mx-auto text-left transition-colors hover:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
     >
-      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-[#0a0a0b]/20 to-transparent z-10 pointer-events-none" />
       <img 
         ref={imgRef}
         src={activeImageUrl} 
         loading="eager"
         decoding="async"
         onLoad={detectCurrentImage}
-        className="absolute inset-0 w-full h-full object-cover object-center scale-[1.14] duration-700"
+        className={`absolute inset-0 w-full h-full object-cover object-center scale-[1.14] transition-all duration-700 ${showAnchors && anchorImageUrl ? 'opacity-30 grayscale brightness-50' : 'opacity-100'}`}
         alt="face map"
       />
+      {showAnchors && anchorImageUrl && (
+        <img 
+          src={anchorImageUrl} 
+          loading="eager"
+          decoding="async"
+          className="absolute inset-0 w-full h-full object-cover object-center scale-[1.14] z-10 mix-blend-screen opacity-100"
+          alt="anchors overlay"
+        />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-[#0a0a0b]/20 to-transparent z-20 pointer-events-none" />
     </button>
   );
 };
@@ -7721,6 +7938,11 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
 
   const [activeProfileView, setActiveProfileView] = useState('front');
   const [freeRatingLoop, setFreeRatingLoop] = useState(70);
+  const [experimentalCohesiveEnabled, setExperimentalCohesiveEnabled] = useState(Boolean(dashboardData?.cohesiveFrontSide));
+
+  useEffect(() => {
+    setExperimentalCohesiveEnabled(Boolean(dashboardData?.cohesiveFrontSide));
+  }, [dashboardData?.scanId, dashboardData?.cohesiveFrontSide]);
 
   const placeholderProfileImage = "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png";
   const hasUsableImage = (src) => Boolean(
@@ -7733,6 +7955,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const effectiveProfileView = activeProfileView === 'side' && hasSideProfileImage ? 'side' : 'front';
   const isSideView = effectiveProfileView === 'side';
   const hasBothProfileViews = hasFrontProfileImage && hasSideProfileImage;
+  const effectiveCohesiveEnabled = hasBothProfileViews && experimentalCohesiveEnabled;
 
   useEffect(() => {
     if (!hasSideProfileImage && activeProfileView === 'side') {
@@ -7743,29 +7966,51 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const activeCats = isSideView && dashboardData?.sideCategories
     ? dashboardData.sideCategories
     : dashboardData?.categories;
+  const oppositeCats = !isSideView && dashboardData?.sideCategories
+    ? dashboardData.sideCategories
+    : (isSideView ? dashboardData?.categories : null);
+
   const defaultRadar = [
     { label: 'Skin', val: 6.4 },
+    { label: 'Bone', val: 7.2 },
     { label: 'Dimorphism', val: 7.8 },
     { label: 'Symmetry', val: 9.2 },
-    { label: 'Harmony', val: 8.5 },
-    { label: 'Bone', val: 8.8 }
+    { label: 'Harmony', val: 8.5 }
   ];
 
   const frForRadar = isSideView
     ? (dashboardData?.sideRating ?? dashboardData?.finalRating)
     : dashboardData?.finalRating;
+  const oppositeRawRating = isSideView
+    ? (dashboardData?.finalRating ?? dashboardData?.sideRating)
+    : (dashboardData?.sideRating ?? dashboardData?.finalRating);
+  const activeHexagon = isSideView ? dashboardData?.hexagonSide : dashboardData?.hexagonFront;
+  const oppositeHexagon = !isSideView ? dashboardData?.hexagonSide : dashboardData?.hexagonFront;
   const primaryRadarData =
-    hexagonToCategorySignals(isSideView ? dashboardData?.hexagonSide : dashboardData?.hexagonFront, frForRadar) ||
+    hexagonToRadarData(activeHexagon, frForRadar) ||
     (activeCats
       ? [
           { label: 'Skin', val: categoryToRadar10(activeCats.Skin, frForRadar) },
+          { label: 'Bone', val: categoryToRadar10(activeCats.Bone, frForRadar) },
           { label: 'Dimorphism', val: categoryToRadar10(activeCats.Dimorphism, frForRadar) },
           { label: 'Symmetry', val: categoryToRadar10(activeCats.Symmetry, frForRadar) },
           { label: 'Harmony', val: categoryToRadar10(activeCats.Harmony, frForRadar) },
-          { label: 'Bone', val: categoryToRadar10(activeCats.Bone, frForRadar) },
         ]
       : defaultRadar);
-  const radarData = primaryRadarData;
+  const secondaryRadarData =
+    hexagonToRadarData(oppositeHexagon, oppositeRawRating) ||
+    (oppositeCats
+      ? [
+          { label: 'Skin', val: categoryToRadar10(oppositeCats.Skin, oppositeRawRating) },
+          { label: 'Bone', val: categoryToRadar10(oppositeCats.Bone, oppositeRawRating) },
+          { label: 'Dimorphism', val: categoryToRadar10(oppositeCats.Dimorphism, oppositeRawRating) },
+          { label: 'Symmetry', val: categoryToRadar10(oppositeCats.Symmetry, oppositeRawRating) },
+          { label: 'Harmony', val: categoryToRadar10(oppositeCats.Harmony, oppositeRawRating) },
+        ]
+      : null);
+  const radarData = effectiveCohesiveEnabled
+    ? blendRadarSets(primaryRadarData, secondaryRadarData, 0.18)
+    : primaryRadarData;
 
   const getCatScore = (catName) => {
     if (!dashboardData?.categories) return null;
@@ -7825,30 +8070,9 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const frontalBiometrics = dashboardData?.biometrics?.length
     ? dashboardData.biometrics.filter(m => isFrontalMetric(m.label))
     : [];
-  const baseMetricData = isSideView
+  const metricData = isSideView
     ? (dashboardData?.sideBiometrics?.length ? dashboardData.sideBiometrics : sideMetricDataGlobal)
     : (frontalBiometrics.length ? frontalBiometrics : frontMetricData);
-  const metricData = useMemo(() => {
-    const source = Array.isArray(baseMetricData) ? baseMetricData : [];
-    const hasGrooming = source.some((metric) => /hairstyle|grooming|hair styling/i.test(String(metric?.label || metric?.name || '')));
-    if (hasGrooming || isSideView) return source;
-    const pools = [
-      ...(Array.isArray(dashboardData?.keyRatios) ? dashboardData.keyRatios : []),
-      ...(Array.isArray(dashboardData?.biometrics) ? dashboardData.biometrics : []),
-    ];
-    const existing = pools.find((metric) => /hairstyle|grooming|hair styling/i.test(String(metric?.label || metric?.name || '')));
-    const rawScore = existing?.score ?? existing?.rating ?? dashboardData?.categories?.['Hairstyle and Grooming'] ?? dashboardData?.categories?.Grooming ?? 70;
-    const score = Number.isFinite(Number(rawScore)) ? Math.max(0, Math.min(100, Number(rawScore))) : 70;
-    return [
-      ...source,
-      {
-        label: 'Hairstyle and Grooming',
-        score,
-        max: 100,
-        displayValue: `${Math.round(score)}/100`,
-      },
-    ];
-  }, [baseMetricData, dashboardData?.biometrics, dashboardData?.categories, dashboardData?.keyRatios, isSideView]);
 
   const activeImageUrl = effectiveProfileView === 'front'
     ? (dashboardData?.frontImage || placeholderProfileImage)
@@ -7901,6 +8125,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const detailedReportStartedMs = Date.parse(dashboardData?.reportStartedAt || dashboardData?.payload?.reportStartedAt || '');
 
   const [activeHover, setActiveHover] = useState(null);
+  const [showAnchorOverlay, setShowAnchorOverlay] = useState(false);
   const [reportNowMs, setReportNowMs] = useState(Date.now());
   const [reportRetrying, setReportRetrying] = useState(false);
   const [reportRetryError, setReportRetryError] = useState('');
@@ -8049,10 +8274,13 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const baseDisplayedFinalRating = isSideView
     ? (dashboardData?.sideRating ?? dashboardData?.finalRating ?? null)
     : (dashboardData?.finalRating ?? null);
-  const numericDisplayedFinalRating = baseDisplayedFinalRating;
+  const numericDisplayedFinalRating = effectiveCohesiveEnabled
+    ? blendNumeric(baseDisplayedFinalRating, oppositeRawRating, 0.18)
+    : baseDisplayedFinalRating;
   const displayedFinalRating = isFreeModelResult
     ? freeRatingLoop
     : (numericDisplayedFinalRating ?? 85);
+  const ratingTone = getRatingToneClasses(displayedFinalRating);
   const openAnimationsViewer = useCallback(() => {
     if (typeof window === 'undefined') return;
     const animationId =
@@ -8083,6 +8311,22 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     }
     setCurrentPage('animations', `/animations/${animationId}`);
   }, [activeBestFeatures, activeImageUrl, activePrimaryFlaws, dashboardData?.finalRating, effectiveProfileView, metricData, numericDisplayedFinalRating, setCurrentPage]);
+  const cohesiveExperimentToggle = hasBothProfileViews && !isFreeModelResult ? (
+    <button
+      type="button"
+      onClick={() => setExperimentalCohesiveEnabled((prev) => !prev)}
+      className={`mb-4 inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] transition-colors ${
+        effectiveCohesiveEnabled
+          ? 'border-amber-400/35 bg-amber-400/10 text-amber-300'
+          : 'border-zinc-700 bg-zinc-900/80 text-zinc-400 hover:border-amber-400/25 hover:text-amber-300'
+      }`}
+      title="Experimental: let front and side influence each other slightly instead of staying fully separate."
+    >
+      <Sparkles size={12} />
+      {effectiveCohesiveEnabled ? 'Experimental cohesive on' : 'Experimental cohesive off'}
+    </button>
+  ) : null;
+  const radarFinalScore = Number(numericDisplayedFinalRating ?? dashboardData?.finalRating ?? 0) || 0;
   const freeHistoryCards = useMemo(() => {
     const items = Array.isArray(dashboardData?.scanHistory) ? [...dashboardData.scanHistory] : [];
     const currentSnapshot = dashboardData?.frontImage || dashboardData?.finalRating != null
@@ -8178,6 +8422,31 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
       `}</style>
       <FadeUp>
         <div className={`w-full mx-auto flex flex-col gap-12 ${isEmbedded ? 'max-w-5xl' : 'max-w-6xl'}`}>
+          {/* Mobile Header Buttons (Free Dashboard) */}
+          {!isEmbedded && isFreeModelResult && (
+            <div className="md:hidden">
+              {onBackToProfiles && (
+                <button
+                  type="button"
+                  onClick={onBackToProfiles}
+                  className="mb-8 inline-flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+                >
+                  <ArrowLeft size={15} />
+                  Previous Page
+                </button>
+              )}
+              <div className="mb-6 flex items-center justify-between">
+                <span className="text-2xl font-black italic tracking-tighter text-white">MogCheck</span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage('upload-photo')}
+                  className="inline-flex items-center gap-2 rounded-full bg-blue-500 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-[0_0_24px_rgba(59,130,246,0.35)] transition-all hover:bg-blue-400"
+                >
+                  <Plus size={13} /> New Scan
+                </button>
+              </div>
+            </div>
+          )}
           <div className="hidden flex-wrap items-center gap-2 md:flex">
             <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
               AI used: {getAnalysisModelLabel(selectedModel || dashboardData?.model)}
@@ -8193,10 +8462,62 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                 Detailed report loading
               </span>
             )}
+            {(dashboardData?.cohesiveFrontSide || effectiveCohesiveEnabled) && (
+              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">
+                Cohesive side/front enabled
+              </span>
+            )}
           </div>
+
+          {/* Mobile Scan History Strip (Free) */}
+          {!isEmbedded && isFreeModelResult && freeHistoryCards.length > 1 && (
+            <div className="mb-4 md:hidden">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">Scan History</p>
+                <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">{freeHistoryCards.length} scans</span>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-4 -mx-4 px-4 custom-scrollbar scroll-smooth">
+                {freeHistoryCards.map((scan, idx) => {
+                  const isActive = scan?.frontImage === dashboardData?.frontImage && scan?.finalRating === dashboardData?.finalRating;
+                  const rating = Number(scan.finalRating || 0);
+                  const tone = getRatingToneClasses(rating);
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => onOpenHistoryScan?.({
+                        ...scan,
+                        scanHistory: freeHistoryCards.slice().reverse(),
+                        ratingHistory: freeHistoryCards
+                          .slice()
+                          .reverse()
+                          .map((item) => Number(item?.finalRating))
+                          .filter((rating) => Number.isFinite(rating)),
+                      })}
+                      className={`relative flex-shrink-0 w-14 aspect-square rounded-xl overflow-hidden border transition-all duration-300 ${isActive ? 'border-cyan-400 ring-2 ring-cyan-400/15 scale-[1.05] z-10' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}
+                    >
+                      <img loading="lazy" decoding="async" src={scan.frontImage} className="w-full h-full object-cover" alt="" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                      <div className={`absolute bottom-1 left-0 right-0 text-center text-[9px] font-black italic ${tone.text} ${rating === 0 ? 'animate-free-rating-bg' : ''}`}
+                        style={{
+                          background: rating === 0 ? 'none' : 'white',
+                          WebkitBackgroundClip: rating === 0 ? 'text' : 'none',
+                          WebkitTextFillColor: rating === 0 ? 'transparent' : 'inherit',
+                          filter: rating === 0 ? 'blur(3.5px) saturate(0.85)' : 'none'
+                        }}
+                      >
+                        {rating === 0 ? freeRatingLoop : rating.toFixed(1)}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {(isRestrictedPreview || !isFreeModelResult) && (
             <div className="space-y-4 md:hidden">
-              <div className="grid grid-cols-1 gap-3">
+              <div className="grid grid-cols-[1.15fr_0.85fr] gap-3">
                 <button
                   type="button"
                   onClick={() => setScanLightbox({ src: activeImageUrl, subtitle: `${effectiveProfileView === 'side' ? 'Side' : 'Front'} profile` })}
@@ -8212,17 +8533,28 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
                 </button>
-                <div className="grid gap-4">
-                  <div className="flex min-h-[6.75rem] flex-col items-center justify-center rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-3 text-center shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
-                    <span className="mb-2 text-[9px] font-black uppercase tracking-[0.26em] text-cyan-400">Final Rating</span>
-                    <span className="text-5xl font-black italic tracking-tight text-zinc-200 drop-shadow-[0_0_18px_rgba(34,211,238,0.18)]">
-                      {displayedFinalRating}
-                    </span>
+                <div className="grid gap-3">
+                  <div className="flex min-h-[7.25rem] flex-col items-center justify-center rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-3 text-center shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
+                    <span className="mb-2 text-[10px] font-black uppercase tracking-[0.26em] text-white">Final Rating</span>
+                    <div className="relative">
+                      <span 
+                        className={`text-5xl font-black italic tracking-tight drop-shadow-[0_0_18px_${ratingTone.stroke || 'rgba(34,211,238,0.18)'}] ${isFreeModelResult ? 'select-none animate-free-rating-bg' : ''}`}
+                        style={{
+                          background: isFreeModelResult ? 'none' : `linear-gradient(to bottom, #ffffff 40%, ${ratingTone.stroke || '#22d3ee'})`,
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                          filter: `saturate(0.85) ${isFreeModelResult ? 'blur(8px)' : ''}`
+                        }}
+                      >
+                        {displayedFinalRating}
+                      </span>
+                    </div>
                   </div>
-                  <div className="relative overflow-hidden rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-4 shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
-                    <div className="w-full">
-                      <span className="mb-3 block text-[9px] font-black uppercase tracking-[0.26em] text-cyan-400/80">Category Signals</span>
-                      <CategorySignalsList data={radarData} />
+                  <div className="relative flex min-h-[7.25rem] items-center justify-center overflow-hidden rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-4 shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
+                    {isFreeModelResult && renderBlurredOverlay("Detailed Ratios", true)}
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.08)_0%,transparent_72%)]" />
+                    <div className="relative z-10 w-[88%] max-w-[7rem]">
+                      <RadarChart data={radarData} finalScore={radarFinalScore} compact />
                     </div>
                   </div>
                 </div>
@@ -8270,76 +8602,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
             >
               <ArrowLeft size={14} /> Back to Profiles
             </button>
-          )}
-          {!isEmbedded && isFreeModelResult && freeHistoryCards.length > 0 && (
-            <section className="w-full scroll-mt-28">
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <h2 className="text-2xl font-black uppercase tracking-[0.25em] text-white">Face Analysis</h2>
-                  <p className="mt-1 text-sm font-sans text-zinc-500">Snapshot of your latest scan, trajectory, and quick signals.</p>
-                </div>
-                {freeHistoryCards.length > 1 && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => scrollFreeHistoryStrip(-1)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
-                      aria-label="Previous scans"
-                    >
-                      <ChevronLeft size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => scrollFreeHistoryStrip(1)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-800 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
-                      aria-label="Next scans"
-                    >
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div ref={freeHistoryStripRef} className="flex gap-3 overflow-x-auto pb-2">
-                {freeHistoryCards.map((scan, index) => {
-                  const isActive =
-                    scan?.frontImage === dashboardData?.frontImage &&
-                    scan?.sideImage === dashboardData?.sideImage &&
-                    scan?.finalRating === dashboardData?.finalRating;
-                  const scanIsFree = isFreeHistoryScan(scan);
-                  const numericRating = Number(scan?.finalRating);
-                  return (
-                    <button
-                      key={`${scan.frontImage || 'scan'}-${scan.scannedAt || index}-${index}`}
-                      type="button"
-                      onClick={() => onOpenHistoryScan?.({
-                        ...scan,
-                        scanHistory: freeHistoryCards.slice().reverse(),
-                        ratingHistory: freeHistoryCards
-                          .slice()
-                          .reverse()
-                          .map((item) => Number(item?.finalRating))
-                          .filter((rating) => Number.isFinite(rating)),
-                      })}
-                      className={`group relative flex h-24 w-48 shrink-0 overflow-hidden rounded-2xl border bg-[#0c0d0e] text-left transition-all ${isActive ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.18)]' : 'border-zinc-800'}`}
-                    >
-                      <div className={`absolute left-2 top-2 z-10 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold ${
-                        scanIsFree
-                          ? 'text-emerald-300 blur-[2.775px] drop-shadow-[0_0_10px_rgba(16,185,129,0.75)]'
-                          : 'text-cyan-300'
-                      }`}>
-                        {scanIsFree ? freeRatingLoop.toFixed(1) : (Number.isFinite(numericRating) ? numericRating.toFixed(1) : '-')}
-                      </div>
-                      <div className="relative flex-1 border-r border-zinc-900">
-                        <img loading="lazy" decoding="async" src={scan.frontImage || placeholderProfileImage} alt="Front profile" className="h-full w-full object-cover" />
-                      </div>
-                      <div className="relative flex-1">
-                        <img loading="lazy" decoding="async" src={scan.sideImage || scan.frontImage || placeholderProfileImage} alt="Side profile" className="h-full w-full object-cover object-top" />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
           )}
           {/* Top Section: Subject & History */}
           {!hideTopSection && (
@@ -8420,38 +8682,60 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
               <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={effectiveProfileView} showFeatureLists={true} />
 
               <div className="hidden md:grid md:grid-cols-4 gap-6">
-                <div className="col-span-1 md:col-span-1 flex flex-col gap-4">
+                <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
                   {/* Left Column Stack: Final Rating then Categories */}
-                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden p-4 shadow-lg group hover:border-zinc-700 transition-colors">
-                    <div className="relative z-10 flex flex-col items-center justify-center text-center">
-                      <span className="mb-3 block font-sans text-[9px] uppercase tracking-[0.34em] text-green-300/80">Final Rating</span>
+                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden text-center flex flex-col justify-center h-[180px] shadow-lg group hover:border-zinc-700 transition-colors">
+                    <div className="relative z-10 flex flex-col items-center justify-center">
+                      <span className="font-sans text-[11px] uppercase tracking-[0.45em] mb-4 text-white">Final Rating</span>
                       <div className="relative leading-none">
-                        <span className="absolute inset-0 block text-5xl font-black italic tracking-tighter text-green-400/90 blur-[25.9px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none">
-                          {displayedFinalRating}
-                        </span>
-                        <span className="relative block text-5xl font-black italic tracking-tighter text-green-400 blur-[18.5px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_rgba(74,222,128,0.4)]">
-                          {displayedFinalRating}
-                        </span>
+                        <>
+                          <span 
+                            className={`absolute inset-0 block text-6xl font-black italic tracking-tighter animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none animate-free-rating-bg`}
+                            style={{
+                              background: 'none',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              filter: 'saturate(0.85) blur(25.9px)'
+                            }}
+                          >
+                            {displayedFinalRating}
+                          </span>
+                          <span 
+                            className={`relative block text-6xl font-black italic tracking-tighter animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_${ratingTone.stroke || 'rgba(74,222,128,0.4)'}] animate-free-rating-bg`}
+                            style={{
+                              background: 'none',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              filter: 'saturate(0.85) blur(18.5px)'
+                            }}
+                          >
+                            {displayedFinalRating}
+                          </span>
+                        </>
                       </div>
                       {authenticityFlag && !isFreeModelResult && (
-                        <span className="mt-3 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                        <span className="mt-3 max-w-[85%] rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
                           {authenticityFlag}
                         </span>
                       )}
                       {showUncannyFlagUnderScore && (
-                        <span className="mt-2 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                        <span className="mt-2 max-w-[85%] text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
                           ({uncannyFlag})
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden p-4 shadow-lg group hover:border-zinc-700 transition-colors">
-                    <span className="mb-3 block text-[9px] font-black uppercase tracking-[0.34em] text-green-300/70">Category Signals</span>
-                    <CategorySignalsList data={radarData} blurred size="large" />
+                  <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg group hover:border-zinc-700 transition-colors p-4">
+                    {renderBlurredOverlay("Category Scores")}
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(74,222,128,0.05)_0%,transparent_70%)] pointer-events-none" />
+                    <div className="w-[85%] max-w-[200px] opacity-10 blur-[12.95px] pointer-events-none select-none relative z-10">
+                      <RadarChart data={radarData} finalScore={radarFinalScore} />
+                    </div>
                   </div>
                 </div>
 
                 <div className="col-span-1 md:col-span-3 bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
+                  {cohesiveExperimentToggle}
                   <div className="mb-6 flex items-center justify-between gap-3">
                     <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest flex items-center gap-2">
                       <Target size={14} className="text-zinc-500" /> Structure
@@ -8516,51 +8800,66 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           ) : (
             <>
               <div className="hidden md:grid md:grid-cols-4 gap-6">
-                <div className="col-span-1 md:col-span-1 flex flex-col gap-4">
+                <div className="col-span-1 md:col-span-1 flex flex-col gap-6 h-full">
                   {/* Left Column Stack: Final Rating then Categories */}
-                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden p-4 shadow-lg group hover:border-zinc-700 transition-colors">
-                    <div className="relative z-10 flex flex-col items-center justify-center text-center">
-                      <span className="mb-3 block font-sans text-[9px] uppercase tracking-[0.34em] text-cyan-400/80">
-                        {isFreeModelResult ? 'Analysis Type' : 'Final Rating'}
+                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden text-center flex flex-col justify-center flex-1 min-h-[240px] shadow-lg group hover:border-zinc-700 transition-colors">
+                    <div className="relative z-10 flex flex-col items-center justify-center">
+                      <span className="font-sans text-[11px] uppercase tracking-[0.45em] mb-4 text-white">
+                        {'Final Rating'}
                       </span>
-                      <div className="relative leading-none">
-                        <span className={`block font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-500 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)] ${isFreeModelResult ? 'text-3xl' : 'text-5xl'}`}>
+                      <div className="relative leading-none w-full flex justify-center">
+                        <span 
+                          className={`block font-black tracking-tighter ${isFreeModelResult ? 'text-3xl animate-free-rating-bg' : 'text-[5.5rem] md:text-[6.5rem]'}`}
+                          style={{
+                            background: isFreeModelResult ? 'none' : `linear-gradient(to bottom, #ffffff 40%, ${ratingTone.stroke || '#22d3ee'})`,
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            filter: 'saturate(0.85)'
+                          }}
+                        >
                           {displayedFinalRating}
                         </span>
                       </div>
                       {authenticityFlag && !isFreeModelResult && (
-                        <span className="mt-3 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                        <span className="mt-3 max-w-[85%] rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
                           {authenticityFlag}
                         </span>
                       )}
                       {showUncannyFlagUnderScore && (
-                        <span className="mt-2 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                        <span className="mt-2 max-w-[85%] text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
                           ({uncannyFlag})
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden p-4 shadow-lg group hover:border-zinc-700 transition-colors">
-                    <span className="mb-3 block text-[9px] font-black uppercase tracking-[0.34em] text-cyan-400/70">Category Signals</span>
-                    <CategorySignalsList data={radarData} size="large" />
+                  <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg overflow-hidden transition-all duration-500 hover:border-zinc-700">
+                    <HexagonStats 
+                      radarData4={radarData} 
+                      radarData5={[
+                        ...radarData,
+                        { label: 'Bone', val: categoryToRadar10(dashboardData?.categories?.Bone || 8.5, radarFinalScore) }
+                      ]}
+                      finalScore={radarFinalScore} 
+                    />
                   </div>
                 </div>
 
                 <div className="col-span-1 md:col-span-3 bg-[#0c0d0e] p-8 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
+                  {cohesiveExperimentToggle}
                   <div className="mb-6 flex items-center justify-between gap-3">
-                    <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest flex items-center gap-2">
-                      <Target size={14} className="text-zinc-500" /> Structure
-                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setShowAnchorOverlay(!showAnchorOverlay)}
+                      className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-[0.25em] transition-all duration-300 ${
+                        showAnchorOverlay 
+                          ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200 shadow-[0_0_15px_rgba(34,211,238,0.25)]' 
+                          : 'border-zinc-800 bg-zinc-900/50 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'
+                      }`}
+                    >
+                      <Target size={14} className={showAnchorOverlay ? 'text-cyan-400' : 'text-zinc-500'} />
+                      {showAnchorOverlay ? 'Anchors Active' : 'Anchor Points'}
+                    </button>
                     <div className="flex flex-wrap justify-end gap-2">
-                      {debugAnchorsImage && (
-                        <button
-                          type="button"
-                          onClick={() => setScanLightbox({ src: debugAnchorsImage, subtitle: 'Debug anchors - landmark overlay' })}
-                          className="inline-flex items-center gap-2 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.18em] text-cyan-200 transition-colors hover:border-cyan-300/50 hover:bg-cyan-500/15"
-                        >
-                          <Eye size={12} /> Debug
-                        </button>
-                      )}
                       <button
                         type="button"
                         onClick={openAnimationsViewer}
@@ -8577,16 +8876,18 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       primaryFlaw={primaryFlawFeature} 
                       activeHover={showBestFlaw ? activeHover : null}
                       onImageClick={(src) => setScanLightbox({ src, subtitle: `${effectiveProfileView === 'side' ? 'Side' : 'Front'} profile` })}
+                      showAnchors={showAnchorOverlay}
+                      anchorImageUrl={debugAnchorsImage}
                     />
-                    <div className="flex-grow space-y-3 w-full flex flex-col justify-center max-w-[15rem]">
-                       <div className={`flex gap-2 mb-1 w-full ${hasSideProfileImage ? 'max-w-[13rem]' : 'max-w-[8rem]'} mx-auto md:mx-0`}>
-                         <div onClick={() => setActiveProfileView('front')} className={`relative ${hasSideProfileImage ? 'flex-1' : 'w-full'} aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                    <div className="flex-grow space-y-4 w-full flex flex-col justify-center max-w-[20rem]">
+                       <div className={`flex gap-2 mb-1 w-full ${hasSideProfileImage ? 'max-w-[18rem]' : 'max-w-[10rem]'} mx-auto md:mx-0`}>
+                         <div onClick={() => setActiveProfileView('front')} className={`relative ${hasSideProfileImage ? 'flex-1' : 'w-full'} aspect-[16/10] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'front' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
                           <img loading="lazy" decoding="async" src={dashboardData?.frontImage || placeholderProfileImage} className="w-full h-full object-cover object-center scale-[1.08]" alt="Front" />
                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                            <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${effectiveProfileView === 'front' ? 'text-cyan-400' : 'text-zinc-400'}`}>Front</span>
                          </div>
                          {hasSideProfileImage && (
-                           <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[6/5] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
+                           <div onClick={() => setActiveProfileView('side')} className={`relative flex-1 aspect-[16/10] rounded-xl overflow-hidden cursor-pointer border-2 transition-all group-hover/btn:scale-105 ${effectiveProfileView === 'side' ? 'border-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.2)]' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}>
                             <img loading="lazy" decoding="async" src={dashboardData?.sideImage || placeholderProfileImage} className="w-full h-full object-cover scale-[1.08]" style={{objectPosition: 'center top'}} alt="Side" />
                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                              <span className={`absolute bottom-1.5 left-0 right-0 text-center text-[9px] font-sans uppercase tracking-[0.25em] font-bold ${effectiveProfileView === 'side' ? 'text-cyan-400' : 'text-zinc-400'}`}>Side</span>
@@ -9246,7 +9547,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
 };
 
 // --- Admin Dashboard ---
-const AdminDashboardPage = ({ setCurrentPage, user }) => {
+const AdminDashboardPage = ({ setCurrentPage }) => {
   const [password, setPassword] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -9287,24 +9588,12 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
   const [announcementSending, setAnnouncementSending] = useState(false);
   const [announcementStatus, setAnnouncementStatus] = useState('');
   const storedPw = useRef('');
-  const isEmailAdmin = String(user?.email || '').trim().toLowerCase() === 'serenity.eyb@gmail.com';
-
-  const buildAdminHeaders = useCallback(async (base = {}, pwOverride = null) => {
-    const headers = { ...base };
-    if (isEmailAdmin && user?.getIdToken) {
-      const token = await user.getIdToken();
-      headers.Authorization = `Bearer ${token}`;
-      return headers;
-    }
-    headers['x-admin-password'] = pwOverride ?? storedPw.current;
-    return headers;
-  }, [isEmailAdmin, user]);
 
   const fetchStats = async (pw) => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_BASE}/api/admin/stats`, { headers: await buildAdminHeaders({}, pw) });
+      const res = await fetch(`${API_BASE}/api/admin/stats`, { headers: { 'x-admin-password': pw } });
       if (!res.ok) {
         if (res.status === 401) {
           setAuthenticated(false);
@@ -9316,7 +9605,7 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
       const data = await res.json();
       setStats(data);
       
-      const usersRes = await fetch(`${API_BASE}/api/admin/users`, { headers: await buildAdminHeaders({}, pw) });
+      const usersRes = await fetch(`${API_BASE}/api/admin/users`, { headers: { 'x-admin-password': pw } });
       const usersData = await usersRes.json().catch(() => ({}));
       if (!usersRes.ok) {
         throw new Error(usersData?.error || `Users endpoint failed (${usersRes.status})`);
@@ -9326,7 +9615,7 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
       setScanLimitsLoading(true);
       setScanLimitsError('');
       try {
-        const limitsRes = await fetch(`${API_BASE}/api/admin/scan-limits`, { headers: await buildAdminHeaders({}, pw) });
+        const limitsRes = await fetch(`${API_BASE}/api/admin/scan-limits`, { headers: { 'x-admin-password': pw } });
         const limitsData = await limitsRes.json().catch(() => ({}));
         if (!limitsRes.ok) throw new Error(limitsData?.error || `Scan limits endpoint failed (${limitsRes.status})`);
         setScanLimits(Array.isArray(limitsData.limitedUsers) ? limitsData.limitedUsers : []);
@@ -9339,7 +9628,7 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
       
       setLastRefresh(new Date());
       setAuthenticated(true);
-      if (!isEmailAdmin) window.localStorage.setItem('mogcheck_admin_pw', pw);
+      window.localStorage.setItem('mogcheck_admin_pw', pw);
       return true;
     } catch (e) {
       setError(e.message);
@@ -9351,12 +9640,12 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
   };
 
   const fetchVisitorStats = useCallback(async (range = visitorRange, pw = storedPw.current) => {
-    if (!pw && !isEmailAdmin) return;
+    if (!pw) return;
     setVisitorStatsLoading(true);
     setVisitorStatsError('');
     try {
       const res = await fetch(`${API_BASE}/api/admin/visitor-stats?range=${encodeURIComponent(range)}`, {
-        headers: await buildAdminHeaders({}, pw),
+        headers: { 'x-admin-password': pw },
         cache: 'no-store',
       });
       const data = await res.json().catch(() => ({}));
@@ -9368,7 +9657,7 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
     } finally {
       setVisitorStatsLoading(false);
     }
-  }, [visitorRange, buildAdminHeaders, isEmailAdmin]);
+  }, [visitorRange]);
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -9382,12 +9671,7 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
     if (!authenticated) return;
     const iv = setInterval(() => fetchStats(storedPw.current), 120000);
     return () => clearInterval(iv);
-  }, [authenticated, buildAdminHeaders]);
-
-  useEffect(() => {
-    if (!isEmailAdmin || authenticated) return;
-    fetchStats('');
-  }, [isEmailAdmin, authenticated, buildAdminHeaders]);
+  }, [authenticated]);
 
   useEffect(() => {
     if (!authenticated) return;
@@ -9424,7 +9708,7 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/users/${uid}`, {
         method: 'DELETE',
-        headers: await buildAdminHeaders()
+        headers: { 'x-admin-password': storedPw.current }
       });
       if (!res.ok) throw new Error('Failed to delete user');
       setUsers(users.filter(u => u.uid !== uid));
@@ -9446,7 +9730,10 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/notifications/announcement`, {
         method: 'POST',
-        headers: await buildAdminHeaders({ 'Content-Type': 'application/json' }),
+        headers: {
+          'x-admin-password': storedPw.current,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(announcementDraft),
       });
       const data = await res.json().catch(() => ({}));
@@ -9504,7 +9791,7 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/users/${uid}/plan`, {
         method: 'POST',
-        headers: await buildAdminHeaders({ 'Content-Type': 'application/json' }),
+        headers: { 'x-admin-password': storedPw.current, 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan: normalizedPlan, scanCredits: normalizedCredits })
       });
       const data = await res.json().catch(() => ({}));
@@ -9538,7 +9825,7 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
     setScanLimitsError('');
     try {
       const res = await fetch(`${API_BASE}/api/admin/scan-limits`, {
-        headers: await buildAdminHeaders(),
+        headers: { 'x-admin-password': storedPw.current },
         cache: 'no-store',
       });
       const data = await res.json().catch(() => ({}));
@@ -9556,7 +9843,10 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/scan-limits/${encodeURIComponent(uid)}`, {
         method: 'POST',
-        headers: await buildAdminHeaders({ 'Content-Type': 'application/json' }),
+        headers: {
+          'x-admin-password': storedPw.current,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ email, reason: 'Manual admin limit' }),
       });
       const data = await res.json().catch(() => ({}));
@@ -9574,7 +9864,7 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
     try {
       const res = await fetch(`${API_BASE}/api/admin/scan-limits/${encodeURIComponent(uid)}`, {
         method: 'DELETE',
-        headers: await buildAdminHeaders(),
+        headers: { 'x-admin-password': storedPw.current },
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Failed to unlimit user');
@@ -9609,7 +9899,7 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
       if (!userScansByUser[uid]) {
         requests.push(
           fetch(`${API_BASE}/api/admin/users/${uid}/scans`, {
-            headers: await buildAdminHeaders(),
+            headers: { 'x-admin-password': storedPw.current },
             cache: 'no-store',
           }).then(async (res) => {
             const data = await res.json().catch(() => ({}));
@@ -9624,7 +9914,7 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
       if (!userMogBattlesByUser[uid]) {
         requests.push(
           fetch(`${API_BASE}/api/admin/users/${uid}/mog-battles`, {
-            headers: await buildAdminHeaders(),
+            headers: { 'x-admin-password': storedPw.current },
             cache: 'no-store',
           }).then(async (res) => {
             const data = await res.json().catch(() => ({}));
@@ -9639,7 +9929,7 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
       if (!userActivityByUser[uid]) {
         requests.push(
           fetch(`${API_BASE}/api/admin/users/${uid}/activity`, {
-            headers: await buildAdminHeaders(),
+            headers: { 'x-admin-password': storedPw.current },
             cache: 'no-store',
           }).then(async (res) => {
             const data = await res.json().catch(() => ({}));
@@ -9654,7 +9944,7 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
       if (!userPurchasesByUser[uid]) {
         requests.push(
           fetch(`${API_BASE}/api/admin/users/${uid}/purchases`, {
-            headers: await buildAdminHeaders(),
+            headers: { 'x-admin-password': storedPw.current },
             cache: 'no-store',
           }).then(async (res) => {
             const data = await res.json().catch(() => ({}));
@@ -9679,7 +9969,7 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
     try {
       const delRes = await fetch(`${API_BASE}/api/admin/users/${uid}/scans/${scanId}`, {
         method: 'DELETE',
-        headers: await buildAdminHeaders()
+        headers: { 'x-admin-password': storedPw.current }
       });
       if (!delRes.ok) throw new Error('Failed to delete scan');
       setUserScansByUser((prev) => ({
@@ -9695,7 +9985,7 @@ const AdminDashboardPage = ({ setCurrentPage, user }) => {
     try {
       const delRes = await fetch(`${API_BASE}/api/admin/mog-battles/${encodeURIComponent(battleId)}`, {
         method: 'DELETE',
-        headers: await buildAdminHeaders()
+        headers: { 'x-admin-password': storedPw.current }
       });
       const data = await delRes.json().catch(() => ({}));
       if (!delRes.ok) throw new Error(data.error || 'Failed to delete Mog Battle');
@@ -10892,31 +11182,11 @@ const App = () => {
   const [analysisDockCollapsed, setAnalysisDockCollapsed] = useState(false);
   const [focusedAnalysisJobId, setFocusedAnalysisJobId] = useState(null);
   const [premiumProofOpen, setPremiumProofOpen] = useState(false);
-  const [colorMode, setColorMode] = useState(() => {
-    try {
-      return window.localStorage.getItem('mogcheck_color_mode') === 'light' ? 'light' : 'dark';
-    } catch {
-      return 'dark';
-    }
-  });
   const analysisJobsRef = useRef([]);
 
   useEffect(() => {
     analysisJobsRef.current = analysisJobs;
   }, [analysisJobs]);
-
-  useEffect(() => {
-    document.body.classList.toggle('mog-light-mode', colorMode === 'light');
-    try {
-      window.localStorage.setItem('mogcheck_color_mode', colorMode);
-    } catch {
-      // Preference persistence is best-effort.
-    }
-  }, [colorMode]);
-
-  const toggleColorMode = useCallback(() => {
-    setColorMode((mode) => (mode === 'light' ? 'dark' : 'light'));
-  }, []);
 
   const setCurrentPage = useCallback((page, pathOverride = null) => {
     const newPath = pathOverride || (page === 'home' ? '/' : `/${page}`);
@@ -11124,7 +11394,6 @@ const App = () => {
     const model = String(dashboardData?.selectedModel || '').trim();
     return model === '1' || model === '2' || model === '6' || model === '7' || model === '8' || model === '9';
   }, [dashboardData?.selectedModel]);
-  const defaultUploadModel = shouldDefaultUploadToPremium(user, userPlan) ? '9' : '3';
 
   useEffect(() => {
     const reportStatus = String(dashboardData?.reportStatus || dashboardData?.payload?.reportStatus || '').toLowerCase();
@@ -11197,7 +11466,7 @@ const App = () => {
   ]);
 
   const useProDashboard = Boolean(user || hasScanData) && !isFreeModelDashboard;
-  const isScanOnlyPage = currentPage === 'public-scan' || currentPage === 'public-score-card';
+  const isScanOnlyPage = currentPage === 'public-scan';
 
   const registerCompletedScan = useCallback((data, meta = {}, options = {}) => {
     const completedAt = new Date().toISOString();
@@ -11354,8 +11623,6 @@ const App = () => {
           onSignOut={handleSignOut}
           userPlan={userPlan}
           showDashboard={Boolean(user || hasScanData)}
-          colorMode={colorMode}
-          onToggleColorMode={toggleColorMode}
         />
       )}
       {premiumProofOpen && (
@@ -11378,7 +11645,7 @@ const App = () => {
             setSelectedCelebrity={setSelectedCelebrity}
             user={user}
             userPlan={userPlan}
-            initialModel={pendingUploadModel ?? (currentPage === 'upload-ultra' ? '6' : defaultUploadModel)}
+            initialModel={pendingUploadModel ?? (currentPage === 'upload-ultra' ? '6' : '3')}
             isLockedToUltra={currentPage === 'upload-ultra'}
             initialProfileId={pendingUploadProfileId}
             queueAnalysisJob={queueAnalysisJob}
@@ -11442,18 +11709,22 @@ const App = () => {
         )}
         {currentPage === 'plans' && <PlansPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'mog-battles' && (
-          <MogBattlePage user={user} userPlan={userPlan} setCurrentPage={setCurrentPage} dashboardData={dashboardData} />
+          window.innerWidth > 768 ? (
+            <MogBattlePage user={user} setCurrentPage={setCurrentPage} />
+          ) : (
+            <MogBattlePage2 user={user} setCurrentPage={setCurrentPage} />
+          )
         )}
         {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} user={user} />}
-        {currentPage === 'news' && <NewsPage />}
+
         {currentPage === 'public-profile' && (
           <PublicProfilePage routeParams={routeParams} user={user} />
         )}
         {currentPage === 'profile' && (
           <UserProfilePage user={user} userPlan={userPlan} setCurrentPage={setCurrentPage} />
         )}
-        {currentPage === 'celebrity' && <CelebrityRatingPage setCurrentPage={setCurrentPage} setSelectedCelebrity={setSelectedCelebrity} user={user} />}
+        {currentPage === 'celebrity' && <ScansPage setCurrentPage={setCurrentPage} setSelectedCelebrity={setSelectedCelebrity} user={user} />}
         {currentPage === 'celebrity-stats' && selectedCelebrity && <CelebrityStatsPage celeb={selectedCelebrity} setCurrentPage={setCurrentPage} />}
         {currentPage === 'public-scan' && (
           <PublicProfilePage
@@ -11477,15 +11748,7 @@ const App = () => {
             }}
           />
         )}
-        {currentPage === 'public-score-card' && (
-          <PublicProfilePage
-            routeParams={routeParams}
-            user={user}
-            scanOnly
-            scoreCardOnly
-          />
-        )}
-        {currentPage === 'admin' && <AdminDashboardPage setCurrentPage={setCurrentPage} user={user} />}
+        {currentPage === 'admin' && <AdminDashboardPage setCurrentPage={setCurrentPage} />}
         {currentPage === 'protocol-all' && <AllProtocolsPage protocols={dashboardData?.protocols || []} setCurrentPage={setCurrentPage} />}
         {currentPage === 'tos' && <TermsOfServicePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'privacy' && <PrivacyPolicyPage setCurrentPage={setCurrentPage} />}
@@ -11515,8 +11778,353 @@ const App = () => {
              <button onClick={() => setCurrentPage('tos')} className="text-zinc-500 hover:text-zinc-300 text-xs font-sans transition-colors uppercase tracking-widest">Terms of Service</button>
              <button onClick={() => setCurrentPage('privacy')} className="text-zinc-500 hover:text-zinc-300 text-xs font-sans transition-colors uppercase tracking-widest">Privacy Policy</button>
           </div>
-          <p className="text-zinc-600 text-[10px] font-sans uppercase tracking-[0.5em]">Peak Performance Aesthetics (c) 2026</p>
+          <p className="text-zinc-600 text-[10px] font-sans uppercase tracking-[0.5em]">2024</p>
         </footer>
+      )}
+    </div>
+  );
+};
+
+// --- Scans Page ---
+const ScansPage = ({ setCurrentPage, setSelectedCelebrity, user }) => {
+  const [communityScans, setCommunityScans] = useState([]);
+  const [filterMode, setFilterMode] = useState('all');
+  const [communitySort, setCommunitySort] = useState('latest');
+  const [communityPeek, setCommunityPeek] = useState(null);
+  const [communityRemovalIntent, setCommunityRemovalIntent] = useState(null);
+  const [communityNotice, setCommunityNotice] = useState('');
+  const [communityMenuId, setCommunityMenuId] = useState(null);
+  const isAdmin = Boolean(user?.email && (
+    user.email === 'laithbu07@gmail.com' ||
+    user.email === 'admin@looksmaxxing.com' ||
+    user.email === 'serenity.eyb@gmail.com' ||
+    user.email.endsWith('@looksmaxxing.com')
+  ));
+
+  useEffect(() => {
+    if (!communityPeek) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [communityPeek]);
+
+  useEffect(() => {
+    const fetchCommunity = async () => {
+      try {
+        const { fetchCommunityScans, fetchCommunityBattles } = await import('./api/mogBattleVotes');
+        const res = await fetchCommunityScans(80);
+        let loadedScans = (res.scans || [])
+          .map((scan, idx) => hydrateCommunityScanEntry(scan, idx))
+          .filter((scan) => scan?.dashboardData && scan?.frontImage);
+
+        if (loadedScans.length === 0) {
+          const battleRes = await fetchCommunityBattles();
+          const scansMap = new Map();
+          battleRes.battles.forEach(b => {
+            if (b.fighterA) scansMap.set(b.fighterA.scanId || b.fighterA.profileId || b.fighterA.name, { ...b.fighterA, isCommunity: true });
+            if (b.fighterB) scansMap.set(b.fighterB.scanId || b.fighterB.profileId || b.fighterB.name, { ...b.fighterB, isCommunity: true });
+          });
+          loadedScans = Array.from(scansMap.values())
+            .map((scan, idx) => hydrateCommunityScanEntry(scan, idx))
+            .filter((scan) => scan?.dashboardData && scan?.frontImage);
+        }
+
+        if (loadedScans.length === 0) {
+          loadedScans = COMMUNITY_SCANS.map((s, i) =>
+            hydrateCommunityScanEntry({ ...s, name: `User ${i + 1}`, isCommunity: true, profileId: `mock-${i}` }, i)
+          );
+        }
+        
+        const merged = new Map();
+        [...OFFICIAL_CELEBRITY_COMMUNITY_SCANS, ...loadedScans].forEach((scan, idx) => {
+          const hydrated = hydrateCommunityScanEntry(scan, idx);
+          const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
+          if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
+        });
+
+        setCommunityScans(Array.from(merged.values()));
+      } catch(e) {
+        console.error(e);
+        const merged = new Map();
+        [
+          ...OFFICIAL_CELEBRITY_COMMUNITY_SCANS,
+          ...COMMUNITY_SCANS.map((scan, idx) =>
+            hydrateCommunityScanEntry({ ...scan, name: scan.name || `User ${idx + 1}`, isCommunity: true, profileId: scan.profileId || `mock-${idx}` }, idx)
+          ),
+        ].forEach((scan, idx) => {
+          const hydrated = hydrateCommunityScanEntry(scan, idx);
+          const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
+          if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
+        });
+
+        setCommunityScans(Array.from(merged.values()));
+      }
+    };
+    fetchCommunity();
+  }, []);
+
+  const getCelebrityScanShareUrl = useCallback((scan) => {
+    const ownerUid = String(scan?.ownerUid || scan?.uid || '').trim();
+    const scanId = String(scan?.scanId || scan?.id || '').trim();
+    if (ownerUid && scanId && !scan?.officialScan) {
+      return `${window.location.origin}/scan/${encodeURIComponent(ownerUid)}/${encodeURIComponent(scanId)}`;
+    }
+    return `${window.location.origin}/celebrity?scan=${encodeURIComponent(scanId || scan?.id || 'community')}`;
+  }, []);
+
+  const shareCommunityScan = useCallback(async (scan) => {
+    const url = getCelebrityScanShareUrl(scan);
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setCommunityNotice('Scan link copied.');
+      } else {
+        setCommunityNotice(url);
+      }
+    } catch {
+      setCommunityNotice(url);
+    }
+  }, [getCelebrityScanShareUrl]);
+
+  const removeOwnedCommunityScan = async (scan) => {
+    if (!user || !scan?.scanId) return;
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/api/user/scans/${encodeURIComponent(scan.scanId)}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibility: 'private' }),
+      });
+      if (!res.ok) throw new Error('Failed to update scan visibility');
+      setCommunityScans((prev) => prev.filter((item) => item.id !== scan.id && item.scanId !== scan.scanId));
+      setCommunityNotice('Scan removed from Community Scans. It is still saved privately on your dashboard.');
+    } catch (e) {
+      setCommunityNotice(e.message || 'Failed to remove scan from Community Scans.');
+    } finally {
+      setCommunityRemovalIntent(null);
+    }
+  };
+
+  const removeAdminCommunityScan = async (scan) => {
+    const password = window.localStorage.getItem('mogcheck_admin_pw') || '';
+    if (!password || !scan?.id) {
+      setCommunityNotice('Admin password is required. Log into the admin panel once, then try again.');
+      setCommunityRemovalIntent(null);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/community-scans/${encodeURIComponent(scan.id)}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-password': password },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Failed to remove community scan listing');
+      setCommunityScans((prev) => prev.filter((item) => item.id !== scan.id && item.scanId !== scan.scanId));
+      setCommunityNotice('Community scan listing removed. The saved user scan was not deleted.');
+    } catch (e) {
+      setCommunityNotice(e.message || 'Failed to remove community scan listing.');
+    } finally {
+      setCommunityRemovalIntent(null);
+      setCommunityMenuId(null);
+    }
+  };
+
+  const removeCommunityScan = async (scan) => {
+    const isOwner = Boolean(user?.uid && scan?.ownerUid && scan.ownerUid === user.uid && scan?.scanId);
+    if (isOwner) return removeOwnedCommunityScan(scan);
+    if (isAdmin) return removeAdminCommunityScan(scan);
+    setCommunityRemovalIntent(null);
+    return undefined;
+  };
+
+  const markCommunityScanOfficial = async (scan, official = true) => {
+    const password = window.localStorage.getItem('mogcheck_admin_pw') || '';
+    if (!password || !scan?.id) {
+      setCommunityNotice('Admin password is required. Log into the admin panel once, then try again.');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/community-scans/${encodeURIComponent(scan.id)}/official`, {
+        method: 'POST',
+        headers: { 'x-admin-password': password, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ official }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Failed to update official status');
+      setCommunityScans((prev) => prev.map((item) => (item.id === scan.id ? { ...item, officialScan: official, official } : item)));
+      setCommunityNotice(official ? 'Scan marked as official.' : 'Scan turned back into a normal community scan.');
+    } catch (e) {
+      setCommunityNotice(e.message || 'Failed to update official status.');
+    } finally {
+      setCommunityMenuId(null);
+    }
+  };
+
+  const filteredScans = useMemo(() => {
+    let scans = communityScans.filter((rawScan) => rawScan?.dashboardData && rawScan?.frontImage);
+    if (filterMode === 'verified') {
+      scans = scans.filter(s => s.officialScan);
+    } else if (filterMode === 'community') {
+      scans = scans.filter(s => !s.officialScan);
+    }
+    
+    return scans.sort((a, b) => {
+      if (communitySort === 'highest') {
+        const ratingDiff = (Number(b.finalRating) || 0) - (Number(a.finalRating) || 0);
+        if (ratingDiff) return ratingDiff;
+      }
+      return timestampToMillis(b.timestamp || b.scannedAt || b.createdAt) - timestampToMillis(a.timestamp || a.scannedAt || a.createdAt);
+    });
+  }, [communityScans, filterMode, communitySort]);
+
+  return (
+    <div className="w-full flex-grow pt-28 pb-16 px-4 sm:px-6 relative flex flex-col items-center overflow-x-hidden min-h-screen">
+      {communityPeek && communityPeek.dashboardData && (
+        <div
+          className="fixed inset-0 z-[220] flex flex-col bg-[#0a0a0b] overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+        >
+          <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-zinc-800 bg-[#0a0a0b]/95 px-4 py-3 backdrop-blur-md md:px-8">
+            <button
+              type="button"
+              onClick={() => setCommunityPeek(null)}
+              className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 font-sans text-xs font-bold uppercase tracking-widest text-zinc-200 hover:border-cyan-500/50 hover:text-cyan-300 transition-colors"
+            >
+              <ArrowLeft size={16} />
+              Community Scans
+            </button>
+            <div className="min-w-0 flex-1">
+              <p className="font-sans text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+                Community scan{communityPeek?.tier ? ` - ${communityPeek.tier}` : ''}
+              </p>
+              <h2 className="truncate font-black uppercase italic tracking-tight text-white">
+                Community Scan
+              </h2>
+            </div>
+          </header>
+          <div className="flex-1 px-4 pb-16 pt-6 md:px-8">
+            <button
+              type="button"
+              onClick={() => setCommunityPeek(null)}
+              className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/[0.07] px-4 py-2 font-sans text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100 transition-colors hover:border-cyan-300/60 hover:bg-cyan-400/10"
+            >
+              <ArrowLeft size={14} />
+              Go to previous page
+            </button>
+            <DashboardPage
+              dashboardData={forceCommunityScanFrontOnly(communityPeek.dashboardData)}
+              setCurrentPage={setCurrentPage}
+              userPlan={{ plan: 'pro', scanCredits: 0 }}
+              user={null}
+              hideTopSection
+              hideProtocols
+              hideActionableProtocols
+              hideUnlockPotential
+              hidePersonalizedFeedback
+              isEmbedded
+            />
+          </div>
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0c0d0e] via-zinc-900/20 to-[#0c0d0e] -z-10" />
+      <div className="w-full max-w-[1400px] mx-auto flex flex-col items-center text-center">
+        <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white mb-2">Scans</h2>
+        <p className="text-zinc-500 uppercase tracking-widest text-xs mb-8">Verified scans and live community scans with shareable links.</p>
+
+        {/* Filters */}
+        <div className="flex flex-col md:flex-row items-center gap-6 mb-10 w-full justify-between max-w-2xl bg-black/40 border border-white/5 p-4 rounded-[28px] shadow-[0_10px_40px_rgba(0,0,0,0.3)] backdrop-blur-md z-10 relative">
+          <div className="flex bg-zinc-900/50 p-1 rounded-full border border-white/5 w-full md:w-auto">
+            {['all', 'verified', 'community'].map(mode => (
+              <button
+                key={mode}
+                onClick={() => setFilterMode(mode)}
+                className={`flex-1 md:flex-none px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.18em] transition-all duration-300 ${
+                  filterMode === mode
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
+                    : 'text-zinc-500 hover:text-white border border-transparent'
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+
+            <CustomSelectDropdown
+              value={communitySort}
+              onChange={setCommunitySort}
+              options={[
+                { value: 'latest', label: 'Latest' },
+                { value: 'highest', label: 'Highest score' }
+              ]}
+              className="appearance-none rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-5 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100 focus:border-cyan-300/50"
+            />
+        </div>
+
+        {/* 3 Grid Layout */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 w-full text-left pb-24 md:pb-16">
+          {filteredScans.map((rawScan, idx) => {
+            const scan = hydrateCommunityScanEntry(rawScan, idx);
+            const isOwnedCommunityScan = Boolean(user?.uid && scan.ownerUid && scan.ownerUid === user.uid && scan.scanId && !scan.officialScan);
+            const rating = Number(scan.finalRating || 0);
+            const ratingTone = getRatingToneClasses(rating);
+            const scanTier = scan.tier || '-';
+            const tierUpper = String(scanTier).toUpperCase();
+            const tierBadgeClass =
+              tierUpper.includes('S') && tierUpper.includes('TIER')
+                ? 'bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+                : tierUpper.includes('A') && tierUpper.includes('TIER')
+                  ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.6)]'
+                  : 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
+
+            return (
+              <CommunityScanCard
+                key={scan.id || idx}
+                scan={scan}
+                rating={rating}
+                ratingTone={ratingTone}
+                tierBadgeClass={tierBadgeClass}
+                scanTier={scanTier}
+                isOwnedCommunityScan={isOwnedCommunityScan}
+                isAdmin={isAdmin}
+                communityMenuId={communityMenuId}
+                compact={false}
+                onOpen={() => {
+                  if (!scan.dashboardData) return;
+                  setCommunityPeek(scan);
+                }}
+                onShare={() => shareCommunityScan(scan)}
+                onRemove={() => setCommunityRemovalIntent(scan)}
+                onToggleMenu={() => setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id))}
+                onMarkOfficial={(official) => markCommunityScanOfficial(scan, official)}
+              />
+            );
+          })}
+        </div>
+        
+        {filteredScans.length === 0 && (
+          <p className="py-24 text-center text-sm text-zinc-500 w-full font-bold uppercase tracking-widest">No scans found in this category.</p>
+        )}
+
+      </div>
+      {communityRemovalIntent && (
+        <ConfirmDialog
+          title="Remove From Community?"
+          body={isAdmin && !(user?.uid && communityRemovalIntent?.ownerUid === user.uid)
+            ? 'This removes the public Community Scans listing only. The saved user scan will not be deleted.'
+            : 'This will set the scan back to private. It will stay saved on your dashboard, but it will disappear from Community Scans.'}
+          confirmLabel="Remove"
+          tone="danger"
+          onClose={() => setCommunityRemovalIntent(null)}
+          onConfirm={() => removeCommunityScan(communityRemovalIntent)}
+        />
+      )}
+      {communityNotice && (
+        <SiteModal title="Community Scan" onClose={() => setCommunityNotice('')} maxWidth="max-w-lg">
+          <p className="text-sm leading-relaxed text-zinc-300">{communityNotice}</p>
+        </SiteModal>
       )}
     </div>
   );

@@ -1,0 +1,268 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+
+[DEBUG] Model selected via API args: 6
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777923423649-3115436aa57ff6fa.png ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-5db83a59-3952-4066-9a8c-d69f53c72189-1777923423659-5b5b9b\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (193.0px)
+- Auto-Leveling: Corrected -1.56 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.88
+- IPD_Index (Geometric):    0.442
+- Mouth_Width_Index:        0.348
+- Nose_Width_Index:         0.225
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.428
+- Middle_Third_Length:      0.461
+- Lower_Third_Length:       0.482
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.066
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.105
+- Philtrum_Height_Index:    0.115
+- Total_Lip_Height_Index:   0.185
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.735
+- Midface_Ratio (Mid/IPD):  1.066
+- Canthal_Tilt_Degrees:     5.51 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting Expert Mode (Very Accurate)... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-5db83a59-3952-4066-9a8c-d69f53c72189","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":26265,"input_token_count":8881,"output_token_count":2066,"total_token_count":10947,"estimated_input_tokens":7680,"max_output_tokens":4096,"image_included":true,"timestamp":1777923451460}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: Expert Mode (Very Accurate) | Latency: 26.27s]
+{
+  "sex": "male",
+  "finalRating": 48,
+  "sideRating": null,
+  "tier": "Low-Tier",
+  "authenticityFlag": false,
+  "uncannyCueCount": 0,
+  "uncannyCues": [],
+  "visualBucket": "LOW-TIER/4-RANGE",
+  "facialFatDefinitionRead": "soft",
+  "technicalSummary": "The face presents with moderate fWHR and decent bigonial width, but is heavily compromised by soft tissue laxity, poor definition, and orbital tiredness. The midface is slightly elongated, and the eye area lacks compactness and support.",
+  "appealAssessment": "While the underlying bone structure has some breadth, the overall aesthetic is significantly limited by visible aging, puffiness, and a lack of sharp definition. The eye area and skin texture further detract from freshness and harmony.",
+  "personalizedInterpretation": "The combination of infraorbital puffiness, soft tissue decline, and a slightly elongated midface creates a tired, less defined appearance that caps the overall score despite some structural width.",
+  "categories": {
+    "Harmony": 45,
+    "Bone": 55,
+    "Symmetry": 60,
+    "Skin": 40,
+    "Dimorphism": 55,
+    "Maxillary/Cheekbone Projection": 45,
+    "Nose Projection": 50,
+    "Facial Fat": 35,
+    "Eye Depth": 40,
+    "Ear Shape": 50
+  },
+  "hexagonFront": {
+    "Harmony": 45,
+    "Bone": 55,
+    "Symmetry": 60,
+    "Skin": 40,
+    "Dimorphism": 55,
+    "Facial Fat": 35
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.735",
+      "score": 65,
+      "impact": "positive",
+      "note": "Moderate width-to-height ratio, providing a decent structural base."
+    },
+    {
+      "name": "Bigonial_Width_Index",
+      "value": "0.88",
+      "score": 70,
+      "impact": "positive",
+      "note": "Good jaw width relative to cheekbones, though obscured by soft tissue."
+    },
+    {
+      "name": "Midface_Ratio",
+      "value": "1.066",
+      "score": 45,
+      "impact": "negative",
+      "note": "Slightly elongated midface, reducing compactness."
+    },
+    {
+      "name": "IPD_Index",
+      "value": "0.442",
+      "score": 55,
+      "impact": "neutral",
+      "note": "Eye spacing is within acceptable limits, leaning slightly close-set."
+    },
+    {
+      "name": "Canthal_Tilt_Degrees",
+      "value": "5.51",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Positive tilt, but overall eye shape and support limit its benefit."
+    },
+    {
+      "name": "Eye_Height_Index",
+      "value": "0.066",
+      "score": 50,
+      "impact": "neutral",
+      "note": "Average eye height, but orbital area appears tired."
+    },
+    {
+      "name": "Brow_Compactness_Index",
+      "value": "0.105",
+      "score": 55,
+      "impact": "neutral",
+      "note": "Moderate brow height, lacking strong framing."
+    },
+    {
+      "name": "Philtrum_Height_Index",
+      "value": "0.115",
+      "score": 40,
+      "impact": "negative",
+      "note": "Elongated philtrum, contributing to a longer lower third read."
+    },
+    {
+      "name": "Mouth_Width_Index",
+      "value": "0.348",
+      "score": 45,
+      "impact": "negative",
+      "note": "Slightly narrow mouth width relative to facial breadth."
+    },
+    {
+      "name": "Nose_Width_Index",
+      "value": "0.225",
+      "score": 50,
+      "impact": "neutral",
+      "note": "Nose width is balanced, though the shape is somewhat broad."
+    },
+    {
+      "name": "Total_Lip_Height_Index",
+      "value": "0.185",
+      "score": 60,
+      "impact": "positive",
+      "note": "Good lip fullness, providing some lower face balance."
+    },
+    {
+      "name": "Upper_Third_Length",
+      "value": "0.428",
+      "score": 55,
+      "impact": "neutral",
+      "note": "Upper third is within normal proportions."
+    },
+    {
+      "name": "Middle_Third_Length",
+      "value": "0.461",
+      "score": 50,
+      "impact": "neutral",
+      "note": "Middle third is slightly dominant."
+    },
+    {
+      "name": "Lower_Third_Length",
+      "value": "0.482",
+      "score": 50,
+      "impact": "neutral",
+      "note": "Lower third is adequately proportioned but lacks sharp definition."
+    },
+    {
+      "name": "Facial Definition",
+      "value": "Soft",
+      "score": 35,
+      "impact": "negative",
+      "note": "Lack of sharp bone definition due to soft tissue and puffiness."
+    },
+    {
+      "name": "Skin Quality",
+      "value": "Textured/Aged",
+      "score": 40,
+      "impact": "negative",
+      "note": "Visible texture, pores, and signs of aging detract from freshness."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Bigonial Width",
+      "description": "The underlying jaw width provides a masculine base, even if obscured by soft tissue."
+    },
+    {
+      "title": "Lip Fullness",
+      "description": "Adequate lip height adds some balance to the lower third."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Soft Tissue & Definition",
+      "description": "Significant lack of facial definition, with puffiness and soft tissue laxity obscuring bone structure."
+    },
+    {
+      "title": "Orbital Tiredness",
+      "description": "Infraorbital puffiness and a tired eye area significantly reduce freshness and appeal."
+    },
+    {
+      "title": "Elongated Philtrum & Midface",
+      "description": "The combination of a long philtrum and slightly long midface disrupts vertical harmony."
+    },
+    {
+      "title": "Skin Texture",
+      "description": "Visible skin texture, pores, and signs of aging detract from overall vitality."
+    }
+  ],
+  "pros": [
+    "Decent underlying bigonial width.",
+    "Adequate lip fullness.",
+    "Moderate fWHR."
+  ],
+  "cons": [
+    "Infraorbital puffiness and tired eyes.",
+    "Lack of facial definition and soft tissue laxity.",
+    "Elongated philtrum.",
+    "Slightly narrow mouth width.",
+    "Visible skin texture and aging."
+  ],
+  "mainLimitingFactor": "The combination of infraorbital puffiness, lack of facial definition, and soft tissue aging severely caps the aesthetic potential, triggering the anti-anchor penalty.",
+  "qualityFlags": [
+    "Lighting highlights skin texture."
+  ],
+  "confidenceFlags": [
+    "Beard obscures exact jawline definition."
+  ],
+  "debugJustification": "Score band: 40-49 (Low-Tier). The face triggers the Anti-Diddy prompt add-on due to the presence of slightly narrow mouth width, infraorbital puffiness, elongated philtrum, slight midface length, slight orbital tiredness, lack of facial definition, and broad nose shape (7+ markers). This mandates a hard cap at 50. The score is set to 48 to reflect the severe impact of soft tissue decline, puffiness, and lack of definition, despite some underlying structural width. Gemini anti-anchor check: Band is Low-Tier, main cap is the Anti-Diddy penalty and soft tissue/definition issues; score is not 66-68 because the visible flaws and specific penalty criteria strictly prohibit an average or above-average rating."
+}

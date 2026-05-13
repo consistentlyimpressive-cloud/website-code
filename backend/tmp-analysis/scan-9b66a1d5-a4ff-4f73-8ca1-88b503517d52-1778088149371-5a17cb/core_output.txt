@@ -1,0 +1,314 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+8. PENIS GOAT 2
+9. PENIS GOAT 3
+
+[DEBUG] Model selected via API args: 9
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1778088149168-dfad5972965599a6.png ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-9b66a1d5-a4ff-4f73-8ca1-88b503517d52-1778088149371-5a17cb\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (169.0px)
+- Auto-Leveling: Corrected -4.71 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.863
+- IPD_Index (Geometric):    0.453
+- Mouth_Width_Index:        0.323
+- Nose_Width_Index:         0.207
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.411
+- Middle_Third_Length:      0.48
+- Lower_Third_Length:       0.443
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.066
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.124
+- Philtrum_Height_Index:    0.093
+- Total_Lip_Height_Index:   0.135
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.746
+- Midface_Ratio (Mid/IPD):  0.978
+- Canthal_Tilt_Degrees:     +6.93 (positive tilt; Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting PENIS GOAT 3... (Press Ctrl+C to Cancel)
+[DEBUG] Gemma key order this scan: GEMINI_KEY_1, GEMINI_KEY_4, GEMINI_KEY_5, GEMINI_KEY_2, GEMINI_KEY_3
+[DEBUG] Trying Google GenAI GEMINI_KEY_1 (1/5) on gemma-4-31b-it...
+[TOKEN_USAGE] {"scan_id":"scan-9b66a1d5-a4ff-4f73-8ca1-88b503517d52","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":1,"attempt_number":1,"success":false,"duration_ms":970,"error":"403 PERMISSION_DENIED. {'error': {'code': 403, 'message': 'Your project has been denied access. Please contact support.', 'status': 'PERMISSION_DENIED'}}","estimated_input_tokens":2751,"max_output_tokens":1500,"image_included":true,"timestamp":1778088152023}
+[KEY_HEALTH] Quarantine disabled; keeping GEMINI_KEY_1 available after: permission_denied
+      [!] PENIS GOAT 3 GEMINI_KEY_1 failed: 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': 'Your project has been denied access. Please contact support.', 'status': 'PERMISSION_DENIED'}}
+[DEBUG] Trying Google GenAI GEMINI_KEY_4 (2/5) on gemma-4-31b-it...
+[TOKEN_USAGE] {"scan_id":"scan-9b66a1d5-a4ff-4f73-8ca1-88b503517d52","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":4,"attempt_number":2,"success":true,"duration_ms":116891,"input_token_count":2667,"output_token_count":2162,"total_token_count":6801,"estimated_input_tokens":2751,"max_output_tokens":1500,"image_included":true,"timestamp":1778088268916}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: PENIS GOAT 3 | Latency: 117.87s]
+{
+  "sex": "male",
+  "finalRating": 64,
+  "sideRating": null,
+  "tier": "High-tier Harmony / Pretty Boy",
+  "technicalSummary": "High bone-to-soft-tissue harmony but fails the Angularity Gate due to a lack of sub-zygomatic hollowing and soft gonial definition. Grooming is optimal, providing a significant boost to the overall polished presentation.",
+  "appealAssessment": "East Asian phenotype exhibiting a 'pretty boy' aesthetic. High dimorphism in terms of skin quality and orbital refinement, but low in terms of aggressive masculine angularity. The overall vibe is elegant, clean, and youthful, prioritizing harmony over striking bone prominence.",
+  "personalizedInterpretation": "A visually harmonious face with elite skin and orbital metrics, limited from higher tiers by a lack of sharp masculine bone definition.",
+  "categories": {
+    "Harmony": 85,
+    "Bone": 58,
+    "Symmetry": 88,
+    "Skin": 95,
+    "Dimorphism": 60,
+    "Maxillary/Cheekbone Projection": 65,
+    "Nose Projection": 75,
+    "Facial Fat": 60,
+    "Eye Depth": 65,
+    "Ear Shape": 80
+  },
+  "hexagonFront": {
+    "Harmony": 85,
+    "Bone": 58,
+    "Symmetry": 88,
+    "Skin": 95,
+    "Dimorphism": 60,
+    "Facial Fat": 60
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.746",
+      "score": 82,
+      "impact": "positive",
+      "note": "Ideal masculine width without being overly wide."
+    },
+    {
+      "name": "Bigonial Width",
+      "value": "0.863",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Proportional but lacks sharp angularity."
+    },
+    {
+      "name": "IPD Index",
+      "value": "0.453",
+      "score": 85,
+      "impact": "positive",
+      "note": "Excellent geometric eye spacing."
+    },
+    {
+      "name": "Mouth Width",
+      "value": "0.323",
+      "score": 80,
+      "impact": "positive",
+      "note": "Well-proportioned to the lower face."
+    },
+    {
+      "name": "Nose Width",
+      "value": "0.207",
+      "score": 88,
+      "impact": "positive",
+      "note": "Refined and narrow, fitting the phenotype."
+    },
+    {
+      "name": "Upper Third",
+      "value": "0.411",
+      "score": 80,
+      "impact": "positive",
+      "note": "Balanced forehead height."
+    },
+    {
+      "name": "Middle Third",
+      "value": "0.48",
+      "score": 70,
+      "impact": "neutral",
+      "note": "Slightly dominant but acceptable."
+    },
+    {
+      "name": "Lower Third",
+      "value": "0.443",
+      "score": 75,
+      "impact": "positive",
+      "note": "Good vertical balance."
+    },
+    {
+      "name": "Eye Height",
+      "value": "0.066",
+      "score": 70,
+      "impact": "neutral",
+      "note": "Standard almond shape."
+    },
+    {
+      "name": "Brow Compactness",
+      "value": "0.124",
+      "score": 82,
+      "impact": "positive",
+      "note": "Good orbital support and compactness."
+    },
+    {
+      "name": "Philtrum Height",
+      "value": "0.093",
+      "score": 85,
+      "impact": "positive",
+      "note": "Short, aesthetically pleasing philtrum."
+    },
+    {
+      "name": "Total Lip Height",
+      "value": "0.135",
+      "score": 80,
+      "impact": "positive",
+      "note": "Fullness is well-balanced."
+    },
+    {
+      "name": "Midface Ratio",
+      "value": "0.978",
+      "score": 88,
+      "impact": "positive",
+      "note": "Very compact midface, high appeal."
+    },
+    {
+      "name": "Canthal Tilt",
+      "value": "+6.93",
+      "score": 85,
+      "impact": "positive",
+      "note": "Clear positive tilt, enhancing eye shape."
+    },
+    {
+      "name": "Skin Texture",
+      "value": "Visual",
+      "score": 95,
+      "impact": "positive",
+      "note": "Elite clarity, porcelain-like finish."
+    },
+    {
+      "name": "Jaw Definition",
+      "value": "Visual",
+      "score": 55,
+      "impact": "negative",
+      "note": "Soft transition, lacks sharp gonial angle."
+    },
+    {
+      "name": "Sub-zygomatic Hollowing",
+      "value": "Visual",
+      "score": 50,
+      "impact": "negative",
+      "note": "Absent; face is too soft for elite tier."
+    },
+    {
+      "name": "Orbital Support",
+      "value": "Visual",
+      "score": 80,
+      "impact": "positive",
+      "note": "No significant ptosis or scleral show."
+    },
+    {
+      "name": "Nasal Refinement",
+      "value": "Visual",
+      "score": 85,
+      "impact": "positive",
+      "note": "Straight bridge, refined tip."
+    },
+    {
+      "name": "Facial Symmetry",
+      "value": "Visual",
+      "score": 90,
+      "impact": "positive",
+      "note": "High degree of bilateral symmetry."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Skin Clarity",
+      "description": "Exceptional, blemish-free texture that aligns with the highest phenotype standards."
+    },
+    {
+      "title": "Orbital Compactness",
+      "description": "Positive canthal tilt and good brow support create a refined eye area."
+    },
+    {
+      "title": "Nasal Refinement",
+      "description": "The nose is straight and proportional, contributing significantly to facial harmony."
+    },
+    {
+      "title": "Facial Harmony",
+      "description": "Excellent balance between the features, creating a cohesive and pleasing look."
+    },
+    {
+      "title": "Midface Compactness",
+      "description": "A low midface ratio that enhances the youthful and attractive appeal."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Lack of Angularity",
+      "description": "Absence of sub-zygomatic hollowing prevents a 'carved' model look."
+    },
+    {
+      "title": "Soft Jawline",
+      "description": "Lacks a sharp, defined gonial angle, reducing masculine dimorphism."
+    },
+    {
+      "title": "Lower Face Softness",
+      "description": "Soft tissue masks the underlying bone structure in the mandibular region."
+    },
+    {
+      "title": "Low Dimorphism",
+      "description": "The overall aesthetic leans more toward 'pretty' than 'masculine-sharp'."
+    },
+    {
+      "title": "Midface Dominance",
+      "description": "The middle third is slightly longer than the upper, though still within a good range."
+    }
+  ],
+  "pros": [
+    "Elite skin quality",
+    "High facial symmetry",
+    "Refined nasal structure",
+    "Positive canthal tilt"
+  ],
+  "cons": [
+    "Soft jawline",
+    "Lack of cheek hollowing",
+    "Low masculine aggression"
+  ],
+  "mainLimitingFactor": "Failure of the Angularity Gate due to soft tissue definition in the lower face.",
+  "qualityFlags": [
+    "High-resolution image",
+    "Frontal view only"
+  ],
+  "confidenceFlags": [
+    "High confidence in skin/harmony",
+    "Moderate confidence in bone structure due to soft tissue"
+  ],
+  "debugJustification": "Subject is highly attractive with elite skin and harmony, aligning with the Cha Eun-woo benchmark. However, he fails the Angularity Gate (no sub-zygomatic hollowing, soft jaw), which strictly caps the score below 65. Grooming is a positive factor. Final score 64 reflects a 'pretty boy' high-tier result that lacks the aggressive bone structure required for 70+."
+}

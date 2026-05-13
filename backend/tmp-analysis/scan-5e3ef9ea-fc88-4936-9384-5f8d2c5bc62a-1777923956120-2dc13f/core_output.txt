@@ -1,0 +1,211 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+
+[DEBUG] Model selected via API args: 7
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777923956112-9d2c4a442d2ed759.webp ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-5e3ef9ea-fc88-4936-9384-5f8d2c5bc62a-1777923956120-2dc13f\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (148.7px)
+- Auto-Leveling: Corrected -0.01 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.906
+- IPD_Index (Geometric):    0.439
+- Mouth_Width_Index:        0.371
+- Nose_Width_Index:         0.226
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.354
+- Middle_Third_Length:      0.432
+- Lower_Third_Length:       0.475
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.049
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.076
+- Philtrum_Height_Index:    0.118
+- Total_Lip_Height_Index:   0.089
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.819
+- Midface_Ratio (Mid/IPD):  1.077
+- Canthal_Tilt_Degrees:     5.38 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting penis goat... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-5e3ef9ea-fc88-4936-9384-5f8d2c5bc62a","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":24520,"input_token_count":3927,"output_token_count":2289,"total_token_count":6216,"estimated_input_tokens":2629,"max_output_tokens":4096,"image_included":true,"timestamp":1777923982169}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: penis goat | Latency: 24.52s]
+{
+  "ANALYSIS": {
+    "SEX": "Male",
+    "Final_Frontal_Rating": "82/100",
+    "Final_Side_Rating": "80/100",
+    "Max_Natural_Potential": "85/100",
+    "Max_Potential_with_Surgery": "88/100",
+    "Technical_Summary": "The subject presents a highly dimorphic Caucasian male phenotype. **Frontal analysis** reveals a strong fWHR (1.819) and excellent bigonial width (0.906), contributing to a robust, masculine lower third. The midface is slightly elongated (0.432) relative to the upper third (0.354), but overall harmony remains strong. **Lateral analysis** (inferred from visual cues as metadata was ignored) suggests good maxillary projection and a strong jawline. Skin quality shows some texture but is generally acceptable. The eye area is compact with a positive canthal tilt.",
+    "Appeal_Assessment": "High appeal, particularly within the 'rugged masculine' archetype. The strong bone structure and dimorphic features cater well to mainstream Western beauty standards.",
+    "Hexagon_Chart_Ratings_front": {
+      "Skin": 7,
+      "Bone": 9,
+      "Harmony": 8,
+      "Symmetry": 8,
+      "Dimorphism": 9
+    },
+    "Hexagon_Chart_Ratings_side": {
+      "Skin": 7,
+      "Bone": 8,
+      "Harmony": 8,
+      "Symmetry": 8,
+      "Dimorphism": 9
+    },
+    "CORE_CATEGORY_SCORES": {
+      "Harmony": "80 | 80",
+      "Bone": "90 | 85",
+      "Symmetry": "85 | N/A",
+      "Skin": "75 | 75",
+      "Dimorphism": "95 | 90",
+      "Maxillary_Cheekbone_Projection": "85 | 85",
+      "Nose_Projection": "80 | 80",
+      "Facial_Fat": "85 | 85",
+      "Eye_Depth": "80 | 80",
+      "Ear_Shape": "75 | 75"
+    },
+    "CRITICAL_MARKERS": {
+      "BEST_FEATURE": "Bigonial Width - The wide, angular jawline provides exceptional masculine dimorphism.",
+      "WORST_FEATURE": "Midface Length - The middle third is slightly elongated compared to the upper third, slightly disrupting vertical harmony."
+    }
+  },
+  "DASHBOARD_DATA": {
+    "BEST_FEATURES": [
+      "Strong Bigonial Width",
+      "High fWHR",
+      "Compact Eye Area",
+      "Positive Canthal Tilt",
+      "Good Brow Density",
+      "Strong Jawline (Lateral)",
+      "Good Maxillary Projection",
+      "Prominent Chin",
+      "Straight Nasal Bridge",
+      "Good Facial Leanness"
+    ],
+    "PRIMARY_FLAWS": [
+      "Slightly Elongated Midface",
+      "Minor Skin Texture",
+      "Slightly Thin Upper Lip",
+      "Minor Asymmetry in Eye Shape",
+      "Slightly Wide Nose Base",
+      "Minor Submental Fullness",
+      "Slightly Recessed Glabella",
+      "Minor Nasolabial Folds",
+      "Slightly Flat Cheeks (Lateral)",
+      "Minor Forehead Wrinkles"
+    ]
+  },
+  "RATINGS": {
+    "Bigonial_Width_Index": "88/100",
+    "IPD_Index": "89/100",
+    "Mouth_Width_Index": "92/100",
+    "Nose_Width_Index": "95/100",
+    "Upper_Third_Length": "88/100",
+    "Middle_Third_Length": "49/100",
+    "Lower_Third_Length": "37/100",
+    "Eye_Height_Index": "100/100",
+    "Brow_Compactness_Index": "92/100",
+    "Philtrum_Height_Index": "92/100",
+    "Total_Lip_Height_Index": "100/100",
+    "fWHR": "86/100",
+    "Midface_Ratio": "92/100",
+    "Canthal_Tilt_Degrees": "89/100"
+  },
+  "Personalised_feedback": [
+    "1. SKIN TEXTURE MANAGEMENT: The skin shows some signs of aging and texture, likely from sun exposure or natural aging. Implementing a robust skincare routine focusing on retinoids and chemical exfoliants can help smooth the texture and improve overall skin quality.",
+    "2. MIDFACE ELONGATION: The middle third of the face is slightly longer than ideal. While this is a structural feature that cannot be easily changed without invasive surgery, maintaining a lean facial fat percentage helps prevent the midface from appearing overly heavy or droopy.",
+    "3. LIP VOLUME: The upper lip is slightly thin. While this is common in Caucasian males and doesn't severely impact the overall rugged aesthetic, subtle lip fillers could provide a more balanced lip ratio if desired.",
+    "4. BROW MAINTENANCE: The brows are dense and well-shaped, contributing significantly to the masculine appearance. Regular grooming to maintain their shape without over-plucking is recommended to keep the eye area looking sharp.",
+    "5. FACIAL LEANNESS: Maintaining a low body fat percentage is crucial for keeping the strong bone structure visible. Any increase in facial fat could obscure the sharp jawline and cheekbones, reducing the overall dimorphic appeal."
+  ],
+  "ACTIONABLE_PROTOCOLS": [
+    "1. Skincare Routine (Retinoids): Implement a nightly retinoid to improve skin texture and reduce fine lines. [High Impact]",
+    "2. Sun Protection: Daily use of SPF 50+ to prevent further photoaging. [High Impact]",
+    "3. Maintain Low Body Fat: Keep body fat around 10-12% to ensure facial bone structure remains prominent. [High Impact]",
+    "4. Brow Grooming: Regular trimming and shaping to maintain a clean but masculine brow line. [Medium Impact]",
+    "5. Hydration: Ensure adequate water intake to keep skin plump and healthy. [Medium Impact]",
+    "6. Chemical Peels: Occasional professional peels to address deeper skin texture issues. [Medium Impact]",
+    "7. Microneedling: Consider for collagen induction and texture improvement. [Medium Impact]",
+    "8. Lip Filler (Optional): Very subtle filler in the upper lip for better balance. [Low Impact]",
+    "9. Jawline Exercises: Chewing mastic gum to maintain masseter hypertrophy. [Low Impact]",
+    "10. Posture Correction: Ensure proper neck posture to avoid submental fullness. [Low Impact]",
+    "11. Sleep Hygiene: 7-9 hours of quality sleep to prevent under-eye bags. [Low Impact]",
+    "12. Diet Optimization: High protein, low sodium diet to reduce facial bloating. [Low Impact]",
+    "13. Vitamin C Serum: Morning application for skin brightening. [Low Impact]",
+    "14. Niacinamide: To help regulate sebum production and improve skin barrier. [Low Impact]",
+    "15. Exfoliation: Use AHA/BHA 2-3 times a week. [Low Impact]",
+    "16. Facial Massage: To promote lymphatic drainage. [Low Impact]",
+    "17. Hair Styling: Maintain a hairstyle that adds volume to the top to balance the strong jaw. [Low Impact]",
+    "18. Beard Grooming: Keep facial hair neatly trimmed to enhance the jawline rather than obscure it. [Low Impact]",
+    "19. Dental Hygiene: Regular whitening to maintain a bright smile. [Low Impact]",
+    "20. Stress Management: Reduce cortisol levels to prevent skin breakouts and premature aging. [Low Impact]",
+    "21. Eye Cream: Use a caffeine-based eye cream to reduce any morning puffiness. [Low Impact]",
+    "22. Avoid Smoking/Excess Alcohol: To prevent skin degradation. [Low Impact]",
+    "23. Regular Exercise: Cardiovascular exercise for overall health and skin blood flow. [Low Impact]",
+    "24. Supplements: Consider collagen peptides and Omega-3s for skin health. [Low Impact]",
+    "25. Professional Consultation: Consult a dermatologist for a personalized skin assessment. [Low Impact]"
+  ],
+  "MOG_REPORT_REVISION": {
+    "Bigonial_Width_Index": "88",
+    "IPD_Index": "89",
+    "Mouth_Width_Index": "92",
+    "Nose_Width_Index": "95",
+    "Upper_Third_Length": "88",
+    "Middle_Third_Length": "49",
+    "Lower_Third_Length": "37",
+    "Eye_Height_Index": "100",
+    "Brow_Compactness_Index": "92",
+    "Philtrum_Height_Index": "92",
+    "Total_Lip_Height_Index": "100",
+    "fWHR": "86",
+    "Midface_Ratio": "92",
+    "Canthal_Tilt_Degrees": "89",
+    "Maxillary_Cheekbone_Projection": "85",
+    "Nose_Projection": "80",
+    "Facial_Fat": "85",
+    "Eye_Depth": "80",
+    "Ear_Shape": "75",
+    "Skin_Quality": "75"
+  },
+  "JUSTIFICATION": "Scores reflect a highly dimorphic male face with strong bone structure but slight deviations in vertical thirds (elongated mid and lower thirds) which slightly impacted the harmony scores."
+}

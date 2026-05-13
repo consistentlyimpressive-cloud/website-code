@@ -1,0 +1,254 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+8. PENIS GOAT 2
+9. PENIS GOAT 3
+
+[DEBUG] Model selected via API args: 9
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777928399192-d5526749aef1ba2c.png ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-0f91ae75-042c-425e-b6dc-b1e616462613-1777928400386-1b65f8\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (178.1px)
+- Auto-Leveling: Corrected 8.39 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.975
+- IPD_Index (Geometric):    0.46
+- Mouth_Width_Index:        0.382
+- Nose_Width_Index:         0.25
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.381
+- Middle_Third_Length:      0.421
+- Lower_Third_Length:       0.507
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.047
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.113
+- Philtrum_Height_Index:    0.074
+- Total_Lip_Height_Index:   0.182
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 2.023
+- Midface_Ratio (Mid/IPD):  0.835
+- Canthal_Tilt_Degrees:     1.03 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting PENIS GOAT 3... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-0f91ae75-042c-425e-b6dc-b1e616462613","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":19691,"input_token_count":3180,"output_token_count":1974,"total_token_count":5154,"estimated_input_tokens":2668,"max_output_tokens":4096,"image_included":true,"timestamp":1777928421701}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: PENIS GOAT 3 | Latency: 19.69s]
+{
+  "sex": "male",
+  "finalRating": 72,
+  "sideRating": null,
+  "tier": "High-Tier Attractive",
+  "technicalSummary": "Subject presents a highly favorable bone-to-soft-tissue ratio, easily passing the Angularity Gate with a sharply defined, wide bigonial structure and prominent zygomatic arches. Grooming is sharp, with a well-maintained hairline and facial hair that enhances lower third dominance. Skin texture is generally clear, though minor textural inconsistencies are present.",
+  "appealAssessment": "Strong masculine phenotype characterized by extreme lower third width and robust bone structure. High dimorphism driven by a hyper-masculine jawline, compact eye area, and thick neck. The vibe is dominant, athletic, and sharp, fitting well into modern 'pretty boy/masculine-sharp' archetypes.",
+  "personalizedInterpretation": "A highly dimorphic, structurally dominant face that excels in angularity and width, placing him firmly in the upper echelons of attractiveness.",
+  "categories": {
+    "Harmony": 70,
+    "Bone": 85,
+    "Symmetry": 75,
+    "Skin": 68,
+    "Dimorphism": 88,
+    "Maxillary/Cheekbone Projection": 78,
+    "Nose Projection": 65,
+    "Facial Fat": 80,
+    "Eye Depth": 72,
+    "Ear Shape": 70
+  },
+  "hexagonFront": {
+    "Harmony": 70,
+    "Bone": 85,
+    "Symmetry": 75,
+    "Skin": 68,
+    "Dimorphism": 88,
+    "Facial Fat": 80
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "2.023",
+      "score": 90,
+      "impact": "positive",
+      "note": "Extremely high facial width-to-height ratio, contributing to a hyper-masculine, dominant appearance."
+    },
+    {
+      "name": "Bigonial Width Index",
+      "value": "0.975",
+      "score": 95,
+      "impact": "positive",
+      "note": "Jaw width is nearly equal to zygomatic width, creating a highly sought-after square/robust lower third."
+    },
+    {
+      "name": "IPD Index",
+      "value": "0.46",
+      "score": 70,
+      "impact": "neutral",
+      "note": "Interpupillary distance is within normal ranges, maintaining harmony despite extreme facial width."
+    },
+    {
+      "name": "Mouth Width Index",
+      "value": "0.382",
+      "score": 65,
+      "impact": "neutral",
+      "note": "Mouth width is adequate, though slightly narrow relative to the extreme jaw width."
+    },
+    {
+      "name": "Nose Width Index",
+      "value": "0.25",
+      "score": 60,
+      "impact": "negative",
+      "note": "Nose is somewhat wide, which is typical for the phenotype but slightly detracts from central refinement."
+    },
+    {
+      "name": "Upper Third Length",
+      "value": "0.381",
+      "score": 75,
+      "impact": "positive",
+      "note": "Well-proportioned upper third, framed by a sharp, low hairline."
+    },
+    {
+      "name": "Middle Third Length",
+      "value": "0.421",
+      "score": 70,
+      "impact": "neutral",
+      "note": "Midface is relatively compact, aiding in the high fWHR."
+    },
+    {
+      "name": "Lower Third Length",
+      "value": "0.507",
+      "score": 80,
+      "impact": "positive",
+      "note": "Dominant lower third length, reinforcing masculine dimorphism."
+    },
+    {
+      "name": "Eye Height Index",
+      "value": "0.047",
+      "score": 85,
+      "impact": "positive",
+      "note": "Vertically compact eyes (hunter eyes), a strong masculine trait."
+    },
+    {
+      "name": "Brow Compactness",
+      "value": "0.113",
+      "score": 75,
+      "impact": "positive",
+      "note": "Low-set, thick brows provide excellent orbital framing."
+    },
+    {
+      "name": "Philtrum Height Index",
+      "value": "0.074",
+      "score": 70,
+      "impact": "neutral",
+      "note": "Philtrum length is moderate, not disrupting lower third harmony."
+    },
+    {
+      "name": "Total Lip Height Index",
+      "value": "0.182",
+      "score": 75,
+      "impact": "positive",
+      "note": "Full lips provide good soft tissue contrast to the highly angular bone structure."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Hyper-Masculine Jawline",
+      "description": "The bigonial width (0.975 index) is exceptional, creating a square, dominant lower third that is a hallmark of high dimorphism."
+    },
+    {
+      "title": "High fWHR",
+      "description": "A facial width-to-height ratio of 2.023 gives the face a robust, imposing, and highly masculine aesthetic."
+    },
+    {
+      "title": "Compact Eye Area",
+      "description": "Vertically narrow eyes with low-set, thick brows create a 'hunter eye' appearance, enhancing intensity and dimorphism."
+    },
+    {
+      "title": "Excellent Angularity",
+      "description": "Low facial fat allows the underlying bone structure, particularly the jaw and cheekbones, to be sharply defined."
+    },
+    {
+      "title": "Sharp Grooming",
+      "description": "The crisp hairline and well-maintained goatee frame the face perfectly, adding to the overall sharp aesthetic."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Nasal Refinement",
+      "description": "The nose is somewhat bulbous and wide relative to the midface, lacking the sharp definition seen in the jawline."
+    },
+    {
+      "title": "Mouth-to-Jaw Ratio",
+      "description": "Because the jaw is so exceptionally wide, the mouth appears slightly narrow by comparison, slightly throwing off lower third harmony."
+    },
+    {
+      "title": "Minor Skin Texture Issues",
+      "description": "While generally clear, there are minor textural inconsistencies and slight unevenness in skin tone."
+    },
+    {
+      "title": "Slight Asymmetry",
+      "description": "Minor asymmetries are visible in the jawline and eye placement, though they do not significantly detract from the overall impact."
+    },
+    {
+      "title": "Midface Ratio",
+      "description": "The midface ratio (0.835) is slightly low, which, combined with the wide jaw, can make the face appear slightly bottom-heavy."
+    }
+  ],
+  "pros": [
+    "Elite jawline width and definition",
+    "High facial width-to-height ratio (fWHR)",
+    "Compact, masculine eye area",
+    "Low facial fat percentage"
+  ],
+  "cons": [
+    "Nose lacks sharp refinement",
+    "Mouth appears slightly narrow relative to jaw",
+    "Minor skin texture imperfections"
+  ],
+  "mainLimitingFactor": "Nasal refinement and slight mouth-to-jaw disproportion prevent the score from reaching the elite 80+ tier.",
+  "qualityFlags": [
+    "Good lighting",
+    "Clear facial features"
+  ],
+  "confidenceFlags": [
+    "High confidence in front profile analysis",
+    "No side profile provided"
+  ],
+  "debugJustification": "Subject easily passes the Angularity Gate with elite bone structure and low facial fat. The fWHR and bigonial width are top-tier for masculine dimorphism. The score is capped at 72 due to the Skin/Texture Tax (minor imperfections) and a lack of nasal refinement, which disrupts central facial harmony. Grooming adds positive points."
+}

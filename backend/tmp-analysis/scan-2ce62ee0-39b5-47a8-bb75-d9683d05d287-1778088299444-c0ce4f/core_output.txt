@@ -1,0 +1,264 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+8. PENIS GOAT 2
+9. PENIS GOAT 3
+
+[DEBUG] Model selected via API args: 6
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1778088299070-1e526e47a17c5d93.png ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-2ce62ee0-39b5-47a8-bb75-d9683d05d287-1778088299444-c0ce4f\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (178.5px)
+- Auto-Leveling: Corrected -5.69 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.93
+- IPD_Index (Geometric):    0.466
+- Mouth_Width_Index:        0.406
+- Nose_Width_Index:         0.237
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.298
+- Middle_Third_Length:      0.449
+- Lower_Third_Length:       0.464
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.062
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.115
+- Philtrum_Height_Index:    0.104
+- Total_Lip_Height_Index:   0.116
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.81
+- Midface_Ratio (Mid/IPD):  0.949
+- Canthal_Tilt_Degrees:     +4.81 (positive tilt; Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting Expert Mode (Very Accurate)... (Press Ctrl+C to Cancel)
+[DEBUG] Gemma key order this scan: GEMINI_KEY_4, GEMINI_KEY_3, GEMINI_KEY_1, GEMINI_KEY_2, GEMINI_KEY_5
+[DEBUG] Trying Google GenAI GEMINI_KEY_4 (1/5) on gemma-4-31b-it...
+[TOKEN_USAGE] {"scan_id":"scan-2ce62ee0-39b5-47a8-bb75-d9683d05d287","request_type":"core","provider":"google-genai","model":"gemma-4-31b-it","key_index":4,"attempt_number":1,"success":true,"duration_ms":95532,"input_token_count":8036,"output_token_count":1806,"total_token_count":11392,"estimated_input_tokens":7680,"max_output_tokens":1500,"image_included":true,"timestamp":1778088396744}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: Expert Mode (Very Accurate) | Latency: 95.53s]
+{
+  "sex": "male",
+  "finalRating": 76,
+  "sideRating": null,
+  "tier": "Strong/High-Tier",
+  "authenticityFlag": false,
+  "uncannyCueCount": 0,
+  "uncannyCues": [],
+  "visualBucket": "NATURAL/COHERENT HIGH-TIER",
+  "facialFatDefinitionRead": "lean",
+  "technicalSummary": "Strong masculine bone structure characterized by an ideal fWHR and balanced bigonial width. Exceptional eye area with positive canthal tilt and high orbital support, complemented by clear skin and high symmetry.",
+  "appealAssessment": "High-tier natural attractiveness. The face exhibits a refined balance between sharp structural definition and a fresh, youthful read, avoiding any blockiness or over-optimization.",
+  "personalizedInterpretation": "A highly harmonious face where strong structural markers are integrated seamlessly with soft tissue, resulting in a coherent and striking appearance.",
+  "categories": {
+    "Harmony": 88,
+    "Bone": 85,
+    "Symmetry": 92,
+    "Skin": 90,
+    "Dimorphism": 82,
+    "Maxillary/Cheekbone Projection": 84,
+    "Nose Projection": null,
+    "Facial Fat": 88,
+    "Eye Depth": 86,
+    "Ear Shape": null
+  },
+  "hexagonFront": {
+    "Harmony": 88,
+    "Bone": 85,
+    "Symmetry": 92,
+    "Skin": 90,
+    "Dimorphism": 82,
+    "Facial Fat": 88
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.81",
+      "score": 88,
+      "impact": "positive",
+      "note": "Strong, balanced width-to-height ratio."
+    },
+    {
+      "name": "Bigonial Width Index",
+      "value": "0.93",
+      "score": 85,
+      "impact": "positive",
+      "note": "Well-developed jaw width that remains harmonious."
+    },
+    {
+      "name": "IPD Index",
+      "value": "0.466",
+      "score": 95,
+      "impact": "positive",
+      "note": "Near-perfect interpupillary distance."
+    },
+    {
+      "name": "Midface Ratio",
+      "value": "0.949",
+      "score": 92,
+      "impact": "positive",
+      "note": "Excellent vertical midface balance."
+    },
+    {
+      "name": "Canthal Tilt",
+      "value": "4.81",
+      "score": 90,
+      "impact": "positive",
+      "note": "Ideal positive tilt contributing to an alert, attractive eye shape."
+    },
+    {
+      "name": "Eye Height Index",
+      "value": "0.062",
+      "score": 85,
+      "impact": "positive",
+      "note": "Balanced eye aperture."
+    },
+    {
+      "name": "Brow Compactness",
+      "value": "0.115",
+      "score": 88,
+      "impact": "positive",
+      "note": "Good brow-to-eye distance, providing strong framing."
+    },
+    {
+      "name": "Philtrum Height Index",
+      "value": "0.104",
+      "score": 90,
+      "impact": "positive",
+      "note": "Balanced philtrum length."
+    },
+    {
+      "name": "Total Lip Height Index",
+      "value": "0.116",
+      "score": 62,
+      "impact": "negative",
+      "note": "Slightly thin lips, reducing overall lower-face fullness."
+    },
+    {
+      "name": "Mouth Width Index",
+      "value": "0.406",
+      "score": 72,
+      "impact": "neutral",
+      "note": "Slightly wide, but visually integrated into the face."
+    },
+    {
+      "name": "Nose Width Index",
+      "value": "0.237",
+      "score": 85,
+      "impact": "positive",
+      "note": "Well-proportioned nasal base."
+    },
+    {
+      "name": "Upper Third Length",
+      "value": "0.298",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Metric suggests compression, likely due to hair/crop; visually normal."
+    },
+    {
+      "name": "Middle Third Length",
+      "value": "0.449",
+      "score": 90,
+      "impact": "positive",
+      "note": "Ideal vertical proportion."
+    },
+    {
+      "name": "Lower Third Length",
+      "value": "0.464",
+      "score": 90,
+      "impact": "positive",
+      "note": "Balanced lower face height."
+    },
+    {
+      "name": "Skin Texture",
+      "value": "Visual",
+      "score": 92,
+      "impact": "positive",
+      "note": "Clear, fresh skin with high vitality."
+    },
+    {
+      "name": "Facial Fat/Definition",
+      "value": "Lean",
+      "score": 88,
+      "impact": "positive",
+      "note": "Excellent definition without appearing gaunt."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Eye Area",
+      "description": "Exceptional combination of positive canthal tilt, almond shape, and strong orbital support."
+    },
+    {
+      "title": "Bone Structure",
+      "description": "Strong bigonial width and a well-defined jawline that provides a masculine yet refined base."
+    },
+    {
+      "title": "Facial Harmony",
+      "description": "High level of symmetry and balanced thirds, creating a very coherent overall read."
+    },
+    {
+      "title": "Skin Quality",
+      "description": "Youthful, clear skin that enhances the freshness and appeal of the face."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Lip Fullness",
+      "description": "The lips are slightly thin, which is the most notable deviation from ideal proportions."
+    },
+    {
+      "title": "Mouth Width",
+      "description": "Slightly wider than the ideal ratio, though it does not significantly disrupt harmony."
+    }
+  ],
+  "pros": [
+    "Strong positive canthal tilt",
+    "Excellent jawline definition",
+    "High symmetry",
+    "Fresh, youthful skin texture"
+  ],
+  "cons": [
+    "Slightly thin lips",
+    "Minor mouth width imbalance"
+  ],
+  "mainLimitingFactor": "Minor soft-tissue limitations in the lip area prevent a move into the elite 80+ range.",
+  "qualityFlags": [],
+  "confidenceFlags": [],
+  "debugJustification": "Band: 73-80 (Strong/High-Tier). Drivers: Elite eye area, strong jaw/fWHR, and high symmetry. Cap: Slight lip thinness. Gemini anti-anchor check: Chosen band is Strong/High-Tier; score is not defaulted to 66-68 because the structural refinement and eye area are significantly above 'decent' levels."
+}

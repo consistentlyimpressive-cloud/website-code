@@ -1,13 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Newspaper, Swords, Users, ChevronRight, Plus } from 'lucide-react';
+import { Newspaper, Swords, Users, ChevronRight, Plus, Lock } from 'lucide-react';
 import { COMMUNITY_SCANS } from '../data/communityScans';
 import { celebrityData } from '../data/celebrityData';
 import { getApiBase } from '../utils/apiBase';
 import { resolveMediaUrl } from '../utils/mediaUrl';
 
 const API_BASE = getApiBase();
-const NEWS_FEED_URL =
-  'https://news.google.com/rss/search?q=looksmaxxing%20OR%20facial%20aesthetics%20OR%20blackpill%20OR%20QOVES&hl=en-US&gl=US&ceid=US:en';
 
 function getScanImage(scan) {
   return resolveMediaUrl(
@@ -125,6 +123,7 @@ const communityScanToDashboardCard = (scan, index = 0) => {
     profileId: scan.profileId || payload.profileId || null,
     profileName: scan.profileName || payload.profileName || 'Community Scan',
     selectedModel: String(scan.model || payload.selectedModel || (scan.officialScan || scan.official ? 'official' : '1')),
+    cohesiveFrontSide: Boolean(scan.cohesiveFrontSide || payload.cohesiveFrontSide),
     frontImage: resolveMediaUrl(scan.frontImageUrl || scan.frontImage || payload.frontImage || payload.imgSrc || null),
     sideImage: resolveMediaUrl(scan.sideImageUrl || scan.sideImage || payload.sideImage || null),
     debugAnchorsImage: resolveMediaUrl(scan.debugAnchorsImageUrl || scan.debugAnchorsImage || payload.debugAnchorsImage || payload.debugAnchorsImageUrl || null),
@@ -182,12 +181,12 @@ const modelLabel = (model) => ({
 
 function getCommunityRatingTone(score) {
   const n = Number(score) || 0;
-  if (n >= 90) return { text: 'text-emerald-200', border: 'border-emerald-300/70 hover:border-emerald-200', glow: 'shadow-[0_0_36px_rgba(16,185,129,0.18)]' };
-  if (n >= 80) return { text: 'text-emerald-300', border: 'border-emerald-400/60 hover:border-emerald-300', glow: 'shadow-[0_0_30px_rgba(16,185,129,0.14)]' };
-  if (n >= 70) return { text: 'text-cyan-300', border: 'border-cyan-400/55 hover:border-cyan-300', glow: 'shadow-[0_0_26px_rgba(34,211,238,0.13)]' };
-  if (n >= 60) return { text: 'text-yellow-300', border: 'border-yellow-500/45 hover:border-yellow-400', glow: 'shadow-[0_0_24px_rgba(234,179,8,0.10)]' };
-  if (n >= 50) return { text: 'text-orange-400', border: 'border-orange-500/50 hover:border-orange-400', glow: 'shadow-[0_0_24px_rgba(249,115,22,0.12)]' };
-  return { text: 'text-rose-400', border: 'border-rose-500/55 hover:border-rose-400', glow: 'shadow-[0_0_24px_rgba(244,63,94,0.12)]' };
+  if (n >= 90) return { text: 'text-emerald-200', stroke: '#10b981', border: 'border-emerald-300/70 hover:border-emerald-200', glow: 'shadow-[0_0_36px_rgba(16,185,129,0.18)]' };
+  if (n >= 80) return { text: 'text-emerald-300', stroke: '#34d399', border: 'border-emerald-400/60 hover:border-emerald-300', glow: 'shadow-[0_0_30px_rgba(16,185,129,0.14)]' };
+  if (n >= 70) return { text: 'text-cyan-300', stroke: '#22d3ee', border: 'border-cyan-400/55 hover:border-cyan-300', glow: 'shadow-[0_0_26px_rgba(34,211,238,0.13)]' };
+  if (n >= 60) return { text: 'text-yellow-300', stroke: '#eab308', border: 'border-yellow-500/45 hover:border-yellow-400', glow: 'shadow-[0_0_24px_rgba(234,179,8,0.10)]' };
+  if (n >= 50) return { text: 'text-orange-400', stroke: '#f97316', border: 'border-orange-500/50 hover:border-orange-400', glow: 'shadow-[0_0_24px_rgba(249,115,22,0.12)]' };
+  return { text: 'text-rose-400', stroke: '#f43f5e', border: 'border-rose-500/55 hover:border-rose-400', glow: 'shadow-[0_0_24px_rgba(244,63,94,0.12)]' };
 }
 
 function getCommunityTierBadgeClass(scanTier) {
@@ -273,7 +272,15 @@ function DashboardHubCommunityScanCard({ scan, compact = false, onOpen }) {
 
           <div className={`absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black via-black/80 to-transparent ${compact ? 'p-3' : 'p-4'} flex flex-col items-start [transform:translateZ(32px)]`}>
             <div className="mb-2 flex items-baseline gap-1">
-              <span className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums ${ratingTone.text}`}>
+              <span 
+                className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums`}
+                style={{
+                  background: `linear-gradient(to bottom, #ffffff 40%, ${ratingTone.stroke || '#22d3ee'})`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  filter: 'saturate(0.85)'
+                }}
+              >
                 {rating.toFixed(1)}
               </span>
               <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">/100</span>
@@ -288,26 +295,37 @@ function DashboardHubCommunityScanCard({ scan, compact = false, onOpen }) {
   );
 }
 
-function decodeText(value) {
-  if (!value) return '';
-  const textarea = document.createElement('textarea');
-  textarea.innerHTML = String(value);
-  return textarea.value.replace(/\s+/g, ' ').trim();
+function DashboardHubBattlePreviewCard({ battle, onOpen }) {
+  const f1 = battle?.fighterA || battle?.contenderA;
+  const f2 = battle?.fighterB || battle?.contenderB;
+  
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      className="group relative flex aspect-[2.2/1] w-full items-center gap-1.5 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-950/40 p-1.5 transition-all hover:border-cyan-500/40 hover:bg-zinc-900/40 outline-none"
+    >
+      <div className="relative flex-1 h-full overflow-hidden rounded-xl border border-zinc-800/50">
+        <img loading="lazy" decoding="async" src={getBattleImage(f1)} alt="" className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-110" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+      </div>
+      
+      <div className="flex flex-col items-center gap-0.5 px-0.5">
+        <span className="text-[8px] font-black italic tracking-tighter text-cyan-500/80 uppercase">vs</span>
+      </div>
+
+      <div className="relative flex-1 h-full overflow-hidden rounded-xl border border-zinc-800/50">
+        <img loading="lazy" decoding="async" src={getBattleImage(f2)} alt="" className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-110" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+      </div>
+
+      {/* Hover Glow */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-500 bg-gradient-to-r from-cyan-500/5 via-transparent to-cyan-500/5" />
+    </div>
+  );
 }
 
-async function fetchLatestNews() {
-  const res = await fetch(`${API_BASE}/api/proxy-rss?url=${encodeURIComponent(NEWS_FEED_URL)}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error('Failed to fetch news');
-  const xml = await res.text();
-  const doc = new DOMParser().parseFromString(xml, 'text/xml');
-  if (doc.querySelector('parsererror')) return [];
-  return Array.from(doc.querySelectorAll('item')).slice(0, 2).map((item, index) => {
-    const title = decodeText(item.querySelector('title')?.textContent || 'Latest read').replace(/\s+-\s+Google News$/i, '');
-    const source = decodeText(item.querySelector('source')?.textContent || 'News');
-    const link = item.querySelector('link')?.textContent || '';
-    return { id: `${source}-${index}-${title}`, title, source, link };
-  });
-}
 
 /**
  * Compact explore strip for the dashboard. It polls the same public endpoints used by
@@ -316,20 +334,18 @@ async function fetchLatestNews() {
 export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = false, onOpenCommunityScan = null, variant = 'compact', onAddScan = null }) {
   const [latestScans, setLatestScans] = useState([]);
   const [latestBattles, setLatestBattles] = useState([]);
-  const [latestNews, setLatestNews] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadLatest = async () => {
-      const [scansResult, battlesResult, newsResult] = await Promise.allSettled([
+      const [scansResult, battlesResult] = await Promise.allSettled([
         fetch(`${API_BASE}/api/community-scans?limit=${variant === 'sections' ? 12 : 3}`, { cache: 'no-store' }).then((res) =>
           res.ok ? res.json() : Promise.reject(new Error('community scans failed'))
         ),
         fetch(`${API_BASE}/api/mog-battle/community`, { cache: 'no-store' }).then((res) =>
           res.ok ? res.json() : Promise.reject(new Error('mog battles failed'))
         ),
-        fetchLatestNews(),
       ]);
 
       if (cancelled) return;
@@ -344,9 +360,6 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
       }
       if (battlesResult.status === 'fulfilled') {
         setLatestBattles(Array.isArray(battlesResult.value?.battles) ? battlesResult.value.battles.slice(0, 2) : []);
-      }
-      if (newsResult.status === 'fulfilled') {
-        setLatestNews(Array.isArray(newsResult.value) ? newsResult.value.slice(0, 2) : []);
       }
     };
 
@@ -369,55 +382,11 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
     () => latestBattles.slice(0, 3),
     [latestBattles]
   );
-  const previewNews = useMemo(
-    () => latestNews.slice(0, 3),
-    [latestNews]
-  );
 
   if (variant === 'sections') {
     return (
       <div className="mt-12 space-y-8 border-t border-zinc-800/80 pt-10">
-        <section className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-6">
-          <h3 className="mb-2 flex items-center gap-2 text-lg font-black uppercase tracking-widest text-cyan-400">
-            <Swords size={20} /> Mog Battles
-          </h3>
-          <p className="mb-6 text-sm font-sans text-zinc-500">Preview of recent matchups. Cast votes and climb the leaderboard on the full page.</p>
-          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {previewBattles.length ? (
-              previewBattles.map((battle) => {
-                const fighterA = battle.fighterA || {};
-                const fighterB = battle.fighterB || {};
-                return (
-                  <div key={battle.id} className="relative aspect-[4/3] overflow-hidden rounded-xl border border-zinc-800 bg-black/40">
-                    <div className="absolute inset-0 flex">
-                      {[fighterA, fighterB].map((fighter, index) => (
-                        <div key={index} className="relative flex-1">
-                          {getBattleImage(fighter) ? (
-                            <img loading="lazy" decoding="async" src={getBattleImage(fighter)} alt="" className="absolute inset-0 h-full w-full object-cover object-top grayscale-[35%]" />
-                          ) : (
-                            <div className="absolute inset-0 bg-zinc-950" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-2 text-center text-[10px] font-bold uppercase tracking-widest text-white">
-                      VS
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <p className="col-span-full text-sm text-zinc-600">Loading battles...</p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => setCurrentPage('mog-battles')}
-            className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 bg-cyan-500/15 px-6 py-3 text-xs font-bold uppercase tracking-widest text-cyan-300 transition-colors hover:bg-cyan-500/25"
-          >
-            Go to Mog Battles <ChevronRight size={16} />
-          </button>
-        </section>
+
 
         {!hideCommunity && (
           <section className="border-t border-zinc-900 pt-8">
@@ -434,7 +403,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
                 <Plus size={16} /> Add Scan
               </button>
             </div>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
               {previewScans.map((scan) => (
                 <DashboardHubCommunityScanCard
                   key={scan.id}
@@ -446,24 +415,6 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
           </section>
         )}
 
-        <section className="border-t border-zinc-900 pt-8">
-          <div className="max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-900/25 p-8">
-            <div className="mb-4 flex items-center gap-3 text-violet-400">
-              <Newspaper size={22} />
-              <h3 className="text-xl font-black uppercase tracking-widest italic">News &amp; Media</h3>
-            </div>
-            <p className="mb-6 text-sm font-sans leading-relaxed text-zinc-400">
-              Full feed: YouTube updates, articles, and MogCheck announcements - open the dedicated page for the live experience.
-            </p>
-            <button
-              type="button"
-              onClick={() => setCurrentPage('news')}
-              className="inline-flex items-center gap-2 rounded-xl border border-violet-500/35 bg-violet-500/15 px-6 py-3 text-xs font-bold uppercase tracking-widest text-violet-200 transition-colors hover:bg-violet-500/25"
-            >
-              Go to News &amp; Media <ChevronRight size={16} />
-            </button>
-          </div>
-        </section>
       </div>
     );
   }
@@ -471,107 +422,74 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
   return (
     <div className="mt-12 pt-10 border-t border-zinc-800/80">
       <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-6">Explore MogCheck</h3>
-      <div className={hideCommunity ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'grid grid-cols-1 md:grid-cols-3 gap-4'}>
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-widest">
-            <Swords size={14} /> Mog Battles
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Community Scans */}
+        <div className="rounded-2xl border border-zinc-800 bg-[#070809]/40 p-4 md:p-5 flex flex-col gap-4">
+          <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em]">
+            <Users size={14} /> Community Scans
           </div>
-          {latestBattles.length ? (
-            <div className="space-y-2">
-              {latestBattles.map((battle) => {
-                const fighterA = battle.fighterA || {};
-                const fighterB = battle.fighterB || {};
-                return (
-                  <div key={battle.id} className="flex items-center gap-2 rounded-xl border border-zinc-800/80 bg-black/20 p-2">
-                    <div className="flex -space-x-2">
-                      {[getBattleImage(fighterA), getBattleImage(fighterB)].map((img, index) => (
-                        <div key={index} className="h-9 w-9 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-950">
-                          {img ? <img loading="lazy" decoding="async" src={img} alt="" className="h-full w-full object-cover object-top" /> : null}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-[10px] font-black uppercase tracking-widest text-zinc-300">
-                        {fighterA.name || fighterA.displayName || 'Scan'} vs {fighterB.name || fighterB.displayName || 'Scan'}
-                      </p>
-                      <p className="text-[9px] font-sans uppercase tracking-[0.2em] text-zinc-600">
-                        {Number(battle.votesA || 0) + Number(battle.votesB || 0)} votes
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-zinc-500 text-[11px] font-sans leading-relaxed">No live battles yet. Start one and it will appear here.</p>
-          )}
+          <div className="grid grid-cols-3 gap-2">
+            {previewScans.slice(0, 3).map((scan) => (
+              <DashboardHubCommunityScanCard
+                key={scan.id}
+                scan={scan}
+                compact={true}
+                onOpen={() => (onOpenCommunityScan ? onOpenCommunityScan(scan) : setCurrentPage('celebrity'))}
+              />
+            ))}
+          </div>
           <button
             type="button"
-            onClick={() => setCurrentPage('mog-battles')}
-            className="mt-auto flex items-center justify-center gap-2 py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-bold uppercase tracking-widest hover:bg-cyan-500/20 transition-colors"
+            onClick={() => setCurrentPage('celebrity')}
+            className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-emerald-500/20 transition-all group mt-auto"
           >
-            Go to Mog Battles <ChevronRight size={14} />
+            Go to Community Scans <ChevronRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
           </button>
         </div>
-        {!hideCommunity && (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-emerald-400/90 text-xs font-bold uppercase tracking-widest">
-              <Users size={14} /> Community Scans
+
+        {/* Mog Battles */}
+        <div className="rounded-2xl border border-cyan-500/10 bg-[#070809]/40 p-5 md:p-6 flex flex-col relative overflow-hidden group/battle">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 blur-3xl rounded-full -mr-16 -mt-16 group-hover/battle:bg-cyan-500/10 transition-colors" />
+          
+          <div className="relative z-10 flex flex-col gap-5 h-full">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-cyan-500 text-[10px] font-black uppercase tracking-[0.2em]">
+                <Swords size={14} /> Live Matchups
+              </div>
+              <span className="flex h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
             </div>
-            <div className="flex gap-1">
-              {previewScans.map((scan) => (
-                <button
-                  key={scan.id}
-                  type="button"
-                  onClick={() => (onOpenCommunityScan ? onOpenCommunityScan(scan) : setCurrentPage('celebrity'))}
-                  className="group relative flex-1 aspect-[3/4] rounded-lg overflow-hidden border border-zinc-700/50 text-left hover:border-emerald-400/40 transition-colors"
-                >
-                  {getScanImage(scan) ? (
-                    <img loading="lazy" decoding="async" src={getScanImage(scan)} alt="" className="w-full h-full object-cover object-top" />
-                  ) : (
-                    <div className="h-full w-full bg-zinc-950" />
-                  )}
-                </button>
-              ))}
+
+            <div className="flex flex-col gap-2">
+              <h4 className="text-2xl font-black uppercase tracking-tighter italic text-white leading-none">Mog Battles</h4>
+              <p className="text-[10px] font-sans leading-relaxed text-zinc-500">
+                Vote in live community matchups.
+              </p>
             </div>
+
+            <div className="flex flex-col gap-2 mt-1">
+              {previewBattles.length > 0 ? (
+                previewBattles.map((battle, idx) => (
+                  <DashboardHubBattlePreviewCard
+                    key={battle.id || idx}
+                    battle={battle}
+                    onOpen={() => setCurrentPage('mog-battles')}
+                  />
+                ))
+              ) : (
+                <div className="aspect-[2.2/1] rounded-2xl border border-zinc-800/50 bg-zinc-900/20 flex items-center justify-center">
+                   <Swords size={20} className="text-zinc-800" />
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
-              onClick={() => setCurrentPage('celebrity')}
-              className="mt-auto flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-500/15 transition-colors"
+              onClick={() => setCurrentPage('mog-battles')}
+              className="mt-auto flex items-center justify-center gap-2 py-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-black uppercase tracking-[0.25em] hover:bg-cyan-500/20 transition-all group"
             >
-              Go to Community Scans <ChevronRight size={14} />
+              Open Mog Battles <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
-        )}
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-violet-400 text-xs font-bold uppercase tracking-widest">
-            <Newspaper size={14} /> News &amp; Media
-          </div>
-          {latestNews.length ? (
-            <div className="space-y-2">
-              {latestNews.map((item) => (
-                <a
-                  key={item.id}
-                  href={item.link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block rounded-xl border border-zinc-800/80 bg-black/20 p-2 transition-colors hover:border-violet-400/30"
-                >
-                  <p className="line-clamp-2 text-[11px] font-bold leading-snug text-zinc-300">{item.title}</p>
-                  <p className="mt-1 text-[9px] font-sans uppercase tracking-[0.2em] text-violet-300/70">{item.source}</p>
-                </a>
-              ))}
-            </div>
-          ) : (
-            <p className="text-zinc-500 text-[11px] font-sans leading-relaxed">No latest reads loaded yet.</p>
-          )}
-          <button
-            type="button"
-            onClick={() => setCurrentPage('news')}
-            className="mt-auto flex items-center justify-center gap-2 py-2.5 rounded-xl bg-violet-500/10 border border-violet-500/25 text-violet-300 text-[10px] font-bold uppercase tracking-widest hover:bg-violet-500/20 transition-colors"
-          >
-            Go to News &amp; Media <ChevronRight size={14} />
-          </button>
         </div>
       </div>
     </div>

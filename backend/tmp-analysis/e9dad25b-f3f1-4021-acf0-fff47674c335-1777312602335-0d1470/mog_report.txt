@@ -1,0 +1,35 @@
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (66.4px)
+- Auto-Leveling: Corrected -15.54 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.904
+- IPD_Index (Geometric):    0.436
+- Mouth_Width_Index:        0.393
+- Nose_Width_Index:         0.226
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.581
+- Middle_Third_Length:      0.486
+- Lower_Third_Length:       0.577
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.059
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.108
+- Philtrum_Height_Index:    0.143
+- Total_Lip_Height_Index:   0.094
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.591
+- Midface_Ratio (Mid/IPD):  1.2
+- Canthal_Tilt_Degrees:     1.61 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================

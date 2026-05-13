@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Target, Activity, CheckCircle2, Shield, Globe, Lock, ArrowLeft, ArrowUpRight, TrendingUp, Trash2, Share2, Check } from 'lucide-react';
+import { Target, Activity, CheckCircle2, Hexagon, Shield, Globe, Lock, ArrowLeft, ArrowUpRight, TrendingUp, Trash2, Share2, Check } from 'lucide-react';
+import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { getApiBase } from '../utils/apiBase';
 import { resolveMediaUrl } from '../utils/mediaUrl';
-import { ConfirmDialog, ImageLightbox, SiteModal } from './ui/SiteModal';
+import { ConfirmDialog, ImageLightbox } from './ui/SiteModal';
 
 const API_BASE = getApiBase();
 
@@ -80,28 +81,6 @@ const MetricBar = ({ label, score, max = 100, displayValue }) => (
   </div>
 );
 
-const CategorySignalsList = ({ data = [] }) => (
-  <div className="grid gap-3 sm:grid-cols-5">
-    {data.map((item) => {
-      const score = scoreFromValue(item.score, 0);
-      return (
-        <div key={item.label} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">{item.label}</span>
-            <span className="text-xs font-black tabular-nums text-cyan-200">{(score / 10).toFixed(1)}</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
-            <div
-              className="h-full rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.55)]"
-              style={{ width: `${score}%` }}
-            />
-          </div>
-        </div>
-      );
-    })}
-  </div>
-);
-
 const FeatureHighlightCard = ({ type, feature }) => {
   const isBest = type === 'best';
   if (!feature) return null;
@@ -127,84 +106,7 @@ const FeatureHighlightCard = ({ type, feature }) => {
   );
 };
 
-const scoreFromValue = (value, fallback = 0) => {
-  const raw = typeof value === 'object' && value !== null
-    ? (value.score ?? value.value ?? value.rating ?? value.A)
-    : value;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) return fallback;
-  const normalized = parsed <= 10 ? parsed * 10 : parsed;
-  return Math.max(0, Math.min(100, Math.round(normalized)));
-};
-
-const findMetricScore = (payload, patterns = []) => {
-  const pools = [payload?.biometrics, payload?.sideBiometrics, payload?.metrics, payload?.ratios].filter(Array.isArray);
-  for (const pool of pools) {
-    for (const metric of pool) {
-      const label = String(metric?.label || metric?.name || metric?.title || '').toLowerCase();
-      if (!patterns.some((pattern) => pattern.test(label))) continue;
-      const score = metric?.score ?? metric?.rating ?? metric?.percentile ?? metric?.value;
-      const parsed = scoreFromValue(score, null);
-      if (parsed != null) return parsed;
-    }
-  }
-  return null;
-};
-
-const buildScoreCardMetrics = (scan, payload = {}) => {
-  const categories = payload?.hexagonFront || payload?.categories || payload?.categoryScores || {};
-  const potential = payload?.maxNaturalPotential ?? payload?.maxPotentialWithSurgery ?? payload?.potentialScore ?? scan?.sideRating ?? payload?.sideRating ?? scan?.finalRating ?? payload?.finalRating;
-  const jawMetric = findMetricScore(payload, [/jaw/, /bigonial/, /mandible/, /gonial/]);
-  const cheekboneCategory = categories['Maxillary/Cheekbone Projection'] ?? categories.Cheekbones ?? categories.Maxilla ?? categories.Bone;
-  return [
-    { label: 'Overall', score: scoreFromValue(scan?.finalRating ?? payload?.finalRating) },
-    { label: 'Potential', score: scoreFromValue(potential) },
-    { label: 'Masculinity', score: scoreFromValue(categories.Dimorphism ?? categories.Masculinity) },
-    { label: 'Skin Quality', score: scoreFromValue(categories.Skin) },
-    { label: 'Jawline', score: jawMetric ?? scoreFromValue(categories.Bone) },
-    { label: 'Cheekbones', score: scoreFromValue(cheekboneCategory) },
-  ];
-};
-
-const ScoreCardView = ({ scan, profile }) => {
-  const payload = scan?.payload && typeof scan.payload === 'object' ? scan.payload : {};
-  const image = resolveMediaUrl(scan?.frontImageUrl || payload.frontImage || payload.frontImageUrl || '');
-  const metrics = buildScoreCardMetrics(scan, payload);
-  return (
-    <div className="min-h-screen bg-[#08090a] px-4 py-16 text-white">
-      <div className="mx-auto flex min-h-[calc(100vh-8rem)] w-full max-w-sm items-center justify-center">
-        <div className="relative mt-14 w-full rounded-[28px] border border-zinc-800 bg-black px-5 pb-6 pt-20 shadow-[0_28px_80px_rgba(0,0,0,0.55)]">
-          <div className="absolute left-1/2 top-0 h-28 w-28 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full border-4 border-black bg-zinc-900 shadow-[0_12px_40px_rgba(0,0,0,0.55)]">
-            {image ? (
-              <img loading="lazy" decoding="async" src={image} alt={profile?.name || 'MogCheck scan'} className="h-full w-full object-cover object-top" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-zinc-600">
-                <Target size={34} />
-              </div>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-x-5 gap-y-4">
-            {metrics.map((metric) => (
-              <div key={metric.label} className="min-w-0">
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.08em] text-zinc-300">{metric.label}</p>
-                <p className="text-3xl font-black leading-none tracking-tight text-white">{metric.score}</p>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-800">
-                  <div
-                    className="h-full rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(34,197,94,0.7)]"
-                    style={{ width: `${metric.score}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="mt-6 text-center text-[8px] font-black uppercase tracking-[0.28em] text-zinc-700">MogCheck</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const PublicProfilePage = ({ routeParams, user, scanOnly = false, scoreCardOnly = false, renderScanDashboard = null }) => {
+const PublicProfilePage = ({ routeParams, user, scanOnly = false, renderScanDashboard = null }) => {
   const [profile, setProfile] = useState(null);
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -216,7 +118,6 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, scoreCardOnly 
   const [confirmDeleteScan, setConfirmDeleteScan] = useState(null);
   const [lightboxImage, setLightboxImage] = useState(null);
   const [shareNotice, setShareNotice] = useState('');
-  const [shareChoiceScan, setShareChoiceScan] = useState(null);
 
   const isOwner = Boolean(user?.uid && profile?.userId && user.uid === profile.userId);
 
@@ -300,6 +201,7 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, scoreCardOnly 
       visibility: activeScan.visibility || payload.visibility || 'unlisted',
       selectedModel: String(activeScan.model || payload.selectedModel || payload.model || '').trim(),
       model: activeScan.model || payload.model || payload.selectedModel || '',
+      cohesiveFrontSide: Boolean(activeScan.cohesiveFrontSide || payload.cohesiveFrontSide),
       frontImage: resolveMediaUrl(activeScan.frontImageUrl || payload.frontImage || payload.frontImageUrl || null),
       sideImage: resolveMediaUrl(activeScan.sideImageUrl || payload.sideImage || payload.sideImageUrl || null),
       debugAnchorsImage: resolveMediaUrl(activeScan.debugAnchorsImageUrl || payload.debugAnchorsImage || payload.debugAnchorsImageUrl || null),
@@ -313,17 +215,16 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, scoreCardOnly 
   }, [activeScan, profile]);
   const activeScanVisibility = String(activeScan?.visibility || 'private').trim().toLowerCase() || 'private';
 
-  const categorySignalData = useMemo(() => {
+  const hexData = useMemo(() => {
     if (!parsedData) return [];
     const source = activeSide === 'front' ? parsedData.hexagonFront : parsedData.hexagonSide;
-    const fallback = activeSide === 'front' ? parsedData.categories : parsedData.sideCategories;
-    const data = source || fallback || {};
+    if (!source) return [];
     return [
-      { label: 'Skin', score: data.Skin },
-      { label: 'Dimorphism', score: data.Dimorphism },
-      { label: 'Symmetry', score: data.Symmetry },
-      { label: 'Harmony', score: data.Harmony },
-      { label: 'Bone', score: data.Bone },
+      { subject: 'Skin', A: source.Skin === 'N/A' ? 0 : source.Skin, isNA: source.Skin === 'N/A' },
+      { subject: 'Bone', A: source.Bone === 'N/A' ? 0 : source.Bone, isNA: source.Bone === 'N/A' },
+      { subject: 'Harmony', A: source.Harmony === 'N/A' ? 0 : source.Harmony, isNA: source.Harmony === 'N/A' },
+      { subject: 'Symmetry', A: source.Symmetry === 'N/A' ? 0 : source.Symmetry, isNA: source.Symmetry === 'N/A' },
+      { subject: 'Dimorphism', A: source.Dimorphism === 'N/A' ? 0 : source.Dimorphism, isNA: source.Dimorphism === 'N/A' },
     ];
   }, [parsedData, activeSide]);
 
@@ -386,12 +287,7 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, scoreCardOnly 
     return `${window.location.origin}/scan/${encodeURIComponent(profile.userId)}/${encodeURIComponent(scan.id)}`;
   };
 
-  const getScoreCardShareUrl = (scan = activeScan) => {
-    if (!scan?.id || !profile?.userId) return '';
-    return `${window.location.origin}/score-card/${encodeURIComponent(profile.userId)}/${encodeURIComponent(scan.id)}`;
-  };
-
-  const handleShareScan = async (scan = activeScan, type = 'analysis') => {
+  const handleShareScan = async (scan = activeScan) => {
     if (!scan?.id) return;
     let canShare = isPublicScanVisibility(scan.visibility) || !isOwner;
     if (isOwner && !isPublicScanVisibility(scan.visibility)) {
@@ -399,14 +295,13 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, scoreCardOnly 
     }
     if (!canShare) return;
 
-    const url = type === 'score-card' ? getScoreCardShareUrl(scan) : getScanShareUrl(scan);
+    const url = getScanShareUrl(scan);
     try {
       await navigator.clipboard.writeText(url);
-      setShareNotice(`${type === 'score-card' ? 'Score card' : 'Full analysis'} link copied. Private scans are changed to unlisted so the link works.`);
+      setShareNotice('Scan link copied. Private scans are changed to unlisted so the link works.');
     } catch {
       setShareNotice(url);
     }
-    setShareChoiceScan(null);
     window.setTimeout(() => setShareNotice(''), 4500);
   };
 
@@ -429,7 +324,6 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, scoreCardOnly 
   if (loading) return <div className="min-h-screen bg-[#0c0d0e] flex items-center justify-center"><p className="text-zinc-500 animate-pulse">Loading profile...</p></div>;
   if (error) return <div className="min-h-screen bg-[#0c0d0e] flex items-center justify-center"><p className="text-red-500">{error}</p></div>;
   if (!profile) return <div className="min-h-screen bg-[#0c0d0e] flex items-center justify-center"><p className="text-zinc-500">Profile not found.</p></div>;
-  if (scoreCardOnly && activeScan) return <ScoreCardView scan={activeScan} profile={profile} />;
 
   return (
     <div className={`min-h-screen bg-[#0a0a0b] text-zinc-200 py-24 px-4 sm:px-8 ${scanOnly ? 'max-w-6xl' : 'max-w-7xl'} mx-auto`}>
@@ -471,7 +365,7 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, scoreCardOnly 
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setShareChoiceScan(s);
+                      handleShareScan(s);
                     }}
                     className="bg-black/80 text-cyan-300 p-1 rounded-md hover:bg-cyan-500 hover:text-black"
                     title="Copy scan link"
@@ -530,13 +424,16 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, scoreCardOnly 
               <span className="text-xs text-zinc-500 uppercase tracking-widest">Model Used</span>
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2 py-1 rounded uppercase tracking-widest">{activeScan.model || 'Unknown'}</span>
+                <span className="text-xs font-bold text-zinc-300 bg-zinc-800 px-2 py-1 rounded uppercase tracking-widest">
+                  {activeScan.cohesiveFrontSide ? 'Cohesive on' : 'Cohesive off'}
+                </span>
               </div>
             </div>
 
             <div className="bg-zinc-900/30 border border-zinc-800 rounded-xl p-4">
               <button
                 type="button"
-                onClick={() => setShareChoiceScan(activeScan)}
+                onClick={() => handleShareScan(activeScan)}
                 className="flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300 transition-all hover:bg-cyan-500/20 hover:text-cyan-200"
               >
                 <Share2 size={14} /> Share This Scan
@@ -581,11 +478,31 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, scoreCardOnly 
           {/* RIGHT: Analysis & Data */}
           <div className="lg:col-span-8 flex flex-col gap-12">
             
+            {/* Hexagon Chart */}
             <section>
               <h2 className="text-2xl font-black italic uppercase tracking-widest text-white mb-6 flex items-center gap-3">
-                <Activity className="text-cyan-400" /> Category Signals
+                <Hexagon className="text-cyan-400" /> Structure Hexagon
               </h2>
-              <CategorySignalsList data={categorySignalData} />
+              <div className="bg-zinc-900/20 border border-zinc-800/80 rounded-2xl p-6 md:p-8 flex items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-cyan-500/5 animate-pulse mix-blend-overlay"></div>
+                <div className="w-full max-w-sm aspect-square relative z-10">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={hexData}>
+                      <PolarGrid stroke="#27272a" strokeDasharray="3 3" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#a1a1aa', fontSize: 10, textAnchor: 'middle' }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
+                      <Radar name="Score" dataKey="A" stroke="#22d3ee" strokeWidth={2} fill="#22d3ee" fillOpacity={0.2} isAnimationActive={false} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                  
+                  {/* Overlay N/A text in red */}
+                  {hexData.map((d, i) => d.isNA && (
+                    <div key={i} className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <span className="text-red-500 text-xs font-bold uppercase tracking-widest rotate-12 drop-shadow-md">N/A</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </section>
 
             {/* Personalized Feedback */}
@@ -706,27 +623,6 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, scoreCardOnly 
           subtitle={lightboxImage.subtitle}
           onClose={() => setLightboxImage(null)}
         />
-      )}
-
-      {shareChoiceScan && (
-        <SiteModal title="Share Scan" onClose={() => setShareChoiceScan(null)} maxWidth="max-w-sm">
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => handleShareScan(shareChoiceScan, 'analysis')}
-              className="flex w-full items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-left text-sm font-bold text-white transition-colors hover:border-cyan-500/40 hover:text-cyan-200"
-            >
-              Full Analysis <ArrowUpRight size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleShareScan(shareChoiceScan, 'score-card')}
-              className="flex w-full items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-left text-sm font-bold text-emerald-200 transition-colors hover:bg-emerald-500/20"
-            >
-              Score Card <ArrowUpRight size={16} />
-            </button>
-          </div>
-        </SiteModal>
       )}
     </div>
   );

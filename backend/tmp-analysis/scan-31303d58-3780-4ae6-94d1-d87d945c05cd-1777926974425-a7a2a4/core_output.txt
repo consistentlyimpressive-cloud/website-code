@@ -1,0 +1,266 @@
+[DEBUG] Phase 1: Importing SDKs...
+[DEBUG] Analysis Engine A Loaded.
+[DEBUG] Engine.py Linked Successfully.
+[DEBUG] Animation_Engine.py Loaded.
+[DEBUG] engineside.py Linked Successfully.
+
+==============================
+      MODEL SELECTOR
+==============================
+1. Legacy Premium
+2. Backup Model
+------------------------------
+3. OPTIC (Balance & Alignment)
+4. CORE (Objective Attractiveness)
+5. GENEVA (Mathematical Beauty)
+6. Expert Mode (Very Accurate)
+7. penis goat
+8. PENIS GOAT 2
+
+[DEBUG] Model selected via API args: 8
+[ðŸš€] Gathering Lateral Data from engineside.py...
+
+--- ANALYZING: C:\Users\Laith abu amsheh\Desktop\website-code\backend\uploads\1777926974416-b80c5d8c276da702.jpg ---
+[OK] High-Tech Animation saved: C:\Users\Laith abu amsheh\Desktop\website-code\backend\tmp-analysis\scan-31303d58-3780-4ae6-94d1-d87d945c05cd-1777926974425-a7a2a4\loading_scan.mp4
+[1/3] Extracting Biometrics...
+
+============================================================
+        MOG-CHECK CLINICAL AUDIT REPORT (V30.0)
+============================================================
+METADATA:
+- Analysis Mode: Geometric Clinical Biometrics
+- Reference Scale (1.0): Bizygomatic Width (694.9px)
+- Auto-Leveling: Corrected -7.39 deg
+
+[1] NORMALIZED HORIZONTAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Bigonial_Width_Index:     0.878
+- IPD_Index (Geometric):    0.45
+- Mouth_Width_Index:        0.363
+- Nose_Width_Index:         0.231
+
+[2] NORMALIZED VERTICAL THIRDS (Length / Zygo Width)
+------------------------------------------------------------
+- Upper_Third_Length:       0.162
+- Middle_Third_Length:      0.475
+- Lower_Third_Length:       0.5
+
+[3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
+------------------------------------------------------------
+- Eye_Height_Index:         0.05
+- Brow_Compactness_Index (distance from center of eye to bottom of brow): 0.145
+- Philtrum_Height_Index:    0.094
+- Total_Lip_Height_Index:   0.169
+
+[4] RELATIONAL RATIOS & ANGLES
+------------------------------------------------------------
+- fWHR (Zygo / Upper_Face): 1.756
+- Midface_Ratio (Mid/IPD):  0.943
+- Canthal_Tilt_Degrees:     2.67 (Measurement might be inaccurate if other parts of face show signs of bad infraorbital/face support, such as high uee and droopy eyelid shape)
+============================================================
+
+[2/3] Preparing Image...
+[3/3] Consulting AI...
+[DEBUG] Consulting PENIS GOAT 2... (Press Ctrl+C to Cancel)
+[DEBUG] Google GenAI key order this scan: GEMINI_3_1_PRO_API_KEY
+[DEBUG] Trying Google GenAI GEMINI_3_1_PRO_API_KEY (1/1)...
+[TOKEN_USAGE] {"scan_id":"scan-31303d58-3780-4ae6-94d1-d87d945c05cd","request_type":"core","provider":"google-genai","model":"gemini-3.1-pro-preview","key_index":"GEMINI_3_1_PRO_API_KEY","attempt_number":1,"success":true,"duration_ms":19031,"input_token_count":2815,"output_token_count":1955,"total_token_count":4770,"estimated_input_tokens":3850,"max_output_tokens":4096,"image_included":true,"timestamp":1777926995936}
+
+========================================
+OFFICIAL RATING
+========================================
+[Using: PENIS GOAT 2 | Latency: 19.04s]
+{
+  "sex": "male",
+  "finalRating": 69,
+  "sideRating": null,
+  "tier": "High Tier Normie",
+  "technicalSummary": "Subject presents with high leanness and youthful skin, triggering the 'Lean & Young' buffer. Hairline occlusion override applied; upper third data disregarded due to fringe. Bone structure is delicate but well-defined by low body fat. Midface is compact, and the lower third is dominant but balanced by soft tissue leanness.",
+  "appealAssessment": "High 'pretty-boy' appeal driven by clear skin, low facial fat, and a compact midface. The delicate bone structure is compensated by excellent soft tissue tightness, making him highly competitive in youth-oriented aesthetics despite lacking hyper-masculine mass.",
+  "personalizedInterpretation": "Benefiting heavily from the Lean & Young buffer. Low body fat and clear skin elevate a delicate skeletal base into a highly aesthetic tier.",
+  "categories": {
+    "Harmony": 72,
+    "Bone": 60,
+    "Symmetry": 75,
+    "Skin": 85,
+    "Dimorphism": 55,
+    "Maxillary/Cheekbone Projection": 65,
+    "Nose Projection": 60,
+    "Facial Fat": 85,
+    "Eye Depth": 60,
+    "Ear Shape": 65
+  },
+  "hexagonFront": {
+    "Harmony": 72,
+    "Bone": 60,
+    "Symmetry": 75,
+    "Skin": 85,
+    "Dimorphism": 55,
+    "Facial Fat": 85
+  },
+  "hexagonSide": null,
+  "keyRatios": [
+    {
+      "name": "fWHR",
+      "value": "1.756",
+      "score": 65,
+      "impact": "positive",
+      "note": "Good width-to-height ratio, contributing to a compact appearance."
+    },
+    {
+      "name": "Midface_Ratio",
+      "value": "0.943",
+      "score": 70,
+      "impact": "positive",
+      "note": "Compact midface, highly desirable for youthful aesthetics."
+    },
+    {
+      "name": "Bigonial_Width_Index",
+      "value": "0.878",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Adequate jaw width, though not hyper-masculine."
+    },
+    {
+      "name": "IPD_Index",
+      "value": "0.45",
+      "score": 65,
+      "impact": "positive",
+      "note": "Good interpupillary distance, well-spaced eyes."
+    },
+    {
+      "name": "Mouth_Width_Index",
+      "value": "0.363",
+      "score": 55,
+      "impact": "neutral",
+      "note": "Average mouth width, fits the delicate lower third."
+    },
+    {
+      "name": "Nose_Width_Index",
+      "value": "0.231",
+      "score": 75,
+      "impact": "positive",
+      "note": "Narrow nose, aligns well with pretty-boy archetype."
+    },
+    {
+      "name": "Upper_Third_Length",
+      "value": "0.162",
+      "score": 50,
+      "impact": "neutral",
+      "note": "Disregarded due to hairline occlusion override."
+    },
+    {
+      "name": "Middle_Third_Length",
+      "value": "0.475",
+      "score": 68,
+      "impact": "positive",
+      "note": "Relatively short midface enhances harmony."
+    },
+    {
+      "name": "Lower_Third_Length",
+      "value": "0.5",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Slightly dominant lower third, but balanced by leanness."
+    },
+    {
+      "name": "Eye_Height_Index",
+      "value": "0.05",
+      "score": 65,
+      "impact": "positive",
+      "note": "Narrow eye height, contributing to a more intense gaze."
+    },
+    {
+      "name": "Brow_Compactness_Index",
+      "value": "0.145",
+      "score": 55,
+      "impact": "neutral",
+      "note": "Average brow compactness."
+    },
+    {
+      "name": "Philtrum_Height_Index",
+      "value": "0.094",
+      "score": 60,
+      "impact": "neutral",
+      "note": "Acceptable philtrum length."
+    },
+    {
+      "name": "Total_Lip_Height_Index",
+      "value": "0.169",
+      "score": 70,
+      "impact": "positive",
+      "note": "Full lips, adding to soft tissue appeal."
+    },
+    {
+      "name": "Canthal_Tilt_Degrees",
+      "value": "2.67",
+      "score": 65,
+      "impact": "positive",
+      "note": "Positive canthal tilt, aesthetically pleasing."
+    }
+  ],
+  "bestFeatures": [
+    {
+      "title": "Skin Quality & Leanness",
+      "description": "Exceptional skin clarity and low facial fat create a tight, youthful appearance that maximizes his bone structure."
+    },
+    {
+      "title": "Compact Midface",
+      "description": "A midface ratio of 0.943 ensures the face does not look elongated, a key trait for high-tier harmony."
+    },
+    {
+      "title": "Lip Fullness",
+      "description": "Full, well-shaped lips provide a strong soft-tissue focal point that contrasts well with his lean face."
+    },
+    {
+      "title": "Narrow Nose",
+      "description": "A low nose width index (0.231) fits perfectly with the delicate, pretty-boy aesthetic."
+    },
+    {
+      "title": "Positive Canthal Tilt",
+      "description": "A slight positive tilt (2.67 degrees) gives the eyes an attractive, feline quality."
+    }
+  ],
+  "primaryFlaws": [
+    {
+      "title": "Delicate Bone Structure",
+      "description": "While lean, the underlying skeletal mass (jaw, cheekbones) lacks hyper-masculine projection and width."
+    },
+    {
+      "title": "Upper Eyelid Exposure (UEE)",
+      "description": "Visible upper eyelid exposure slightly detracts from the intensity of the eye area."
+    },
+    {
+      "title": "Lower Third Dominance",
+      "description": "The lower third is slightly long (0.5) compared to the midface, though mitigated by leanness."
+    },
+    {
+      "title": "Average Brow Ridge",
+      "description": "The brow ridge lacks heavy prominence, contributing to lower dimorphism."
+    },
+    {
+      "title": "Narrow Mouth",
+      "description": "The mouth width is somewhat narrow relative to the jaw, though not a major detractor."
+    }
+  ],
+  "pros": [
+    "Excellent skin quality and low body fat",
+    "Compact midface ratio",
+    "Full, well-shaped lips",
+    "Positive canthal tilt"
+  ],
+  "cons": [
+    "Lacks hyper-masculine bone mass",
+    "Some upper eyelid exposure",
+    "Slightly dominant lower third"
+  ],
+  "mainLimitingFactor": "Delicate skeletal base lacking robust masculine projection.",
+  "qualityFlags": [
+    "Hairline occlusion (forehead covered)"
+  ],
+  "confidenceFlags": [
+    "Mirror selfie distortion possible",
+    "Lighting obscures some bone definition"
+  ],
+  "debugJustification": "Score driven by the 'Lean & Young' buffer. Subject has excellent skin, low facial fat, and a compact midface, fitting the pretty-boy archetype perfectly. This elevates him into the high 60s despite lacking the robust bone mass required for elite 75+ scores."
+}
