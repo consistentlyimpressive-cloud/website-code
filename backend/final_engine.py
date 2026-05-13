@@ -75,6 +75,7 @@ def compact_metric_summary(clinical_data, side_data=None, max_side_chars=1800):
         "Upper_Third_Length",
         "Middle_Third_Length",
         "Lower_Third_Length",
+        "Eye_Width_Index (Horizontal)",
         "Eye_Height_Index",
         "Brow_Compactness_Index (distance from center of eye to bottom of brow)",
         "Philtrum_Height_Index",
@@ -964,6 +965,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - Midface_Ratio: 0.95-1.05 strongest/near-ideal with 1.00 as the peak; this should usually score about 90-100. 1.00-1.02 must not be listed as a flaw. 0.90-0.95 or 1.05-1.10 is acceptable/light concern only if visually supported. Above 1.10 is long, above 1.18 severe, below 0.90 compressed.
         - Upper_Third_Length: 0.34-0.43 balanced, above 0.46 long, above 0.52 severe, below 0.30 compressed. If hair/bangs/hat/hood/shadow/crop hides the hairline, ignore the raw number and visually estimate from forehead/temple/hair direction.
         - Middle_Third_Length: 0.40-0.50 balanced, above 0.54 elongated, above 0.60 severe, below 0.36 compressed. Lower_Third_Length: 0.42-0.52 balanced, below 0.38 short, above 0.56 long, above 0.62 severe.
+        - Eye_Width_Index (Horizontal): around 0.20-0.24 is generally balanced/strong, below about 0.18 reads short/small, above about 0.26 can read overly long only if visually disharmonious. Judge with eye shape and orbital support, not in isolation.
         - Eye_Height_Index: 0.055-0.075 balanced, below 0.045 narrow/squinty, above 0.085 overly round/exposed. Brow_Compactness_Index: 0.08-0.12 balanced, above 0.14 high brow/poor compactness, below 0.06 overly compressed/heavy.
         - Philtrum_Height_Index: 0.08-0.11 balanced, around 0.095 ideal, above 0.12 long, above 0.14 severe, below 0.07 short, below 0.055 very short. Do not mark balanced philtrums as long.
         - Total_Lip_Height_Index: 0.12-0.18 balanced, below 0.10 thin, below 0.08 very thin, above 0.22 overly large only if visually disharmonious. Penalize thin/inconspicuous lips when obvious.
@@ -1035,7 +1037,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - finalRating must be calibrated before writing any descriptions. The debugJustification should explain why the exact score is logical, what capped it, and why it is not higher/lower.
         - Return 12-20 keyRatios; prefer exactly 16 for normal frontal images, 18-20 when side profile adds real information. If a metric is visual-only, set value to a concise visual estimate.
         - Every keyRatios item must include name, value, score 0-100, impact, and a short face-specific note. Do not return only 2-5 metrics.
-        - Required metric coverage when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, Hairstyle and Grooming as a visual-only score. Add mouth width, philtrum/lips, brow compactness, side convexity, neck-jaw transition, or hyoid when relevant.
+        - Required metric coverage when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, eye width, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, Hairstyle and Grooming as a visual-only score. Add mouth width, philtrum/lips, brow compactness, side convexity, neck-jaw transition, or hyoid when relevant.
         - Return top 3-5 strengths and 3-5 weaknesses. Weaknesses must identify real bottlenecks and not random minor flaws. If uncanny/overbuilt, at least one weakness and mainLimitingFactor must say so.
         - pros/cons should be short scan-specific bullets and not duplicate strengths/flaws verbatim.
         - technicalSummary, appealAssessment, and personalizedInterpretation should be concise but not empty or fake. Keep them dashboard-ready.
@@ -1206,8 +1208,8 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - primaryFlaws should contain exactly 5 entries when possible and should target the biggest visible score limiters. Only target facial fat, nasolabial folds, eyelid/brow issues, skin texture, or unrefined nasal structure when they are actually visible and rating-relevant.
         - Do not invent or overstate "soft tissue fullness" or "lack of sub-zygomatic hollowing" on a lean/defined face. If definition is normal-to-good, keep it neutral and choose a more real limiting factor.
         - keyRatios should list corrected 1-100 ratings from METADATA plus visual reality.
-        - Required metric coverage should match Backup Model when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, Hairstyle and Grooming as a visual-only score, mouth width, philtrum/lips, and brow compactness. Always include Upper Third, Middle Third, and Lower Third as separate keyRatios when the frontal metadata contains them. Add side convexity, neck-jaw transition, and hyoid/cervicomental area when side profile exists.
-        - Do not stop at only fWHR, midface ratio, bigonial width, IPD index, canthal tilt, mouth width, and philtrum height. Fill 16-20 metrics unless impossible.
+        - Required metric coverage should match Backup Model when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, eye width, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, Hairstyle and Grooming as a visual-only score, mouth width, philtrum/lips, and brow compactness. Always include Upper Third, Middle Third, and Lower Third as separate keyRatios when the frontal metadata contains them. Add side convexity, neck-jaw transition, and hyoid/cervicomental area when side profile exists.
+        - Do not stop at only fWHR, midface ratio, bigonial width, IPD index, eye width, canthal tilt, mouth width, and philtrum height. Fill 16-20 metrics unless impossible.
 
         JSON schema:
         {{
@@ -1335,6 +1337,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
            Upper_Third_Length: 0.34-0.43 is balanced, above 0.46 is long, above 0.52 is severe, below 0.30 is compressed. If hair, bangs, hats, hood, shadow, or cropping covers the hairline, disregard the MediaPipe Upper_Third_Length number, visually estimate where the hairline would naturally sit from visible forehead shape/temples/hair direction, and rate Upper_Third_Length from that visual estimate instead.
            Middle_Third_Length: 0.40-0.50 is balanced, above 0.54 is elongated, above 0.60 is severe, below 0.36 is compressed.
            Lower_Third_Length: 0.42-0.52 is balanced, below 0.38 is short, above 0.56 is long, above 0.62 is severe.
+           Eye_Width_Index (Horizontal): around 0.20-0.24 is balanced/strong, below about 0.18 is short/small, and above about 0.26 is overly long only if it visibly hurts harmony.
            Eye_Height_Index: 0.055-0.075 is balanced, below 0.045 is narrow/squinty, above 0.085 is overly round/exposed.
            Brow_Compactness_Index: 0.08-0.12 is balanced, above 0.14 means high brow/poor compactness, below 0.06 means overly compressed/heavy.
            Philtrum_Height_Index: 0.08-0.11 is balanced, around 0.095 is ideal, above 0.12 is long, above 0.14 is severe, below 0.07 is short, and below 0.055 is very short.
@@ -1598,7 +1601,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         If the face falls into the UNCANNY / SYNTHETIC / OVERBUILT bucket, at least 2 of the PRIMARY FLAWS must explicitly mention things like Synthetic / Uncanny Look, Over-aggressive Dimorphism, Overbuilt Lower Third, Over-stylized Eye Area, Brutalist Aesthetic, or Artificial Harmony.
         If the face is uncanny / overbuilt, the #1 WORST FEATURE should point to that unnatural / synthetic / over-aggressive trait rather than a random minor flaw.
         ### RATINGS (USE THIS)
-        [Look at the following data from INPUT A (mog_report) and rate them from 1-100 using the global baseline curves above, with ethnicity/sex tolerance adjustments. If hair, bangs, hats, hood, cropping, or shadow covers the hairline, ignore the MediaPipe Upper_Third_Length number and visually estimate the natural hairline position before scoring Upper_Third_Length. For Bigonial_Width_Index, score on a curve: around 0.87 should be in the 80s, the score should approach 100 near 0.98, below 0.75 is a flaw, and above 1.05 deducts for over-width/blockiness. For IPD_Index (Geometric), score around 0.46 closest to 100, keep 0.44-0.48 acceptable-to-good, below 0.44 close-set, and above 0.48 wide-set. For Mouth_Width_Index, score around 0.37 closest to 100, keep 0.36-0.38 acceptable-to-ideal, below 0.36 narrow, and above 0.38 overly wide.]
+        [Look at the following data from INPUT A (mog_report) and rate them from 1-100 using the global baseline curves above, with ethnicity/sex tolerance adjustments. If hair, bangs, hats, hood, cropping, or shadow covers the hairline, ignore the MediaPipe Upper_Third_Length number and visually estimate the natural hairline position before scoring Upper_Third_Length. For Bigonial_Width_Index, score on a curve: around 0.87 should be in the 80s, the score should approach 100 near 0.98, below 0.75 is a flaw, and above 1.05 deducts for over-width/blockiness. For IPD_Index (Geometric), score around 0.46 closest to 100, keep 0.44-0.48 acceptable-to-good, below 0.44 close-set, and above 0.48 wide-set. For Eye_Width_Index (Horizontal), score around 0.20-0.24 strongest, below about 0.18 short/small, and above about 0.26 only negative if visually disharmonious. For Mouth_Width_Index, score around 0.37 closest to 100, keep 0.36-0.38 acceptable-to-ideal, below 0.36 narrow, and above 0.38 overly wide.]
         - Bigonial_Width_Index: [Score]/100
         - IPD_Index (Geometric): [Score]/100
         - Mouth_Width_Index: [Score]/100
@@ -1606,6 +1609,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - Upper_Third_Length: [Score]/100
         - Middle_Third_Length: [Score]/100
         - Lower_Third_Length: [Score]/100
+        - Eye_Width_Index (Horizontal): [Score]/100
         - Eye_Height_Index: [Score]/100
         - Brow_Compactness_Index: [Score]/100
         - Philtrum_Height_Index: [Score]/100
