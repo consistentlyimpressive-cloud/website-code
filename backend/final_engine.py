@@ -866,6 +866,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         14. skin texture / skin clarity
         15. facial fat / soft tissue definition
         16. hairline or forehead balance when visible
+        Required visual-only extra: Hairstyle and Grooming (score 0-100) based on hair framing, hairline visibility, beard quality, grooming cleanliness, and style fit.
         Optional extras: mouth width, philtrum/lip height, brow compactness, side-profile convexity, neck-jaw transition, hyoid/cervicomental area.
 
         DASHBOARD CONTENT:
@@ -886,7 +887,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
           "technicalSummary":"2 concise sentences, under 360 chars total",
           "appealAssessment":"brief personalized interpretation, under 320 chars",
           "personalizedInterpretation":"1-2 concise sentences explaining the face-specific read",
-          "categories":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Maxillary/Cheekbone Projection":0,"Nose Projection":0,"Facial Fat":0,"Eye Depth":0,"Ear Shape":0}},
+          "categories":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Maxillary/Cheekbone Projection":0,"Nose Projection":0,"Facial Fat":0,"Eye Depth":0,"Ear Shape":0,"Hairstyle and Grooming":0}},
           "hexagonFront":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Facial Fat":0}},
           "hexagonSide":null,
           "keyRatios":[{{"name":"fWHR","value":"1.92","score":81,"impact":"positive","note":"Strong width-to-height balance."}}],
@@ -1034,7 +1035,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - finalRating must be calibrated before writing any descriptions. The debugJustification should explain why the exact score is logical, what capped it, and why it is not higher/lower.
         - Return 12-20 keyRatios; prefer exactly 16 for normal frontal images, 18-20 when side profile adds real information. If a metric is visual-only, set value to a concise visual estimate.
         - Every keyRatios item must include name, value, score 0-100, impact, and a short face-specific note. Do not return only 2-5 metrics.
-        - Required metric coverage when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance. Add mouth width, philtrum/lips, brow compactness, side convexity, neck-jaw transition, or hyoid when relevant.
+        - Required metric coverage when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, Hairstyle and Grooming as a visual-only score. Add mouth width, philtrum/lips, brow compactness, side convexity, neck-jaw transition, or hyoid when relevant.
         - Return top 3-5 strengths and 3-5 weaknesses. Weaknesses must identify real bottlenecks and not random minor flaws. If uncanny/overbuilt, at least one weakness and mainLimitingFactor must say so.
         - pros/cons should be short scan-specific bullets and not duplicate strengths/flaws verbatim.
         - technicalSummary, appealAssessment, and personalizedInterpretation should be concise but not empty or fake. Keep them dashboard-ready.
@@ -1053,7 +1054,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
           "technicalSummary":"2 concise sentences, under 380 chars total",
           "appealAssessment":"brief calibrated interpretation, under 340 chars",
           "personalizedInterpretation":"1-2 concise sentences explaining the face-specific read",
-          "categories":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Maxillary/Cheekbone Projection":0,"Nose Projection":0,"Facial Fat":0,"Eye Depth":0,"Ear Shape":0}},
+          "categories":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Maxillary/Cheekbone Projection":0,"Nose Projection":0,"Facial Fat":0,"Eye Depth":0,"Ear Shape":0,"Hairstyle and Grooming":0}},
           "hexagonFront":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Facial Fat":0}},
           "hexagonSide":null,
           "keyRatios":[{{"name":"fWHR","value":"1.92","score":81,"impact":"positive|neutral|negative","note":"Strong width-to-height balance without blockiness."}}],
@@ -1125,7 +1126,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
           "technicalSummary":"Bone vs soft tissue structural overview. Mention hairline override if applicable.",
           "appealAssessment":"~40 word calibrated appeal assessment",
           "personalizedInterpretation":"1-2 concise sentences summarizing the bimodal read",
-          "categories":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Maxillary/Cheekbone Projection":0,"Nose Projection":0,"Facial Fat":0,"Eye Depth":0,"Ear Shape":0}},
+          "categories":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Maxillary/Cheekbone Projection":0,"Nose Projection":0,"Facial Fat":0,"Eye Depth":0,"Ear Shape":0,"Hairstyle and Grooming":0}},
           "hexagonFront":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Facial Fat":0}},
           "hexagonSide":null,
           "keyRatios":[{{"name":"fWHR","value":"1.92","score":81,"impact":"positive|neutral|negative","note":"Short face-specific note."}}],
@@ -1141,6 +1142,11 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         Limits: bestFeatures exactly 5 when possible. primaryFlaws exactly 5 when possible. keyRatios 12-20. pros 3-5. cons 3-5. Keep text concise.
         """
         elif choice == "9":
+            side_profile_metadata = (
+                str(prompt_side_data).strip()
+                if has_side_profile and prompt_side_data
+                else "Side profile image was provided, but side-profile metadata could not be extracted. Analyze the side image visually and keep side-only fields conservative."
+            )
             active_prompt = f"""
         You are MogCheck Premium Model, an elite-tier aesthetic consultant and clinical maxillofacial analyst.
         Your goal is to provide a brutally objective rating based on modern modeling standards, dimorphism, and facial harmony.
@@ -1151,20 +1157,34 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         1. METADATA (MediaPipe): {prompt_clinical_data}
            - NOTE: Use these measurements as supplemental evidence only. Do NOT be limited by them. If the visual image contradicts a measurement, such as hair blocking a measurement point, trust the visual image.
         2. VISUALS: High-resolution image provided. Analyze texture, angularity, and grooming.
-        {("3. SIDE PROFILE METADATA: " + prompt_side_data if has_side_profile else "FRONT-ONLY MODE: no side profile image was provided; set sideRating and side-only fields to null. Do not infer side-only weaknesses.")}
+        {("3. SIDE PROFILE METADATA: " + side_profile_metadata if has_side_profile else "FRONT-ONLY MODE: no side profile image was provided; set sideRating and side-only fields to null. Do not infer side-only weaknesses.")}
         {content_safety_rules}
         {feature_selection_rules}
 
         CALIBRATION BENCHMARKS (1-100 SCALE):
-        - 80/100: Elite/Model Tier (Examples: Chico Lachowski, Cha Eun-woo).
-        - 70-80/100: High-tier attractiveness (Example: Jordan Barrett - varies due to uncanny features/lighting).
-        - 65-75/100: Clearly attractive, "pretty boy" or "masculine-sharp" appeal. Above average in any room.
+        - 83-88/100: Elite commercial/model-tier or rare leading-man appeal. Requires multiple elite markers, strong harmony, healthy skin/soft tissue, and no severe bottleneck. Does NOT require runway-level cheek hollows if the face is naturally harmonious, masculine/refined, and highly attractive.
+        - 80-83/100: Entry elite / model-adjacent. Strong face with clear standout structure or eye area, good symmetry, coherent proportions, and only moderate or minor flaws.
+        - 72-80/100: High-tier attractiveness. Strong and clearly attractive, but held below elite by one meaningful bottleneck such as visible aging, skin/soft-tissue blur, weak eye area, poor harmony, or side-profile limitation.
+        - 65-72/100: Clearly attractive, "pretty boy" or "masculine-sharp" appeal. Above average in any room, but not consistently model-tier.
         - 50/100: Dead average.
         - 40-45/100: Below average/Failing (Example: Diddy phenotype - due to soft tissue, aging, and unrefined features).
 
         MANDATORY RATING LOGIC:
-        1. THE ANGULARITY GATE: No subject can score above 65 if they possess significant facial fat, lack a defined jawline, or lack sub-zygomatic hollowing. Angularity is the baseline for "attractive."
+        1. THE ANGULARITY GATE: No subject can score above 65 if they possess significant facial fat AND also lack a defined jawline or visible bone structure. Angularity is the baseline for "attractive."
+           - Do NOT require extreme sub-zygomatic hollowing for 80+. Extreme hollows are a high-fashion/runway marker, not the only path to elite appeal.
+           - A face with a defined jawline, strong cheekbone/maxillary support, good symmetry, strong eyes, and coherent proportions can enter the low-to-mid 80s with normal healthy soft tissue.
+           - Treat "not extremely hollow" as a mild cap only when the face otherwise reads soft, puffy, bloated, or poorly defined. Do not list lack of extreme hollowing as a primary flaw by itself.
            - Allow subjects to still score up to 60 despite failing the Angularity Gate and having bad skin, as long as they are not severely obese, do not have severely bad skin, and the bone structure is decent.
+        1B. 75+ SCORE GATE: The subject can only score higher than 75 if at least one of these is true:
+           - They have very good proportions, such as near-perfect facial thirds and strong global proportional balance.
+           - They have at least above-average harmony plus very good features, such as good skin, strong eyebrow thickness/framing, low upper eyelid exposure, deep-set eyes, or similarly strong visible markers.
+           If neither condition is met, keep the finalRating at 75 max
+        1C. VERTICAL THIRDS + BROW STRICTNESS:
+           - If Upper Third, Middle Third, and Lower Third are not all at least 75/100, the finalRating must not exceed 79.
+           - Be only slightly harsher on vertical thirds than the raw ranges alone below that cap. Do not over-penalize small or moderate thirds imperfections once the cap is respected.
+           - Do not call facial thirds "near-perfect" unless the upper, middle, and lower thirds look balanced together in the actual image, but do not over-penalize small or moderate thirds imperfections.
+           - If brow compactness is below 75/100, the finalRating must not exceed 75.
+           - Strong canthal tilt should not fully rescue weak brow compactness or high UEE; the eye area must look compact and well-framed overall to be considered high-tier.
         2. THE SKIN/TEXTURE TAX: Punish heavily for oily/greasy texture and visible large pores, active acne or significant scarring, nasolabial folds, and deep tear troughs as major age/vitality penalties.
         3. ORBITAL & NASAL REFINEMENT:
            - Penalize droopy eyelids (ptosis), significant scleral show, or lack of brow support.
@@ -1182,9 +1202,11 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - appealAssessment should provide the requested ~50-word phenotype, dimorphism, and vibe analysis.
         - technicalSummary should correspond to the requested STRUCTURAL OVERVIEW: detail bone-to-soft-tissue ratio, whether the subject passed the Angularity Gate, and whether grooming/hair helps or hurts the score.
         - bestFeatures should contain exactly 5 entries when possible.
-        - primaryFlaws should contain exactly 5 entries when possible and should target facial fat, nasolabial folds, eyelid/brow issues, skin texture, or unrefined nasal structure when present.
+        - Prefer something structural for the top Best Feature when the scan has a real structural strength, such as harmony, cheekbones, jaw, chin, thirds, eye structure, or symmetry. Do not default to skin quality as the top best feature unless structure is genuinely weak and skin is the clearest standout strength.
+        - primaryFlaws should contain exactly 5 entries when possible and should target the biggest visible score limiters. Only target facial fat, nasolabial folds, eyelid/brow issues, skin texture, or unrefined nasal structure when they are actually visible and rating-relevant.
+        - Do not invent or overstate "soft tissue fullness" or "lack of sub-zygomatic hollowing" on a lean/defined face. If definition is normal-to-good, keep it neutral and choose a more real limiting factor.
         - keyRatios should list corrected 1-100 ratings from METADATA plus visual reality.
-        - Required metric coverage should match Backup Model when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, mouth width, philtrum/lips, and brow compactness. Add side convexity, neck-jaw transition, and hyoid/cervicomental area when side profile exists.
+        - Required metric coverage should match Backup Model when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, Hairstyle and Grooming as a visual-only score, mouth width, philtrum/lips, and brow compactness. Always include Upper Third, Middle Third, and Lower Third as separate keyRatios when the frontal metadata contains them. Add side convexity, neck-jaw transition, and hyoid/cervicomental area when side profile exists.
         - Do not stop at only fWHR, midface ratio, bigonial width, IPD index, canthal tilt, mouth width, and philtrum height. Fill 16-20 metrics unless impossible.
 
         JSON schema:
@@ -1196,7 +1218,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
           "technicalSummary":"Bone-to-soft-tissue overview. State Angularity Gate result and grooming/hair impact.",
           "appealAssessment":"~50-word phenotype, dimorphism, and vibe analysis",
           "personalizedInterpretation":"1-2 concise sentences summarizing the modern modeling-standard read",
-          "categories":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Maxillary/Cheekbone Projection":0,"Nose Projection":0,"Facial Fat":0,"Eye Depth":0,"Ear Shape":0}},
+          "categories":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Maxillary/Cheekbone Projection":0,"Nose Projection":0,"Facial Fat":0,"Eye Depth":0,"Ear Shape":0,"Hairstyle and Grooming":0}},
           "hexagonFront":{{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Facial Fat":0}},
           "hexagonSide":null,
           "keyRatios":[{{"name":"fWHR","value":"1.92","score":81,"impact":"positive|neutral|negative","note":"Corrected visual-reality note."}}],
@@ -1516,14 +1538,14 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         Use *bolding* sparingly when emphasis is helpful].
 
         **Appeal Assessment:** [Start by clearly stating likely race/ethnicity and sex in plain language, then explain phenotype and target audience appeal. Example opening: "Likely race/ethnicity: [group or mixed/uncertain]. Sex: [male/female/uncertain]." If uncertain, say so instead of guessing too confidently. If the face falls into the EXAGGERATED BUT COHERENT bucket, explicitly say that the appeal is more niche / editorial / high-fashion rather than universally conventional. Do NOT frame extreme masculinity or aggressive breadth as elite natural appeal. Do NOT say aggressive dimorphism is required for high-tier appeal; balanced harmony is the goal.]
-        **Hexagon Chart Ratings (front)**
+        **Category Signal Ratings (front)**
         - Skin: [Score 1-10]
         - Bone: [Score 1-10]
         - Harmony: [Score 1-10]
         - Symmetry: [Score 1-10]
         - Dimorphism: [Score 1-10]
 
-        **Hexagon Chart Ratings (side)**
+        **Category Signal Ratings (side)**
         - Skin: [Score 1-10]
         - Bone: [Score 1-10]
         - Harmony: [Score 1-10]
@@ -1541,6 +1563,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - Facial Fat: [Score] | [Score] (Shared)
         - Eye Depth: [Score] | [Score] (Shared)
         - Ear Shape: [Score] | [Score] (Shared)
+        - Hairstyle and Grooming: [Score] | [Score] (Shared visual-only)
 
         **CRITICAL MARKERS:**
         - #1 BEST FEATURE: [Feature Name] - [Brief explanation based on both visuals and measurements]
@@ -1608,6 +1631,11 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         [List exactly 20 actionable protocols.
         Sorted from HIGHEST IMPACT to LOWEST IMPACT.]
         [Address both Frontal and Lateral structural issues based on the dual analysis.]
+        [Every protocol must target a score-limiting weakness and describe an improvement path, not maintenance of existing strengths.]
+        [Use no more than 10 surgical/procedural protocols. The remaining protocols must be non-surgical softmaxxes that can still raise the score.]
+        [Softmax examples include eyebrow dermastamping/minoxidil, volufiline, hairstyle/grooming changes, caffeine eye serums, skincare, conditioning, fat loss, and styling.]
+        [Makeup protocol cap: for male subjects, maximum 2 makeup protocols such as subtle eyeshadow or concealer; for female subjects, maximum 5.]
+        [If the face does not already show at least slight hollow cheeks / clear cheek leanness, one protocol must explicitly recommend getting leaner or reducing facial fat to improve definition.]
         1. [Protocol Name]: [Description].
         [Impact Rating]
         ...
@@ -1716,6 +1744,12 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - Use the locked score, pros, cons, weakest features, key ratios, and main limiting factor.
         - Do not ask for another image. Do not output dashboard ratings.
         - Keep advice physical/structural and specific to the locked findings.
+        - Protocols must focus on improving the score by addressing the locked score-limiting weaknesses, not maintaining existing strengths.
+        - Use no more than 10 surgical/procedural protocols; all remaining protocols must be non-surgical softmaxxes that can improve the score.
+        - Softmax examples include eyebrow dermastamping/minoxidil, volufiline, hairstyle/grooming changes, caffeine eye serums, skincare, conditioning, fat loss, and styling.
+        - Makeup protocol cap: male subjects max 2 makeup protocols such as subtle eyeshadow or concealer; female subjects max 5.
+        - If the face does not already show at least slight hollow cheeks / clear cheek leanness, one protocol must explicitly recommend getting leaner or reducing facial fat to improve definition.
+        - Avoid generic maintenance filler unless it clearly improves a limiting issue found in the scan.
 
         RETURN JSON ONLY. No markdown. No prose outside JSON.
         Schema:
@@ -1777,6 +1811,12 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - Build all advice and protocols from the exact weaknesses and strengths already identified in INPUT C plus the submitted visuals.
         - Do not output dashboard data, ratings, category tables, MOG_REPORT_REVISION, or new score sections.
         - If a side profile was not provided, keep advice frontal-only and do not mention side-profile findings.
+        - Protocols must focus on improving the score by addressing score-limiting weaknesses, not preserving strengths.
+        - Use no more than 10 surgical/procedural protocols; all remaining protocols must be non-surgical softmaxxes that can improve the score.
+        - Softmax examples include eyebrow dermastamping/minoxidil, volufiline, hairstyle/grooming changes, caffeine eye serums, skincare, conditioning, fat loss, and styling.
+        - Makeup protocol cap: male subjects max 2 makeup protocols such as subtle eyeshadow or concealer; female subjects max 5.
+        - If the face does not already show at least slight hollow cheeks / clear cheek leanness, one protocol must explicitly recommend getting leaner or reducing facial fat to improve definition.
+        - Minimize maintenance-only advice unless it directly improves a weakness that held the score down.
 
         OUTPUT FORMAT:
         ### Personalised feedback
@@ -1788,6 +1828,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         ### ACTIONABLE PROTOCOLS
         List exactly 20 actionable protocols sorted from highest impact to lowest impact.
         Address frontal and lateral structural issues only when the relevant image/profile was provided.
+        Make each protocol an improvement path tied to a specific limiting feature or ratio from INPUT C.
         Format every protocol exactly:
         1. [Protocol Name]: [Description].
         [Impact Rating]
