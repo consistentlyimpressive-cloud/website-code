@@ -1524,6 +1524,20 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
            - If the face looks noticeably older, puffier, more tired, or less structurally fresh than the metrics alone would suggest, let that lower the final score in a meaningful way.
            - If aging signs are not visible, do not invent an aging penalty.
            - Visible baldness, severe recession, diffuse thinning, or a weak/high hairline should count as an aging/presentation penalty when it noticeably worsens facial framing.
+           6. Be stricter when judging nose width and punish exponentially the further it is from ideal. People with african noses tend to be severely overrated. ALso punish if there is a lot of nostril show.
+        Punish exponentially for facial fat the further it is from ideal. >20% body fat should be seen as quite a big flaw. Jaw definition should be related to facial fat - if jaw definition is clearly bad then facial fat
+         cannot be that good either.
+
+        *NEW OVERRIDE: Punish severely for an overly wide african nose. Be a lot stricter on african phenotypes when it comes to nasal width, brow compactness, eyebrow shape and sparseness.
+        Treat visible eyebags, upper eyelid exposure, not deep set eyes, almond shaped eyes, low brow ridge protrusion, flat maxilla, facial fat, as major flaws when it comes to african phenotypes.
+        Be VERY VERY STRICT and deduct HEAVILY. When a subject fits the phenotype i described with those flaws, theres a very high chance they're a 40-55/100 and NOT a >55.
+        you can CONSIDER raising the score past 55 if the subject has at least several of these features: Very good skin, low set eyebrows, thick eyebrows, low facial fat, hunter shaped eyes
+        Do not allow subject to score more than 60 if they have: sparse eyebrows, too wide nose, very bulbous nose, protruding ears, weak brow ridge protrusion, BUT Do not overrate simply because they do not have those features.
+
+        *OVERRIDE 2: Punish harsh ageing signs VERY VERY STRICTLY. Do not give ratings from a "age-relative" perspective (eg. he's a 60/100 because he looks good for his age). You are rating closer to like how
+        attractive the subject would be perceived by 18-30 year olds. Punish for wrinkles, saggy skin, crows feet eyes, saggy neck, balding, etc.\
+        *OVERRIDE 3: Be very consistent on philtrum scoring. 0.090-0.100 is ideal and should score very high. 0.080-0.110 is balanced. 0.111-0.120 is mildly long. 0.121-0.140 is clearly long and should score noticeably lower than balanced values. Above 0.140 is severe. 0.070-0.079 is mildly short. Below 0.070 is clearly short. Do not let a clearly long philtrum outscore a balanced one unless the image is ambiguous or the landmark is unreliable.
+
 
 
         OUTPUT FORMAT:
