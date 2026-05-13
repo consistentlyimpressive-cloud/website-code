@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Sparkles, Bell, Trash2, Bug, Share2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Sparkles, Bell, Trash2, Bug, Share2, Sun, Moon } from 'lucide-react';
 import { ConfirmDialog, ImageLightbox, SiteModal } from './components/ui/SiteModal';
 import { DashboardHubPreviewsCompact } from './components/DashboardHubPreviews';
 import { getNavbarPlanChip, hasEffectiveProAccess, canAlwaysAccessDashboard, isProPlan, normalizePlanValue } from './utils/planAccess';
@@ -388,7 +388,21 @@ function isBalancedMouthStandaloneFeature(feature, dashboardData) {
   return Number.isFinite(rawIndex) && rawIndex >= 0.36 && rawIndex <= 0.38;
 }
 
+function isStructuralBestFeature(feature) {
+  const text = `${feature?.title || ''} ${feature?.description || ''}`.toLowerCase();
+  return /\bharmony\b|\bsymmetr(?:y|ical)\b|\bcheekbones?\b|\bmaxill(?:a|ary)\b|\bjaw(?:line)?\b|\bbigonial\b|\bchin\b|\bprojection\b|\bthirds?\b|\bmidface\b|\bfwhr\b|\bproportion(?:s|al)?\b|\bbrow compactness\b|\beye structure\b|\borbital\b|\bbone structure\b|\bstructure\b/.test(text);
+}
+
 function sanitizeResolvedFeatures(features, dashboardData, type) {
+  if (type === 'best') {
+    const structural = [];
+    const other = [];
+    for (const feature of features || []) {
+      if (isStructuralBestFeature(feature)) structural.push(feature);
+      else other.push(feature);
+    }
+    return [...structural, ...other];
+  }
   if (type !== 'flaw') return features;
   const conventionalCue = hasConventionalAppealCue(dashboardData);
   const authenticityFlag = getAuthenticityFlag(dashboardData);
@@ -1398,7 +1412,7 @@ const PremiumProofModal = ({ onClose, onContinue }) => (
 );
 
 // --- Navbar ---
-const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignOut, userPlan, showDashboard }) => {
+const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignOut, userPlan, showDashboard, colorMode = 'dark', onToggleColorMode }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -1561,6 +1575,14 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
                 </button>
                 <button
                   type="button"
+                  onClick={() => { onToggleColorMode?.(); setShowUserMenu(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold border-b border-zinc-800"
+                >
+                  {colorMode === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+                  {colorMode === 'light' ? 'Dark mode' : 'Light mode'}
+                </button>
+                <button
+                  type="button"
                   onClick={() => { onSignOut(); setShowUserMenu(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors uppercase tracking-widest font-bold"
                 >
@@ -1657,6 +1679,10 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
               </button>
               <button type="button" onClick={() => { setCurrentPage('profile'); setIsOpen(false); }} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
                 <User size={14} /> Profile &amp; scans
+              </button>
+              <button type="button" onClick={() => { onToggleColorMode?.(); setIsOpen(false); }} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
+                {colorMode === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+                {colorMode === 'light' ? 'Dark mode' : 'Light mode'}
               </button>
               <button type="button" onClick={() => { setShowNotifications(true); setIsOpen(false); loadNotifications(); }} className="flex items-center gap-2 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest">
                 <Bell size={14} /> Notifications {unreadNotificationCount > 0 ? `(${unreadNotificationCount})` : ''}
@@ -6888,13 +6914,7 @@ const ResultsPage = () => (
   </div>
 );
 
-  /** Category and overall scores may be stored as 0-100 or 0-10; UI shows 0-10. */
-const scoreToDisplay10 = (fs) => {
-  if (fs == null || fs === '' || Number.isNaN(Number(fs))) return null;
-  const n = Number(fs);
-  return n > 10 ? n / 10 : n;
-};
-
+/** Category scores may be stored as 0-100 or 0-10; UI shows 0-10. */
 const categoryToRadar10 = (v, fallbackRaw) => {
   const fb = Number(fallbackRaw);
   const fallback = Number.isNaN(fb) ? 5 : fb > 10 ? fb / 10 : fb;
@@ -6903,7 +6923,7 @@ const categoryToRadar10 = (v, fallbackRaw) => {
   return n > 10 ? n / 10 : n;
 };
 
-const hexagonToRadarData = (hexagon, fallbackRaw) => {
+const hexagonToCategorySignals = (hexagon, fallbackRaw) => {
   if (!hexagon || typeof hexagon !== 'object') return null;
   const keyOrder = ['Skin', 'Dimorphism', 'Symmetry', 'Harmony', 'Bone'];
   const normalizedHexagon = Object.fromEntries(
@@ -6927,85 +6947,17 @@ const hexagonToRadarData = (hexagon, fallbackRaw) => {
   }));
 };
 
-// --- Radar Chart Component ---
-const RadarChart = ({ data, finalScore, compact = false }) => {
-  const [progress, setProgress] = useState(0);
-  const dataKey = data.map((d) => `${d.label}:${d.val}`).join('|');
-  useEffect(() => {
-    let start = Date.now();
-    let frame;
-    const update = () => {
-      const p = Math.min((Date.now() - start) / 1500, 1);
-      const ease = 1 - Math.pow(1 - p, 3);
-      setProgress(ease);
-      if (p < 1) frame = requestAnimationFrame(update);
-    };
-    frame = requestAnimationFrame(update);
-    return () => cancelAnimationFrame(frame);
-  }, [dataKey]);
-
-  const points = data.map((d, i) => {
-    const angle = (Math.PI / 2) + (2 * Math.PI * i / data.length);
-    const val = (d.val * progress) / 10;
-    const x = 50 + val * 40 * Math.cos(angle);
-    const y = 50 - val * 40 * Math.sin(angle);
-    return `${x},${y}`;
-  }).join(' ');
-
-  return (
-    <div className="relative w-full aspect-square">
-      <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-[162deg]">
-        <polygon points="50,10 88,38 73,82 27,82 12,38" fill="rgba(255,255,255,0.05)" stroke="#3f3f46" strokeWidth="0.5" />
-        <polygon points="50,30 69,44 62,66 38,66 31,44" fill="rgba(255,255,255,0.1)" stroke="#52525b" strokeWidth="0.5" />
-        <line x1="50" y1="50" x2="50" y2="10" stroke="#3f3f46" strokeWidth="0.5" />
-        <line x1="50" y1="50" x2="88" y2="38" stroke="#3f3f46" strokeWidth="0.5" />
-        <line x1="50" y1="50" x2="73" y2="82" stroke="#3f3f46" strokeWidth="0.5" />
-        <line x1="50" y1="50" x2="27" y2="82" stroke="#3f3f46" strokeWidth="0.5" />
-        <line x1="50" y1="50" x2="12" y2="38" stroke="#3f3f46" strokeWidth="0.5" />
-        <polygon points={points} fill="rgba(34,211,238,0.2)" stroke="#22d3ee" strokeWidth="1" className="drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
-        {data.map((d, i) => {
-          const angle = (Math.PI / 2) + (2 * Math.PI * i / data.length);
-          const val = (d.val * progress) / 10;
-          const x = 50 + val * 40 * Math.cos(angle);
-          const y = 50 - val * 40 * Math.sin(angle);
-          return <circle key={i} cx={x} cy={y} r="1.5" fill="#fff" className="drop-shadow-[0_0_4px_rgba(255,255,255,1)]" />;
-        })}
-      </svg>
-      {!compact && (
-        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2">
-          <div className="flex justify-between w-full px-2 mt-4">
-             <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[3].label}</span>
-             <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[2].label}</span>
-          </div>
-          <div className="flex justify-between w-full px-0 -mt-2">
-             <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[4].label}</span>
-             <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[1].label}</span>
-          </div>
-          <div className="flex justify-center w-full mb-1">
-             <span className="text-[9px] font-sans text-cyan-400 uppercase tracking-widest">{data[0].label}</span>
-          </div>
-        </div>
-      )}
-      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-white font-black italic drop-shadow-[0_0_10px_rgba(255,255,255,0.5)] ${compact ? 'text-sm' : 'text-xl'}`}>
-        {scoreToDisplay10(finalScore) != null
-          ? (scoreToDisplay10(finalScore) * progress).toFixed(1)
-          : (data.reduce((a, b) => a + b.val * progress, 0) / data.length).toFixed(1)}
-      </div>
-    </div>
-  );
-};
-
-const CategorySignalsList = ({ data = [], blurred = false }) => (
-  <div className="space-y-2">
+const CategorySignalsList = ({ data = [], blurred = false, size = 'normal' }) => (
+  <div className={size === 'large' ? 'space-y-3' : 'space-y-2'}>
     {data.map((item) => {
       const value = Math.max(0, Math.min(10, Number(item.val) || 0));
       return (
         <div key={item.label}>
           <div className="mb-1 flex items-center justify-between gap-2">
-            <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-500">{item.label}</span>
-            <span className={`text-[10px] font-black tabular-nums text-cyan-200 ${blurred ? 'blur-[3px]' : ''}`}>{value.toFixed(1)}</span>
+            <span className={`${size === 'large' ? 'text-[10px]' : 'text-[9px]'} font-bold uppercase tracking-[0.18em] text-zinc-500`}>{item.label}</span>
+            <span className={`${size === 'large' ? 'text-xs' : 'text-[10px]'} font-black tabular-nums text-cyan-200 ${blurred ? 'blur-[3px]' : ''}`}>{value.toFixed(1)}</span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
+          <div className={`${size === 'large' ? 'h-2' : 'h-1.5'} overflow-hidden rounded-full bg-zinc-800`}>
             <div
               className={`h-full rounded-full bg-cyan-400 ${blurred ? 'blur-[2px]' : 'shadow-[0_0_10px_rgba(34,211,238,0.55)]'}`}
               style={{ width: `${value * 10}%` }}
@@ -7791,10 +7743,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const activeCats = isSideView && dashboardData?.sideCategories
     ? dashboardData.sideCategories
     : dashboardData?.categories;
-  const oppositeCats = !isSideView && dashboardData?.sideCategories
-    ? dashboardData.sideCategories
-    : (isSideView ? dashboardData?.categories : null);
-
   const defaultRadar = [
     { label: 'Skin', val: 6.4 },
     { label: 'Dimorphism', val: 7.8 },
@@ -7806,13 +7754,8 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const frForRadar = isSideView
     ? (dashboardData?.sideRating ?? dashboardData?.finalRating)
     : dashboardData?.finalRating;
-  const oppositeRawRating = isSideView
-    ? (dashboardData?.finalRating ?? dashboardData?.sideRating)
-    : (dashboardData?.sideRating ?? dashboardData?.finalRating);
-  const activeHexagon = isSideView ? dashboardData?.hexagonSide : dashboardData?.hexagonFront;
-  const oppositeHexagon = !isSideView ? dashboardData?.hexagonSide : dashboardData?.hexagonFront;
   const primaryRadarData =
-    hexagonToRadarData(activeHexagon, frForRadar) ||
+    hexagonToCategorySignals(isSideView ? dashboardData?.hexagonSide : dashboardData?.hexagonFront, frForRadar) ||
     (activeCats
       ? [
           { label: 'Skin', val: categoryToRadar10(activeCats.Skin, frForRadar) },
@@ -7822,17 +7765,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           { label: 'Bone', val: categoryToRadar10(activeCats.Bone, frForRadar) },
         ]
       : defaultRadar);
-  const secondaryRadarData =
-    hexagonToRadarData(oppositeHexagon, oppositeRawRating) ||
-    (oppositeCats
-      ? [
-          { label: 'Skin', val: categoryToRadar10(oppositeCats.Skin, oppositeRawRating) },
-          { label: 'Dimorphism', val: categoryToRadar10(oppositeCats.Dimorphism, oppositeRawRating) },
-          { label: 'Symmetry', val: categoryToRadar10(oppositeCats.Symmetry, oppositeRawRating) },
-          { label: 'Harmony', val: categoryToRadar10(oppositeCats.Harmony, oppositeRawRating) },
-          { label: 'Bone', val: categoryToRadar10(oppositeCats.Bone, oppositeRawRating) },
-        ]
-      : null);
   const radarData = primaryRadarData;
 
   const getCatScore = (catName) => {
@@ -7893,9 +7825,30 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const frontalBiometrics = dashboardData?.biometrics?.length
     ? dashboardData.biometrics.filter(m => isFrontalMetric(m.label))
     : [];
-  const metricData = isSideView
+  const baseMetricData = isSideView
     ? (dashboardData?.sideBiometrics?.length ? dashboardData.sideBiometrics : sideMetricDataGlobal)
     : (frontalBiometrics.length ? frontalBiometrics : frontMetricData);
+  const metricData = useMemo(() => {
+    const source = Array.isArray(baseMetricData) ? baseMetricData : [];
+    const hasGrooming = source.some((metric) => /hairstyle|grooming|hair styling/i.test(String(metric?.label || metric?.name || '')));
+    if (hasGrooming || isSideView) return source;
+    const pools = [
+      ...(Array.isArray(dashboardData?.keyRatios) ? dashboardData.keyRatios : []),
+      ...(Array.isArray(dashboardData?.biometrics) ? dashboardData.biometrics : []),
+    ];
+    const existing = pools.find((metric) => /hairstyle|grooming|hair styling/i.test(String(metric?.label || metric?.name || '')));
+    const rawScore = existing?.score ?? existing?.rating ?? dashboardData?.categories?.['Hairstyle and Grooming'] ?? dashboardData?.categories?.Grooming ?? 70;
+    const score = Number.isFinite(Number(rawScore)) ? Math.max(0, Math.min(100, Number(rawScore))) : 70;
+    return [
+      ...source,
+      {
+        label: 'Hairstyle and Grooming',
+        score,
+        max: 100,
+        displayValue: `${Math.round(score)}/100`,
+      },
+    ];
+  }, [baseMetricData, dashboardData?.biometrics, dashboardData?.categories, dashboardData?.keyRatios, isSideView]);
 
   const activeImageUrl = effectiveProfileView === 'front'
     ? (dashboardData?.frontImage || placeholderProfileImage)
@@ -8130,7 +8083,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     }
     setCurrentPage('animations', `/animations/${animationId}`);
   }, [activeBestFeatures, activeImageUrl, activePrimaryFlaws, dashboardData?.finalRating, effectiveProfileView, metricData, numericDisplayedFinalRating, setCurrentPage]);
-  const radarFinalScore = Number(numericDisplayedFinalRating ?? dashboardData?.finalRating ?? 0) || 0;
   const freeHistoryCards = useMemo(() => {
     const items = Array.isArray(dashboardData?.scanHistory) ? [...dashboardData.scanHistory] : [];
     const currentSnapshot = dashboardData?.frontImage || dashboardData?.finalRating != null
@@ -8244,7 +8196,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           </div>
           {(isRestrictedPreview || !isFreeModelResult) && (
             <div className="space-y-4 md:hidden">
-              <div className="grid grid-cols-[1.15fr_0.85fr] gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <button
                   type="button"
                   onClick={() => setScanLightbox({ src: activeImageUrl, subtitle: `${effectiveProfileView === 'side' ? 'Side' : 'Front'} profile` })}
@@ -8260,17 +8212,17 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
                 </button>
-                <div className="grid gap-3">
-                  <div className="flex min-h-[7.25rem] flex-col items-center justify-center rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-3 text-center shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
+                <div className="grid gap-4">
+                  <div className="flex min-h-[6.75rem] flex-col items-center justify-center rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-3 text-center shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
                     <span className="mb-2 text-[9px] font-black uppercase tracking-[0.26em] text-cyan-400">Final Rating</span>
                     <span className="text-5xl font-black italic tracking-tight text-zinc-200 drop-shadow-[0_0_18px_rgba(34,211,238,0.18)]">
                       {displayedFinalRating}
                     </span>
                   </div>
-                  <div className="relative flex min-h-[7.25rem] items-center justify-center overflow-hidden rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-4 shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.08)_0%,transparent_72%)]" />
-                    <div className="relative z-10 w-[88%] max-w-[7rem]">
-                      <RadarChart data={radarData} finalScore={radarFinalScore} compact />
+                  <div className="relative overflow-hidden rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-4 shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
+                    <div className="w-full">
+                      <span className="mb-3 block text-[9px] font-black uppercase tracking-[0.26em] text-cyan-400/80">Category Signals</span>
+                      <CategorySignalsList data={radarData} />
                     </div>
                   </div>
                 </div>
@@ -8468,40 +8420,34 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
               <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={effectiveProfileView} showFeatureLists={true} />
 
               <div className="hidden md:grid md:grid-cols-4 gap-6">
-                <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
+                <div className="col-span-1 md:col-span-1 flex flex-col gap-4">
                   {/* Left Column Stack: Final Rating then Categories */}
                   <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden p-4 shadow-lg group hover:border-zinc-700 transition-colors">
-                    <div className="relative z-10 grid grid-cols-[0.75fr_1fr] items-center gap-4">
-                      <div className="text-center">
-                        <span className="mb-3 block font-sans text-[9px] uppercase tracking-[0.34em] text-green-300/80">Final Rating</span>
-                        <div className="relative leading-none">
-                          <span className="absolute inset-0 block text-5xl font-black italic tracking-tighter text-green-400/90 blur-[25.9px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none">
-                            {displayedFinalRating}
-                          </span>
-                          <span className="relative block text-5xl font-black italic tracking-tighter text-green-400 blur-[18.5px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_rgba(74,222,128,0.4)]">
-                            {displayedFinalRating}
-                          </span>
-                        </div>
+                    <div className="relative z-10 flex flex-col items-center justify-center text-center">
+                      <span className="mb-3 block font-sans text-[9px] uppercase tracking-[0.34em] text-green-300/80">Final Rating</span>
+                      <div className="relative leading-none">
+                        <span className="absolute inset-0 block text-5xl font-black italic tracking-tighter text-green-400/90 blur-[25.9px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none">
+                          {displayedFinalRating}
+                        </span>
+                        <span className="relative block text-5xl font-black italic tracking-tighter text-green-400 blur-[18.5px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_rgba(74,222,128,0.4)]">
+                          {displayedFinalRating}
+                        </span>
                       </div>
-                      <CategorySignalsList data={radarData} blurred />
                       {authenticityFlag && !isFreeModelResult && (
-                        <span className="col-span-2 mt-1 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                        <span className="mt-3 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
                           {authenticityFlag}
                         </span>
                       )}
                       {showUncannyFlagUnderScore && (
-                        <span className="col-span-2 mt-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                        <span className="mt-2 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
                           ({uncannyFlag})
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center min-h-[230px] shadow-lg group hover:border-zinc-700 transition-colors p-4">
-                    {renderBlurredOverlay("Category Scores")}
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(74,222,128,0.05)_0%,transparent_70%)] pointer-events-none" />
-                    <div className="w-[85%] max-w-[200px] opacity-10 blur-[12.95px] pointer-events-none select-none relative z-10">
-                      <RadarChart data={radarData} finalScore={radarFinalScore} />
-                    </div>
+                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden p-4 shadow-lg group hover:border-zinc-700 transition-colors">
+                    <span className="mb-3 block text-[9px] font-black uppercase tracking-[0.34em] text-green-300/70">Category Signals</span>
+                    <CategorySignalsList data={radarData} blurred size="large" />
                   </div>
                 </div>
 
@@ -8570,38 +8516,33 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           ) : (
             <>
               <div className="hidden md:grid md:grid-cols-4 gap-6">
-                <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
+                <div className="col-span-1 md:col-span-1 flex flex-col gap-4">
                   {/* Left Column Stack: Final Rating then Categories */}
                   <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden p-4 shadow-lg group hover:border-zinc-700 transition-colors">
-                    <div className="relative z-10 grid grid-cols-[0.75fr_1fr] items-center gap-4">
-                      <div className="text-center">
-                        <span className="mb-3 block font-sans text-[9px] uppercase tracking-[0.34em] text-cyan-400/80">
-                          {isFreeModelResult ? 'Analysis Type' : 'Final Rating'}
+                    <div className="relative z-10 flex flex-col items-center justify-center text-center">
+                      <span className="mb-3 block font-sans text-[9px] uppercase tracking-[0.34em] text-cyan-400/80">
+                        {isFreeModelResult ? 'Analysis Type' : 'Final Rating'}
+                      </span>
+                      <div className="relative leading-none">
+                        <span className={`block font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-500 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)] ${isFreeModelResult ? 'text-3xl' : 'text-5xl'}`}>
+                          {displayedFinalRating}
                         </span>
-                        <div className="relative leading-none">
-                          <span className={`block font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-cyan-100 to-cyan-500 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)] ${isFreeModelResult ? 'text-3xl' : 'text-5xl'}`}>
-                            {displayedFinalRating}
-                          </span>
-                        </div>
                       </div>
-                      <CategorySignalsList data={radarData} />
                       {authenticityFlag && !isFreeModelResult && (
-                        <span className="col-span-2 mt-1 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                        <span className="mt-3 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
                           {authenticityFlag}
                         </span>
                       )}
                       {showUncannyFlagUnderScore && (
-                        <span className="col-span-2 mt-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
+                        <span className="mt-2 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
                           ({uncannyFlag})
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center min-h-[230px] shadow-lg group hover:border-zinc-700 transition-colors p-4">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.05)_0%,transparent_70%)] pointer-events-none" />
-                    <div className="w-[85%] max-w-[200px] relative z-10">
-                      <RadarChart data={radarData} finalScore={radarFinalScore} />
-                    </div>
+                  <div className="bg-[#0c0d0e] border border-zinc-800 rounded-2xl relative overflow-hidden p-4 shadow-lg group hover:border-zinc-700 transition-colors">
+                    <span className="mb-3 block text-[9px] font-black uppercase tracking-[0.34em] text-cyan-400/70">Category Signals</span>
+                    <CategorySignalsList data={radarData} size="large" />
                   </div>
                 </div>
 
@@ -10951,11 +10892,31 @@ const App = () => {
   const [analysisDockCollapsed, setAnalysisDockCollapsed] = useState(false);
   const [focusedAnalysisJobId, setFocusedAnalysisJobId] = useState(null);
   const [premiumProofOpen, setPremiumProofOpen] = useState(false);
+  const [colorMode, setColorMode] = useState(() => {
+    try {
+      return window.localStorage.getItem('mogcheck_color_mode') === 'light' ? 'light' : 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
   const analysisJobsRef = useRef([]);
 
   useEffect(() => {
     analysisJobsRef.current = analysisJobs;
   }, [analysisJobs]);
+
+  useEffect(() => {
+    document.body.classList.toggle('mog-light-mode', colorMode === 'light');
+    try {
+      window.localStorage.setItem('mogcheck_color_mode', colorMode);
+    } catch {
+      // Preference persistence is best-effort.
+    }
+  }, [colorMode]);
+
+  const toggleColorMode = useCallback(() => {
+    setColorMode((mode) => (mode === 'light' ? 'dark' : 'light'));
+  }, []);
 
   const setCurrentPage = useCallback((page, pathOverride = null) => {
     const newPath = pathOverride || (page === 'home' ? '/' : `/${page}`);
@@ -11393,6 +11354,8 @@ const App = () => {
           onSignOut={handleSignOut}
           userPlan={userPlan}
           showDashboard={Boolean(user || hasScanData)}
+          colorMode={colorMode}
+          onToggleColorMode={toggleColorMode}
         />
       )}
       {premiumProofOpen && (

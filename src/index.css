@@ -16,6 +16,84 @@
   }
 }
 
+body.mog-light-mode {
+  background: #ebe5da;
+  color: #1f1c18;
+}
+
+body.mog-light-mode .bg-\[\#0c0d0e\],
+body.mog-light-mode .bg-\[\#0a0a0b\],
+body.mog-light-mode .bg-\[\#090a0b\],
+body.mog-light-mode .bg-\[\#0b0c0d\],
+body.mog-light-mode .bg-\[\#050608\],
+body.mog-light-mode .bg-zinc-800,
+body.mog-light-mode .bg-zinc-800\/80,
+body.mog-light-mode .bg-zinc-950,
+body.mog-light-mode .bg-zinc-950\/60,
+body.mog-light-mode .bg-zinc-950\/70,
+body.mog-light-mode .bg-zinc-900,
+body.mog-light-mode .bg-zinc-900\/30,
+body.mog-light-mode .bg-zinc-900\/40,
+body.mog-light-mode .bg-zinc-900\/45,
+body.mog-light-mode .bg-zinc-900\/50,
+body.mog-light-mode .bg-zinc-900\/60,
+body.mog-light-mode .bg-zinc-900\/80 {
+  background-color: #f5efe5 !important;
+}
+
+body.mog-light-mode .bg-black,
+body.mog-light-mode .bg-black\/40,
+body.mog-light-mode .bg-black\/70,
+body.mog-light-mode .bg-black\/75,
+body.mog-light-mode .bg-black\/80 {
+  background-color: rgba(48, 44, 38, 0.86) !important;
+}
+
+body.mog-light-mode .border-zinc-900,
+body.mog-light-mode .border-zinc-900\/50,
+body.mog-light-mode .border-zinc-800,
+body.mog-light-mode .border-zinc-800\/50,
+body.mog-light-mode .border-zinc-800\/60,
+body.mog-light-mode .border-zinc-800\/80,
+body.mog-light-mode .border-zinc-700 {
+  border-color: #cfc6b8 !important;
+}
+
+body.mog-light-mode .text-white,
+body.mog-light-mode .text-zinc-100,
+body.mog-light-mode .text-zinc-200,
+body.mog-light-mode .text-zinc-300,
+body.mog-light-mode .text-zinc-400 {
+  color: #1f1c18 !important;
+}
+
+body.mog-light-mode .text-zinc-500,
+body.mog-light-mode .text-zinc-600,
+body.mog-light-mode .text-zinc-700 {
+  color: #62594e !important;
+}
+
+body.mog-light-mode .text-zinc-800,
+body.mog-light-mode .text-zinc-900 {
+  color: #2b2621 !important;
+}
+
+body.mog-light-mode .shadow-2xl,
+body.mog-light-mode .shadow-lg,
+body.mog-light-mode [class*="shadow-["] {
+  box-shadow: 0 18px 50px rgba(39, 32, 20, 0.12) !important;
+}
+
+body.mog-light-mode .custom-scrollbar::-webkit-scrollbar-track,
+body.mog-light-mode .mog-scroll::-webkit-scrollbar-track {
+  background: #dfd6c8;
+}
+
+body.mog-light-mode .custom-scrollbar::-webkit-scrollbar-thumb,
+body.mog-light-mode .mog-scroll::-webkit-scrollbar-thumb {
+  background: #9f9483;
+}
+
 @media (max-width: 768px) {
   html {
     font-size: 14px;

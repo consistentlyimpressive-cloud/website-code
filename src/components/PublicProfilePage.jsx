@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Target, Activity, CheckCircle2, Hexagon, Shield, Globe, Lock, ArrowLeft, ArrowUpRight, TrendingUp, Trash2, Share2, Check } from 'lucide-react';
-import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
+import { Target, Activity, CheckCircle2, Shield, Globe, Lock, ArrowLeft, ArrowUpRight, TrendingUp, Trash2, Share2, Check } from 'lucide-react';
 import { getApiBase } from '../utils/apiBase';
 import { resolveMediaUrl } from '../utils/mediaUrl';
 import { ConfirmDialog, ImageLightbox, SiteModal } from './ui/SiteModal';
@@ -78,6 +77,28 @@ const MetricBar = ({ label, score, max = 100, displayValue }) => (
         style={{ width: `${(score / max) * 100}%` }}
       />
     </div>
+  </div>
+);
+
+const CategorySignalsList = ({ data = [] }) => (
+  <div className="grid gap-3 sm:grid-cols-5">
+    {data.map((item) => {
+      const score = scoreFromValue(item.score, 0);
+      return (
+        <div key={item.label} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">{item.label}</span>
+            <span className="text-xs font-black tabular-nums text-cyan-200">{(score / 10).toFixed(1)}</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
+            <div
+              className="h-full rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.55)]"
+              style={{ width: `${score}%` }}
+            />
+          </div>
+        </div>
+      );
+    })}
   </div>
 );
 
@@ -292,16 +313,17 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, scoreCardOnly 
   }, [activeScan, profile]);
   const activeScanVisibility = String(activeScan?.visibility || 'private').trim().toLowerCase() || 'private';
 
-  const hexData = useMemo(() => {
+  const categorySignalData = useMemo(() => {
     if (!parsedData) return [];
     const source = activeSide === 'front' ? parsedData.hexagonFront : parsedData.hexagonSide;
-    if (!source) return [];
+    const fallback = activeSide === 'front' ? parsedData.categories : parsedData.sideCategories;
+    const data = source || fallback || {};
     return [
-      { subject: 'Skin', A: source.Skin === 'N/A' ? 0 : source.Skin, isNA: source.Skin === 'N/A' },
-      { subject: 'Bone', A: source.Bone === 'N/A' ? 0 : source.Bone, isNA: source.Bone === 'N/A' },
-      { subject: 'Harmony', A: source.Harmony === 'N/A' ? 0 : source.Harmony, isNA: source.Harmony === 'N/A' },
-      { subject: 'Symmetry', A: source.Symmetry === 'N/A' ? 0 : source.Symmetry, isNA: source.Symmetry === 'N/A' },
-      { subject: 'Dimorphism', A: source.Dimorphism === 'N/A' ? 0 : source.Dimorphism, isNA: source.Dimorphism === 'N/A' },
+      { label: 'Skin', score: data.Skin },
+      { label: 'Dimorphism', score: data.Dimorphism },
+      { label: 'Symmetry', score: data.Symmetry },
+      { label: 'Harmony', score: data.Harmony },
+      { label: 'Bone', score: data.Bone },
     ];
   }, [parsedData, activeSide]);
 
@@ -559,31 +581,11 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, scoreCardOnly 
           {/* RIGHT: Analysis & Data */}
           <div className="lg:col-span-8 flex flex-col gap-12">
             
-            {/* Hexagon Chart */}
             <section>
               <h2 className="text-2xl font-black italic uppercase tracking-widest text-white mb-6 flex items-center gap-3">
-                <Hexagon className="text-cyan-400" /> Structure Hexagon
+                <Activity className="text-cyan-400" /> Category Signals
               </h2>
-              <div className="bg-zinc-900/20 border border-zinc-800/80 rounded-2xl p-6 md:p-8 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-cyan-500/5 animate-pulse mix-blend-overlay"></div>
-                <div className="w-full max-w-sm aspect-square relative z-10">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={hexData}>
-                      <PolarGrid stroke="#27272a" strokeDasharray="3 3" />
-                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#a1a1aa', fontSize: 10, textAnchor: 'middle' }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
-                      <Radar name="Score" dataKey="A" stroke="#22d3ee" strokeWidth={2} fill="#22d3ee" fillOpacity={0.2} isAnimationActive={false} />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                  
-                  {/* Overlay N/A text in red */}
-                  {hexData.map((d, i) => d.isNA && (
-                    <div key={i} className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <span className="text-red-500 text-xs font-bold uppercase tracking-widest rotate-12 drop-shadow-md">N/A</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <CategorySignalsList data={categorySignalData} />
             </section>
 
             {/* Personalized Feedback */}
