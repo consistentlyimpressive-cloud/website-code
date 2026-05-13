@@ -3041,11 +3041,15 @@ function normalizeStoredScanUrls(scan) {
 const LEGACY_PREMIUM_DEMO_SCAN_ID = 'premium-demo-scan';
 const PREMIUM_DEMO_PROFILE_ID = 'premium-demo';
 const DEFAULT_PREMIUM_DEMO_ID = 'henry';
+const PREMIUM_DEMO_ID_ALIASES = {
+  'henry-cavill': 'henry',
+};
 const PREMIUM_DEMO_CATALOG = {
   henry: {
     id: 'henry',
     scanId: 'premium-demo-scan-henry',
     legacyScanId: LEGACY_PREMIUM_DEMO_SCAN_ID,
+    legacyScanIds: [LEGACY_PREMIUM_DEMO_SCAN_ID, 'premium-demo-scan-henry-cavill'],
     image: '/premium-demo/henry-cavill.jpg',
     sideImage: '/premium-demo/henry-cavill-side.jpg',
     payloadPath: path.join(__dirname, '..', 'public', 'premium-demo', 'henry-cavill-scan.json'),
@@ -3066,9 +3070,14 @@ const ACTIVE_PREMIUM_DEMO_IDS = Object.values(PREMIUM_DEMO_CATALOG)
   .filter((demo) => demo.enabled)
   .map((demo) => demo.id);
 
+function resolvePremiumDemoId(demoId) {
+  const normalized = String(demoId || '').trim().toLowerCase();
+  return PREMIUM_DEMO_ID_ALIASES[normalized] || normalized;
+}
+
 function normalizePremiumDemoId(demoId) {
-  const normalized = String(demoId || DEFAULT_PREMIUM_DEMO_ID).trim();
-  return PREMIUM_DEMO_CATALOG[normalized]?.enabled ? normalized : DEFAULT_PREMIUM_DEMO_ID;
+  const canonical = resolvePremiumDemoId(demoId || DEFAULT_PREMIUM_DEMO_ID);
+  return PREMIUM_DEMO_CATALOG[canonical]?.enabled ? canonical : DEFAULT_PREMIUM_DEMO_ID;
 }
 
 function getPremiumDemoConfig(demoId) {
@@ -3119,11 +3128,15 @@ function collectPremiumDemoUsedIds(scans = [], userData = {}) {
   for (const scan of scans) {
     const payload = scan?.payload && typeof scan.payload === 'object' ? scan.payload : {};
     const demoId = payload.demoId || scan.demoId;
-    if (demoId && PREMIUM_DEMO_CATALOG[demoId]?.enabled) used.add(demoId);
+    const canonicalDemoId = resolvePremiumDemoId(demoId);
+    if (canonicalDemoId && PREMIUM_DEMO_CATALOG[canonicalDemoId]?.enabled) used.add(canonicalDemoId);
     const scanId = scan?.id || scan?.scanId || payload.scanId || payload.scanRequestId;
     if (scanId === LEGACY_PREMIUM_DEMO_SCAN_ID) used.add(DEFAULT_PREMIUM_DEMO_ID);
     for (const demo of Object.values(PREMIUM_DEMO_CATALOG)) {
-      if (scanId === demo.scanId || (demo.legacyScanId && scanId === demo.legacyScanId)) used.add(demo.id);
+      const legacyScanIds = Array.isArray(demo.legacyScanIds)
+        ? demo.legacyScanIds
+        : [demo.legacyScanId].filter(Boolean);
+      if (scanId === demo.scanId || legacyScanIds.includes(scanId)) used.add(demo.id);
     }
     if (!demoId && (scan?.isPremiumDemo || scan?.demoScan || payload.isPremiumDemo || payload.demoScan)) {
       used.add(DEFAULT_PREMIUM_DEMO_ID);
@@ -3132,7 +3145,8 @@ function collectPremiumDemoUsedIds(scans = [], userData = {}) {
   const usedMap = userData?.premiumDemoScansUsed;
   if (usedMap && typeof usedMap === 'object') {
     for (const [demoId, isUsed] of Object.entries(usedMap)) {
-      if (isUsed && PREMIUM_DEMO_CATALOG[demoId]?.enabled) used.add(demoId);
+      const canonicalDemoId = resolvePremiumDemoId(demoId);
+      if (isUsed && PREMIUM_DEMO_CATALOG[canonicalDemoId]?.enabled) used.add(canonicalDemoId);
     }
   }
   if (userData?.premiumDemoScanUsed) used.add(DEFAULT_PREMIUM_DEMO_ID);

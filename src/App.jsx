@@ -100,6 +100,9 @@ const ACTIVE_PREMIUM_DEMO_FACES = PREMIUM_DEMO_FACES.filter((face) => face.enabl
 const ACTIVE_PREMIUM_DEMO_IDS = ACTIVE_PREMIUM_DEMO_FACES.map((face) => face.id);
 const PREMIUM_DEMO_FRONT_IMAGE = ACTIVE_PREMIUM_DEMO_FACES[0]?.image || '/premium-demo/henry-cavill.jpg';
 const PREMIUM_DEMO_SCAN_PAYLOAD_SRC = ACTIVE_PREMIUM_DEMO_FACES[0]?.payloadSrc || '/premium-demo/henry-cavill-scan.json';
+const PREMIUM_DEMO_ID_ALIASES = {
+  'henry-cavill': 'henry',
+};
 
 function friendlyAnalysisErrorMessage(message) {
   const text = String(message || '').trim();
@@ -1022,8 +1025,14 @@ const normalizeDashboardMedia = (data, includeHistory = true) => {
   return normalized;
 };
 
+function resolvePremiumDemoId(demoId = DEFAULT_PREMIUM_DEMO_ID) {
+  const normalizedDemoId = String(demoId || DEFAULT_PREMIUM_DEMO_ID).trim().toLowerCase();
+  return PREMIUM_DEMO_ID_ALIASES[normalizedDemoId] || normalizedDemoId;
+}
+
 function getPremiumDemoFace(demoId = DEFAULT_PREMIUM_DEMO_ID) {
-  return PREMIUM_DEMO_FACES.find((face) => face.id === demoId && face.enabled) || ACTIVE_PREMIUM_DEMO_FACES[0];
+  const canonicalDemoId = resolvePremiumDemoId(demoId);
+  return PREMIUM_DEMO_FACES.find((face) => face.id === canonicalDemoId && face.enabled) || ACTIVE_PREMIUM_DEMO_FACES[0];
 }
 
 function normalizePremiumDemoId(demoId) {
@@ -1040,9 +1049,13 @@ function getAvailablePremiumDemoId(usedIds = [], preferredId = DEFAULT_PREMIUM_D
 function getPremiumDemoIdFromScan(scan) {
   const payload = scan?.payload && typeof scan.payload === 'object' ? scan.payload : {};
   const demoId = payload.demoId || scan?.demoId;
-  if (demoId && getPremiumDemoFace(demoId)?.id === demoId) return demoId;
+  const canonicalDemoId = demoId ? resolvePremiumDemoId(demoId) : null;
+  if (canonicalDemoId && ACTIVE_PREMIUM_DEMO_IDS.includes(canonicalDemoId)) return canonicalDemoId;
   const scanId = scan?.id || scan?.scanId || payload.scanId || payload.scanRequestId;
-  const matchedFace = ACTIVE_PREMIUM_DEMO_FACES.find((face) => scanId === `premium-demo-scan-${face.id}`);
+  const matchedFace = ACTIVE_PREMIUM_DEMO_FACES.find((face) => {
+    if (scanId === `premium-demo-scan-${face.id}`) return true;
+    return face.id === DEFAULT_PREMIUM_DEMO_ID && scanId === 'premium-demo-scan-henry-cavill';
+  });
   if (matchedFace) return matchedFace.id;
   if (
     scanId === 'premium-demo-scan' ||
