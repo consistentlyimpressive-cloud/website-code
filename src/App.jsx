@@ -8538,12 +8538,12 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                     <span className="mb-2 text-[10px] font-black uppercase tracking-[0.26em] text-white">Final Rating</span>
                     <div className="relative">
                       <span 
-                        className={`text-5xl font-black italic tracking-tight drop-shadow-[0_0_18px_${ratingTone.stroke || 'rgba(34,211,238,0.18)'}] ${isFreeModelResult ? 'select-none animate-free-rating-bg' : ''}`}
+                        className={`text-5xl font-black italic tracking-tight ${isFreeModelResult ? 'select-none animate-free-rating-bg' : ''}`}
                         style={{
-                          background: isFreeModelResult ? 'none' : `linear-gradient(to bottom, #ffffff 40%, ${ratingTone.stroke || '#22d3ee'})`,
+                          background: isFreeModelResult ? 'none' : `linear-gradient(to bottom, #ffffff 0%, #ffffff 48%, ${ratingTone.stroke || '#22d3ee'} 100%)`,
                           WebkitBackgroundClip: 'text',
                           WebkitTextFillColor: 'transparent',
-                          filter: `saturate(0.85) ${isFreeModelResult ? 'blur(8px)' : ''}`
+                          filter: `drop-shadow(0 0 18px ${ratingTone.stroke || 'rgba(34,211,238,0.18)'}) saturate(0.95) ${isFreeModelResult ? 'blur(8px)' : ''}`
                         }}
                       >
                         {displayedFinalRating}
