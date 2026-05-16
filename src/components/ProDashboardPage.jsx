@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { CommunityScansSection } from './CommunityScansSection';
 import { Target, Newspaper, Swords, Users, Crown, ChevronRight, ChevronLeft, Plus, Trash2, Edit2, Activity, Flame, Sparkles, Lock, ArrowLeft, TrendingUp, Share2, Check } from 'lucide-react';
 import { getApiBase } from '../utils/apiBase';
 import { COMMUNITY_SCANS } from '../data/communityScans';
@@ -26,6 +27,7 @@ const modelLabel = (model) => ({
   '7': 'Premium Model',
   '8': 'Premium Model',
   '9': 'Premium Model',
+  '10': '3.1 Pro Test',
   'premium-demo': 'Premium Demo',
   '3': 'Free Optic',
   '4': 'Free Core',
@@ -279,7 +281,7 @@ const formatDashboardDate = (value, fallback = '-') => {
 
 const modelUsesProDashboard = (model) => {
   const normalized = String(model || '').trim();
-  return normalized === '1' || normalized === '2' || normalized === '6' || normalized === 'premium-demo';
+  return normalized === '1' || normalized === '2' || normalized === '6' || normalized === '7' || normalized === '8' || normalized === '9' || normalized === '10' || normalized === 'premium-demo';
 };
 
 const isFreeScanModel = (model) => ['3', '4', '5'].includes(String(model || '').trim());
@@ -543,7 +545,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     if (setPendingUploadProfileId) {
       setPendingUploadProfileId(dashboardData?.profileId || null);
     }
-    if (model === '1' || model === '2' || model === '6' || model === '7' || model === '8' || model === '9') {
+    if (model === '1' || model === '2' || model === '6' || model === '7' || model === '8' || model === '9' || model === '10') {
       setCurrentPage('upload-ultra');
     } else {
       setCurrentPage('upload-photo');
@@ -1639,39 +1641,14 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
 
 
-            <section ref={communityRef} className="scroll-mt-28 border-t border-zinc-900 pt-8">
-              <div className="flex flex-col gap-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <h2 className="text-2xl font-black uppercase tracking-tighter italic text-white mb-2">Community Scans</h2>
-                    <p className="text-zinc-400 font-sans text-sm uppercase tracking-widest">Official scans are pinned first. Add your own public scan from history or start fresh.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setCommunityAddOpen(true)}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-500/35 bg-cyan-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300 transition-colors hover:bg-cyan-500/20"
-                  >
-                    <Plus size={16} /> Add Scan
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-3 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {communityGallery.map((scan) => {
-                    return (
-                      <DashboardCommunityScanCard
-                        key={scan.id}
-                        scan={scan}
-                        isAdminUser={isAdminUser}
-                        communityMenuId={communityMenuId}
-                        onOpen={() => openCommunityScan(scan)}
-                        onToggleMenu={() => setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id))}
-                        onToggleOfficial={(official) => markCommunityScanOfficial(scan, official)}
-                        onRemove={() => removeAdminCommunityScan(scan)}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
+            <div className="mt-10 border-t border-zinc-900/50 pt-10">
+              <CommunityScansSection
+                user={user}
+                setCurrentPage={setCurrentPage}
+                onOpenScan={openCommunityScan}
+                filterMode="all"
+              />
+            </div>
 
           </div>
         )}
@@ -1850,7 +1827,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
               <p className="text-xs text-zinc-500 mt-4">The correct AI model is pre-selected on the upload page. You can still change it there before analyzing.</p>
             </div>
 
-            <DashboardHubPreviewsCompact setCurrentPage={setCurrentPage} onOpenCommunityScan={openCommunityScan} />
+            <DashboardHubPreviewsCompact setCurrentPage={setCurrentPage} hideCommunity={false} onOpenCommunityScan={openCommunityScan} />
           </div>
         )}
 

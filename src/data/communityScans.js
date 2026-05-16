@@ -4,6 +4,283 @@
  * Assets live in public/community/ and public/community-scans/
  */
 
+const harryStyles = {
+  frontImage: 'https://api.mogcheck.net/uploads/community-harry-styles1.jpg',
+  sideImage: null,
+  finalRating: 77,
+  sideRating: null,
+  sex: 'Male',
+  categories: {
+    Bone: 85,
+    Harmony: 82,
+    Symmetry: 92,
+    Dimorphism: 75,
+    Skin: 80
+  },
+  biometrics: [
+    { label: 'Bigonial Width Index (0.942)', score: 92, max: 100 },
+    { label: 'IPD Index (0.47)', score: 98, max: 100 },
+    { label: 'fWHR (1.832)', score: 88, max: 100 },
+    { label: 'Midface Ratio (0.925)', score: 95, max: 100 },
+    { label: 'Canthal Tilt Degrees (3.31°)', score: 80, max: 100 },
+    { label: 'Eye Height Index (0.062)', score: 90, max: 100 },
+    { label: 'Brow Compactness Index (0.114)', score: 90, max: 100 },
+    { label: 'Mouth Width Index (0.358)', score: 75, max: 100 },
+    { label: 'Nose Width Index (0.212)', score: 70, max: 100 },
+    { label: 'Philtrum Height Index (0.123)', score: 65, max: 100 },
+    { label: 'Total Lip Height Index (0.112)', score: 60, max: 100 }
+  ],
+  technicalSummary: 'The subject possesses a natural, coherent high-tier phenotype. The appeal is universally conventional, blending masculine bone structure with refined, softer features. The eye area is a significant driver of attractiveness, providing a balanced and alert expression.',
+  bestFeatures: [
+    { title: 'Eye Area', desc: 'Near-perfect geometric spacing (IPD) and a natural positive canthal tilt.' },
+    { title: 'Midface Harmony', desc: 'Highly compact midface preventing a long-face appearance.' }
+  ],
+  primaryFlaws: [
+    { title: 'Lip Volume', desc: 'Thin vertical lip height and a slightly elongated philtrum.' }
+  ],
+  protocols: [
+    { id: 1, name: 'Lip Hydration', description: 'Use high-quality hyaluronic acid balms daily.', impact: 'High Impact' },
+    { id: 2, name: 'Retinoid Application', description: 'Use Tretinoin or Retinol to maintain skin elasticity.', impact: 'High Impact' }
+  ]
+};
+
+const elonMusk = {
+  frontImage: 'https://api.mogcheck.net/uploads/community-elon-musk.webp',
+  sideImage: null,
+  finalRating: 47,
+  sideRating: null,
+  sex: 'Male',
+  categories: {
+    Bone: 78,
+    Harmony: 55,
+    Symmetry: 82,
+    Dimorphism: 60,
+    Skin: 42
+  },
+  biometrics: [
+    { label: 'Bigonial Width Index (0.974)', score: 96, max: 100 },
+    { label: 'IPD Index (0.431)', score: 72, max: 100 },
+    { label: 'fWHR (1.799)', score: 82, max: 100 },
+    { label: 'Midface Ratio (1.035)', score: 88, max: 100 },
+    { label: 'Canthal Tilt Degrees (2.99°)', score: 85, max: 100 },
+    { label: 'Eye Height Index (0.059)', score: 90, max: 100 },
+    { label: 'Brow Compactness Index (0.113)', score: 92, max: 100 },
+    { label: 'Mouth Width Index (0.38)', score: 95, max: 100 },
+    { label: 'Nose Width Index (0.206)', score: 75, max: 100 },
+    { label: 'Philtrum Height Index (0.119)', score: 70, max: 100 },
+    { label: 'Total Lip Height Index (0.106)', score: 72, max: 100 }
+  ],
+  technicalSummary: 'The phenotype is conventional with a focus on horizontal breadth in the lower face. The appeal is standard and balanced, though it lacks the freshness and orbital compactness associated with high-tier aesthetics.',
+  bestFeatures: [
+    { title: 'Bigonial Width', desc: 'Excellent ratio providing a masculine lower-face base.' },
+    { title: 'Vertical Thirds', desc: 'Highly balanced distribution between upper, middle, and lower face.' }
+  ],
+  primaryFlaws: [
+    { title: 'Soft Tissue Aging', desc: 'Deep nasolabial folds and orbital puffiness create a tired appearance.' }
+  ],
+  protocols: [
+    { id: 1, name: 'Body Fat Reduction', description: 'Lower body fat to reveal jawline definition.', impact: 'Extreme Impact' },
+    { id: 2, name: 'Retinoid Therapy', description: 'Tretinoin for skin elasticity and collagen production.', impact: 'High Impact' }
+  ]
+};
+
+const samAltman = {
+  frontImage: 'https://api.mogcheck.net/uploads/community-sam-altman.webp',
+  sideImage: null,
+  finalRating: 46,
+  sideRating: null,
+  sex: 'Male',
+  categories: {
+    Bone: 72,
+    Harmony: 58,
+    Symmetry: 82,
+    Dimorphism: 61,
+    Skin: 52
+  },
+  biometrics: [
+    { label: 'Bigonial Width Index (0.963)', score: 92, max: 100 },
+    { label: 'IPD Index (0.417)', score: 65, max: 100 },
+    { label: 'fWHR (1.823)', score: 80, max: 100 },
+    { label: 'Midface Ratio (1.058)', score: 85, max: 100 },
+    { label: 'Canthal Tilt Degrees (1.91°)', score: 75, max: 100 },
+    { label: 'Eye Height Index (0.053)', score: 70, max: 100 },
+    { label: 'Brow Compactness Index (0.108)', score: 92, max: 100 },
+    { label: 'Mouth Width Index (0.375)', score: 98, max: 100 },
+    { label: 'Nose Width Index (0.196)', score: 60, max: 100 },
+    { label: 'Philtrum Height Index (0.12)', score: 60, max: 100 },
+    { label: 'Total Lip Height Index (0.118)', score: 75, max: 100 }
+  ],
+  technicalSummary: 'The subject has a conventional phenotype with a strong jawline that provides a masculine anchor. However, the appeal is limited by soft-tissue fatigue and suboptimal vertical proportions in the lower third.',
+  bestFeatures: [
+    { title: 'Bigonial Width', desc: 'Excellent ratio relative to bizygomatic width, creating a strong jaw.' },
+    { title: 'Symmetry', desc: 'High degree of bilateral symmetry across the midface and eyes.' }
+  ],
+  primaryFlaws: [
+    { title: 'Orbital Tiredness', desc: 'Visible under-eye puffiness and fatigue markers.' }
+  ],
+  protocols: [
+    { id: 1, name: 'Cold Plunge/Face Icing', description: 'Reduce morning orbital puffiness.', impact: 'High Impact' },
+    { id: 2, name: 'Sleep Optimization', description: '8+ hours to combat orbital tiredness.', impact: 'Medium Impact' }
+  ]
+};
+
+const joeRogan = {
+  frontImage: 'https://api.mogcheck.net/uploads/community-joe-rogan.jpg',
+  sideImage: null,
+  finalRating: 53,
+  sideRating: null,
+  sex: 'Male',
+  categories: {
+    Bone: 62,
+    Harmony: 60,
+    Symmetry: 88,
+    Dimorphism: 58,
+    Skin: 78
+  },
+  biometrics: [
+    { label: 'Bigonial Width Index (0.86)', score: 86, max: 100 },
+    { label: 'IPD Index (0.92)', score: 92, max: 100 },
+    { label: 'fWHR (1.78)', score: 78, max: 100 },
+    { label: 'Midface Ratio (1.08)', score: 67, max: 100 },
+    { label: 'Canthal Tilt Degrees (4.37°)', score: 90, max: 100 },
+    { label: 'Eye Height Index (0.076)', score: 98, max: 100 },
+    { label: 'Brow Compactness Index (0.098)', score: 98, max: 100 },
+    { label: 'Mouth Width Index (0.36)', score: 72, max: 100 },
+    { label: 'Nose Width Index (0.22)', score: 88, max: 100 },
+    { label: 'Philtrum Height Index (0.134)', score: 68, max: 100 },
+    { label: 'Total Lip Height Index (0.129)', score: 62, max: 100 }
+  ],
+  technicalSummary: 'Likely race/ethnicity: Caucasian. Sex: male. The phenotype is conventional and rugged. The appeal is centered on masculine horizontal breadth, specifically in the jaw and forehead.',
+  bestFeatures: [
+    { title: 'Eye Spacing', desc: 'Nearly ideal geometric spacing between the eyes.' },
+    { title: 'Brow Compactness', desc: 'Good distance between the brow and eye, creating a focused look.' }
+  ],
+  primaryFlaws: [
+    { title: 'Nasolabial Folds', desc: 'Deep creases that age the midface and reduce freshness.' },
+    { title: 'Lip Volume', desc: 'Total lip height is thin, lacking the fullness required for high-tier appeal.' }
+  ],
+  protocols: [
+    { id: 1, name: 'Body Fat Reduction', description: 'Reach 12-15% BF to reveal jawline definition.', impact: 'High Impact' },
+    { id: 2, name: 'Lip Fillers', description: 'Increase vertical lip height to balance the philtrum.', impact: 'High Impact' }
+  ]
+};
+
+const lacy = {
+  frontImage: 'https://api.mogcheck.net/uploads/community-lacy.webp',
+  sideImage: null,
+  finalRating: 44,
+  sideRating: null,
+  sex: 'Male',
+  categories: {
+    Bone: 60,
+    Harmony: 60,
+    Symmetry: 80,
+    Dimorphism: 60,
+    Skin: 72
+  },
+  biometrics: [
+    { label: 'Bigonial Width Index (0.86)', score: 86, max: 100 },
+    { label: 'IPD Index (0.55)', score: 55, max: 100 },
+    { label: 'fWHR (1.61)', score: 91, max: 100 },
+    { label: 'Midface Ratio (1.11)', score: 74, max: 100 },
+    { label: 'Canthal Tilt Degrees (3.76°)', score: 82, max: 100 },
+    { label: 'Eye Height Index (0.095)', score: 95, max: 100 },
+    { label: 'Brow Compactness Index (0.094)', score: 94, max: 100 },
+    { label: 'Mouth Width Index (0.42)', score: 42, max: 100 },
+    { label: 'Nose Width Index (0.58)', score: 58, max: 100 },
+    { label: 'Philtrum Height Index (0.10)', score: 98, max: 100 },
+    { label: 'Total Lip Height Index (0.05)', score: 48, max: 100 }
+  ],
+  technicalSummary: 'The phenotype is conventional and youthful. The appeal is limited by a lack of structural sharpness and several narrow indices in the mid-and-lower face, which prevents the look from reaching high-tier harmony.',
+  bestFeatures: [
+    { title: 'fWHR', desc: 'Balanced width provides a masculine and stable frame.' },
+    { title: 'Skin Quality', desc: 'Generally clear complexion with minimal blemishes.' }
+  ],
+  primaryFlaws: [
+    { title: 'Mouth Width', desc: 'Significantly narrow, disrupting lower-face harmony.' }
+  ],
+  protocols: [
+    { id: 1, name: 'Reducing Facial Fat', description: 'Reveal underlying bone structure by reducing overall body fat.', impact: 'Extreme Impact' },
+    { id: 2, name: 'Orbital Refreshment', description: 'Focus on lymphatic drainage to reduce tired look.', impact: 'High Impact' }
+  ]
+};
+
+const badBunny = {
+  frontImage: 'https://api.mogcheck.net/uploads/1777843019816-5bf551cde287d99c.webp',
+  sideImage: null,
+  finalRating: 84,
+  sideRating: null,
+  sex: 'Male',
+  categories: {
+    Bone: 92,
+    Harmony: 85,
+    Symmetry: 88,
+    Dimorphism: 95,
+    Skin: 85
+  },
+  biometrics: [
+    { label: 'fWHR (1.948)', score: 92, max: 100 },
+    { label: 'Bigonial Width Index (0.907)', score: 88, max: 100 },
+    { label: 'Canthal Tilt Degrees (5.2°)', score: 85, max: 100 },
+    { label: 'Eye Height Index (0.052)', score: 82, max: 100 },
+    { label: 'Brow Compactness Index (0.092)', score: 85, max: 100 },
+    { label: 'Midface Ratio (0.871)', score: 80, max: 100 },
+    { label: 'Mouth Width Index (0.365)', score: 82, max: 100 },
+    { label: 'Nose Width Index (0.224)', score: 78, max: 100 },
+    { label: 'Philtrum Height Index (0.101)', score: 80, max: 100 },
+    { label: 'Total Lip Height Index (0.124)', score: 75, max: 100 }
+  ],
+  technicalSummary: 'Exceptional structural development characterized by high fWHR, prominent bigonial width, and striking eye area. The face maintains high harmony despite aggressive dimorphism.',
+  bestFeatures: [
+    { title: 'Robust Bone Structure', desc: 'High fWHR (1.948) and strong bigonial width (0.907) create a highly masculine framework.' },
+    { title: 'Striking Eye Area', desc: 'Positive canthal tilt (5.2°) and compact eye height (0.052) combine for an intense gaze.' }
+  ],
+  primaryFlaws: [
+    { title: 'Slightly Wide IPD', desc: 'The interpupillary distance is slightly wider than ideal, though balanced by overall width.' }
+  ],
+  protocols: [
+    { id: 1, name: 'Definition Maintenance', description: 'Keep current lean body fat to preserve jaw and cheekbone sharpness.', impact: 'High Impact' }
+  ]
+};
+
+const diddy = {
+  frontImage: 'https://api.mogcheck.net/uploads/1777842707835-f725350c375681c5.webp',
+  sideImage: null,
+  finalRating: 76,
+  sideRating: null,
+  sex: 'Male',
+  categories: {
+    Bone: 88,
+    Harmony: 78,
+    Symmetry: 82,
+    Dimorphism: 90,
+    Skin: 85
+  },
+  biometrics: [
+    { label: 'fWHR (1.81)', score: 88, max: 100 },
+    { label: 'Bigonial Width Index (0.93)', score: 90, max: 100 },
+    { label: 'IPD Index (0.466)', score: 95, max: 100 },
+    { label: 'Canthal Tilt Degrees (4.81°)', score: 85, max: 100 },
+    { label: 'Eye Height Index (0.062)', score: 88, max: 100 },
+    { label: 'Brow Compactness Index (0.115)', score: 85, max: 100 },
+    { label: 'Mouth Width Index (0.406)', score: 82, max: 100 },
+    { label: 'Nose Width Index (0.237)', score: 80, max: 100 },
+    { label: 'Philtrum Height Index (0.104)', score: 85, max: 100 },
+    { label: 'Total Lip Height Index (0.116)', score: 82, max: 100 }
+  ],
+  technicalSummary: 'Highly dimorphic and structurally robust phenotype. Exceptional fWHR and bigonial width provide a powerful masculine base. The eye area is balanced and compact, with a strong positive canthal tilt contributing to a high-fashion read.',
+  bestFeatures: [
+    { title: 'Structural Breadth', desc: 'Exceptional fWHR and jaw width creating a dominant presence.' },
+    { title: 'Eye Compactness', desc: 'Balanced vertical opening and strong framing from the brows.' }
+  ],
+  primaryFlaws: [
+    { title: 'Soft Tissue Laxity', desc: 'Minor aging markers around the midface and eyes.' }
+  ],
+  protocols: [
+    { id: 1, name: 'Skin Firming', description: 'Use peptide-based serums to maintain skin elasticity.', impact: 'Medium Impact' }
+  ]
+};
+
 const user1 = {
   frontImage: '/community/user1-front.png',
   sideImage: '/community/user1-side.png',
@@ -538,6 +815,48 @@ const whiteMale = {
 };
 
 export const COMMUNITY_SCANS = [
+  {
+    id: 'harry-styles',
+    displayName: 'Harry Styles',
+    tier: 'A-Tier',
+    dashboardData: harryStyles,
+  },
+  {
+    id: 'bad-bunny',
+    displayName: 'Bad Bunny',
+    tier: 'A-Tier',
+    dashboardData: badBunny,
+  },
+  {
+    id: 'diddy',
+    displayName: 'Diddy',
+    tier: 'A-Tier',
+    dashboardData: diddy,
+  },
+  {
+    id: 'joe-rogan',
+    displayName: 'Joe Rogan',
+    tier: 'B-Tier',
+    dashboardData: joeRogan,
+  },
+  {
+    id: 'elon-musk',
+    displayName: 'Elon Musk',
+    tier: 'C-Tier',
+    dashboardData: elonMusk,
+  },
+  {
+    id: 'sam-altman',
+    displayName: 'Sam Altman',
+    tier: 'C-Tier',
+    dashboardData: samAltman,
+  },
+  {
+    id: 'lacy',
+    displayName: 'Lacy',
+    tier: 'D-Tier',
+    dashboardData: lacy,
+  },
   {
     id: 'user3',
     displayName: 'VoidWalker_992',

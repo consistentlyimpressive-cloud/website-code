@@ -52,7 +52,7 @@ function toCommunityDoc(entry, index) {
     scanId,
     profileId: 'static-community',
     profileName,
-    displayName: 'Community Scan',
+    displayName: entry.displayName || 'Community Scan',
     selectedModel: String(payload.selectedModel || '1'),
     visibility: 'community',
   };
@@ -62,7 +62,7 @@ function toCommunityDoc(entry, index) {
     scanId,
     profileId: 'static-community',
     profileName,
-    displayName: 'Community Scan',
+    displayName: entry.displayName || 'Community Scan',
     tier: entry.tier || '',
     visibility: 'community',
     model: String(payload.selectedModel || '1'),

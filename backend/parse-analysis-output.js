@@ -415,20 +415,6 @@ function parseExperimentalJsonOutput(rawOutput, backendDir) {
   const bestFeatures = jsonFeatureArray(data.bestFeatures || data.strongestFeatures || data.pros, 5);
   const primaryFlaws = jsonFeatureArray(data.primaryFlaws || data.weakestFeatures || data.cons, 5);
   const biometrics = jsonBiometricArray(data.keyRatios || data.metrics || data.facialMetrics || data.ratios || data.biometrics, 20, rawOutput);
-  const rawValues = readMogReportRawValues(rawOutput, backendDir);
-  for (const rawLabel of ['Eye Width Index (Horizontal)', 'Total Lip Height Index']) {
-    const hasMetricAlready = biometrics.some((entry) => normalizeMetricName(entry?.label).includes(normalizeMetricName(rawLabel)));
-    const rawValue = rawValues[rawLabel];
-    if (hasMetricAlready || rawValue === undefined) continue;
-    const score = deterministicBiometricScore(rawLabel, rawValue, rawOutput);
-    biometrics.push({
-      label: `${rawLabel} (${rawValue})`,
-      displayValue: Number.isFinite(score) ? `${Math.round(score)}/100` : compactString(rawValue),
-      score: Number.isFinite(score) ? score : null,
-      impact: '',
-      note: '',
-    });
-  }
   const technicalSummary = compactString(data.technicalSummary || data.summary || data.mainLimitingFactor, DEFAULT_SUMMARY) || DEFAULT_SUMMARY;
   const interpretation = compactString(data.personalizedInterpretation || data.interpretation || '');
   const appealAssessment = compactString(data.appealAssessment || interpretation || data.tier || data.mainLimitingFactor);
@@ -709,8 +695,6 @@ const OBJECTIVE_METRIC_WEIGHTS = {
   'Upper Third Length': 0.75,
   'Middle Third Length': 1.15,
   'Lower Third Length': 0.7,
-  'Eye Width Index': 0.85,
-  'Eye Width Index (Horizontal)': 0.85,
   'Eye Height Index': 0.9,
   'Brow Compactness Index': 1.05,
   'Philtrum Height Index': 1.15,
@@ -936,7 +920,6 @@ function deterministicBiometricScore(baseLabel, rawValue, rawOutput) {
   if (normalized.includes('upperthirdlength')) return hairlineCovered(rawOutput) ? null : scoreRangeRatio(rawValue, 0.34, 0.385, 0.43, 0.3, 0.26, 0.46, 0.52);
   if (normalized.includes('middlethirdlength')) return scoreRangeRatio(rawValue, 0.4, 0.45, 0.5, 0.36, 0.32, 0.54, 0.6);
   if (normalized.includes('lowerthirdlength')) return scoreRangeRatio(rawValue, 0.42, 0.47, 0.52, 0.38, 0.34, 0.56, 0.62);
-  if (normalized.includes('eyewidthindex')) return scoreRangeRatio(rawValue, 0.2, 0.22, 0.24, 0.18, 0.16, 0.26, 0.3);
   if (normalized.includes('eyeheightindex')) return scoreRangeRatio(rawValue, 0.055, 0.065, 0.075, 0.045, 0.035, 0.085, 0.1);
   if (normalized.includes('browcompactnessindex')) return scoreRangeRatio(rawValue, 0.08, 0.1, 0.12, 0.06, 0.045, 0.14, 0.18);
   if (normalized.includes('philtrumheightindex')) return scoreRangeRatio(rawValue, 0.08, 0.095, 0.11, 0.07, 0.055, 0.12, 0.14);
@@ -1913,22 +1896,6 @@ function parseAnalysisOutput(rawOutput, backendDir) {
         score
       });
     }
-  }
-
-  const requiredRawMetricLabels = [
-    'Eye Width Index (Horizontal)',
-    'Total Lip Height Index',
-  ];
-  for (const rawLabel of requiredRawMetricLabels) {
-    const hasMetricAlready = biometrics.some((entry) => normalizeMetricName(entry?.label).includes(normalizeMetricName(rawLabel)));
-    const rawValue = rawValues[rawLabel];
-    if (hasMetricAlready || rawValue === undefined) continue;
-    const score = deterministicBiometricScore(rawLabel, rawValue, rawOutput);
-    biometrics.push({
-      label: `${rawLabel} (${rawValue})`,
-      displayValue: Number.isFinite(score) ? `${Math.round(score)}/100` : compactString(rawValue),
-      score: Number.isFinite(score) ? score : null,
-    });
   }
 
   const frontScoreMap = scoreMapFromBiometrics(biometrics);

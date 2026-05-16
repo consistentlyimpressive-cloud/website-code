@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Sparkles, Bell, Trash2, Bug, Share2 } from 'lucide-react';
 import { ConfirmDialog, ImageLightbox, SiteModal } from './components/ui/SiteModal';
 import { DashboardHubPreviewsCompact } from './components/DashboardHubPreviews';
+import { CommunityScansSection } from './components/CommunityScansSection';
 import { getNavbarPlanChip, hasEffectiveProAccess, canAlwaysAccessDashboard, isProPlan, normalizePlanValue } from './utils/planAccess';
 import { initializeApp } from 'firebase/app';
 import { celebrityData } from './data/celebrityData';
@@ -621,12 +622,15 @@ function hydrateCommunityScanEntry(scan, index = 0) {
         ? scan.payload
         : template?.dashboardData || null;
 
-  const frontImage =
-    payload?.frontImage ||
-    scan?.frontImage ||
-    scan?.frontImageUrl ||
-    template?.dashboardData?.frontImage ||
-    null;
+  const frontImageFallbacks = [
+    scan?.frontImageUrl,
+    payload?.frontImageUrl,
+    scan?.dashboardData?.frontImageUrl,
+    scan?.frontImage,
+    payload?.frontImage,
+    template?.dashboardData?.frontImage,
+  ].map(resolveMediaUrl).filter(Boolean);
+  const frontImage = frontImageFallbacks[0] || null;
   const finalRating =
     payload?.finalRating ??
     scan?.finalRating ??
@@ -662,6 +666,7 @@ function hydrateCommunityScanEntry(scan, index = 0) {
               ? 'C-Tier'
               : 'D-Tier'),
     frontImage,
+    frontImageFallbacks: [...new Set(frontImageFallbacks)],
     sideImage: null,
     finalRating,
     sideRating: null,
@@ -1132,6 +1137,7 @@ const ANALYSIS_MODEL_LABELS = {
   '7': 'Premium Model',
   '8': 'Premium Model',
   '9': 'Premium Model',
+  '10': '3.1 Pro Test',
   [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo',
   '3': 'Free Optic',
   '4': 'Free Core',
@@ -1333,7 +1339,8 @@ const FadeUp = ({ children, delay = 0 }) => {
     return () => { if (current) observer.unobserve(current); };
   }, []);
   return (
-    <div ref={domRef} className={`transition-all duration-1000 transform ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`} style={{ transitionDelay: `${delay}ms` }}>{children}</div>
+    <div ref={domRef} className={`transition-all duration-1000 transform ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`} style={{ transitionDelay: `${delay}ms` }}>
+{children}</div>
   );
 };
 
@@ -1361,9 +1368,9 @@ const FlipIn = ({ children, delay = 0 }) => {
   }, []);
 
   return (
-    <div 
-      ref={domRef} 
-      className={`transition-all duration-1000 ease-out [transform-style:preserve-3d] ${isVisible ? 'opacity-100 [transform:rotateY(0deg)_scale(1)]' : 'opacity-0 [transform:rotateY(-30deg)_scale(0.8)]'}`} 
+    <div
+      ref={domRef}
+      className={`transition-all duration-1000 ease-out [transform-style:preserve-3d] ${isVisible ? 'opacity-100 [transform:rotateY(0deg)_scale(1)]' : 'opacity-0 [transform:rotateY(-30deg)_scale(0.8)]'}`}
       style={{ transitionDelay: `${delay}ms` }}
     >
       {children}
@@ -1390,7 +1397,7 @@ const PremiumProofModal = ({ onClose, onContinue }) => (
         <button
           type="button"
           onClick={onContinue}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-600 to-yellow-400 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-black shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-transform hover:scale-[1.02]"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-600 to-yellow-400 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-black shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-transform hover:scale-[0.60]"
         >
           <Crown size={14} /> Continue
         </button>
@@ -1477,15 +1484,17 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
           <div className="w-9 h-9 flex items-center justify-center group-hover:rotate-12 transition-transform">
             <MogCheckLogoMark size={36} className="w-9 h-9" />
           </div>
+          <span className="ml-3 text-2xl font-black italic tracking-tighter text-white leading-none">mogcheck</span>
         </div>
 
         {/* Mobile Navigation Buttons (at the top) */}
         <div className="md:hidden flex items-center gap-1.5 flex-1">
+          <span className="ml-2 mr-1 text-lg font-black italic tracking-tighter text-white leading-none">mogcheck</span>
           {[
             { key: 'home', label: 'Home', icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
             { key: 'celebrity', label: 'Scans', icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> },
             { key: 'mog-battles', label: 'Battles', icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg> },
-            { key: user ? 'dashboard' : 'login', label: 'Profile', icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
+            { key: user ? 'dashboard' : 'login', label: 'Dashboard', icon: <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg> },
           ].map((tab) => {
             const isActive = currentPage === tab.key || (tab.key === 'dashboard' && (currentPage === 'dashboard' || currentPage === 'profile'));
             return (
@@ -1508,6 +1517,9 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
           <button onClick={() => setCurrentPage('mog-battles')} className={`${currentPage === 'mog-battles' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>
             <Swords size={14} className="text-cyan-500/90" /> Mog Battles
           </button>
+          <button onClick={() => setCurrentPage('mog-battles-1')} className={`${currentPage === 'mog-battles-1' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>
+            <Swords size={14} className="text-cyan-500/90" /> Mog Battles 1
+          </button>
           {showDashboard && (
             <button onClick={() => setCurrentPage('dashboard')} className={`${currentPage === 'dashboard' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}><Activity size={14} /> Dashboard</button>
           )}
@@ -1526,7 +1538,7 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
         {/* Profile / Actions (Right side) */}
         <div className="flex items-center gap-2">
           {user ? (
-            <div className="relative flex items-center gap-2" ref={menuRef}>
+            <div className="relative flex items-center gap-2 mr-3 md:mr-0" ref={menuRef}>
               <button
                 type="button"
                 onClick={() => {
@@ -1654,7 +1666,7 @@ const ComparisonCard = ({ beforeImgSrc, afterImgSrc, beforeScore, afterScore, is
       <img src={beforeImgSrc} className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ clipPath: `polygon(0 0, ${sliderPosition}% 0, ${sliderPosition}% 100%, 0% 100%)` }} alt="Before" draggable="false" referrerPolicy="no-referrer" />
       <div className="absolute top-0 bottom-0 w-[2px] bg-white/40 z-20 shadow-[0_0_10px_rgba(0,0,0,0.5)] pointer-events-none" style={{ left: `calc(${sliderPosition}% - 1px)` }} />
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent z-10 pointer-events-none" />
-      
+
       {/* CRT + Blue Tint Filters */}
       <div className="absolute inset-0 pointer-events-none z-20 opacity-[0.08] mix-blend-overlay bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,#000_2px,#000_4px)]" />
       <div className="absolute inset-0 pointer-events-none z-20 bg-blue-500/10 mix-blend-color" />
@@ -1663,10 +1675,10 @@ const ComparisonCard = ({ beforeImgSrc, afterImgSrc, beforeScore, afterScore, is
       <div className="absolute top-1/2 -translate-y-1/2 z-30 pointer-events-none" style={{ left: `calc(${sliderPosition}% - 12px)` }}>
         <div className={`w-6 h-6 bg-black/80 backdrop-blur border border-white/20 rounded flex items-center justify-center rotate-45 shadow-xl transition-transform ${isDragging ? 'scale-125 bg-white/20' : 'group-hover:scale-110'}`}><div className="-rotate-45 flex items-center justify-center"><ChevronRight size={14} className="text-white ml-0.5" /></div></div>
       </div>
-      
+
       {/* Integrated Review */}
       {review && (
-        <div className="absolute bottom-4 left-[7.5%] right-[7.5%] w-[85%] z-40 p-4 bg-black/25 backdrop-blur-md border border-blue-500/20 rounded-xl transform-gpu transition-all duration-500 hover:scale-[1.02] hover:bg-black/45 hidden md:block">
+        <div className="absolute bottom-4 left-[7.5%] right-[7.5%] w-[85%] z-40 p-4 bg-black/25 backdrop-blur-md border border-blue-500/20 rounded-xl transform-gpu transition-all duration-500 hover:scale-[0.60] hover:bg-black/45 hidden md:block">
           <div className="flex gap-1 mb-2 text-blue-400">
             {[...Array(review.rating)].map((_, i) => (
               <svg key={i} className="w-2.5 h-2.5 fill-current drop-shadow-[0_0_5px_rgba(96,165,250,0.8)]" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
@@ -1721,44 +1733,44 @@ const BodyFatSlider = () => {
           <span className="text-xs font-sans font-bold uppercase tracking-widest text-red-400">35% Body Fat</span>
         </div>
         <style>{`
-          .bf-slider { 
-            -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 999px; 
-            background: linear-gradient(90deg, #22c55e, #eab308, #ef4444, #eab308, #22c55e); 
+          .bf-slider {
+            -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 999px;
+            background: linear-gradient(90deg, #22c55e, #eab308, #ef4444, #eab308, #22c55e);
             background-size: 200% 100%;
             animation: gradientFlow 3s linear infinite;
-            outline: none; cursor: pointer; 
+            outline: none; cursor: pointer;
             box-shadow: 0 0 15px rgba(234,179,8,0.3);
           }
           @keyframes gradientFlow {
             0% { background-position: 0% 50%; }
             100% { background-position: 200% 50%; }
           }
-          .bf-slider::-webkit-slider-thumb { 
-            -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; 
-            background: white; border: 3px solid #0c0d0e; 
-            box-shadow: 0 0 10px rgba(255,255,255,0.4); 
-            cursor: grab; 
-            transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1); 
+          .bf-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%;
+            background: white; border: 3px solid #0c0d0e;
+            box-shadow: 0 0 10px rgba(255,255,255,0.4);
+            cursor: grab;
+            transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
           }
           .bf-slider::-webkit-slider-thumb:hover { transform: scale(1.2); box-shadow: 0 0 15px rgba(255,255,255,0.6); }
-          .bf-slider::-webkit-slider-thumb:active { 
-            cursor: grabbing; 
-            transform: scaleX(1.6) scaleY(0.85); 
-            box-shadow: -10px 0 15px rgba(255,255,255,0.4), 10px 0 15px rgba(255,255,255,0.4), 0 0 20px white; 
+          .bf-slider::-webkit-slider-thumb:active {
+            cursor: grabbing;
+            transform: scaleX(1.6) scaleY(0.85);
+            box-shadow: -10px 0 15px rgba(255,255,255,0.4), 10px 0 15px rgba(255,255,255,0.4), 0 0 20px white;
             filter: blur(0.5px);
           }
-          .bf-slider::-moz-range-thumb { 
-            width: 22px; height: 22px; border-radius: 50%; 
-            background: white; border: 3px solid #0c0d0e; 
-            box-shadow: 0 0 10px rgba(255,255,255,0.4); 
-            cursor: grab; 
-            transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1); 
+          .bf-slider::-moz-range-thumb {
+            width: 22px; height: 22px; border-radius: 50%;
+            background: white; border: 3px solid #0c0d0e;
+            box-shadow: 0 0 10px rgba(255,255,255,0.4);
+            cursor: grab;
+            transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
           }
           .bf-slider::-moz-range-thumb:hover { transform: scale(1.2); box-shadow: 0 0 15px rgba(255,255,255,0.6); }
-          .bf-slider::-moz-range-thumb:active { 
-            cursor: grabbing; 
-            transform: scaleX(1.6) scaleY(0.85); 
-            box-shadow: -10px 0 15px rgba(255,255,255,0.4), 10px 0 15px rgba(255,255,255,0.4), 0 0 20px white; 
+          .bf-slider::-moz-range-thumb:active {
+            cursor: grabbing;
+            transform: scaleX(1.6) scaleY(0.85);
+            box-shadow: -10px 0 15px rgba(255,255,255,0.4), 10px 0 15px rgba(255,255,255,0.4), 0 0 20px white;
             filter: blur(0.5px);
           }
         `}</style>
@@ -1789,7 +1801,7 @@ const ReviewsCarousel = () => {
   return (
     <div className="w-full max-w-6xl mx-auto py-20 px-6 relative flex flex-col items-center">
       <FadeUp><h2 className="text-4xl md:text-5xl font-black uppercase tracking-widest italic mb-16 text-center text-white">Wall of Ascent</h2></FadeUp>
-      
+
       <div className="relative w-full h-[400px] flex items-center justify-center">
         {/* Navigation Arrows */}
         <button onClick={prevReview} className="absolute left-0 md:left-8 z-40 p-4 bg-zinc-900/80 border border-zinc-700 hover:border-zinc-400 rounded-full text-white transition-all transform hover:scale-110 cursor-pointer backdrop-blur-md">
@@ -1806,27 +1818,27 @@ const ReviewsCarousel = () => {
             let zIndexClass = '';
             let blurClass = '';
             let bgClass = '';
-            
+
             if (offset === 0) {
               transformClass = 'translate-x-0 scale-100';
               zIndexClass = 'z-30';
               blurClass = 'blur-none opacity-100';
               bgClass = 'bg-zinc-900/90 border-zinc-700';
             } else if (offset === 1) {
-              transformClass = 'translate-x-[40%] md:translate-x-[60%] scale-75 cursor-pointer hover:scale-[0.8]';
+              transformClass = 'translate-x-[40%] md:translate-x-[60%] scale-75 cursor-pointer hover:scale-[0.60]';
               zIndexClass = 'z-20';
               blurClass = 'blur-md opacity-40';
               bgClass = 'bg-zinc-900/40 border-zinc-800';
             } else { // offset === 2 (left)
-              transformClass = '-translate-x-[40%] md:-translate-x-[60%] scale-75 cursor-pointer hover:scale-[0.8]';
+              transformClass = '-translate-x-[40%] md:-translate-x-[60%] scale-75 cursor-pointer hover:scale-[0.60]';
               zIndexClass = 'z-20';
               blurClass = 'blur-md opacity-40';
               bgClass = 'bg-zinc-900/40 border-zinc-800';
             }
 
             return (
-              <div 
-                key={idx} 
+              <div
+                key={idx}
                 onClick={() => offset !== 0 && setActiveIndex(idx)}
                 className={`absolute w-full max-w-md p-10 rounded-2xl border transition-all duration-700 ease-in-out transform-gpu ${transformClass} ${bgClass} backdrop-blur-xl shadow-2xl ${zIndexClass}`}
               >
@@ -1877,6 +1889,26 @@ const CommunityScanCard = ({
   const rotateY = (mousePos.x - 50) * 0.22;
   const rotateX = (50 - mousePos.y) * 0.18;
   const modelLabel = scan.officialScan ? '' : getAnalysisModelLabel(scan.dashboardData?.selectedModel || scan.model);
+  const communityCardImageFallbacks = useMemo(
+    () => [...new Set([
+      scan.frontImage,
+      ...(scan.frontImageFallbacks || []),
+      scan.frontImageUrl,
+      scan.payload?.frontImageUrl,
+      scan.dashboardData?.frontImageUrl,
+      scan.payload?.frontImage,
+      scan.dashboardData?.frontImage,
+      'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png',
+    ].map(resolveMediaUrl).filter(Boolean))],
+    [scan]
+  );
+  const [communityCardImageSrc, setCommunityCardImageSrc] = useState(
+    communityCardImageFallbacks[0] || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'
+  );
+
+  useEffect(() => {
+    setCommunityCardImageSrc(communityCardImageFallbacks[0] || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png');
+  }, [communityCardImageFallbacks]);
 
   const votesCount = useMemo(() => {
     const id = String(scan.id || scan.frontImage || '');
@@ -1916,8 +1948,15 @@ const CommunityScanCard = ({
       >
         <div className={`relative overflow-hidden ${compact ? 'rounded-[20px]' : 'rounded-[30px]'} bg-zinc-950`}>
           <img
-            src={scan.frontImage}
-            className={`w-full ${compact ? 'aspect-[4/5]' : 'aspect-[3/4]'} object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.065]`}
+            src={communityCardImageSrc}
+            onError={() => {
+              const currentIndex = communityCardImageFallbacks.indexOf(communityCardImageSrc);
+              setCommunityCardImageSrc(
+                communityCardImageFallbacks[currentIndex + 1] ||
+                'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'
+              );
+            }}
+            className={`w-full ${compact ? 'aspect-[4/5]' : 'aspect-[3/4]'} object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[0.60]`}
             alt="Community Scan"
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent opacity-95" />
@@ -2007,7 +2046,7 @@ const CommunityScanCard = ({
         <div className={`absolute bottom-0 inset-x-0 z-20 bg-gradient-to-t from-black via-black/80 to-transparent ${compact ? 'p-3' : 'p-4'} flex flex-col items-start [transform:translateZ(32px)]`}>
           <div className="flex items-baseline justify-between w-full pr-3 mb-1.5">
             <div className="flex items-baseline gap-1 relative">
-              <span 
+              <span
                 className={`${compact ? 'text-2xl' : 'text-3xl'} font-black italic tabular-nums`}
                 style={{
                   background: `linear-gradient(to bottom, #ffffff 40%, ${ratingTone.stroke || '#22d3ee'})`,
@@ -2018,7 +2057,7 @@ const CommunityScanCard = ({
                 {rating.toFixed(1)}
               </span>
               <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">/100</span>
-              
+
             </div>
             <div className="flex items-center gap-1.5">
               <Activity size={12} className="text-cyan-400" />
@@ -2034,374 +2073,23 @@ const CommunityScanCard = ({
 };
 
 const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => {
-  const [communityScans, setCommunityScans] = useState([]);
-  const [communitySort, setCommunitySort] = useState('latest');
-  const [communityPeek, setCommunityPeek] = useState(null);
-  const [communityRemovalIntent, setCommunityRemovalIntent] = useState(null);
-  const [communityNotice, setCommunityNotice] = useState('');
-  const [communityMenuId, setCommunityMenuId] = useState(null);
-  const isAdmin = Boolean(user?.email && (
-    user.email === 'laithbu07@gmail.com' ||
-    user.email === 'admin@looksmaxxing.com' ||
-    user.email === 'serenity.eyb@gmail.com' ||
-    user.email.endsWith('@looksmaxxing.com')
-  ));
-
-  useEffect(() => {
-    if (!communityPeek) return undefined;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [communityPeek]);
-
-  useEffect(() => {
-    const fetchCommunity = async () => {
-      try {
-        const { fetchCommunityScans, fetchCommunityBattles } = await import('./api/mogBattleVotes');
-        const res = await fetchCommunityScans(80);
-        let loadedScans = (res.scans || [])
-          .map((scan, idx) => hydrateCommunityScanEntry(scan, idx))
-          .filter((scan) => scan?.dashboardData && scan?.frontImage);
-
-        if (loadedScans.length === 0) {
-          const battleRes = await fetchCommunityBattles();
-          const scansMap = new Map();
-          battleRes.battles.forEach(b => {
-            if (b.fighterA) scansMap.set(b.fighterA.scanId || b.fighterA.profileId || b.fighterA.name, { ...b.fighterA, isCommunity: true });
-            if (b.fighterB) scansMap.set(b.fighterB.scanId || b.fighterB.profileId || b.fighterB.name, { ...b.fighterB, isCommunity: true });
-          });
-          loadedScans = Array.from(scansMap.values())
-            .map((scan, idx) => hydrateCommunityScanEntry(scan, idx))
-            .filter((scan) => scan?.dashboardData && scan?.frontImage);
-        }
-
-        if (loadedScans.length === 0) {
-          loadedScans = COMMUNITY_SCANS.map((s, i) =>
-            hydrateCommunityScanEntry(
-              {
-                ...s,
-                name: `User ${i + 1}`,
-                isCommunity: true,
-                profileId: `mock-${i}`,
-              },
-              i
-            )
-          );
-        }
-        
-        const merged = new Map();
-        [...OFFICIAL_CELEBRITY_COMMUNITY_SCANS, ...loadedScans].forEach((scan, idx) => {
-          const hydrated = hydrateCommunityScanEntry(scan, idx);
-          const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
-          if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
-        });
-
-        setCommunityScans(Array.from(merged.values()));
-      } catch(e) {
-        console.error(e);
-        const merged = new Map();
-        [
-          ...OFFICIAL_CELEBRITY_COMMUNITY_SCANS,
-          ...COMMUNITY_SCANS.map((scan, idx) =>
-            hydrateCommunityScanEntry(
-              {
-                ...scan,
-                name: scan.name || `User ${idx + 1}`,
-                isCommunity: true,
-                profileId: scan.profileId || `mock-${idx}`,
-              },
-              idx
-            )
-          ),
-        ].forEach((scan, idx) => {
-          const hydrated = hydrateCommunityScanEntry(scan, idx);
-          const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
-          if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
-        });
-
-        setCommunityScans(Array.from(merged.values()));
-      }
-    };
-    fetchCommunity();
-  }, []);
-
-  const verifiedScans = useMemo(
-    () => communityScans.filter((scan) => scan?.officialScan),
-    [communityScans]
-  );
-  const sortedCommunityScans = useMemo(() => {
-    const scans = communityScans.filter((scan) => !scan?.officialScan);
-    return scans.sort((a, b) => {
-      if (communitySort === 'highest') {
-        const ratingDiff = (Number(b.finalRating) || 0) - (Number(a.finalRating) || 0);
-        if (ratingDiff) return ratingDiff;
-      }
-      return timestampToMillis(b.timestamp || b.scannedAt || b.createdAt) - timestampToMillis(a.timestamp || a.scannedAt || a.createdAt);
-    });
-  }, [communityScans, communitySort]);
-
-  const getCelebrityScanShareUrl = useCallback((scan) => {
-    const ownerUid = String(scan?.ownerUid || scan?.uid || '').trim();
-    const scanId = String(scan?.scanId || scan?.id || '').trim();
-    if (ownerUid && scanId && !scan?.officialScan) {
-      return `${window.location.origin}/scan/${encodeURIComponent(ownerUid)}/${encodeURIComponent(scanId)}`;
-    }
-    return `${window.location.origin}/celebrity?scan=${encodeURIComponent(scanId || scan?.id || 'community')}`;
-  }, []);
-
-  const shareCommunityScan = useCallback(async (scan) => {
-    const url = getCelebrityScanShareUrl(scan);
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-        setCommunityNotice('Scan link copied.');
-      } else {
-        setCommunityNotice(url);
-      }
-    } catch {
-      setCommunityNotice(url);
-    }
-  }, [getCelebrityScanShareUrl]);
-
-  useEffect(() => {
-    if (!communityScans.length || communityPeek) return;
-    const requestedScanId = new URLSearchParams(window.location.search).get('scan');
-    if (!requestedScanId) return;
-    const match = communityScans.find((scan) => String(scan.scanId || scan.id) === String(requestedScanId));
-    if (match?.dashboardData) setCommunityPeek(match);
-  }, [communityScans, communityPeek]);
-
-  const removeOwnedCommunityScan = async (scan) => {
-    if (!user || !scan?.scanId) return;
-    try {
-      const token = await user.getIdToken();
-      const res = await fetch(`${API_BASE}/api/user/scans/${encodeURIComponent(scan.scanId)}`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ visibility: 'private' }),
-      });
-      if (!res.ok) throw new Error('Failed to update scan visibility');
-      setCommunityScans((prev) => prev.filter((item) => item.id !== scan.id && item.scanId !== scan.scanId));
-      setCommunityNotice('Scan removed from Community Scans. It is still saved privately on your dashboard.');
-    } catch (e) {
-      setCommunityNotice(e.message || 'Failed to remove scan from Community Scans.');
-    } finally {
-      setCommunityRemovalIntent(null);
-    }
-  };
-
-  const removeAdminCommunityScan = async (scan) => {
-    const password = window.localStorage.getItem('mogcheck_admin_pw') || '';
-    if (!password || !scan?.id) {
-      setCommunityNotice('Admin password is required. Log into the admin panel once, then try again.');
-      setCommunityRemovalIntent(null);
-      return;
-    }
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/community-scans/${encodeURIComponent(scan.id)}`, {
-        method: 'DELETE',
-        headers: { 'x-admin-password': password },
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || 'Failed to remove community scan listing');
-      setCommunityScans((prev) => prev.filter((item) => item.id !== scan.id && item.scanId !== scan.scanId));
-      setCommunityNotice('Community scan listing removed. The saved user scan was not deleted.');
-    } catch (e) {
-      setCommunityNotice(e.message || 'Failed to remove community scan listing.');
-    } finally {
-      setCommunityRemovalIntent(null);
-      setCommunityMenuId(null);
-    }
-  };
-
-  const removeCommunityScan = async (scan) => {
-    const isOwner = Boolean(user?.uid && scan?.ownerUid && scan.ownerUid === user.uid && scan?.scanId);
-    if (isOwner) return removeOwnedCommunityScan(scan);
-    if (isAdmin) return removeAdminCommunityScan(scan);
-    setCommunityRemovalIntent(null);
-    return undefined;
-  };
-
-  const markCommunityScanOfficial = async (scan, official = true) => {
-    const password = window.localStorage.getItem('mogcheck_admin_pw') || '';
-    if (!password || !scan?.id) {
-      setCommunityNotice('Admin password is required. Log into the admin panel once, then try again.');
-      return;
-    }
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/community-scans/${encodeURIComponent(scan.id)}/official`, {
-        method: 'POST',
-        headers: {
-          'x-admin-password': password,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ official }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || 'Failed to update official status');
-      setCommunityScans((prev) => prev.map((item) => (item.id === scan.id ? { ...item, officialScan: official, official } : item)));
-      setCommunityNotice(official ? 'Scan marked as official.' : 'Scan turned back into a normal community scan.');
-    } catch (e) {
-      setCommunityNotice(e.message || 'Failed to update official status.');
-    } finally {
-      setCommunityMenuId(null);
-    }
-  };
-
-  const renderScanColumn = (title, subtitle, scans, controls = null) => (
-    <section className="min-w-0 rounded-[28px] border border-zinc-800/90 bg-black/25 p-4 shadow-[0_20px_70px_rgba(0,0,0,0.28)]">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="min-w-0 text-left">
-          <h3 className="text-sm font-black uppercase tracking-[0.22em] text-white">{title}</h3>
-          <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">{subtitle}</p>
-        </div>
-        {controls}
-      </div>
-      <div className="mog-scroll max-h-[74vh] overflow-y-auto pr-2">
-        <div className="grid grid-cols-2 gap-3 md:gap-4">
-          {scans.filter((rawScan) => rawScan?.dashboardData && rawScan?.frontImage).map((rawScan, idx) => {
-            const scan = hydrateCommunityScanEntry(rawScan, idx);
-            const isOwnedCommunityScan = Boolean(user?.uid && scan.ownerUid && scan.ownerUid === user.uid && scan.scanId && !scan.officialScan);
-            const rating = Number(scan.finalRating || 0);
-            const ratingTone = getRatingToneClasses(rating);
-            const scanTier = scan.tier || '-';
-            const tierUpper = String(scanTier).toUpperCase();
-            const tierBadgeClass =
-              tierUpper.includes('S') && tierUpper.includes('TIER')
-                ? 'bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
-                : tierUpper.includes('A') && tierUpper.includes('TIER')
-                  ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.6)]'
-                  : 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
-
-            return (
-              <CommunityScanCard
-                key={scan.id || idx}
-                scan={scan}
-                rating={rating}
-                ratingTone={ratingTone}
-                tierBadgeClass={tierBadgeClass}
-                scanTier={scanTier}
-                isOwnedCommunityScan={isOwnedCommunityScan}
-                isAdmin={isAdmin}
-                communityMenuId={communityMenuId}
-                compact
-                onOpen={() => {
-                  if (!scan.dashboardData) return;
-                  setCommunityPeek(scan);
-                }}
-                onShare={() => shareCommunityScan(scan)}
-                onRemove={() => setCommunityRemovalIntent(scan)}
-                onToggleMenu={() => setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id))}
-                onMarkOfficial={(official) => markCommunityScanOfficial(scan, official)}
-              />
-            );
-          })}
-        </div>
-        {scans.length === 0 && (
-          <p className="py-12 text-center text-sm text-zinc-500">No scans available yet.</p>
-        )}
-      </div>
-    </section>
-  );
-
   return (
-    <div className="w-full flex-grow pt-28 pb-16 px-4 sm:px-6 relative flex flex-col items-center overflow-hidden">
-      {communityPeek && communityPeek.dashboardData && (
-        <div
-          className="fixed inset-0 z-[220] flex flex-col bg-[#0a0a0b] overflow-y-auto"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="community-scan-page-title"
-        >
-          <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-zinc-800 bg-[#0a0a0b]/95 px-4 py-3 backdrop-blur-md md:px-8">
-            <button
-              type="button"
-              onClick={() => setCommunityPeek(null)}
-              className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 font-sans text-xs font-bold uppercase tracking-widest text-zinc-200 hover:border-cyan-500/50 hover:text-cyan-300 transition-colors"
-            >
-              <ArrowLeft size={16} />
-              Community Scans
-            </button>
-            <div className="min-w-0 flex-1">
-              <p className="font-sans text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                Community scan{communityPeek?.tier ? ` - ${communityPeek.tier}` : ''}
-              </p>
-              <h2 id="community-scan-page-title" className="truncate font-black uppercase italic tracking-tight text-white">
-                Community Scan
-              </h2>
-            </div>
-          </header>
-          <div className="flex-1 px-4 pb-16 pt-6 md:px-8">
-            <button
-              type="button"
-              onClick={() => setCommunityPeek(null)}
-              className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/[0.07] px-4 py-2 font-sans text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100 transition-colors hover:border-cyan-300/60 hover:bg-cyan-400/10"
-            >
-              <ArrowLeft size={14} />
-              Go to previous page
-            </button>
-            <DashboardPage
-              dashboardData={forceCommunityScanFrontOnly(communityPeek.dashboardData)}
-              setCurrentPage={setCurrentPage}
-              userPlan={{ plan: 'pro', scanCredits: 0 }}
-              user={null}
-              hideTopSection
-              hideProtocols
-              hideActionableProtocols
-              hideUnlockPotential
-              hidePersonalizedFeedback
-              isEmbedded
-            />
-          </div>
-        </div>
-      )}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0c0d0e] via-zinc-900/20 to-[#0c0d0e] -z-10" />
-      <div className="w-full max-w-7xl mx-auto flex flex-col items-center text-center">
-        <h2 className="text-3xl font-black italic uppercase tracking-widest text-white mb-2">Scans</h2>
-        <p className="text-zinc-500 uppercase tracking-widest text-xs mb-8">Verified scans and live community scans with shareable links.</p>
-        <div className="grid w-full grid-cols-1 gap-5 lg:grid-cols-2">
-          {renderScanColumn('Verified Scans', `${verifiedScans.length} Scans`, verifiedScans)}
-          {renderScanColumn(
-            'Community Scans',
-            `${sortedCommunityScans.length} public community scans`,
-            sortedCommunityScans,
-              <CustomSelectDropdown
-                value={communitySort}
-                onChange={setCommunitySort}
-                options={[
-                  { value: 'latest', label: 'Latest' },
-                  { value: 'highest', label: 'Highest score' }
-                ]}
-                className="appearance-none rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-cyan-100 focus:border-cyan-300/50"
-              />
-          )}
-        </div>
-      </div>
-      {communityRemovalIntent && (
-        <ConfirmDialog
-          title="Remove From Community?"
-          body={isAdmin && !(user?.uid && communityRemovalIntent?.ownerUid === user.uid)
-            ? 'This removes the public Community Scans listing only. The saved user scan will not be deleted.'
-            : 'This will set the scan back to private. It will stay saved on your dashboard, but it will disappear from Community Scans.'}
-          confirmLabel="Remove"
-          tone="danger"
-          onClose={() => setCommunityRemovalIntent(null)}
-          onConfirm={() => removeCommunityScan(communityRemovalIntent)}
+    <div className="w-full flex flex-col items-center">
+      <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6">
+        <CommunityScansSection
+          setCurrentPage={setCurrentPage}
+          setSelectedCelebrity={setSelectedCelebrity}
+          user={user}
+          filterMode="verified"
+          hideTitle={true}
         />
-      )}
-      {communityNotice && (
-        <SiteModal title="Community Scan" onClose={() => setCommunityNotice('')} maxWidth="max-w-lg">
-          <p className="text-sm leading-relaxed text-zinc-300">{communityNotice}</p>
-        </SiteModal>
-      )}
+      </div>
     </div>
   );
 };
+
+
+
 
 const CustomSelectDropdown = ({ value, onChange, options, className }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -2429,7 +2117,7 @@ const CustomSelectDropdown = ({ value, onChange, options, className }) => {
         <span>{selectedOption?.label}</span>
         <ChevronDown size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-cyan-200' : 'text-cyan-200/70'}`} />
       </button>
-      
+
       {isOpen && (
         <div className="absolute top-full right-0 mt-2 w-full min-w-[200px] z-[100] rounded-[20px] border border-cyan-500/30 bg-[#06080a] p-2 shadow-[0_12px_40px_rgba(0,0,0,0.8),0_0_20px_rgba(0,240,255,0.1)] backdrop-blur-xl animate-[mogBattle2NoticeIn__0.2s_ease-out] flex flex-col gap-1">
           {options.map((opt) => (
@@ -2438,8 +2126,8 @@ const CustomSelectDropdown = ({ value, onChange, options, className }) => {
               type="button"
               onClick={() => { onChange(opt.value); setIsOpen(false); }}
               className={`w-full text-left px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.18em] transition-all duration-200 ${
-                value === opt.value 
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/20 shadow-[inset_0_0_10px_rgba(0,240,255,0.1)]' 
+                value === opt.value
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/20 shadow-[inset_0_0_10px_rgba(0,240,255,0.1)]'
                   : 'text-zinc-400 hover:bg-cyan-950/40 hover:text-cyan-100 border border-transparent'
               }`}
             >
@@ -2507,9 +2195,9 @@ const CelebrityStatsPage = ({ celeb, setCurrentPage }) => {
   return (
     <div className="w-full flex-grow pt-32 pb-24 px-4 sm:px-6 relative flex flex-col items-center">
       <div className="absolute inset-0 bg-gradient-to-b from-[#0c0d0e] via-zinc-900/20 to-[#0c0d0e] -z-10" />
-      
+
       <div className="w-full max-w-5xl">
-        <button 
+        <button
           onClick={() => setCurrentPage('celebrity')}
           className="flex items-center gap-2 text-zinc-400 hover:text-white mb-8 transition-colors group uppercase tracking-widest text-xs font-bold"
         >
@@ -2538,12 +2226,12 @@ const CelebrityStatsPage = ({ celeb, setCurrentPage }) => {
                   {celeb.rating}
                 </span>
               </div>
-              
+
               <div className="flex items-center gap-4 border-b border-zinc-800/50 pb-6 mb-6">
                 <span className={`text-xs font-black uppercase tracking-widest px-3 py-1 rounded bg-black/60 border ${rColors.badge}`}>
                   {celeb.tier}
                 </span>
-                
+
                 {celeb.flags && celeb.flags.length > 0 && (
                   <div className="flex items-center gap-2 border-l border-zinc-800 pl-4">
                     {celeb.flags.map((code) => (
@@ -2551,7 +2239,7 @@ const CelebrityStatsPage = ({ celeb, setCurrentPage }) => {
                     ))}
                   </div>
                 )}
-                
+
                 <span className="text-xs font-sans uppercase tracking-widest text-zinc-400 border-l border-zinc-800 pl-4">
                   Sex: {celeb.sex || 'Unknown'}
                 </span>
@@ -2571,7 +2259,7 @@ const CelebrityStatsPage = ({ celeb, setCurrentPage }) => {
             {/* Metrics */}
             <section className="space-y-8">
               <h2 className="text-2xl font-black uppercase tracking-widest text-white italic">Facial Metrics</h2>
-              
+
               <div className="flex flex-col gap-10">
                 {Object.entries(groupedStats).map(([cat, metrics]) => (
                   <div key={cat} className="flex flex-col">
@@ -2664,14 +2352,14 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
   return (
     <div className="min-h-screen pt-24 pb-16 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto">
       <div className="flex flex-col md:flex-row gap-8">
-        
+
         {/* Left Sidebar: Plan & Danger Zone */}
         <div className="w-full md:w-80 shrink-0 space-y-6">
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
             <h2 className="text-lg font-black italic tracking-tighter uppercase mb-4 flex items-center gap-2"><User size={18}/> Profile</h2>
             <div className="text-sm font-sans text-zinc-300 mb-1">{user?.email}</div>
             <div className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest mb-6">UID: {user?.uid.substring(0,8)}...</div>
-            
+
             <div className="border-t border-zinc-800 pt-4 mb-4">
               <h3 className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest mb-2">Current Plan</h3>
               <div className="flex items-center justify-between">
@@ -2685,7 +2373,7 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
             <button onClick={() => setCurrentPage('plans')} className="w-full py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded hover:bg-cyan-500/20 transition-colors uppercase tracking-widest text-[10px] font-bold mb-4">
               Upgrade Plan
             </button>
-            
+
             <div className="border-t border-zinc-800 pt-4 mt-4">
               <h3 className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest mb-2 text-red-500">Danger Zone</h3>
               <button onClick={() => setConfirmDeleteAccount(true)} className="w-full py-2 bg-red-500/10 border border-red-500/30 text-red-500 rounded hover:bg-red-500/20 transition-colors uppercase tracking-widest text-[10px] font-bold">
@@ -2697,7 +2385,7 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
 
         {/* Right Area: Stats & History */}
         <div className="flex-1 space-y-6">
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 relative overflow-hidden">
               <BarChart3 size={20} className="text-cyan-400 mb-2" />
@@ -2713,7 +2401,7 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
 
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
             <h2 className="text-lg font-black italic tracking-tighter uppercase mb-4 flex items-center gap-2"><Clock size={18}/> Scan History</h2>
-            
+
             {loading ? (
               <div className="flex justify-center py-10"><Loader2 className="animate-spin text-cyan-400" /></div>
             ) : error ? (
@@ -2746,7 +2434,7 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
                         </div>
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={() => setScanToDelete(scan.id)}
                       className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
                       title="Delete Scan & Image"
@@ -2983,7 +2671,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
     </div>
     <header className="relative w-full flex flex-col items-center pt-[25vh] pb-32 text-center px-6 overflow-x-hidden overflow-y-visible">
       <div className="absolute inset-0 bg-radial-gradient from-white/5 to-transparent -z-10 opacity-30" />
-      
+
       {/* Extracted Video: Placed directly in the header to avoid FadeUp's stacking context which breaks mix-blend-screen */}
       <div
         className="pointer-events-none absolute left-1/2 top-[18vh] z-0 w-[min(118vw,1040px)] h-[min(82vh,760px)] origin-center -translate-x-1/2 -translate-y-[22%] sm:-translate-y-[27%] md:-translate-y-[32%] overflow-visible scale-[0.81]"
@@ -2992,12 +2680,12 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
       >
         <video
           ref={heroFaceVideoRef}
-          muted 
-          playsInline 
+          muted
+          playsInline
           preload="auto"
           className="w-full h-full object-contain object-center opacity-[0.92]"
           style={{ filter: 'contrast(1.08) brightness(1.05)', mixBlendMode: 'plus-lighter' }}
-          src="/FaceANimationforwebsite.webm" 
+          src="/FaceANimationforwebsite.webm"
         />
       </div>
 
@@ -3035,7 +2723,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           {/* Mesh: absolute overlay only - height comes from headline text, not from the SVG */}
             <div className="relative w-fit max-w-full py-2 md:py-4">
               <div className="relative z-10 flex flex-col items-center">
-                
+
                 {/* Active Users Badge */}
                 <div className="flex items-center gap-2 mb-2 bg-zinc-900/50 border border-zinc-800 backdrop-blur-md px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(0,0,0,0.5)]">
                   <div className="relative flex items-center justify-center w-2 h-2">
@@ -3078,7 +2766,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           <p className="text-zinc-300 font-sans text-sm md:text-base uppercase tracking-[0.3em] mb-14 font-bold">Powered by AI - track your looks with MogCheck</p>
           <button
             onClick={() => setCurrentPage('login')}
-            className="mx-auto group relative inline-flex items-center gap-5 overflow-hidden rounded-full border border-cyan-200/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(233,249,255,0.98)_54%,rgba(182,240,255,0.96))] px-10 py-4 text-black shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_0_44px_rgba(34,211,238,0.24),0_22px_70px_rgba(0,0,0,0.32)] transition-all duration-500 hover:-translate-y-1 hover:scale-[1.03] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.18),0_0_68px_rgba(34,211,238,0.36),0_28px_90px_rgba(0,0,0,0.42)]"
+            className="mx-auto group relative inline-flex items-center gap-5 overflow-hidden rounded-full border border-cyan-200/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(233,249,255,0.98)_54%,rgba(182,240,255,0.96))] px-10 py-4 text-black shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_0_44px_rgba(34,211,238,0.24),0_22px_70px_rgba(0,0,0,0.32)] transition-all duration-500 hover:-translate-y-1 hover:scale-[0.60] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.18),0_0_68px_rgba(34,211,238,0.36),0_28px_90px_rgba(0,0,0,0.42)]"
             style={{ animation: 'ctaPulse 3s ease-in-out infinite' }}
           >
             <span className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/70 to-transparent opacity-80 transition-transform duration-700 group-hover:translate-x-[360%]" />
@@ -3129,7 +2817,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
               <button
                 type="button"
                 onClick={() => setCurrentPage('mog-battles')}
-                className="group inline-flex items-center gap-3 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-6 py-4 text-sm font-black uppercase tracking-[0.22em] text-cyan-300 transition-all hover:scale-[1.02] hover:bg-cyan-500/20 hover:shadow-[0_0_24px_rgba(34,211,238,0.16)]"
+                className="group inline-flex items-center gap-3 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-6 py-4 text-sm font-black uppercase tracking-[0.22em] text-cyan-300 transition-all hover:scale-[0.60] hover:bg-cyan-500/20 hover:shadow-[0_0_24px_rgba(34,211,238,0.16)]"
               >
                 Open Mog Battles
                 <ArrowUpRight size={18} className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -3175,7 +2863,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
             type="button"
             onClick={startHomeDemoScan}
             disabled={homeDemoStarting || selectedHomeDemoLocked}
-            className="group mt-8 relative flex w-full max-w-md items-center justify-center gap-4 overflow-hidden rounded-xl border border-cyan-200/50 bg-[linear-gradient(135deg,rgba(34,211,238,0.95),rgba(14,165,233,0.78)_42%,rgba(29,78,216,0.88))] px-12 py-6 text-lg font-black uppercase tracking-[0.28em] text-white shadow-[0_0_34px_rgba(34,211,238,0.38),0_18px_70px_rgba(14,165,233,0.16)] transition-all duration-300 hover:-translate-y-1 hover:scale-[1.015] hover:shadow-[0_0_54px_rgba(34,211,238,0.55),0_24px_90px_rgba(14,165,233,0.22)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:scale-100"
+            className="group mt-8 relative flex w-full max-w-md items-center justify-center gap-4 overflow-hidden rounded-xl border border-cyan-200/50 bg-[linear-gradient(135deg,rgba(34,211,238,0.95),rgba(14,165,233,0.78)_42%,rgba(29,78,216,0.88))] px-12 py-6 text-lg font-black uppercase tracking-[0.28em] text-white shadow-[0_0_34px_rgba(34,211,238,0.38),0_18px_70px_rgba(14,165,233,0.16)] transition-all duration-300 hover:-translate-y-1 hover:scale-[0.60] hover:shadow-[0_0_54px_rgba(34,211,238,0.55),0_24px_90px_rgba(14,165,233,0.22)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:scale-100"
           >
             <span className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/50 to-transparent opacity-60 transition-transform duration-700 group-hover:translate-x-[320%]" />
             <span className="relative z-10">{homeDemoStarting ? 'Starting' : selectedHomeDemoLocked ? 'Locked' : 'Try Demo Scan'}</span>
@@ -3355,7 +3043,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
             <button
               type="button"
               onClick={() => setCurrentPage('plans')}
-              className={`mt-auto rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-[0.24em] text-black transition-all duration-700 hover:scale-[1.02] ${
+              className={`mt-auto rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-[0.24em] text-black transition-all duration-700 hover:scale-[0.60] ${
                 homeProAnnual
                   ? 'bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.3)]'
                   : 'bg-gradient-to-r from-yellow-500 to-yellow-300 shadow-[0_0_30px_rgba(234,179,8,0.28)]'
@@ -3435,7 +3123,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
                   <img
                     src={resolveMediaUrl(scan.image)}
                     alt={scan.name}
-                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[0.60]"
                     loading="lazy"
                     decoding="async"
                   />
@@ -3576,7 +3264,7 @@ const LoginPage = ({ setCurrentPage, user }) => {
               <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="hidden" />
               <span className="text-[10px] text-zinc-400 uppercase font-sans tracking-widest group-hover:text-zinc-300 transition-colors select-none">Keep me logged in</span>
             </label>
-            <button type="submit" disabled={loading} className="w-full py-4 bg-white text-black font-black uppercase tracking-widest italic text-sm hover:scale-[1.02] transition-transform cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
+            <button type="submit" disabled={loading} className="w-full py-4 bg-white text-black font-black uppercase tracking-widest italic text-sm hover:scale-[0.60] transition-transform cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
               {loading ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
               {loading ? 'SIGNING IN...' : 'LOGIN'}
             </button>
@@ -3655,7 +3343,7 @@ const RegisterPage = ({ setCurrentPage, user }) => {
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-            <button type="submit" disabled={loading} className="w-full py-4 mt-2 bg-white text-black font-black uppercase tracking-widest italic text-sm hover:scale-[1.02] transition-transform cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
+            <button type="submit" disabled={loading} className="w-full py-4 mt-2 bg-white text-black font-black uppercase tracking-widest italic text-sm hover:scale-[0.60] transition-transform cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2">
               {loading ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
               {loading ? 'CREATING...' : 'CREATE ACCOUNT'}
             </button>
@@ -3674,12 +3362,12 @@ const PhotoGuidePage = ({ setCurrentPage }) => {
       <FadeUp>
         <div className="w-full max-w-3xl bg-[#0c0d0e]/80 border border-zinc-800 rounded-2xl p-5 md:p-8 shadow-2xl backdrop-blur-xl relative z-10 mx-auto">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500" />
-          
+
           <div className="flex flex-col items-center gap-3 mb-5">
             <MogCheckLogoMark size={48} className="w-12 h-12 opacity-90" />
             <h2 className="text-3xl md:text-4xl font-black italic uppercase tracking-tighter text-white text-center">Take the Perfect Photo</h2>
           </div>
-          
+
           <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 p-4 rounded-xl mb-8 shadow-[0_0_20px_rgba(239,68,68,0.1)]">
             <span className="text-red-500 font-bold uppercase tracking-widest text-sm md:text-base mt-0.5 animate-pulse">Warning:</span>
             <p className="text-zinc-300 text-xs md:text-sm uppercase tracking-wider leading-relaxed">
@@ -3709,8 +3397,8 @@ const PhotoGuidePage = ({ setCurrentPage }) => {
               <img src="/guide/do-not-example.png" alt="Do not example" className="w-full max-h-[240px] object-cover rounded-xl border border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.1)] grayscale opacity-80" />
             </div>
           </div>
-          
-          <button onClick={() => setCurrentPage('upload-photo')} className="w-full py-4 bg-white text-black font-black uppercase tracking-widest text-sm md:text-base flex items-center justify-center gap-4 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer shadow-[0_0_30px_rgba(255,255,255,0.2)] rounded-sm">
+
+          <button onClick={() => setCurrentPage('upload-photo')} className="w-full py-4 bg-white text-black font-black uppercase tracking-widest text-sm md:text-base flex items-center justify-center gap-4 hover:scale-[0.60] hover:bg-zinc-200 transition-all cursor-pointer shadow-[0_0_30px_rgba(255,255,255,0.2)] rounded-sm">
             I understand, let's go
             <ChevronRight size={20} className="text-black" />
           </button>
@@ -4005,7 +3693,7 @@ const FileDropzone = ({ label, file, setFile, isPulsing, locked = false, lockedL
   return (
     <div className="flex flex-col items-center w-full">
       <span className="text-zinc-300 font-bold text-lg md:text-xl uppercase tracking-widest mb-6 drop-shadow-md">{label}</span>
-      <label 
+      <label
         onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); if (!locked) setIsDragging(true); }}
         onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); if (!locked) setIsDragging(false); }}
         onDrop={(e) => {
@@ -4022,8 +3710,8 @@ const FileDropzone = ({ label, file, setFile, isPulsing, locked = false, lockedL
           locked
             ? 'border-cyan-400/35 bg-cyan-500/10 shadow-[0_0_42px_rgba(34,211,238,0.14)] cursor-default'
             :
-          isDragging 
-            ? 'border-white bg-white/10 shadow-[0_0_50px_rgba(255,255,255,0.3)] scale-[1.02]' 
+          isDragging
+            ? 'border-white bg-white/10 shadow-[0_0_50px_rgba(255,255,255,0.3)] scale-[1.02]'
             : (isPulsing && !file ? 'border-zinc-500 bg-zinc-900/40 shadow-[0_0_30px_rgba(255,255,255,0.1)] animate-pulse hover:border-zinc-400' : 'border-zinc-800 bg-zinc-900/30 backdrop-blur-md hover:border-zinc-600 hover:bg-zinc-900/50 shadow-2xl')
         }`}
       >
@@ -4032,7 +3720,7 @@ const FileDropzone = ({ label, file, setFile, isPulsing, locked = false, lockedL
           <>
             <img src={file} alt={label} className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-40 transition-opacity duration-300" />
             {!locked && (
-              <div 
+              <div
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setFile(null, null); }}
                 className="absolute top-4 right-4 md:top-6 md:right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20 bg-black/60 hover:bg-red-500/80 text-white rounded-full p-2 backdrop-blur-md border border-white/10 hover:border-red-500/50"
                 title="Remove Image"
@@ -4088,7 +3776,7 @@ const FaceScanOverlay = ({
 
   if (landmarksData && landmarksData !== 'fallback' && meshConnections?.length) {
     const { points, imgW, imgH } = landmarksData;
-    
+
     // Instead of simple contours, generate the fully detailed face tessellation matrix
     const uniquePoints = new Set();
     const connections = [];
@@ -4105,9 +3793,9 @@ const FaceScanOverlay = ({
     const C_h = 133.33; // 3:4 aspect ratio
     const imgRatio = imgW / imgH;
     const containerRatio = C_w / C_h;
-    
+
     let scaleX, scaleY, offsetX, offsetY;
-    
+
     if (imgRatio > containerRatio) {
       scaleY = C_h;
       scaleX = C_h * imgRatio;
@@ -4144,7 +3832,7 @@ const FaceScanOverlay = ({
         let y = 15 + (r / rows) * 95;
         let cx = 50; let cy = 55;
         let dx = x - cx; let dy = y - cy;
-        let rx = 32; 
+        let rx = 32;
         if (y > cy) rx = 32 * (1 - ((y - cy) / 55) * 0.5);
         let ry = 48;
         if ((dx*dx)/(rx*rx) + (dy*dy)/(ry*ry) <= 1) {
@@ -4205,8 +3893,8 @@ const FaceScanOverlay = ({
           const normY = Math.max(0, Math.min(1, (maxY - avgY) / ySpan)); // 0 at chin, 1 at forehead
           const delay = normY * dashWindowSeconds + 1.2 + Math.random() * 1.2;
           return (
-            <line 
-              key={`e${i}`} x1={edge[0].x} y1={edge[0].y} x2={edge[1].x} y2={edge[1].y} 
+            <line
+              key={`e${i}`} x1={edge[0].x} y1={edge[0].y} x2={edge[1].x} y2={edge[1].y}
               stroke="rgba(34, 211, 238, 0.45)" strokeWidth="0.2"
               strokeDasharray={length} strokeDashoffset={length}
               style={{
@@ -4220,7 +3908,7 @@ const FaceScanOverlay = ({
           );
         })}
         {mappedPoints.map((pt, i) => {
-          const normY = Math.max(0, Math.min(1, (maxY - pt.y) / ySpan)); 
+          const normY = Math.max(0, Math.min(1, (maxY - pt.y) / ySpan));
           const delay = normY * dashWindowSeconds + Math.random() * 0.45;
           return (
             <circle
@@ -4266,7 +3954,7 @@ const SCAN_PROGRESS_MESSAGES = [
 
 const getEstimatedScanTotalMs = (choice, fairUsageState) => {
   if (fairUsageState?.lowPriority) return 5 * 60 * 1000;
-  if (choice === '6' || choice === '7' || choice === '8' || choice === '9') return 55 * 1000;
+  if (choice === '6' || choice === '7' || choice === '8' || choice === '9' || choice === '10') return 55 * 1000;
   if (choice === '1') return 3.5 * 60 * 1000;
   if (choice === '2') return 2.5 * 60 * 1000;
   return 90 * 1000;
@@ -4390,7 +4078,7 @@ const ScanningView = ({
   const [hasError, setHasError] = useState(false);
   const [fairUsageState, setFairUsageState] = useState(null);
   const isUltra31 = choice === "1";
-  const isGemini31Pro = choice === "6" || choice === "7" || choice === "8" || choice === "9";
+  const isGemini31Pro = choice === "6" || choice === "7" || choice === "8" || choice === "9" || choice === "10";
   const isCompactViewport = typeof window !== 'undefined' && window.innerWidth < 768;
   const overlayRevealSeconds = isUltra31 ? 34 : isGemini31Pro ? 18 : choice === "2" ? 24 : 36;
   const overlayScanLoopSeconds = isUltra31 ? 4 : isGemini31Pro ? 3.5 : choice === "2" ? 4.5 : 4;
@@ -4456,7 +4144,7 @@ const ScanningView = ({
           runningMode: "IMAGE",
           numFaces: 1
         });
-        
+
         const img = new Image();
         img.src = mainImageSrc;
         img.onload = () => {
@@ -4625,7 +4313,7 @@ const ScanningView = ({
           return;
         }
 
-        const isUltra = choice === "1" || choice === "2" || choice === "6" || choice === "7" || choice === "8" || choice === "9";
+        const isUltra = choice === "1" || choice === "2" || choice === "6" || choice === "7" || choice === "8" || choice === "9" || choice === "10";
         activeUser = userRef.current;
         if (activeUser) {
           try {
@@ -4766,7 +4454,7 @@ const ScanningView = ({
       /** So the UI never sits on "Consulting AI" forever if Python/API hangs */
         const analyzeAbort = new AbortController();
         cancelAnalyzeRequest = () => analyzeAbort.abort();
-        const ANALYZE_CLIENT_MAX_MS = (choice === "6" || choice === "7" || choice === "8" || choice === "9") ? 8 * 60 * 1000 : 14 * 60 * 1000;
+        const ANALYZE_CLIENT_MAX_MS = (choice === "6" || choice === "7" || choice === "8" || choice === "9" || choice === "10") ? 8 * 60 * 1000 : 14 * 60 * 1000;
         const analyzeHardStop = setTimeout(() => analyzeAbort.abort(), ANALYZE_CLIENT_MAX_MS);
 
         const buildProgressMessage = () => {
@@ -4786,7 +4474,7 @@ const ScanningView = ({
           setElapsedScanMs(Date.now() - scanStartedAt);
           setStatusText(buildProgressMessage());
         }, 1000);
-        const recoveryProbeDelayMs = (choice === "6" || choice === "7" || choice === "8" || choice === "9") ? 25000 : isUltra ? 45000 : 30000;
+        const recoveryProbeDelayMs = (choice === "6" || choice === "7" || choice === "8" || choice === "9" || choice === "10") ? 25000 : isUltra ? 45000 : 30000;
         let recoveryProbeRunning = false;
         const recoveryTick = activeUser ? setInterval(async () => {
           if (!active || scanSucceeded || recoveryProbeRunning) return;
@@ -4888,7 +4576,7 @@ const ScanningView = ({
           await new Promise((r) => setTimeout(r, minScanMs - elapsed));
         }
         if (!active) return;
-        
+
         if (data.success) {
            if (active && data?.fairUsage) {
              currentFairUsage = data.fairUsage;
@@ -4962,7 +4650,7 @@ const ScanningView = ({
   if (compact) {
     return (
       <div
-        className={`overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#0c0d0e]/95 shadow-[0_0_28px_rgba(34,211,238,0.12)] backdrop-blur-xl ${onOpen ? 'cursor-pointer transition-transform hover:scale-[1.01]' : ''}`}
+        className={`overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#0c0d0e]/95 shadow-[0_0_28px_rgba(34,211,238,0.12)] backdrop-blur-xl ${onOpen ? 'cursor-pointer transition-transform hover:scale-[0.60]' : ''}`}
         onClick={onOpen}
         role={onOpen ? 'button' : undefined}
         tabIndex={onOpen ? 0 : undefined}
@@ -5102,7 +4790,7 @@ const ScanningView = ({
              <AnalysisScanBand />
            </>
         )}
-        
+
         {!videoUrl && (
           <FaceScanOverlay
             landmarksData={landmarks}
@@ -5157,7 +4845,7 @@ const AnalysisDockSummaryCard = ({ job, onOpenResult, onDismiss }) => (
           <button
             type="button"
             onClick={() => onOpenResult(job.id)}
-            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-black shadow-[0_0_20px_rgba(16,185,129,0.25)] transition-transform hover:scale-[1.02]"
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-black shadow-[0_0_20px_rgba(16,185,129,0.25)] transition-transform hover:scale-[0.60]"
           >
             <ArrowUpRight size={12} /> Open
           </button>
@@ -5191,7 +4879,7 @@ const AnalysisDockRunningCard = ({ job, onOpen, onDismiss }) => {
 
   return (
     <div
-      className={`overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#0c0d0e]/95 shadow-[0_0_28px_rgba(34,211,238,0.12)] backdrop-blur-xl ${onOpen ? 'cursor-pointer transition-transform hover:scale-[1.01]' : ''}`}
+      className={`overflow-hidden rounded-2xl border border-cyan-500/20 bg-[#0c0d0e]/95 shadow-[0_0_28px_rgba(34,211,238,0.12)] backdrop-blur-xl ${onOpen ? 'cursor-pointer transition-transform hover:scale-[0.60]' : ''}`}
       onClick={onOpen}
       role={onOpen ? 'button' : undefined}
       tabIndex={onOpen ? 0 : undefined}
@@ -5319,7 +5007,7 @@ const AnalysisDock = ({
               key={job.id}
               type="button"
               onClick={() => (job.state === 'complete' ? onOpenResult(job.id) : onOpenRunning(job.id))}
-              className="inline-flex min-w-[184px] items-center gap-3 rounded-full border border-cyan-500/25 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_35px_rgba(34,211,238,0.18)] backdrop-blur-xl transition-transform hover:scale-[1.01]"
+              className="inline-flex min-w-[184px] items-center gap-3 rounded-full border border-cyan-500/25 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_35px_rgba(34,211,238,0.18)] backdrop-blur-xl transition-transform hover:scale-[0.60]"
             >
               <span className={`inline-flex h-2.5 w-2.5 rounded-full ${job.state === 'complete' ? 'bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.85)]' : 'bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse'}`} />
               <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${job.state === 'complete' ? 'text-emerald-300' : 'text-cyan-300'}`}>
@@ -5331,7 +5019,7 @@ const AnalysisDock = ({
             <button
               type="button"
               onClick={() => setCollapsed(false)}
-              className="inline-flex items-center gap-3 rounded-full border border-zinc-800 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_25px_rgba(255,255,255,0.05)] backdrop-blur-xl transition-transform hover:scale-[1.01]"
+              className="inline-flex items-center gap-3 rounded-full border border-zinc-800 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_25px_rgba(255,255,255,0.05)] backdrop-blur-xl transition-transform hover:scale-[0.60]"
             >
               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300">
                 +{jobs.length - 4} more
@@ -5438,7 +5126,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
   }
 
   const isUltra31 = job.choice === "1";
-  const isGemini31Pro = job.choice === "6" || job.choice === "7" || job.choice === "8" || job.choice === "9";
+  const isGemini31Pro = job.choice === "6" || job.choice === "7" || job.choice === "8" || job.choice === "9" || job.choice === "10";
   const overlayRevealSeconds = job.overlayRevealSeconds || (isUltra31 ? 34 : isGemini31Pro ? 18 : job.choice === "2" ? 24 : 36);
   const overlayScanLoopSeconds = job.overlayScanLoopSeconds || (isUltra31 ? 4 : isGemini31Pro ? 3.5 : job.choice === "2" ? 4.5 : 4);
   const lowPriorityBadge = job.fairUsageState?.lowPriority
@@ -5524,7 +5212,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
         </div>
       </div>
       <div className="border-t border-zinc-800/50">
-        <CelebrityRatingPage setCurrentPage={() => {}} setSelectedCelebrity={setScanningCeleb} user={user} />
+        <CelebrityRatingPage setCurrentPage={() => {}} setSelectedCelebrity={setScanningCeleb} user={user} disableAutoPeek />
       </div>
       {scanningCeleb && (
         <div className="fixed inset-0 z-[220] overflow-y-auto bg-black/85 backdrop-blur-xl">
@@ -5711,6 +5399,15 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       tier: "ultra",
       Icon: Crown
     },
+    ...(isAdmin ? [{
+      id: "10",
+      name: "3.1 Pro Test",
+      description:
+        "Experimental fast lane: tries Gemini 3.1 Pro first, then falls back to Gemma premium if Google's preview servers error or time out.",
+      tier: "ultra",
+      adminOnly: true,
+      Icon: Zap
+    }] : []),
     { id: "separator" },
     {
       id: "3",
@@ -5738,7 +5435,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     }
   ];
 
-  const isUltraModel = selectedModel === "1" || selectedModel === "2" || selectedModel === "6" || selectedModel === "7" || selectedModel === "8" || selectedModel === "9";
+  const isUltraModel = selectedModel === "1" || selectedModel === "2" || selectedModel === "6" || selectedModel === "7" || selectedModel === "8" || selectedModel === "9" || selectedModel === "10";
   const isPremiumDemoModel = selectedModel === PREMIUM_DEMO_MODEL_ID;
   const selectedPremiumDemoLocked = isPremiumDemoModel && !selectedPremiumDemoFace?.enabled;
   const shouldUseSideProfile = isUltraModel && useSideProfile;
@@ -5805,11 +5502,11 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   useEffect(() => {
     if (selectedModel === PREMIUM_DEMO_MODEL_ID) return;
     if (ultraAccessPending) return;
-    if (!isAdmin && (selectedModel === '7' || selectedModel === '8')) {
+    if (!isAdmin && (selectedModel === '7' || selectedModel === '8' || selectedModel === '10')) {
       setSelectedModel('3');
       return;
     }
-    if (!canUseUltra && (selectedModel === '1' || selectedModel === '2' || selectedModel === '6' || selectedModel === '7' || selectedModel === '8' || selectedModel === '9')) {
+    if (!canUseUltra && (selectedModel === '1' || selectedModel === '2' || selectedModel === '6' || selectedModel === '7' || selectedModel === '8' || selectedModel === '9' || selectedModel === '10')) {
       setSelectedModel('3');
     }
   }, [canUseUltra, isAdmin, selectedModel, ultraAccessPending]);
@@ -6001,7 +5698,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
           </div>
         </div>
         <div className="border-t border-zinc-800/50">
-          <CelebrityRatingPage setCurrentPage={() => {}} setSelectedCelebrity={setScanningCeleb} user={user} />
+          <CelebrityRatingPage setCurrentPage={() => {}} setSelectedCelebrity={setScanningCeleb} user={user} disableAutoPeek />
         </div>
         {scanningCeleb && (
           <div className="fixed inset-0 z-[220] overflow-y-auto bg-black/85 backdrop-blur-xl">
@@ -6114,7 +5811,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
               </span>
             </button>
           </div>
-          
+
           <div
             className={[
               "grid grid-cols-1 w-full mb-16 px-4 transition-all duration-500",
@@ -6571,8 +6268,13 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
               </div>
             ))}
 
-            <button 
+            <button
               onClick={async () => {
+                // Clear any scan-related query params before starting
+                if (window.location.search) {
+                  window.history.replaceState(null, '', window.location.pathname);
+                }
+
                 if (isPremiumDemoModel) {
                   if (!user) {
                     setCurrentPage('login');
@@ -6734,9 +6436,9 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                 if (selectedProfileId === 'new') {
                   setNewProfileName('');
                 }
-              }} 
+              }}
               disabled={missingRequiredImage || scanAccessLocked || selectedProfileFull || selectedPremiumDemoLocked}
-              className={`relative overflow-hidden px-20 py-6 bg-white text-black font-black uppercase tracking-widest text-lg md:text-xl flex items-center justify-center gap-5 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none ${justUnlocked ? 'animate-[buttonUnlock_1s_ease-out_forwards]' : 'shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}
+              className={`relative overflow-hidden px-20 py-6 bg-white text-black font-black uppercase tracking-widest text-lg md:text-xl flex items-center justify-center gap-5 hover:scale-[0.60] hover:bg-zinc-200 transition-all cursor-pointer rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none ${justUnlocked ? 'animate-[buttonUnlock_1s_ease-out_forwards]' : 'shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}
             >
             {justUnlocked && <div className="absolute top-0 bottom-0 w-[50%] bg-gradient-to-r from-transparent via-white to-transparent opacity-80 mix-blend-overlay" style={{ animation: 'sweepGlow 1.5s ease-out forwards' }} />}
             <span className="relative z-10">{isPremiumDemoModel ? 'Scan Preview' : 'Analyze Profiles'}</span>
@@ -7030,8 +6732,8 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
             const x = 50 + 50 * Math.cos(angle);
             const y = 50 - 50 * Math.sin(angle);
             return (
-              <span 
-                key={i} 
+              <span
+                key={i}
                 className={`absolute text-[6.5px] font-black font-sans uppercase tracking-[0.2em] whitespace-nowrap ${getRatingToneClasses(finalScore).text.split(' ')[0]}`}
                 style={{
                   left: `${x}%`,
@@ -7056,37 +6758,44 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
 
 const HexagonStats = ({ radarData4, radarData5, finalScore }) => {
   const [isHovered, setIsHovered] = useState(false);
-  
+
   return (
-    <div 
-      className="relative w-full h-full flex items-center justify-center p-4"
+    <div
+      className="relative w-full h-full flex items-center justify-center p-2 sm:p-4"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Radar Chart Layer */}
-      <div className={`w-full h-full transition-all duration-500 ${isHovered ? 'opacity-15 blur-lg scale-90' : 'opacity-100 blur-0 scale-100'}`}>
+      <div className={`w-full h-full transition-all duration-500 ${isHovered ? 'opacity-5 blur-2xl scale-[0.8]' : 'opacity-100 blur-0 scale-100'}`}>
         <RadarChart data={radarData5} finalScore={finalScore} />
       </div>
 
       {/* Stats Overlay Layer */}
-      <div className={`absolute inset-0 flex flex-col justify-center p-6 gap-4 transition-all duration-500 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-        {radarData4.map((item, idx) => (
-          <div key={item.label} className="flex flex-col">
-            <div className="flex flex-col mb-1.5 px-0.5">
-              <span className="text-[7px] font-black uppercase tracking-[0.3em] text-cyan-500/50 mb-0.5">Category</span>
-              <div className="flex justify-between items-end">
-                <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white/90">{item.label}</span>
-                <span className="text-[14px] font-black italic text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">{item.val.toFixed(1)}</span>
+      <div className={`absolute inset-0 flex flex-col justify-center p-2 sm:p-5 gap-1.5 sm:gap-3 transition-all duration-500 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+        {radarData4.map((item, idx) => {
+          const tone = getRatingToneClasses(item.val * 10);
+          return (
+            <div key={item.label} className="flex flex-col">
+              <div className="flex flex-col mb-0.5 px-0.5">
+                <span className={`text-[5px] sm:text-[6.5px] font-black uppercase tracking-[0.25em] opacity-40 mb-0 ${tone.text.split(' ')[0]}`}>Category</span>
+                <div className="flex justify-between items-end leading-tight">
+                  <span className="text-[7.5px] sm:text-[9px] font-black uppercase tracking-[0.1em] text-white/95">{item.label}</span>
+                  <span className={`text-[11px] sm:text-[14px] font-black italic ${tone.text}`}>{item.val.toFixed(1)}</span>
+                </div>
+              </div>
+              <div className="h-1 sm:h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/[0.03]">
+                <div
+                  className="h-full transition-all duration-1000 ease-out"
+                  style={{
+                    width: isHovered ? `${(item.val / 10) * 100}%` : '0%',
+                    backgroundColor: tone.stroke,
+                    boxShadow: `0 0 10px ${tone.stroke}80`
+                  }}
+                />
               </div>
             </div>
-            <div className="h-1.5 w-full bg-cyan-900/30 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.7)] transition-all duration-700 ease-out" 
-                style={{ width: isHovered ? `${(item.val / 10) * 100}%` : '0%' }}
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -7112,7 +6821,7 @@ const MetricBar = ({ label, score, max = 100, displayValue, isFreePlan = false }
   }, [score, isFreePlan]);
 
   const percentage = Math.min(100, Math.max(0, (progress / max) * 100));
-  
+
   let colorClass = 'bg-gradient-to-r from-red-600 via-red-500 to-rose-400';
   let shadowClass = 'shadow-[0_0_15px_rgba(225,29,72,0.5)]';
   let textColorClass = 'text-rose-400';
@@ -7135,9 +6844,9 @@ const MetricBar = ({ label, score, max = 100, displayValue, isFreePlan = false }
         </span>
       </div>
       <div className="w-full h-2.5 bg-zinc-800/80 rounded-full relative overflow-hidden flex items-center shadow-inner">
-        <div 
-          className={`h-full rounded-full ${colorClass} ${shadowClass} transition-all duration-1000 ease-out`} 
-          style={{ width: `${percentage}%` }} 
+        <div
+          className={`h-full rounded-full ${colorClass} ${shadowClass} transition-all duration-1000 ease-out`}
+          style={{ width: `${percentage}%` }}
         />
       </div>
     </div>
@@ -7147,7 +6856,7 @@ const MetricBar = ({ label, score, max = 100, displayValue, isFreePlan = false }
 // --- Dashboard Overview Component ---
 const FeatureCard = ({ type = 'best', title, description }) => {
   const isBest = type === 'best';
-  
+
   const bgClass = isBest ? 'bg-green-900/10' : 'bg-red-900/10';
   const borderClass = isBest ? 'border-green-500/20 hover:border-green-500/40' : 'border-red-500/20 hover:border-red-500/40';
   const shadowClass = isBest ? 'shadow-[0_0_30px_rgba(34,197,94,0.05)] group-hover:shadow-[0_0_50px_rgba(34,197,94,0.15)]' : 'shadow-[0_0_30px_rgba(239,68,68,0.05)] group-hover:shadow-[0_0_50px_rgba(239,68,68,0.15)]';
@@ -7173,14 +6882,14 @@ const FeatureCard = ({ type = 'best', title, description }) => {
 
   return (
     <div className={`p-6 ${bgClass} border ${borderClass} rounded-2xl relative overflow-hidden flex flex-col group transition-all duration-700 ${shadowClass}`}>
-      
+
       {/* Moving cheeky gradient */}
       <div className={`absolute -inset-[100%] opacity-0 group-hover:opacity-60 transition-opacity duration-1000 bg-gradient-to-br ${gradientMoving}`} style={{ animation: 'spinSlow 15s linear infinite' }} />
-      
+
       {/* Particles */}
       <div className="absolute inset-0 pointer-events-none opacity-100 transition-opacity duration-1000">
         {particles.map(p => (
-          <div 
+          <div
             key={p.id}
             className={`absolute rounded-full blur-[1.5px] ${particleColor}`}
             style={{
@@ -7197,7 +6906,7 @@ const FeatureCard = ({ type = 'best', title, description }) => {
       </div>
 
       <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${gradientLine} z-10`} />
-      
+
       <div className="relative z-10 flex flex-col h-full transition-colors duration-700">
         <span className={`${textLabel} text-[10px] uppercase font-black tracking-widest mb-1 block`}>{label}</span>
         <h4 className={`${textTitle} font-bold uppercase text-sm tracking-widest mb-3 drop-shadow-md`}>{stripInlineMarkers(title)}</h4>
@@ -7246,7 +6955,7 @@ const DashboardOverview = ({ dashboardData, isRestrictedPreview, activeProfileVi
   return (
     <div id="dashboard-structural-overview" className="bg-zinc-900/30 p-8 rounded-3xl border border-zinc-800 flex flex-col relative overflow-hidden scroll-mt-28">
       <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 border-b border-zinc-800/50 pb-4"><Activity size={14} className="inline mr-2" /> Structural Overview</h3>
-      
+
       <div className={`relative transition-all duration-500 overflow-hidden ${isExpanded ? 'max-h-[2000px]' : 'max-h-[64px]'}`}>
         <p className="text-zinc-300 font-sans text-sm leading-relaxed tracking-wide text-justify mb-6">
           {renderMarkedText(summary)}
@@ -7264,7 +6973,7 @@ const DashboardOverview = ({ dashboardData, isRestrictedPreview, activeProfileVi
               100% { transform: rotate(360deg); }
             }
           `}</style>
-          
+
           {/* Left Column: Primary Flaws */}
           <div className="flex flex-col gap-4">
             <h4 className="text-red-400 font-bold uppercase tracking-widest text-xs mb-2">{isRestrictedPreview ? 'PRIMARY FLAW' : 'PRIMARY FLAWS'}</h4>
@@ -7304,14 +7013,14 @@ const DashboardOverview = ({ dashboardData, isRestrictedPreview, activeProfileVi
           </div>
         </div>
         )}
-        
+
         {!isExpanded && (
           <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-t from-[#101113] to-transparent pointer-events-none" />
         )}
       </div>
 
       {!isRestrictedPreview && (
-        <button 
+        <button
           onClick={() => setIsExpanded(!isExpanded)}
           className="mt-6 self-start md:self-center px-6 py-2 border border-zinc-700 rounded-full text-zinc-400 text-[10px] font-sans uppercase tracking-widest hover:text-white hover:border-zinc-500 transition-colors"
         >
@@ -7340,7 +7049,7 @@ const sideMetricDataGlobal = [
 // --- Feature Keyword Coordinate Mapping ---
 const mapFeatureToCoordinates = (title, desc) => {
   const t = (title + ' ' + (desc || '')).toLowerCase();
-  
+
   if (t.includes('fwhr') || t.includes('face')) {
     return { type: 'rect', x: 12, y: 31, w: 76, h: 33 };
   }
@@ -7372,7 +7081,7 @@ const mapFeatureToCoordinates = (title, desc) => {
   if (t.includes('cheek') || t.includes('zygomatic')) {
     return { x: 25, y: 55 }; // Cheekbone
   }
-  
+
   // Default fallback if no match
   return { x: 50, y: 50 };
 };
@@ -7392,9 +7101,9 @@ const HoloCube = ({ data }) => {
       if (!isDragging) return;
       const deltaX = e.clientX - lastMouse.current.x;
       const deltaY = e.clientY - lastMouse.current.y;
-      setRot(prev => ({ 
-        x: Math.max(-60, Math.min(60, prev.x - deltaY * 0.5)), 
-        y: prev.y + deltaX * 0.5 
+      setRot(prev => ({
+        x: Math.max(-60, Math.min(60, prev.x - deltaY * 0.5)),
+        y: prev.y + deltaX * 0.5
       }));
       lastMouse.current = { x: e.clientX, y: e.clientY };
     };
@@ -7411,11 +7120,11 @@ const HoloCube = ({ data }) => {
   }, [isDragging]);
 
   return (
-    <div 
+    <div
       className={`relative w-full h-full flex items-center justify-center [perspective:1000px] select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
       onMouseDown={handleMouseDown}
     >
-      <div 
+      <div
         className="relative w-36 h-36 [transform-style:preserve-3d] transition-transform duration-150 ease-out"
         style={{ transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)` }}
       >
@@ -7424,26 +7133,26 @@ const HoloCube = ({ data }) => {
           const faceAngle = (ry + rot.y) % 360;
           const normalized = ((faceAngle + 180) % 360 + 360) % 360 - 180;
           const cos = Math.cos(normalized * (Math.PI / 180));
-          const opacity = Math.max(0.05, cos); 
+          const opacity = Math.max(0.05, cos);
 
           return (
-            <div 
-              key={item.label} 
+            <div
+              key={item.label}
               className="absolute inset-0 bg-cyan-500/[0.04] backdrop-blur-[1px] border border-cyan-400/30 shadow-[0_0_15px_rgba(34,211,238,0.1)] flex flex-col items-center justify-center p-4 transition-opacity duration-300"
-              style={{ 
+              style={{
                 transform: `rotateY(${ry}deg) translateZ(72px)`,
                 backgroundImage: 'linear-gradient(rgba(34,211,238,0.05) 1px, transparent 1px)',
                 backgroundSize: '100% 4px',
                 opacity: opacity
               }}
             >
-              <div 
+              <div
                 className="w-full flex flex-col items-center justify-center transition-transform duration-150 ease-out"
                 style={{ transform: `rotateY(${-rot.y - ry}deg) rotateX(${-rot.x}deg)` }}
               >
                 <p className="text-[6px] font-black uppercase tracking-[0.3em] text-cyan-400/50 mb-1">Live Telemetry</p>
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-white/90 mb-2 text-center">{item.label}</h4>
-                
+
                 <div className="relative w-full px-1">
                   <div className="flex justify-between items-end mb-1">
                     <span className="text-[14px] font-black italic text-cyan-400 drop-shadow-[0_0_5px_rgba(34,211,238,0.4)]">
@@ -7451,7 +7160,7 @@ const HoloCube = ({ data }) => {
                     </span>
                   </div>
                   <div className="h-[2px] w-full bg-cyan-900/20 rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="h-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"
                       style={{ width: `${(item.val / 10) * 100}%` }}
                     />
@@ -7472,8 +7181,8 @@ const FeatureHighlightCard = ({ type, feature, onHover }) => {
   const isBest = type === 'best';
   if (!feature) return null;
   const cardClass = isBest
-    ? 'p-7 bg-green-900/10 border border-green-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(34,197,94,0.05)] cursor-default transition-all duration-300 hover:scale-[1.02]'
-    : 'p-7 bg-red-900/10 border border-red-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(239,68,68,0.05)] cursor-default transition-all duration-300 hover:scale-[1.02]';
+    ? 'p-7 bg-green-900/10 border border-green-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(34,197,94,0.05)] cursor-default transition-all duration-300 hover:scale-[0.60]'
+    : 'p-7 bg-red-900/10 border border-red-500/20 rounded-2xl relative overflow-hidden shadow-[0_0_30px_rgba(239,68,68,0.05)] cursor-default transition-all duration-300 hover:scale-[0.60]';
   const railClass = isBest
     ? 'absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-green-400 to-green-600'
     : 'absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-red-400 to-red-600';
@@ -7568,7 +7277,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
 
   const mapKeywordToLandmark = (title, description) => {
     const t = (title + " " + description).toLowerCase();
-    
+
     if (t.includes('fwhr') || t.includes('face')) {
       if (landmarks) {
         const leftFaceIndices = [127, 234, 93, 132, 58];
@@ -7605,7 +7314,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
       if (landmarks) {
         const pathIndices = [132, 58, 172, 136, 150, 149, 176, 148, 152, 377, 379, 365, 397, 288, 361];
         const points = pathIndices.map(idx => `${landmarks[idx].x * 100},${landmarks[idx].y * 100}`).join(' ');
-        
+
         return {
           type: 'path',
           points,
@@ -7633,7 +7342,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
       if (landmarks) {
         const leftCheekIndices = [234, 93, 132, 58, 172, 136, 150, 149];
         const rightCheekIndices = [454, 323, 361, 288, 397, 365, 378, 379];
-        
+
         const getBounds = (indices) => {
           const xs = indices.map(i => landmarks[i].x * 100);
           const ys = indices.map(i => landmarks[i].y * 100);
@@ -7644,7 +7353,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
             h: Math.max(...ys) - Math.min(...ys)
           };
         };
-        
+
         return {
           type: 'double-glow',
           left: getBounds(leftCheekIndices),
@@ -7674,7 +7383,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
     }
 
     let index = null;
-    
+
     if (t.includes('chin') || t.includes('mentolabial') || t.includes('pogonion')) {
       index = 152;
     } else if (t.includes('nose') || t.includes('nasal')) {
@@ -7691,7 +7400,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
       const lm = landmarks[index];
       return { type: 'point', x: lm.x * 100, y: lm.y * 100 };
     }
-    
+
     const fallbackCoords = mapFeatureToCoordinates(title, description);
     return fallbackCoords.type === 'rect' ? fallbackCoords : { type: 'point', ...fallbackCoords };
   };
@@ -7795,9 +7504,9 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
       onClick={() => onImageClick?.(activeImageUrl)}
       className="relative w-72 sm:w-72 md:w-[21rem] aspect-[3/4] shrink-0 bg-[#060708] rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 mx-auto text-left transition-colors hover:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
     >
-      <img 
+      <img
         ref={imgRef}
-        src={activeImageUrl} 
+        src={activeImageUrl}
         loading="eager"
         decoding="async"
         onLoad={detectCurrentImage}
@@ -7805,8 +7514,8 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
         alt="face map"
       />
       {showAnchors && anchorImageUrl && (
-        <img 
-          src={anchorImageUrl} 
+        <img
+          src={anchorImageUrl}
           loading="eager"
           decoding="async"
           className="absolute inset-0 w-full h-full object-cover object-center scale-[1.14] z-10 mix-blend-screen opacity-100"
@@ -7819,12 +7528,24 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
 };
 
 const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage, onOpenPremiumPlans = null, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback, forceFullAnalysis = false, onBackToProfiles = null, onOpenHistoryScan = null }) => {
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [isUnlocking, setIsUnlocking] = useState(false);
+  const [potentialImageUrl, setPotentialImageUrl] = useState(null);
+  const [unlockError, setUnlockError] = useState(null);
+  const [potentialLightboxOpen, setPotentialLightboxOpen] = useState(false);
+  const [communityPeek, setCommunityPeek] = useState(null);
+  const [showAllProtocols, setShowAllProtocols] = useState(false);
+  const [completedProtocolIds, setCompletedProtocolIds] = useState({});
+  const [scanLightbox, setScanLightbox] = useState(null);
+  const [communityNotice, setCommunityNotice] = useState('');
+  const freeHistoryStripRef = useRef(null);
+
   dashboardData = useMemo(() => normalizeDashboardMedia(dashboardData), [dashboardData]);
   const selectedModel = String(dashboardData?.selectedModel || '').trim();
   const isPremiumDemoScan = Boolean(dashboardData?.isPremiumDemo || dashboardData?.demoScan || selectedModel === PREMIUM_DEMO_MODEL_ID);
   const isFreeModelResult = !forceFullAnalysis && ['3', '4', '5'].includes(selectedModel);
   const hasFullProUnlock = isProPlan(userPlan);
-  const isRestrictedPreview = !forceFullAnalysis && isFreeModelResult;
+  const isRestrictedPreview = !forceFullAnalysis && isFreeModelResult && !isEmbedded;
   const showBestFlaw = !hideBestFlawSection;
   const isAdmin = Boolean(user?.email && (
     user.email === 'laithbu07@gmail.com' ||
@@ -7861,7 +7582,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
       <Lock size={compact ? 14 : 32} className={`text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)] ${compact ? 'mb-2' : 'mb-3'}`} />
       <span className={`text-white font-black italic uppercase tracking-widest mb-1 drop-shadow-md ${compact ? 'text-base' : 'text-lg'}`}>PRO FEATURE</span>
       <span className={`text-zinc-300 font-sans text-[10px] uppercase tracking-widest text-center px-4 max-w-[min(100%,280px)] leading-relaxed ${compact ? 'mb-4' : 'mb-6'}`}>{title} requires a premium model</span>
-      <button 
+      <button
         onClick={() => {
           if (onOpenPremiumPlans) onOpenPremiumPlans();
           else setCurrentPage('plans');
@@ -7873,16 +7594,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     </div>
   );
 
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [isUnlocking, setIsUnlocking] = useState(false);
-  const [potentialImageUrl, setPotentialImageUrl] = useState(null);
-  const [unlockError, setUnlockError] = useState(null);
-  const [potentialLightboxOpen, setPotentialLightboxOpen] = useState(false);
-  const [communityPeek, setCommunityPeek] = useState(null);
-  const [showAllProtocols, setShowAllProtocols] = useState(false);
-  const [completedProtocolIds, setCompletedProtocolIds] = useState({});
-  const [scanLightbox, setScanLightbox] = useState(null);
-  const freeHistoryStripRef = useRef(null);
   const startedDetailedReportsRef = useRef(new Set());
 
   useEffect(() => {
@@ -8060,7 +7771,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     normalizeMetricLabelForMatching(value).replace(/\s+/g, '');
   const FRONTAL_KEYWORDS = [
     'bigonial', 'jaw', 'chin', 'mandibular',
-    'ipd', 'eye spacing', 'eye width', 'eye height', 'eye shape', 'eye area', 'eyelid exposure',
+    'ipd', 'eye spacing', 'eye height', 'eye shape', 'eye area', 'eyelid exposure',
     'mouth', 'nose width', 'nose length', 'nose projection',
     'upper third', 'middle third', 'lower third', 'facial thirds',
     'brow compactness', 'philtrum', 'lip height', 'total lip height',
@@ -8290,7 +8001,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const numericDisplayedFinalRating = effectiveCohesiveEnabled
     ? blendNumeric(baseDisplayedFinalRating, oppositeRawRating, 0.18)
     : baseDisplayedFinalRating;
-  const displayedFinalRating = isFreeModelResult
+  const displayedFinalRating = isRestrictedPreview
     ? freeRatingLoop
     : (numericDisplayedFinalRating ?? 85);
   const ratingTone = getRatingToneClasses(displayedFinalRating);
@@ -8369,7 +8080,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const isFreeHistoryScan = (scan) => ['3', '4', '5'].includes(String(scan?.selectedModel || scan?.model || scan?.payload?.selectedModel || '').trim());
 
   return (
-    <div className={`w-full flex-grow flex flex-col items-center relative font-sans overflow-hidden bg-[#0a0a0b] ${isEmbedded ? '' : 'pt-16 pb-24 px-4 sm:px-6'}`}>
+    <div className={`w-full flex-grow flex flex-col items-center relative font-sans overflow-visible bg-[#0a0a0b] ${isEmbedded ? '' : 'pt-12 md:pt-16 pb-24 px-4 sm:px-6'}`}>
       <style>{`
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(18px); }
@@ -8434,7 +8145,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
         }
       `}</style>
       <FadeUp>
-        <div className={`w-full mx-auto flex flex-col gap-12 ${isEmbedded ? 'max-w-5xl' : 'max-w-6xl'}`}>
+        <div className={`w-full mx-auto flex flex-col gap-4 ${isEmbedded ? 'max-w-5xl' : 'max-w-6xl pt-12 md:pt-20 pb-20'}`}>
           {/* Mobile Header Buttons (Free Dashboard) */}
           {!isEmbedded && isFreeModelResult && (
             <div className="md:hidden">
@@ -8460,40 +8171,80 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
               </div>
             </div>
           )}
-          <div className="hidden flex-wrap items-center gap-2 md:flex">
-            <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
-              AI used: {getAnalysisModelLabel(selectedModel || dashboardData?.model)}
-            </span>
-            {isPremiumDemoScan && (
-              <span className="rounded-full border border-cyan-400/35 bg-cyan-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)]">
-                Demo Scan
-              </span>
-            )}
-            {isDetailedReportGenerating && (
-              <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-300">
-                <Loader2 size={12} className="animate-spin" />
-                Detailed report loading
-              </span>
-            )}
-            {(dashboardData?.cohesiveFrontSide || effectiveCohesiveEnabled) && (
-              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">
-                Cohesive side/front enabled
-              </span>
-            )}
-          </div>
 
-          {/* Mobile Scan History Strip (Free) */}
-          {!isEmbedded && isFreeModelResult && freeHistoryCards.length > 1 && (
-            <div className="mb-4 md:hidden">
-              <div className="flex items-center justify-between mb-3 px-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">Scan History</p>
-                <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">{freeHistoryCards.length} scans</span>
+          {/* Back to Profiles (moved above Face Analysis) */}
+          {!isEmbedded && isFreeModelResult && user && onBackToProfiles && (
+            <div className="mb-2">
+              <button
+                type="button"
+                onClick={onBackToProfiles}
+                className="inline-flex w-fit items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/80 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-300 transition-colors hover:border-cyan-500/45 hover:text-cyan-300"
+              >
+                <ArrowLeft size={14} /> Back to Profiles
+              </button>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">
+                  AI used: {getAnalysisModelLabel(selectedModel || dashboardData?.model)}
+                </span>
+                {isPremiumDemoScan && (
+                  <span className="rounded-full border border-cyan-400/35 bg-cyan-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.12)]">
+                    Demo Scan
+                  </span>
+                )}
+                {isDetailedReportGenerating && (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-300">
+                    <Loader2 size={12} className="animate-spin" />
+                    Detailed report loading
+                  </span>
+                )}
+                {(dashboardData?.cohesiveFrontSide || effectiveCohesiveEnabled) && (
+                  <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">
+                    Cohesive side/front enabled
+                  </span>
+                )}
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-4 -mx-4 px-4 custom-scrollbar scroll-smooth">
+            </div>
+          )}
+
+          {/* Scan History Strip (Free) */}
+          {!isEmbedded && freeHistoryCards.length > 0 && (
+            <div className="mb-2 md:mb-3">
+              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between px-1">
+                <div>
+                  <h2 className="text-xl md:text-2xl font-black uppercase tracking-[0.25em] text-white">Face Analysis</h2>
+                  <p className="mt-1 text-[10px] md:text-sm font-sans text-zinc-500 uppercase tracking-widest">Snapshot of your latest scan, trajectory, and quick signals.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => scrollFreeHistoryStrip(-1)}
+                    className="inline-flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-full border border-zinc-800 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
+                    aria-label="Previous scans"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollFreeHistoryStrip(1)}
+                    className="inline-flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-full border border-zinc-800 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300"
+                    aria-label="Next scans"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+
+              <div
+                ref={freeHistoryStripRef}
+                className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar scroll-smooth"
+              >
                 {freeHistoryCards.map((scan, idx) => {
                   const isActive = scan?.frontImage === dashboardData?.frontImage && scan?.finalRating === dashboardData?.finalRating;
                   const rating = Number(scan.finalRating || 0);
                   const tone = getRatingToneClasses(rating);
+                  const scanIsFree = ['3', '4', '5'].includes(String(scan?.selectedModel || scan?.model || scan?.payload?.selectedModel || '').trim());
+
                   return (
                     <button
                       key={idx}
@@ -8505,25 +8256,50 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                           .slice()
                           .reverse()
                           .map((item) => Number(item?.finalRating))
-                          .filter((rating) => Number.isFinite(rating)),
+                          .filter((r) => Number.isFinite(r)),
                       })}
-                      className={`relative flex-shrink-0 w-14 aspect-square rounded-xl overflow-hidden border transition-all duration-300 ${isActive ? 'border-cyan-400 ring-2 ring-cyan-400/15 scale-[1.05] z-10' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}
+                      className={`group relative flex h-20 md:h-24 w-40 md:w-48 shrink-0 overflow-hidden rounded-2xl border bg-[#0c0d0e] text-left transition-all ${isActive ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.18)]' : 'border-zinc-800 hover:border-zinc-700'}`}
                     >
-                      <img loading="lazy" decoding="async" src={scan.frontImage} className="w-full h-full object-cover" alt="" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                      <div className={`absolute bottom-1 left-0 right-0 text-center text-[9px] font-black italic ${tone.text} ${rating === 0 ? 'animate-free-rating-bg' : ''}`}
-                        style={{
-                          background: rating === 0 ? 'none' : 'white',
-                          WebkitBackgroundClip: rating === 0 ? 'text' : 'none',
-                          WebkitTextFillColor: rating === 0 ? 'transparent' : 'inherit',
-                          filter: rating === 0 ? 'blur(3.5px) saturate(0.85)' : 'none'
-                        }}
-                      >
-                        {rating === 0 ? freeRatingLoop : rating.toFixed(1)}
+                      {/* Score Badge (Top Left) */}
+                      <div className={`absolute left-2 top-2 z-20 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-black italic tracking-tight ${
+                        scanIsFree && rating === 0
+                          ? 'text-emerald-300 blur-[2.5px] drop-shadow-[0_0_8px_rgba(16,185,129,0.7)]'
+                          : tone.text
+                      }`}>
+                        {scanIsFree && rating === 0 ? freeRatingLoop : rating.toFixed(1)}
                       </div>
+
+                      {/* Front Image */}
+                      <div className="relative flex-1 border-r border-zinc-900/50">
+                        <img loading="lazy" decoding="async" src={scan.frontImage} className={`w-full h-full object-cover transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`} alt="" />
+                      </div>
+
+                      {/* Side Image (or Front fallback) */}
+                      <div className="relative flex-1">
+                        <img loading="lazy" decoding="async" src={scan.sideImage || scan.frontImage} className={`w-full h-full object-cover object-top transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`} alt="" />
+                      </div>
+
+                      {/* Active Indicator Overlay */}
+                      {isActive && (
+                        <div className="absolute bottom-0 inset-x-0 h-1 bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+                      )}
                     </button>
                   );
                 })}
+
+                {/* Add Scan Button */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage('upload-photo')}
+                  className="flex h-20 md:h-24 w-16 md:w-20 shrink-0 flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-800 bg-zinc-950/40 text-zinc-500 transition-all hover:border-zinc-600 hover:bg-zinc-900 hover:text-zinc-300"
+                >
+                  <Plus size={18} />
+                </button>
+
+                {/* Empty Placeholder Slot (to match Image 2's vibe) */}
+                {freeHistoryCards.length < 3 && Array.from({ length: 3 - freeHistoryCards.length }).map((_, i) => (
+                  <div key={`empty-${i}`} className="h-20 md:h-24 w-32 md:w-40 shrink-0 rounded-2xl border border-zinc-900 bg-zinc-950/20 opacity-30" />
+                ))}
               </div>
             </div>
           )}
@@ -8549,18 +8325,57 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                 <div className="grid gap-3">
                   <div className="flex min-h-[7.25rem] flex-col items-center justify-center rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-3 text-center shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
                     <span className="mb-2 text-[10px] font-black uppercase tracking-[0.26em] text-white">Final Rating</span>
-                    <div className="relative">
-                      <span 
-                        className={`text-5xl font-black italic tracking-tight ${isFreeModelResult ? 'select-none animate-free-rating-bg' : ''}`}
-                        style={{
-                          background: isFreeModelResult ? 'none' : `linear-gradient(to bottom, #ffffff 0%, #ffffff 48%, ${ratingTone.stroke || '#22d3ee'} 100%)`,
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          filter: `drop-shadow(0 0 18px ${ratingTone.stroke || 'rgba(34,211,238,0.18)'}) saturate(0.95) ${isFreeModelResult ? 'blur(8px)' : ''}`
-                        }}
-                      >
-                        {displayedFinalRating}
-                      </span>
+                    <div className="relative flex items-center justify-center min-h-[4.5rem]">
+                      {isRestrictedPreview ? (
+                        /* FREE VERSION - Blurred Loop */
+                        <div style={{ filter: 'blur(8px)', isolation: 'isolate' }}>
+                          <span
+                            className="text-5xl font-black italic tracking-tight select-none animate-free-rating-bg"
+                            style={{
+                              WebkitTextFillColor: 'transparent',
+                              color: 'transparent',
+                              display: 'inline-block'
+                            }}
+                          >
+                            {displayedFinalRating}
+                          </span>
+                        </div>
+                      ) : (
+                        /* PRO VERSION - SVG Text for perfect clipping */
+                        <div className="relative flex items-center justify-center">
+                          {/* Outer Glow */}
+                          <div
+                            className="absolute inset-0 blur-lg opacity-40 select-none pointer-events-none"
+                            style={{ color: ratingTone.stroke || '#22d3ee' }}
+                          >
+                            <span className="text-5xl font-black italic tracking-tight">{displayedFinalRating}</span>
+                          </div>
+
+                          <svg width="160" height="72" viewBox="0 0 160 72" className="relative z-10 overflow-visible">
+                            <defs>
+                              <linearGradient id={`ratingGradMobile-${displayedFinalRating}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="40%" stopColor="#ffffff" />
+                                <stop offset="100%" stopColor={ratingTone.stroke || '#22d3ee'} />
+                              </linearGradient>
+                            </defs>
+                            <text
+                              x="46%"
+                              y="50%"
+                              dominantBaseline="central"
+                              textAnchor="middle"
+                              fill={`url(#ratingGradMobile-${displayedFinalRating})`}
+                              className="font-black italic"
+                              style={{
+                                fontSize: '48px',
+                                letterSpacing: '-0.02em',
+                                fontFamily: 'Inter, sans-serif'
+                              }}
+                            >
+                              {displayedFinalRating}
+                            </text>
+                          </svg>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="relative flex min-h-[7.25rem] items-center justify-center overflow-hidden rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-4 shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
@@ -8607,15 +8422,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
               </div>
             </div>
           )}
-          {!isEmbedded && isFreeModelResult && user && onBackToProfiles && (
-            <button
-              type="button"
-              onClick={onBackToProfiles}
-              className="inline-flex w-fit items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/80 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-300 transition-colors hover:border-cyan-500/45 hover:text-cyan-300"
-            >
-              <ArrowLeft size={14} /> Back to Profiles
-            </button>
-          )}
           {/* Top Section: Subject & History */}
           {!hideTopSection && (
           <div className="flex flex-col gap-8 hidden">
@@ -8641,18 +8447,18 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                 <h3 className="text-base md:text-lg font-black uppercase tracking-[0.28em] text-[#e4e4e7] font-sans">FACE ANALYSIS 1</h3>
                 <span className="text-zinc-500 font-sans text-xs tracking-widest">2026/March/5</span>
               </div>
-              
+
               <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
                 {/* Card 1 */}
                 <div className="shrink-0 w-40 md:w-48 h-24 md:h-28 bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex overflow-hidden shadow-lg">
-                <div 
+                <div
                   className={`flex-1 border-r border-zinc-900 relative cursor-pointer overflow-hidden group ${activeProfileView === 'front' ? 'ring-2 ring-inset ring-cyan-500 z-10' : ''}`}
                   onClick={() => setActiveProfileView('front')}
                 >
                   <img loading="lazy" decoding="async" src={dashboardData?.frontImage || "https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png"} className={`w-full h-full object-cover transition-all duration-300 ${activeProfileView === 'front' ? 'opacity-100 grayscale-0 scale-105' : 'opacity-40 grayscale group-hover:opacity-70 group-hover:grayscale-0'}`} alt="Front Profile" />
                   <div className={`absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-cyan-900/50 to-transparent pointer-events-none transition-opacity duration-300 ${activeProfileView === 'front' ? 'opacity-100' : 'opacity-0'}`} />
                 </div>
-                <div 
+                <div
                   className={`flex-1 relative cursor-pointer overflow-hidden group ${activeProfileView === 'side' ? 'ring-2 ring-inset ring-cyan-500 z-10' : ''}`}
                   onClick={() => setActiveProfileView('side')}
                 >
@@ -8660,7 +8466,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   <div className={`absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-cyan-900/50 to-transparent pointer-events-none transition-opacity duration-300 ${activeProfileView === 'side' ? 'opacity-100' : 'opacity-0'}`} />
                 </div>
               </div>
-              
+
               {/* Analyze Another Image Button */}
               <div className="shrink-0 w-24 md:w-28 h-24 md:h-28 bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex flex-col items-center justify-center cursor-pointer hover:bg-zinc-900/50 hover:border-zinc-600 transition-all group shadow-lg">
                 <div className="w-10 h-10 rounded-full border border-zinc-700 flex items-center justify-center group-hover:border-zinc-500 transition-colors">
@@ -8692,7 +8498,9 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           {/* Free vs Pro Adaptive Layout */}
           {isRestrictedPreview ? (
             <>
+            <div className="-mt-4">
               <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={effectiveProfileView} showFeatureLists={true} />
+            </div>
 
               <div className="hidden md:grid md:grid-cols-4 gap-6">
                 <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
@@ -8702,7 +8510,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       <span className="font-sans text-[11px] uppercase tracking-[0.45em] mb-4 text-white">Final Rating</span>
                       <div className="relative leading-none">
                         <>
-                          <span 
+                          <span
                             className={`absolute inset-0 block text-6xl font-black italic tracking-tighter animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none animate-free-rating-bg`}
                             style={{
                               background: 'none',
@@ -8713,7 +8521,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                           >
                             {displayedFinalRating}
                           </span>
-                          <span 
+                          <span
                             className={`relative block text-6xl font-black italic tracking-tighter animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_${ratingTone.stroke || 'rgba(74,222,128,0.4)'}] animate-free-rating-bg`}
                             style={{
                               background: 'none',
@@ -8766,10 +8574,10 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                     </div>
                   </div>
                   <div className="flex flex-col md:flex-row gap-8 items-center justify-center flex-grow">
-                    <StructureMap 
-                      activeImageUrl={activeImageUrl} 
-                      bestFeature={primaryBestFeature} 
-                      primaryFlaw={primaryFlawFeature} 
+                    <StructureMap
+                      activeImageUrl={activeImageUrl}
+                      bestFeature={primaryBestFeature}
+                      primaryFlaw={primaryFlawFeature}
                       activeHover={showBestFlaw ? activeHover : null}
                       onImageClick={(src) => setScanLightbox({ src, subtitle: `${effectiveProfileView === 'side' ? 'Side' : 'Front'} profile` })}
                     />
@@ -8821,17 +8629,39 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                         {'Final Rating'}
                       </span>
                       <div className="relative leading-none w-full flex justify-center">
-                        <span 
-                          className={`block font-black tracking-tighter ${isFreeModelResult ? 'text-3xl animate-free-rating-bg' : 'text-[5.5rem] md:text-[6.5rem]'}`}
-                          style={{
-                            background: isFreeModelResult ? 'none' : `linear-gradient(to bottom, #ffffff 40%, ${ratingTone.stroke || '#22d3ee'})`,
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            filter: 'saturate(0.85)'
-                          }}
-                        >
-                          {displayedFinalRating}
-                        </span>
+                        <div className="relative flex items-center justify-center w-full">
+                          {/* Outer Glow */}
+                          <div
+                            className="absolute inset-0 blur-2xl opacity-35 select-none pointer-events-none"
+                            style={{ color: ratingTone.stroke || '#22d3ee' }}
+                          >
+                            <span className="text-[6.5rem] font-black italic tracking-tighter">{displayedFinalRating}</span>
+                          </div>
+
+                          <svg width="300" height="120" viewBox="0 0 300 120" className="relative z-10 overflow-visible">
+                            <defs>
+                              <linearGradient id={`ratingGradDesktop-${displayedFinalRating}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="40%" stopColor="#ffffff" />
+                                <stop offset="100%" stopColor={ratingTone.stroke || '#22d3ee'} />
+                              </linearGradient>
+                            </defs>
+                            <text
+                              x="46%"
+                              y="50%"
+                              dominantBaseline="central"
+                              textAnchor="middle"
+                              fill={`url(#ratingGradDesktop-${displayedFinalRating})`}
+                              className="font-black italic"
+                              style={{
+                                fontSize: '100px',
+                                letterSpacing: '-0.05em',
+                                fontFamily: 'Inter, sans-serif'
+                              }}
+                            >
+                              {displayedFinalRating}
+                            </text>
+                          </svg>
+                        </div>
                       </div>
                       {authenticityFlag && !isFreeModelResult && (
                         <span className="mt-3 max-w-[85%] rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
@@ -8846,13 +8676,13 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                     </div>
                   </div>
                   <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg overflow-hidden transition-all duration-500 hover:border-zinc-700">
-                    <HexagonStats 
-                      radarData4={radarData} 
+                    <HexagonStats
+                      radarData4={radarData}
                       radarData5={[
                         ...radarData,
                         { label: 'Bone', val: categoryToRadar10(dashboardData?.categories?.Bone || 8.5, radarFinalScore) }
                       ]}
-                      finalScore={radarFinalScore} 
+                      finalScore={radarFinalScore}
                     />
                   </div>
                 </div>
@@ -8864,8 +8694,8 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       type="button"
                       onClick={() => setShowAnchorOverlay(!showAnchorOverlay)}
                       className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-[0.25em] transition-all duration-300 ${
-                        showAnchorOverlay 
-                          ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200 shadow-[0_0_15px_rgba(34,211,238,0.25)]' 
+                        showAnchorOverlay
+                          ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200 shadow-[0_0_15px_rgba(34,211,238,0.25)]'
                           : 'border-zinc-800 bg-zinc-900/50 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'
                       }`}
                     >
@@ -8883,10 +8713,10 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                     </div>
                   </div>
                   <div className="flex flex-col md:flex-row gap-8 items-center justify-center flex-grow">
-                    <StructureMap 
-                      activeImageUrl={activeImageUrl} 
-                      bestFeature={primaryBestFeature} 
-                      primaryFlaw={primaryFlawFeature} 
+                    <StructureMap
+                      activeImageUrl={activeImageUrl}
+                      bestFeature={primaryBestFeature}
+                      primaryFlaw={primaryFlawFeature}
                       activeHover={showBestFlaw ? activeHover : null}
                       onImageClick={(src) => setScanLightbox({ src, subtitle: `${effectiveProfileView === 'side' ? 'Side' : 'Front'} profile` })}
                       showAnchors={showAnchorOverlay}
@@ -9118,7 +8948,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           <div className="bg-gradient-to-br from-zinc-900/80 to-black p-1 rounded-2xl overflow-hidden mt-4 relative shadow-[0_10px_50px_rgba(0,0,0,0.5)] border border-zinc-800/50 group hover:border-zinc-700 transition-colors">
             {isRestrictedPreview && renderBlurredOverlay("Analyze Potential")}
             <div className={`bg-[#0a0a0b] p-8 md:p-12 rounded-[14px] flex flex-col md:flex-row items-center gap-12 relative overflow-hidden ${isRestrictedPreview ? 'opacity-30 blur-[5.55px] pointer-events-none select-none' : ''}`}>
-              
+
               {/* Glow effect behind the image */}
               {isUnlocked && <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-64 h-64 bg-cyan-500/20 blur-[92.5px] rounded-full pointer-events-none" />}
 
@@ -9163,10 +8993,10 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                     </div>
                   </div>
                 )}
-                
+
                 {!isUnlocked ? (
                   <div className="flex flex-col gap-3 w-full md:w-auto">
-                    <button 
+                    <button
                       onClick={handleUnlock}
                       disabled={isUnlocking}
                       className="bg-cyan-500 hover:bg-cyan-400 text-black font-black uppercase italic tracking-widest px-8 py-4 rounded-xl shadow-[0_0_20px_rgba(34,211,238,0.2)] transition-all flex items-center justify-center gap-3 w-full md:w-auto hover:shadow-[0_0_30px_rgba(34,211,238,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
@@ -9228,6 +9058,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
             <DashboardHubPreviewsCompact
               setCurrentPage={setCurrentPage}
               variant="sections"
+              hideCommunity={false}
               onOpenCommunityScan={openCommunityScan}
               onAddScan={() => setCurrentPage('photo-guide')}
             />
@@ -9236,39 +9067,45 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           {!isEmbedded && !isFreeModelResult && (
             <DashboardHubPreviewsCompact
               setCurrentPage={setCurrentPage}
+              hideCommunity={false}
               onOpenCommunityScan={openCommunityScan}
             />
           )}
 
+          {/* Community Scans Grid at the bottom of Dashboard */}
+          {!isEmbedded && (
+            <div className="mt-10 border-t border-zinc-900/50 pt-10">
+              <div className="w-full max-w-[1400px] mx-auto">
+                <CommunityScansSection
+                  setCurrentPage={setCurrentPage}
+                  user={user}
+                  onOpenScan={openCommunityScan}
+                  filterMode="all"
+                />
+              </div>
+            </div>
+          )}
+
         </div>
       </FadeUp>
+
+      {communityNotice && (
+        <SiteModal title="Community Scan" onClose={() => setCommunityNotice('')} maxWidth="max-w-lg">
+          <p className="text-sm leading-relaxed text-zinc-300">{communityNotice}</p>
+        </SiteModal>
+      )}
     </div>
   );
 };
 
 const NoiseOverlay = () => (
-  <div 
+  <div
     className="fixed -inset-[100%] pointer-events-none z-[100] opacity-[0.04] mix-blend-overlay"
     style={{
       backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
       animation: 'noiseAnim 0.2s infinite'
     }}
-  >
-    <style>{`
-      @keyframes noiseAnim {
-        0%, 100% { transform: translate(0, 0); }
-        10% { transform: translate(-1%, -1%); }
-        20% { transform: translate(-2%, 1%); }
-        30% { transform: translate(1%, -2%); }
-        40% { transform: translate(-1%, 3%); }
-        50% { transform: translate(-2%, 1%); }
-        60% { transform: translate(3%, 0); }
-        70% { transform: translate(0, 3%); }
-        80% { transform: translate(1%, 1%); }
-        90% { transform: translate(-2%, 2%); }
-      }
-    `}</style>
-  </div>
+  />
 );
 
 const PlansPage = ({ setCurrentPage, user }) => {
@@ -9403,9 +9240,9 @@ const PlansPage = ({ setCurrentPage, user }) => {
 
           <div className="mt-auto flex flex-col gap-4">
             <label className="flex items-start gap-3 cursor-pointer group">
-              <input 
-                type="checkbox" 
-                className="mt-1 shrink-0 cursor-pointer accent-cyan-500" 
+              <input
+                type="checkbox"
+                className="mt-1 shrink-0 cursor-pointer accent-cyan-500"
                 checked={tosAgreed}
                 onChange={(e) => setTosAgreed(e.target.checked)}
               />
@@ -9413,7 +9250,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
                 I agree to the <a href="/tos" onClick={(e) => { e.preventDefault(); setCurrentPage('tos'); }} className="text-cyan-400 hover:text-cyan-300 underline">Terms of Service</a> and acknowledge that I lose my right to a refund once the AI analysis is generated.
               </span>
             </label>
-            <button onClick={() => handleCheckout('single_scan')} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[1.02] transition-transform shadow-[0_0_25px_rgba(34,211,238,0.25)] flex items-center justify-center gap-2">
+            <button onClick={() => handleCheckout('single_scan')} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[0.60] transition-transform shadow-[0_0_25px_rgba(34,211,238,0.25)] flex items-center justify-center gap-2">
               <Zap size={14} /> Buy 2 Scans
             </button>
           </div>
@@ -9456,9 +9293,9 @@ const PlansPage = ({ setCurrentPage, user }) => {
 
           <div className="mt-auto flex flex-col gap-4">
             <label className="flex items-start gap-3 cursor-pointer group">
-              <input 
-                type="checkbox" 
-                className="mt-1 shrink-0 cursor-pointer accent-yellow-500" 
+              <input
+                type="checkbox"
+                className="mt-1 shrink-0 cursor-pointer accent-yellow-500"
                 checked={tosAgreed}
                 onChange={(e) => setTosAgreed(e.target.checked)}
               />
@@ -9466,7 +9303,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
                 I agree to the <a href="/tos" onClick={(e) => { e.preventDefault(); setCurrentPage('tos'); }} className="text-yellow-500 hover:text-yellow-400 underline">Terms of Service</a> and acknowledge that I lose my right to a refund once the AI analysis is generated.
               </span>
             </label>
-            <button onClick={() => handleCheckout('pro')} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-yellow-600 to-yellow-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[1.02] transition-transform shadow-[0_0_25px_rgba(234,179,8,0.3)] flex items-center justify-center gap-2">
+            <button onClick={() => handleCheckout('pro')} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-yellow-600 to-yellow-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[0.60] transition-transform shadow-[0_0_25px_rgba(234,179,8,0.3)] flex items-center justify-center gap-2">
               <Crown size={14} /> Upgrade to Pro
             </button>
           </div>
@@ -9507,9 +9344,9 @@ const PlansPage = ({ setCurrentPage, user }) => {
 
           <div className="mt-auto flex flex-col gap-4">
             <label className="flex items-start gap-3 cursor-pointer group">
-              <input 
-                type="checkbox" 
-                className="mt-1 shrink-0 cursor-pointer accent-emerald-500" 
+              <input
+                type="checkbox"
+                className="mt-1 shrink-0 cursor-pointer accent-emerald-500"
                 checked={tosAgreed}
                 onChange={(e) => setTosAgreed(e.target.checked)}
               />
@@ -9517,7 +9354,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
                 I agree to the <a href="/tos" onClick={(e) => { e.preventDefault(); setCurrentPage('tos'); }} className="text-emerald-400 hover:text-emerald-300 underline">Terms of Service</a> and acknowledge that I lose my right to a refund once the AI analysis is generated.
               </span>
             </label>
-            <button onClick={() => handleCheckout('pro_yearly')} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[1.02] transition-transform shadow-[0_0_25px_rgba(16,185,129,0.3)] flex items-center justify-center gap-2">
+            <button onClick={() => handleCheckout('pro_yearly')} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-400 text-black font-black uppercase tracking-widest text-xs hover:scale-[0.60] transition-transform shadow-[0_0_25px_rgba(16,185,129,0.3)] flex items-center justify-center gap-2">
               <Crown size={14} /> Go Yearly
             </button>
           </div>
@@ -9617,7 +9454,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       }
       const data = await res.json();
       setStats(data);
-      
+
       const usersRes = await fetch(`${API_BASE}/api/admin/users`, { headers: { 'x-admin-password': pw } });
       const usersData = await usersRes.json().catch(() => ({}));
       if (!usersRes.ok) {
@@ -9638,7 +9475,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       } finally {
         setScanLimitsLoading(false);
       }
-      
+
       setLastRefresh(new Date());
       setAuthenticated(true);
       window.localStorage.setItem('mogcheck_admin_pw', pw);
@@ -9702,7 +9539,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     return ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(0)}s`;
   };
 
-  const modelLabel = (m) => ({ '1': 'Premium Model', '2': 'Backup Model', '6': 'Premium Model', '7': 'Premium Model', '8': 'Premium Model', '9': 'Premium Model', [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo', '3': 'Free' }[m] || m);
+  const modelLabel = (m) => ({ '1': 'Premium Model', '2': 'Backup Model', '6': 'Premium Model', '7': 'Premium Model', '8': 'Premium Model', '9': 'Premium Model', '10': '3.1 Pro Test', [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo', '3': 'Free' }[m] || m);
   const adminUserSections = useMemo(() => {
     const newUsers = [];
     const goatUsers = [];
@@ -10290,10 +10127,10 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                 const h = maxHour > 0 ? (count / maxHour) * 100 : 0;
                 const now = new Date().getHours();
                 return (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative transform transition-all duration-300 hover:scale-[0.60]">
                     <div className="w-full rounded-t-sm transition-all duration-300 group-hover:opacity-80 relative" style={{ height: `${Math.max(h, 2)}%`, background: i === now ? 'linear-gradient(to top, #06b6d4, #22d3ee)' : count > 0 ? 'linear-gradient(to top, #27272a, #3f3f46)' : '#18181b' }}>
                       <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-zinc-800 px-1.5 py-0.5 rounded text-[8px] font-sans text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                        {count} scan{count !== 1 ? 's' : ''} at {i}:00
+                        {count} SCAN_MARKER scan{count !== 1 ? 's' : ''} at {i}:00
                       </div>
                     </div>
                     {i % 4 === 0 && <span className="text-[7px] font-sans text-zinc-600">{i}</span>}
@@ -10389,7 +10226,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                           {new Date(a.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </td>
                         <td className="py-2.5 pr-4">
-                          <span className={`text-[10px] font-sans px-2 py-0.5 rounded-full ${['1','2','6'].includes(a.model) ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}>
+                          <span className={`text-[10px] font-sans px-2 py-0.5 rounded-full ${['1','2','6','10'].includes(a.model) ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}>
                             {modelLabel(a.model)}
                           </span>
                         </td>
@@ -10493,7 +10330,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                 </div>
                 <span className="text-[9px] font-sans text-zinc-600">{users.length} users found</span>
               </div>
-              
+
               <div className="overflow-x-auto">
                 <table className="w-full text-left whitespace-nowrap">
                   <thead>
@@ -11299,7 +11136,7 @@ const App = () => {
     };
 
     fetchPlanFromApi();
-    
+
     // Setup Firestore listener for user plan
     const unsubscribe = onSnapshot(
       doc(db, 'users', user.uid),
@@ -11405,7 +11242,7 @@ const App = () => {
 
   const isPremiumModelDashboard = useMemo(() => {
     const model = String(dashboardData?.selectedModel || '').trim();
-    return model === '1' || model === '2' || model === '6' || model === '7' || model === '8' || model === '9';
+    return model === '1' || model === '2' || model === '6' || model === '7' || model === '8' || model === '9' || model === '10';
   }, [dashboardData?.selectedModel]);
 
   useEffect(() => {
@@ -11623,7 +11460,7 @@ const App = () => {
     await signOut(auth);
     setCurrentPage('home');
   };
-  
+
   return (
     <div className="min-h-screen bg-[#0c0d0e] text-zinc-100 selection:bg-white selection:text-black">
       <NoiseOverlay />
@@ -11721,7 +11558,8 @@ const App = () => {
             )
         )}
         {currentPage === 'plans' && <PlansPage setCurrentPage={setCurrentPage} user={user} />}
-        {currentPage === 'mog-battles' && <MogBattlePage2 user={user} setCurrentPage={setCurrentPage} />}
+        {currentPage === 'mog-battles' && <MogBattlePage2 user={user} setCurrentPage={setCurrentPage} dashboardData={dashboardData} />}
+        {currentPage === 'mog-battles-1' && <MogBattlePage user={user} setCurrentPage={setCurrentPage} dashboardData={dashboardData} />}
         {currentPage === 'login' && <LoginPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'register' && <RegisterPage setCurrentPage={setCurrentPage} user={user} />}
 
@@ -11794,345 +11632,16 @@ const App = () => {
 
 // --- Scans Page ---
 const ScansPage = ({ setCurrentPage, setSelectedCelebrity, user }) => {
-  const [communityScans, setCommunityScans] = useState([]);
-  const [filterMode, setFilterMode] = useState('all');
-  const [communitySort, setCommunitySort] = useState('latest');
-  const [communityPeek, setCommunityPeek] = useState(null);
-  const [communityRemovalIntent, setCommunityRemovalIntent] = useState(null);
-  const [communityNotice, setCommunityNotice] = useState('');
-  const [communityMenuId, setCommunityMenuId] = useState(null);
-  const isAdmin = Boolean(user?.email && (
-    user.email === 'laithbu07@gmail.com' ||
-    user.email === 'admin@looksmaxxing.com' ||
-    user.email === 'serenity.eyb@gmail.com' ||
-    user.email.endsWith('@looksmaxxing.com')
-  ));
-
-  useEffect(() => {
-    if (!communityPeek) return undefined;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [communityPeek]);
-
-  useEffect(() => {
-    const fetchCommunity = async () => {
-      try {
-        const { fetchCommunityScans, fetchCommunityBattles } = await import('./api/mogBattleVotes');
-        const res = await fetchCommunityScans(80);
-        let loadedScans = (res.scans || [])
-          .map((scan, idx) => hydrateCommunityScanEntry(scan, idx))
-          .filter((scan) => scan?.dashboardData && scan?.frontImage);
-
-        if (loadedScans.length === 0) {
-          const battleRes = await fetchCommunityBattles();
-          const scansMap = new Map();
-          battleRes.battles.forEach(b => {
-            if (b.fighterA) scansMap.set(b.fighterA.scanId || b.fighterA.profileId || b.fighterA.name, { ...b.fighterA, isCommunity: true });
-            if (b.fighterB) scansMap.set(b.fighterB.scanId || b.fighterB.profileId || b.fighterB.name, { ...b.fighterB, isCommunity: true });
-          });
-          loadedScans = Array.from(scansMap.values())
-            .map((scan, idx) => hydrateCommunityScanEntry(scan, idx))
-            .filter((scan) => scan?.dashboardData && scan?.frontImage);
-        }
-
-        if (loadedScans.length === 0) {
-          loadedScans = COMMUNITY_SCANS.map((s, i) =>
-            hydrateCommunityScanEntry({ ...s, name: `User ${i + 1}`, isCommunity: true, profileId: `mock-${i}` }, i)
-          );
-        }
-        
-        const merged = new Map();
-        [...OFFICIAL_CELEBRITY_COMMUNITY_SCANS, ...loadedScans].forEach((scan, idx) => {
-          const hydrated = hydrateCommunityScanEntry(scan, idx);
-          const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
-          if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
-        });
-
-        setCommunityScans(Array.from(merged.values()));
-      } catch(e) {
-        console.error(e);
-        const merged = new Map();
-        [
-          ...OFFICIAL_CELEBRITY_COMMUNITY_SCANS,
-          ...COMMUNITY_SCANS.map((scan, idx) =>
-            hydrateCommunityScanEntry({ ...scan, name: scan.name || `User ${idx + 1}`, isCommunity: true, profileId: scan.profileId || `mock-${idx}` }, idx)
-          ),
-        ].forEach((scan, idx) => {
-          const hydrated = hydrateCommunityScanEntry(scan, idx);
-          const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
-          if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
-        });
-
-        setCommunityScans(Array.from(merged.values()));
-      }
-    };
-    fetchCommunity();
-  }, []);
-
-  const getCelebrityScanShareUrl = useCallback((scan) => {
-    const ownerUid = String(scan?.ownerUid || scan?.uid || '').trim();
-    const scanId = String(scan?.scanId || scan?.id || '').trim();
-    if (ownerUid && scanId && !scan?.officialScan) {
-      return `${window.location.origin}/scan/${encodeURIComponent(ownerUid)}/${encodeURIComponent(scanId)}`;
-    }
-    return `${window.location.origin}/celebrity?scan=${encodeURIComponent(scanId || scan?.id || 'community')}`;
-  }, []);
-
-  const shareCommunityScan = useCallback(async (scan) => {
-    const url = getCelebrityScanShareUrl(scan);
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-        setCommunityNotice('Scan link copied.');
-      } else {
-        setCommunityNotice(url);
-      }
-    } catch {
-      setCommunityNotice(url);
-    }
-  }, [getCelebrityScanShareUrl]);
-
-  const removeOwnedCommunityScan = async (scan) => {
-    if (!user || !scan?.scanId) return;
-    try {
-      const token = await user.getIdToken();
-      const res = await fetch(`${API_BASE}/api/user/scans/${encodeURIComponent(scan.scanId)}`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ visibility: 'private' }),
-      });
-      if (!res.ok) throw new Error('Failed to update scan visibility');
-      setCommunityScans((prev) => prev.filter((item) => item.id !== scan.id && item.scanId !== scan.scanId));
-      setCommunityNotice('Scan removed from Community Scans. It is still saved privately on your dashboard.');
-    } catch (e) {
-      setCommunityNotice(e.message || 'Failed to remove scan from Community Scans.');
-    } finally {
-      setCommunityRemovalIntent(null);
-    }
-  };
-
-  const removeAdminCommunityScan = async (scan) => {
-    const password = window.localStorage.getItem('mogcheck_admin_pw') || '';
-    if (!password || !scan?.id) {
-      setCommunityNotice('Admin password is required. Log into the admin panel once, then try again.');
-      setCommunityRemovalIntent(null);
-      return;
-    }
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/community-scans/${encodeURIComponent(scan.id)}`, {
-        method: 'DELETE',
-        headers: { 'x-admin-password': password },
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || 'Failed to remove community scan listing');
-      setCommunityScans((prev) => prev.filter((item) => item.id !== scan.id && item.scanId !== scan.scanId));
-      setCommunityNotice('Community scan listing removed. The saved user scan was not deleted.');
-    } catch (e) {
-      setCommunityNotice(e.message || 'Failed to remove community scan listing.');
-    } finally {
-      setCommunityRemovalIntent(null);
-      setCommunityMenuId(null);
-    }
-  };
-
-  const removeCommunityScan = async (scan) => {
-    const isOwner = Boolean(user?.uid && scan?.ownerUid && scan.ownerUid === user.uid && scan?.scanId);
-    if (isOwner) return removeOwnedCommunityScan(scan);
-    if (isAdmin) return removeAdminCommunityScan(scan);
-    setCommunityRemovalIntent(null);
-    return undefined;
-  };
-
-  const markCommunityScanOfficial = async (scan, official = true) => {
-    const password = window.localStorage.getItem('mogcheck_admin_pw') || '';
-    if (!password || !scan?.id) {
-      setCommunityNotice('Admin password is required. Log into the admin panel once, then try again.');
-      return;
-    }
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/community-scans/${encodeURIComponent(scan.id)}/official`, {
-        method: 'POST',
-        headers: { 'x-admin-password': password, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ official }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || 'Failed to update official status');
-      setCommunityScans((prev) => prev.map((item) => (item.id === scan.id ? { ...item, officialScan: official, official } : item)));
-      setCommunityNotice(official ? 'Scan marked as official.' : 'Scan turned back into a normal community scan.');
-    } catch (e) {
-      setCommunityNotice(e.message || 'Failed to update official status.');
-    } finally {
-      setCommunityMenuId(null);
-    }
-  };
-
-  const filteredScans = useMemo(() => {
-    let scans = communityScans.filter((rawScan) => rawScan?.dashboardData && rawScan?.frontImage);
-    if (filterMode === 'verified') {
-      scans = scans.filter(s => s.officialScan);
-    } else if (filterMode === 'community') {
-      scans = scans.filter(s => !s.officialScan);
-    }
-    
-    return scans.sort((a, b) => {
-      if (communitySort === 'highest') {
-        const ratingDiff = (Number(b.finalRating) || 0) - (Number(a.finalRating) || 0);
-        if (ratingDiff) return ratingDiff;
-      }
-      return timestampToMillis(b.timestamp || b.scannedAt || b.createdAt) - timestampToMillis(a.timestamp || a.scannedAt || a.createdAt);
-    });
-  }, [communityScans, filterMode, communitySort]);
-
   return (
-    <div className="w-full flex-grow pt-28 pb-16 px-4 sm:px-6 relative flex flex-col items-center overflow-x-hidden min-h-screen">
-      {communityPeek && communityPeek.dashboardData && (
-        <div
-          className="fixed inset-0 z-[220] flex flex-col bg-[#0a0a0b] overflow-y-auto"
-          role="dialog"
-          aria-modal="true"
-        >
-          <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-zinc-800 bg-[#0a0a0b]/95 px-4 py-3 backdrop-blur-md md:px-8">
-            <button
-              type="button"
-              onClick={() => setCommunityPeek(null)}
-              className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 font-sans text-xs font-bold uppercase tracking-widest text-zinc-200 hover:border-cyan-500/50 hover:text-cyan-300 transition-colors"
-            >
-              <ArrowLeft size={16} />
-              Community Scans
-            </button>
-            <div className="min-w-0 flex-1">
-              <p className="font-sans text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                Community scan{communityPeek?.tier ? ` - ${communityPeek.tier}` : ''}
-              </p>
-              <h2 className="truncate font-black uppercase italic tracking-tight text-white">
-                Community Scan
-              </h2>
-            </div>
-          </header>
-          <div className="flex-1 px-4 pb-16 pt-6 md:px-8">
-            <button
-              type="button"
-              onClick={() => setCommunityPeek(null)}
-              className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/[0.07] px-4 py-2 font-sans text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100 transition-colors hover:border-cyan-300/60 hover:bg-cyan-400/10"
-            >
-              <ArrowLeft size={14} />
-              Go to previous page
-            </button>
-            <DashboardPage
-              dashboardData={forceCommunityScanFrontOnly(communityPeek.dashboardData)}
-              setCurrentPage={setCurrentPage}
-              userPlan={{ plan: 'pro', scanCredits: 0 }}
-              user={null}
-              hideTopSection
-              hideProtocols
-              hideActionableProtocols
-              hideUnlockPotential
-              hidePersonalizedFeedback
-              isEmbedded
-            />
-          </div>
-        </div>
-      )}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0c0d0e] via-zinc-900/20 to-[#0c0d0e] -z-10" />
-      <div className="w-full max-w-[1400px] mx-auto flex flex-col items-center text-center">
-        <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white mb-2">Scans</h2>
-        <p className="text-zinc-500 uppercase tracking-widest text-xs mb-8">Verified scans and live community scans with shareable links.</p>
-
-        {/* Filters */}
-        <div className="flex flex-col md:flex-row items-center gap-6 mb-10 w-full justify-between max-w-2xl bg-black/40 border border-white/5 p-4 rounded-[28px] shadow-[0_10px_40px_rgba(0,0,0,0.3)] backdrop-blur-md z-10 relative">
-          <div className="flex bg-zinc-900/50 p-1 rounded-full border border-white/5 w-full md:w-auto">
-            {['all', 'verified', 'community'].map(mode => (
-              <button
-                key={mode}
-                onClick={() => setFilterMode(mode)}
-                className={`flex-1 md:flex-none px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.18em] transition-all duration-300 ${
-                  filterMode === mode
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-                    : 'text-zinc-500 hover:text-white border border-transparent'
-                }`}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
-
-            <CustomSelectDropdown
-              value={communitySort}
-              onChange={setCommunitySort}
-              options={[
-                { value: 'latest', label: 'Latest' },
-                { value: 'highest', label: 'Highest score' }
-              ]}
-              className="appearance-none rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-5 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100 focus:border-cyan-300/50"
-            />
-        </div>
-
-        {/* 3 Grid Layout */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 w-full text-left pb-24 md:pb-16">
-          {filteredScans.map((rawScan, idx) => {
-            const scan = hydrateCommunityScanEntry(rawScan, idx);
-            const isOwnedCommunityScan = Boolean(user?.uid && scan.ownerUid && scan.ownerUid === user.uid && scan.scanId && !scan.officialScan);
-            const rating = Number(scan.finalRating || 0);
-            const ratingTone = getRatingToneClasses(rating);
-            const scanTier = scan.tier || '-';
-            const tierUpper = String(scanTier).toUpperCase();
-            const tierBadgeClass =
-              tierUpper.includes('S') && tierUpper.includes('TIER')
-                ? 'bg-red-500/20 text-red-500 border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.6)]'
-                : tierUpper.includes('A') && tierUpper.includes('TIER')
-                  ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.6)]'
-                  : 'bg-zinc-700/40 text-zinc-300 border-zinc-600/50';
-
-            return (
-              <CommunityScanCard
-                key={scan.id || idx}
-                scan={scan}
-                rating={rating}
-                ratingTone={ratingTone}
-                tierBadgeClass={tierBadgeClass}
-                scanTier={scanTier}
-                isOwnedCommunityScan={isOwnedCommunityScan}
-                isAdmin={isAdmin}
-                communityMenuId={communityMenuId}
-                compact={false}
-                onOpen={() => {
-                  if (!scan.dashboardData) return;
-                  setCommunityPeek(scan);
-                }}
-                onShare={() => shareCommunityScan(scan)}
-                onRemove={() => setCommunityRemovalIntent(scan)}
-                onToggleMenu={() => setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id))}
-                onMarkOfficial={(official) => markCommunityScanOfficial(scan, official)}
-              />
-            );
-          })}
-        </div>
-        
-        {filteredScans.length === 0 && (
-          <p className="py-24 text-center text-sm text-zinc-500 w-full font-bold uppercase tracking-widest">No scans found in this category.</p>
-        )}
-
-      </div>
-      {communityRemovalIntent && (
-        <ConfirmDialog
-          title="Remove From Community?"
-          body={isAdmin && !(user?.uid && communityRemovalIntent?.ownerUid === user.uid)
-            ? 'This removes the public Community Scans listing only. The saved user scan will not be deleted.'
-            : 'This will set the scan back to private. It will stay saved on your dashboard, but it will disappear from Community Scans.'}
-          confirmLabel="Remove"
-          tone="danger"
-          onClose={() => setCommunityRemovalIntent(null)}
-          onConfirm={() => removeCommunityScan(communityRemovalIntent)}
+    <div className="w-full flex-grow pt-24 pb-16 relative flex flex-col items-center">
+      <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6">
+        <CommunityScansSection
+          setCurrentPage={setCurrentPage}
+          setSelectedCelebrity={setSelectedCelebrity}
+          user={user}
+          showAddScan={true}
         />
-      )}
-      {communityNotice && (
-        <SiteModal title="Community Scan" onClose={() => setCommunityNotice('')} maxWidth="max-w-lg">
-          <p className="text-sm leading-relaxed text-zinc-300">{communityNotice}</p>
-        </SiteModal>
-      )}
+      </div>
     </div>
   );
 };
