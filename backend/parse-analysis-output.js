@@ -229,6 +229,112 @@ function jsonBiometricArray(items, limit = 20, rawOutput = '') {
     .slice(0, limit);
 }
 
+function isQwenTestingOutput(rawOutput) {
+  const text = String(rawOutput || '');
+  return (
+    /\[Using:\s*(?:Qwen model \(Testing\)|anthropic\/claude-sonnet-4\.6|openai\/gpt-5\.4|google\/gemini-3\.1-pro-preview)/i.test(text) ||
+    /(?:qwen\/qwen(?:2\.5-vl-72b-instruct|3\.6-27b)|anthropic\/claude-sonnet-4\.6|openai\/gpt-5\.4|google\/gemini-3\.1-pro-preview)/i.test(text)
+  );
+}
+
+function firstFiniteNumber(...values) {
+  for (const value of values) {
+    if (value == null || value === '') continue;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return numeric;
+  }
+  return null;
+}
+
+function findRawMetricEntry(rawValues, aliases = []) {
+  const entries = Object.entries(rawValues || {});
+  for (const alias of aliases) {
+    const normalizedAlias = normalizeMetricName(alias);
+    const match = entries.find(([label]) => normalizeMetricName(label).includes(normalizedAlias));
+    if (match) {
+      return { rawLabel: match[0], rawValue: match[1] };
+    }
+  }
+  return { rawLabel: null, rawValue: undefined };
+}
+
+function findBiometricEntryByAliases(biometrics, aliases = [], excludeAliases = []) {
+  const normalizedAliases = aliases.map((alias) => normalizeMetricName(alias)).filter(Boolean);
+  const normalizedExcludes = excludeAliases.map((alias) => normalizeMetricName(alias)).filter(Boolean);
+  return (Array.isArray(biometrics) ? biometrics : []).find((entry) => {
+    const normalizedLabel = normalizeMetricName(entry?.label);
+    if (!normalizedLabel) return false;
+    if (normalizedExcludes.some((exclude) => normalizedLabel.includes(exclude))) return false;
+    return normalizedAliases.some((alias) => normalizedLabel.includes(alias));
+  }) || null;
+}
+
+function buildCanonicalMetricLabel(baseLabel, rawValue, includeRawValue = true) {
+  const compactRaw = compactString(rawValue || '');
+  if (!includeRawValue || !compactRaw) return baseLabel;
+  return `${baseLabel} (${compactRaw})`;
+}
+
+function metricDisplayValueFromScore(score, fallback = '') {
+  return Number.isFinite(Number(score)) ? `${Math.round(Number(score))}/100` : compactString(fallback || '');
+}
+
+const QWEN_CANONICAL_FRONT_METRIC_SPECS = [
+  { label: 'fWHR', rawAliases: ['fwhr'] },
+  { label: 'Bigonial Width', rawAliases: ['bigonial width index', 'bigonial width'] },
+  { label: 'Upper Third', rawAliases: ['upper third length'] },
+  { label: 'Middle Third', rawAliases: ['middle third length'] },
+  { label: 'Lower Third', rawAliases: ['lower third length'] },
+  { label: 'Midface Ratio', rawAliases: ['midface ratio'] },
+  { label: 'Chin Support (Visual)', aliases: ['chin support', 'chin support projection', 'chin projection'], categoryKey: 'Bone', includeRawValue: false, preferExistingScore: true },
+  { label: 'IPD Index', rawAliases: ['ipd index geometric', 'ipd index'] },
+  { label: 'Brow Compactness', rawAliases: ['brow compactness index'] },
+  { label: 'Canthal Tilt', rawAliases: ['canthal tilt degrees', 'canthal tilt'] },
+  { label: 'Eye Shape/UEE (Visual)', aliases: ['eye shape', 'upper eyelid exposure', 'eyelid exposure', 'eye area', 'scleral show'], categoryKey: 'Eye Depth', includeRawValue: false, preferExistingScore: true },
+  { label: 'Eye Width', aliases: ['eye width'], excludeAliases: ['index'], categoryKey: 'Eye Depth', rawAliases: ['eye width index horizontal'], preferExistingScore: true },
+  { label: 'Eye Width Index (Horizontal)', rawAliases: ['eye width index horizontal'] },
+  { label: 'Nose Width Index', rawAliases: ['nose width index'] },
+  { label: 'Philtrum Height', rawAliases: ['philtrum height index'] },
+  { label: 'Mouth Width', rawAliases: ['mouth width index'] },
+  { label: 'Total Lip Height Index', rawAliases: ['total lip height index'] },
+  { label: 'Skin Texture (Visual)', aliases: ['skin texture', 'skin clarity'], categoryKey: 'Skin', includeRawValue: false, preferExistingScore: true },
+  { label: 'Facial Fat (Visual)', aliases: ['facial fat', 'soft tissue definition', 'soft tissue fullness', 'soft tissue'], categoryKey: 'Facial Fat', includeRawValue: false, preferExistingScore: true },
+  { label: 'Symmetry (Visual)', aliases: ['facial symmetry', 'symmetry'], categoryKey: 'Symmetry', includeRawValue: false, preferExistingScore: true },
+  { label: 'Maxillary Projection (Visual)', aliases: ['maxillary projection', 'cheekbone projection', 'cheekbone prominence', 'maxillary', 'cheekbone'], categoryKey: 'Maxillary/Cheekbone Projection', includeRawValue: false, preferExistingScore: true },
+];
+
+function buildCanonicalQwenFrontBiometrics({ biometrics, rawValues, categories, rawOutput }) {
+  const canonical = [];
+  for (const spec of QWEN_CANONICAL_FRONT_METRIC_SPECS) {
+    const existing = findBiometricEntryByAliases(biometrics, spec.aliases || spec.rawAliases || [spec.label], spec.excludeAliases || []);
+    const { rawLabel, rawValue } = findRawMetricEntry(rawValues, spec.rawAliases || []);
+    const deterministicScore = rawLabel && rawValue !== undefined
+      ? deterministicBiometricScore(rawLabel, rawValue, rawOutput)
+      : null;
+    const existingScore = Number(existing?.score);
+    const categoryScore = spec.categoryKey ? Number(categories?.[spec.categoryKey]) : null;
+    const score = spec.preferExistingScore
+      ? firstFiniteNumber(existingScore, categoryScore, deterministicScore)
+      : firstFiniteNumber(deterministicScore, existingScore, categoryScore);
+    const label = buildCanonicalMetricLabel(
+      spec.label,
+      rawValue,
+      spec.includeRawValue !== false
+    );
+    if ((!label || label === spec.label) && !Number.isFinite(score) && !existing && (rawValue === undefined || rawValue === null || rawValue === '')) {
+      continue;
+    }
+    canonical.push({
+      label,
+      displayValue: metricDisplayValueFromScore(score, rawValue),
+      score: Number.isFinite(Number(score)) ? Number(score) : null,
+      impact: compactString(existing?.impact || ''),
+      note: compactString(existing?.note || ''),
+    });
+  }
+  return canonical;
+}
+
 function normalizeScoreMap(map, applyOffset = true) {
   if (!map || typeof map !== 'object' || Array.isArray(map)) return null;
   const out = {};
@@ -414,7 +520,9 @@ function parseExperimentalJsonOutput(rawOutput, backendDir) {
     : [];
   const bestFeatures = jsonFeatureArray(data.bestFeatures || data.strongestFeatures || data.pros, 5);
   const primaryFlaws = jsonFeatureArray(data.primaryFlaws || data.weakestFeatures || data.cons, 5);
-  const biometrics = jsonBiometricArray(data.keyRatios || data.metrics || data.facialMetrics || data.ratios || data.biometrics, 20, rawOutput);
+  const normalizedCategories = normalizeScoreMap(data.categories);
+  const normalizedSideCategories = normalizeScoreMap(data.sideCategories);
+  let biometrics = jsonBiometricArray(data.keyRatios || data.metrics || data.facialMetrics || data.ratios || data.biometrics, 24, rawOutput);
   const rawValues = readMogReportRawValues(rawOutput, backendDir);
   for (const rawLabel of ['Eye Width Index (Horizontal)', 'Total Lip Height Index']) {
     const hasMetricAlready = biometrics.some((entry) => normalizeMetricName(entry?.label).includes(normalizeMetricName(rawLabel)));
@@ -427,6 +535,14 @@ function parseExperimentalJsonOutput(rawOutput, backendDir) {
       score: Number.isFinite(score) ? score : null,
       impact: '',
       note: '',
+    });
+  }
+  if (isQwenTestingOutput(rawOutput)) {
+    biometrics = buildCanonicalQwenFrontBiometrics({
+      biometrics,
+      rawValues,
+      categories: normalizedCategories,
+      rawOutput,
     });
   }
   const technicalSummary = compactString(data.technicalSummary || data.summary || data.mainLimitingFactor, DEFAULT_SUMMARY) || DEFAULT_SUMMARY;
@@ -455,13 +571,13 @@ function parseExperimentalJsonOutput(rawOutput, backendDir) {
     primaryFlaws,
     sideBestFeatures: jsonFeatureArray(data.sideBestFeatures, 5),
     sidePrimaryFlaws: jsonFeatureArray(data.sidePrimaryFlaws, 5),
-    categories: normalizeScoreMap(data.categories),
-    sideCategories: normalizeScoreMap(data.sideCategories),
+    categories: normalizedCategories,
+    sideCategories: normalizedSideCategories,
     hexagonFront: normalizeScoreMap(data.hexagonFront, false),
     hexagonSide: normalizeScoreMap(data.hexagonSide, false),
     personalizedFeedback,
     biometrics,
-    sideBiometrics: jsonBiometricArray(data.sideKeyRatios || data.sideMetrics || data.sideBiometrics, 20, rawOutput),
+    sideBiometrics: jsonBiometricArray(data.sideKeyRatios || data.sideMetrics || data.sideBiometrics, 24, rawOutput),
     protocols,
     hasSubstantiveParse:
       finalRating != null ||
@@ -1202,7 +1318,7 @@ function parseMogReportRawValuesFromText(content) {
   if (!content) return rawValues;
   try {
     for (const line of content.split('\n')) {
-      const match = line.match(/[-*]*\s*([^:]+):\s*([\d.\-]+)/);
+      const match = line.match(/[-*]*\s*([^:]+):\s*([+\-]?\d+(?:\.\d+)?)/);
       if (match) {
         const key = titleCaseKey(match[1]);
         rawValues[key] = match[2];

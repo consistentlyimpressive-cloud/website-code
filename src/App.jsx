@@ -100,9 +100,35 @@ const ACTIVE_PREMIUM_DEMO_FACES = PREMIUM_DEMO_FACES.filter((face) => face.enabl
 const ACTIVE_PREMIUM_DEMO_IDS = ACTIVE_PREMIUM_DEMO_FACES.map((face) => face.id);
 const PREMIUM_DEMO_FRONT_IMAGE = ACTIVE_PREMIUM_DEMO_FACES[0]?.image || '/premium-demo/henry-cavill.jpg';
 const PREMIUM_DEMO_SCAN_PAYLOAD_SRC = ACTIVE_PREMIUM_DEMO_FACES[0]?.payloadSrc || '/premium-demo/henry-cavill-scan.json';
+const GENERIC_AI_LOAD_ERROR = 'Sorry, our servers are experiencing high load. Please try again in a moment.';
 
-function friendlyAnalysisErrorMessage(message) {
+function isAiProviderErrorMessage(message) {
+  const text = String(message || '').trim().toLowerCase();
+  if (!text) return false;
+  return (
+    text.includes('scan did not complete successfully') ||
+    text.includes('python exited with code') ||
+    text.includes('provider timeout') ||
+    text.includes('gemini') ||
+    text.includes('gemma') ||
+    text.includes('openrouter') ||
+    text.includes('qwen') ||
+    text.includes('api key') ||
+    text.includes('high demand') ||
+    text.includes('timed out') ||
+    text.includes('cooling down') ||
+    text.includes('quota') ||
+    text.includes('no usable text was parsed') ||
+    text.includes('empty model response') ||
+    text.includes('analysis did not complete successfully')
+  );
+}
+
+function friendlyAnalysisErrorMessage(message, { isAdmin = false } = {}) {
   const text = String(message || '').trim();
+  if (!isAdmin && isAiProviderErrorMessage(text)) {
+    return GENERIC_AI_LOAD_ERROR;
+  }
   if (/No healthy Google GenAI\/Gemma keys are available|temporarily cooling down|disabled or quarantined/i.test(text)) {
     return 'The AI provider timed out on all available keys, so they are cooling down. Please wait a few minutes and try again.';
   }
@@ -1119,12 +1145,19 @@ const ANALYSIS_MODEL_LABELS = {
   '7': 'Premium Model',
   '8': 'Premium Model',
   '9': 'Premium Model',
+  '10': 'Qwen model (Testing)',
+  '11': 'anthropic/claude-sonnet-4.6',
+  '12': 'openai/gpt-5.4',
+  '13': 'google/gemini-3.1-pro-preview',
   [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
   official: 'Official Scan',
 };
+
+const PREMIUM_MODEL_IDS = new Set(['1', '2', '6', '7', '8', '9', '10', '11', '12', '13']);
+const ADMIN_EXPERIMENTAL_MODEL_IDS = new Set(['10', '11', '12', '13']);
 
 function getAnalysisModelLabel(model) {
   const key = String(model || '').trim();
@@ -1133,6 +1166,63 @@ function getAnalysisModelLabel(model) {
 
 function isFreeScanModel(model) {
   return ['3', '4', '5'].includes(String(model || '').trim());
+}
+
+function buildRestoredAnalysisJob(record = {}, user = null) {
+  const scanRequestId = String(record.scanRequestId || '').trim();
+  const choice = String(record.modelChoice || record.selectedModel || record.model || '3').trim() || '3';
+  const backendState = String(record.state || 'running').trim().toLowerCase();
+  const isComplete = backendState === 'completed';
+  const isFailed = backendState === 'failed';
+  const reportStatus = String(record.reportStatus || '').trim().toLowerCase();
+  const restoredResult = isComplete
+    ? normalizeDashboardMedia({
+        success: true,
+        scanRequestId,
+        scanId: record.scanId || null,
+        selectedModel: choice,
+        profileId: record.profileId || 'default',
+        frontImage: record.frontImage || null,
+        sideImage: record.sideImage || null,
+        finalRating:
+          record.finalRating != null && !Number.isNaN(Number(record.finalRating))
+            ? Number(record.finalRating)
+            : null,
+        sideRating:
+          record.sideRating != null && !Number.isNaN(Number(record.sideRating))
+            ? Number(record.sideRating)
+            : null,
+        reportStatus: reportStatus || 'complete',
+      })
+    : null;
+
+  return {
+    id: `restored-${scanRequestId}`,
+    scanRequestId,
+    state: isComplete ? 'complete' : 'running',
+    createdAt: Number(record.createdAtMs) || Number(record.updatedAtMs) || Date.now(),
+    updatedAt: Number(record.updatedAtMs) || Date.now(),
+    choice,
+    profileId: record.profileId || 'default',
+    mainImageSrc: resolveMediaUrl(record.frontImage || null),
+    sideImageUrl: resolveMediaUrl(record.sideImage || null),
+    analysisLabel: getAnalysisModelLabel(choice),
+    statusText:
+      isFailed
+        ? String(record.error || 'Analysis failed.').trim()
+        : backendState === 'report_generating'
+          ? 'Core analysis is saved. Generating the detailed report now...'
+          : isComplete
+            ? 'Analysis is ready to open.'
+            : 'Scan received by the backend. It is safe to refresh or close the site.',
+    hasError: isFailed,
+    backendAccepted: true,
+    managedByRunner: false,
+    managedByRecovery: !isFailed && !isComplete,
+    reportStatus: reportStatus || null,
+    user,
+    result: restoredResult,
+  };
 }
 
 const GOAT_USER_EMAILS = new Set([
@@ -1144,6 +1234,17 @@ const GOAT_USER_EMAILS = new Set([
   'serenity.eyb@gmail.com',
   'bernardomorais7@gmail.com',
 ]);
+
+function isAdminEmail(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  return (
+    normalized === 'laithbu07@gmail.com' ||
+    normalized === 'admin@looksmaxxing.com' ||
+    normalized === 'serenity.eyb@gmail.com' ||
+    normalized === 'laithabuamsheh@gmail.com' ||
+    normalized.endsWith('@looksmaxxing.com')
+  );
+}
 
 function scansLookSame(a, b) {
   if (!a || !b) return false;
@@ -1396,12 +1497,7 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
   const menuRef = useRef(null);
   const username = user?.email?.split('@')[0] || '';
   const planChip = user ? getNavbarPlanChip(userPlan, user) : null;
-  const isAdminNavUser = Boolean(user?.email && (
-    user.email === 'laithbu07@gmail.com' ||
-    user.email === 'admin@looksmaxxing.com' ||
-    user.email === 'serenity.eyb@gmail.com' ||
-    user.email.endsWith('@looksmaxxing.com')
-  ));
+  const isAdminNavUser = isAdminEmail(user?.email);
   const unreadNotificationCount = notifications.filter((item) => !item.read).length;
 
   const loadNotifications = useCallback(async () => {
@@ -2027,12 +2123,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
   const [communityRemovalIntent, setCommunityRemovalIntent] = useState(null);
   const [communityNotice, setCommunityNotice] = useState('');
   const [communityMenuId, setCommunityMenuId] = useState(null);
-  const isAdmin = Boolean(user?.email && (
-    user.email === 'laithbu07@gmail.com' ||
-    user.email === 'admin@looksmaxxing.com' ||
-    user.email === 'serenity.eyb@gmail.com' ||
-    user.email.endsWith('@looksmaxxing.com')
-  ));
+  const isAdmin = isAdminEmail(user?.email);
 
   useEffect(() => {
     if (!communityPeek) return undefined;
@@ -2725,7 +2816,7 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-sm font-black text-zinc-100">{scan.finalRating ?? '-'}/100</span>
-                          {(['1', '2', '6', '7', '8', '9'].includes(String(scan.model || '').trim())) && <span className="bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Premium</span>}
+                          {(PREMIUM_MODEL_IDS.has(String(scan.model || '').trim())) && <span className="bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Premium</span>}
                           {scan.success === false && <span className="bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-widest">Failed</span>}
                         </div>
                         <div className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest">
@@ -4375,9 +4466,11 @@ const ScanningView = ({
   const [landmarks, setLandmarks] = useState(null);
   const [meshConnections, setMeshConnections] = useState(null);
   const [hasError, setHasError] = useState(false);
+  const [backendAccepted, setBackendAccepted] = useState(false);
   const [fairUsageState, setFairUsageState] = useState(null);
+  const isAdmin = isAdminEmail(user?.email);
   const isUltra31 = choice === "1";
-  const isGemini31Pro = choice === "6" || choice === "7" || choice === "8" || choice === "9";
+  const isGemini31Pro = choice === "6" || choice === "7" || choice === "8" || choice === "9" || choice === "10";
   const isCompactViewport = typeof window !== 'undefined' && window.innerWidth < 768;
   const overlayRevealSeconds = isUltra31 ? 34 : isGemini31Pro ? 18 : choice === "2" ? 24 : 36;
   const overlayScanLoopSeconds = isUltra31 ? 4 : isGemini31Pro ? 3.5 : choice === "2" ? 4.5 : 4;
@@ -4415,12 +4508,13 @@ const ScanningView = ({
       landmarks,
       meshConnections,
       fairUsageState,
+      backendAccepted,
       overlayRevealSeconds,
       overlayScanLoopSeconds,
       elapsedScanMs,
       scanRequestId,
     });
-  }, [elapsedScanMs, fairUsageState, hasError, landmarks, meshConnections, overlayRevealSeconds, overlayScanLoopSeconds, scanRequestId, statusText, videoUrl]);
+  }, [backendAccepted, elapsedScanMs, fairUsageState, hasError, landmarks, meshConnections, overlayRevealSeconds, overlayScanLoopSeconds, scanRequestId, statusText, videoUrl]);
 
   useEffect(() => {
     let active = true;
@@ -4469,6 +4563,7 @@ const ScanningView = ({
       const scanStartedAt = Number.isFinite(providedStartedAt) && providedStartedAt > 0 ? providedStartedAt : Date.now();
       setElapsedScanMs(Math.max(0, Date.now() - scanStartedAt));
       let scanSucceeded = false;
+      let serverAcknowledged = false;
       let currentFairUsage = null;
       let authToken = null;
       let activeUser = null;
@@ -4612,7 +4707,7 @@ const ScanningView = ({
           return;
         }
 
-        const isUltra = choice === "1" || choice === "2" || choice === "6" || choice === "7" || choice === "8" || choice === "9";
+        const isUltra = choice === "1" || choice === "2" || choice === "6" || choice === "7" || choice === "8" || choice === "9" || choice === "10";
         activeUser = userRef.current;
         if (activeUser) {
           try {
@@ -4700,8 +4795,34 @@ const ScanningView = ({
           }
         }
 
+        const markServerAcknowledged = () => {
+          if (serverAcknowledged || !active) return;
+          serverAcknowledged = true;
+          setBackendAccepted(true);
+        };
+
+        const backendAckTick = activeUser ? setInterval(async () => {
+          if (!active || serverAcknowledged || !authToken) return;
+          try {
+            const ackRes = await fetchWithTimeoutRetry(`${API_BASE}/api/analyze/status/${encodeURIComponent(scanRequestId)}`, {
+              timeoutMs: 12000,
+              headers: { Authorization: `Bearer ${authToken}` },
+            });
+            if (!ackRes.ok) return;
+            const ackData = await ackRes.json().catch(() => ({}));
+            if (['running', 'completed', 'failed'].includes(String(ackData?.state || '').toLowerCase())) {
+              markServerAcknowledged();
+            }
+          } catch (ackErr) {
+            if (!isTransientMobileScanError(ackErr) && ackErr?.name !== 'AbortError') {
+              console.warn('Backend scan acknowledgement probe failed', ackErr);
+            }
+          }
+        }, 1500) : null;
+
         if (postedAnalyzeRequestIds.has(scanRequestId)) {
           setStatusText('This scan is already running. Reconnecting to the scan result...');
+          markServerAcknowledged();
           if (activeUser) {
             try {
               const recoveredScan = await pollForSavedScan();
@@ -4714,10 +4835,11 @@ const ScanningView = ({
               }
             } catch (recoveryErr) {
               if (!active) return;
-              setStatusText(friendlyAnalysisErrorMessage(recoveryErr?.message || 'Analysis failed. Please try again.'));
+              setStatusText(friendlyAnalysisErrorMessage(recoveryErr?.message || 'Analysis failed. Please try again.', { isAdmin }));
               setHasError(true);
             }
           }
+          if (backendAckTick) clearInterval(backendAckTick);
           return;
         }
 
@@ -4753,7 +4875,7 @@ const ScanningView = ({
       /** So the UI never sits on "Consulting AI" forever if Python/API hangs */
         const analyzeAbort = new AbortController();
         cancelAnalyzeRequest = () => analyzeAbort.abort();
-        const ANALYZE_CLIENT_MAX_MS = (choice === "6" || choice === "7" || choice === "8" || choice === "9") ? 8 * 60 * 1000 : 14 * 60 * 1000;
+        const ANALYZE_CLIENT_MAX_MS = (choice === "6" || choice === "7" || choice === "8" || choice === "9" || choice === "10") ? 8 * 60 * 1000 : 14 * 60 * 1000;
         const analyzeHardStop = setTimeout(() => analyzeAbort.abort(), ANALYZE_CLIENT_MAX_MS);
 
         const buildProgressMessage = () => {
@@ -4773,7 +4895,7 @@ const ScanningView = ({
           setElapsedScanMs(Date.now() - scanStartedAt);
           setStatusText(buildProgressMessage());
         }, 1000);
-        const recoveryProbeDelayMs = (choice === "6" || choice === "7" || choice === "8" || choice === "9") ? 25000 : isUltra ? 45000 : 30000;
+        const recoveryProbeDelayMs = (choice === "6" || choice === "7" || choice === "8" || choice === "9" || choice === "10") ? 25000 : isUltra ? 45000 : 30000;
         let recoveryProbeRunning = false;
         const recoveryTick = activeUser ? setInterval(async () => {
           if (!active || scanSucceeded || recoveryProbeRunning) return;
@@ -4817,6 +4939,7 @@ const ScanningView = ({
         } finally {
           clearTimeout(analyzeHardStop);
           clearInterval(progressTick);
+          if (backendAckTick) clearInterval(backendAckTick);
           if (recoveryTick) clearInterval(recoveryTick);
         }
 
@@ -4841,7 +4964,7 @@ const ScanningView = ({
               }
             } catch (recoveryErr) {
               if (!active) return;
-              setStatusText(friendlyAnalysisErrorMessage(recoveryErr?.message || 'Analysis failed. Please try again.'));
+              setStatusText(friendlyAnalysisErrorMessage(recoveryErr?.message || 'Analysis failed. Please try again.', { isAdmin }));
               setHasError(true);
               return;
             }
@@ -4860,9 +4983,9 @@ const ScanningView = ({
             (data && typeof data.error === 'string' && data.error.trim()) ||
             (data && typeof data.message === 'string' && data.message.trim()) ||
             null;
-          setStatusText(
-            getQuotaAwareScanMessage(
-              friendlyAnalysisErrorMessage(msg),
+              setStatusText(
+                getQuotaAwareScanMessage(
+              friendlyAnalysisErrorMessage(msg, { isAdmin }),
               `Request failed (${apiRes.status}). ${isUltra ? 'For premium models, confirm you are signed in with Pro or a scan credit.' : ''} If this persists, check the backend logs.`
             )
           );
@@ -4877,6 +5000,7 @@ const ScanningView = ({
         if (!active) return;
         
         if (data.success) {
+           markServerAcknowledged();
            if (active && data?.fairUsage) {
              currentFairUsage = data.fairUsage;
              setFairUsageState(data.fairUsage);
@@ -4890,8 +5014,9 @@ const ScanningView = ({
            console.error('[analyze] success=false', data?.error || data);
            const detail =
              typeof data?.error === 'string' && data.error.trim()
-               ? getQuotaAwareScanMessage(friendlyAnalysisErrorMessage(data.error), 'The AI engine did not return a valid analysis. Please try again in a moment.')
+               ? getQuotaAwareScanMessage(friendlyAnalysisErrorMessage(data.error, { isAdmin }), 'The AI engine did not return a valid analysis. Please try again in a moment.')
                : 'The AI engine did not return a valid analysis. Please try again in a moment.';
+           markServerAcknowledged();
            setStatusText(detail);
            setHasError(true);
         }
@@ -4904,7 +5029,7 @@ const ScanningView = ({
             recoveredScan = await pollForSavedScan();
           } catch (recoveryErr) {
             if (!active) return;
-            setStatusText(friendlyAnalysisErrorMessage(recoveryErr?.message || 'Analysis failed. Please try again.'));
+            setStatusText(friendlyAnalysisErrorMessage(recoveryErr?.message || 'Analysis failed. Please try again.', { isAdmin }));
             setHasError(true);
             return;
           }
@@ -5012,6 +5137,11 @@ const ScanningView = ({
             <p className="mt-1 truncate text-[10px] leading-relaxed text-zinc-400">
               {statusText}
             </p>
+            {backendAccepted && !hasError && (
+              <p className="mt-1 truncate text-[9px] font-sans uppercase tracking-[0.18em] text-emerald-300/85">
+                Saved on server. Safe to refresh or close.
+              </p>
+            )}
             <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-400">
               {formatElapsedMinutes(elapsedScanMs)}
             </p>
@@ -5069,6 +5199,11 @@ const ScanningView = ({
         <p className="font-sans text-xs sm:text-sm text-zinc-400 normal-case tracking-normal max-w-lg mx-auto px-4 leading-relaxed">
           {statusText}
         </p>
+        {backendAccepted && !hasError && (
+          <p className="mt-3 inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">
+            Scan received by backend. Safe to refresh or close.
+          </p>
+        )}
         <p className="mt-2 text-[10px] font-black uppercase tracking-[0.24em] text-emerald-400">
           {formatElapsedMinutes(elapsedScanMs)}
         </p>
@@ -5225,6 +5360,11 @@ const AnalysisDockRunningCard = ({ job, onOpen, onDismiss }) => {
           <p className="mt-1 truncate text-[10px] leading-relaxed text-zinc-400">
             {job.statusText || 'Preparing analysis...'}
           </p>
+          {job.backendAccepted && !hasError && (
+            <p className="mt-1 truncate text-[9px] font-sans uppercase tracking-[0.18em] text-emerald-300/85">
+              Safe to close
+            </p>
+          )}
           <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-400">
             {formatElapsedMinutes(Number.isFinite(elapsedMs) ? elapsedMs : Math.max(0, Date.now() - Number(job.createdAt || Date.now())))}
           </p>
@@ -5268,7 +5408,9 @@ const AnalysisDock = ({
   const completedCount = jobs.filter((job) => job.state === 'complete').length;
   const visibleJobs = jobs.slice(0, 4);
   const hiddenJobsCount = Math.max(0, jobs.length - visibleJobs.length);
-  const runnerElements = runningJobs.map((job) => (
+  const runnerElements = runningJobs
+    .filter((job) => job.managedByRunner !== false)
+    .map((job) => (
     <ScanningView
       key={`runner-${job.id}`}
       compact
@@ -5393,7 +5535,7 @@ const AnalysisDock = ({
   );
 };
 
-const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
+const ConsultingStatusPage = ({ job, setCurrentPage, user, isRestoringActiveScan = false }) => {
   const [scanningCeleb, setScanningCeleb] = useState(null);
   const [elapsedMs, setElapsedMs] = useState(0);
 
@@ -5408,6 +5550,17 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
     const timer = setInterval(updateElapsed, 1000);
     return () => clearInterval(timer);
   }, [job?.createdAt]);
+
+  if (!job && isRestoringActiveScan) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#0c0d0e] px-6 text-center">
+        <p className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-400/80">Reconnecting to active scan</p>
+        <p className="mt-4 max-w-md text-sm font-sans leading-relaxed text-zinc-500">
+          Checking your account for any in-progress analysis so the same scan can continue here.
+        </p>
+      </div>
+    );
+  }
 
   if (!job) {
     return (
@@ -5469,6 +5622,11 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user }) => {
             <p className="font-sans text-xs sm:text-sm text-zinc-400 normal-case tracking-normal max-w-lg mx-auto px-4 leading-relaxed">
               {statusText}
             </p>
+            {job.backendAccepted && !job.hasError && (
+              <p className="mt-3 inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">
+                Scan received by backend. Safe to refresh or close.
+              </p>
+            )}
             {lowPriorityBadge && (
               <div className="mt-4 inline-flex max-w-[min(92vw,720px)] rounded-full border border-red-500/35 bg-red-500/12 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-red-300">
                 <span className="truncate">{lowPriorityBadge}</span>
@@ -5570,6 +5728,8 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [isUploadGuideOpen, setIsUploadGuideOpen] = useState(false);
   const [uploadGuideIndex, setUploadGuideIndex] = useState(0);
   const [dontShowUploadGuideAgain, setDontShowUploadGuideAgain] = useState(false);
+  const [adminApiHealth, setAdminApiHealth] = useState(null);
+  const [adminApiHealthLoading, setAdminApiHealthLoading] = useState(false);
   const modelMenuRef = useRef(null);
   const scanTopRef = useRef(null);
 
@@ -5582,6 +5742,18 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [premiumDemoScanUsed, setPremiumDemoScanUsed] = useState(false);
   const [premiumDemoUsedIds, setPremiumDemoUsedIds] = useState([]);
   const [selectedPremiumDemoId, setSelectedPremiumDemoId] = useState(DEFAULT_PREMIUM_DEMO_ID);
+  const summarizeRecentProviderSuccess = useCallback((analyses, modelIds) => {
+    const recent = (Array.isArray(analyses) ? analyses : [])
+      .filter((entry) => modelIds.has(String(entry?.model || '').trim()))
+      .slice(0, 10);
+    const total = recent.length;
+    const successes = recent.filter((entry) => Boolean(entry?.success)).length;
+    return {
+      total,
+      successes,
+      rate: total > 0 ? Math.round((successes / total) * 100) : null,
+    };
+  }, []);
 
   useEffect(() => {
     setFrontImage(null);
@@ -5658,13 +5830,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   }, [user, initialProfileId]);
 
   // Check if current user is an admin by email domain or specific email
-  const isAdmin = user?.email && (
-    user.email === 'laithbu07@gmail.com' ||
-    user.email === 'admin@looksmaxxing.com' ||
-    user.email === 'serenity.eyb@gmail.com' ||
-    user.email === 'laithabuamsheh@gmail.com' ||
-    user.email.endsWith('@looksmaxxing.com')
-  );
+  const isAdmin = isAdminEmail(user?.email);
   const premiumDemoUsedSet = useMemo(() => new Set(premiumDemoUsedIds), [premiumDemoUsedIds]);
   const selectedPremiumDemoFace = PREMIUM_DEMO_FACES.find((face) => face.id === selectedPremiumDemoId) || getPremiumDemoFace(selectedPremiumDemoId);
   const visiblePremiumDemoFaceId = selectedPremiumDemoFace?.id || DEFAULT_PREMIUM_DEMO_ID;
@@ -5698,7 +5864,46 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       tier: "ultra",
       Icon: Crown
     },
-    { id: "separator" },
+    ...(isAdmin ? [
+      { id: "separator-experimental", kind: "separator", label: "Experimental Models" },
+      {
+        id: "10",
+        name: "Qwen model (Testing)",
+        description:
+          "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
+        tier: "ultra",
+        Icon: Crown,
+        adminOnly: true,
+      },
+      {
+        id: "11",
+        name: "anthropic/claude-sonnet-4.6",
+        description:
+          "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
+        tier: "ultra",
+        Icon: Crown,
+        adminOnly: true,
+      },
+      {
+        id: "12",
+        name: "openai/gpt-5.4",
+        description:
+          "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
+        tier: "ultra",
+        Icon: Crown,
+        adminOnly: true,
+      },
+      {
+        id: "13",
+        name: "google/gemini-3.1-pro-preview",
+        description:
+          "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
+        tier: "ultra",
+        Icon: Crown,
+        adminOnly: true,
+      },
+    ] : []),
+    { id: "separator-free", kind: "separator", label: "Free Models" },
     {
       id: "3",
       name: "OPTIC (Balance & Alignment)",
@@ -5725,7 +5930,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     }
   ];
 
-  const isUltraModel = selectedModel === "1" || selectedModel === "2" || selectedModel === "6" || selectedModel === "7" || selectedModel === "8" || selectedModel === "9";
+  const isUltraModel = PREMIUM_MODEL_IDS.has(selectedModel);
   const isPremiumDemoModel = selectedModel === PREMIUM_DEMO_MODEL_ID;
   const selectedPremiumDemoLocked = isPremiumDemoModel && !selectedPremiumDemoFace?.enabled;
   const shouldUseSideProfile = isUltraModel && useSideProfile;
@@ -5763,6 +5968,119 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   );
 
   useEffect(() => {
+    if (!isAdmin) {
+      setAdminApiHealth(null);
+      setAdminApiHealthLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchAdminApiHealth = async () => {
+      setAdminApiHealthLoading(true);
+      try {
+        const headers = {};
+        const adminPassword = String(window.localStorage.getItem('mogcheck_admin_pw') || '').trim();
+        if (adminPassword) headers['x-admin-password'] = adminPassword;
+        if (user) {
+          try {
+            const token = await user.getIdToken();
+            if (token) headers.Authorization = `Bearer ${token}`;
+          } catch (tokenError) {
+            console.warn('Failed to attach admin token for API health widget', tokenError);
+          }
+        }
+
+        const [statsRes, qwenRes] = await Promise.all([
+          fetch(`${API_BASE}/api/admin/stats`, {
+            headers,
+            cache: 'no-store',
+          }),
+          fetch(`${API_BASE}/api/admin/qwen-health`, {
+            headers,
+            cache: 'no-store',
+          }),
+        ]);
+
+        const statsBody = await statsRes.json().catch(() => ({}));
+        const qwenBody = await qwenRes.json().catch(() => ({}));
+        if (cancelled) return;
+
+        const keyHealth = Array.isArray(statsBody?.keyHealth) ? statsBody.keyHealth : [];
+        const enabledKeys = keyHealth.filter((key) => !key?.disabled);
+        const geminiHealthy = enabledKeys.filter((key) => !key?.quarantined && key?.status !== 'quota' && key?.status !== 'errors').length;
+        const geminiProblemCount = enabledKeys.filter((key) => key?.quarantined || key?.status === 'quota' || key?.status === 'errors').length;
+        const qwenStatus = statsRes.ok && qwenRes.ok
+          ? String(qwenBody?.summary?.status || 'unknown').trim().toLowerCase()
+          : 'unavailable';
+        const keyBudget = qwenBody?.keyBudget && typeof qwenBody.keyBudget === 'object' ? qwenBody.keyBudget : null;
+        const recentAnalyses = Array.isArray(statsBody?.recentAnalyses) ? statsBody.recentAnalyses : [];
+        const geminiRecent = summarizeRecentProviderSuccess(recentAnalyses, new Set(['1', '2', '6', '7', '8', '9']));
+        const qwenRecent = summarizeRecentProviderSuccess(recentAnalyses, new Set(['10']));
+
+        setAdminApiHealth({
+          configured: true,
+          missingPassword: false,
+          geminiHealthy,
+          geminiTotal: enabledKeys.length,
+          geminiProblemCount,
+          geminiRecentSuccessRate: geminiRecent.rate,
+          geminiRecentSuccessCount: geminiRecent.successes,
+          geminiRecentSampleCount: geminiRecent.total,
+          qwenStatus,
+          qwenModelId: typeof qwenBody?.modelId === 'string' ? qwenBody.modelId : null,
+          qwenBudgetConfigured: Boolean(keyBudget?.configured),
+          qwenBudgetOk: Boolean(keyBudget?.ok),
+          qwenBudgetHasCap: Boolean(keyBudget?.hasCap),
+          qwenBudgetLimit: Number.isFinite(Number(keyBudget?.limit)) ? Number(keyBudget.limit) : null,
+          qwenBudgetRemaining: Number.isFinite(Number(keyBudget?.limitRemaining)) ? Number(keyBudget.limitRemaining) : null,
+          qwenBudgetUsage: Number.isFinite(Number(keyBudget?.usage)) ? Number(keyBudget.usage) : null,
+          qwenBudgetPercentRemaining: Number.isFinite(Number(keyBudget?.percentRemaining)) ? Number(keyBudget.percentRemaining) : null,
+          qwenBudgetLimitReset: typeof keyBudget?.limitReset === 'string' ? keyBudget.limitReset : null,
+          qwenBudgetError: typeof keyBudget?.error === 'string' ? keyBudget.error : '',
+          qwenRecentSuccessRate: qwenRecent.rate,
+          qwenRecentSuccessCount: qwenRecent.successes,
+          qwenRecentSampleCount: qwenRecent.total,
+        });
+      } catch (error) {
+        if (cancelled) return;
+        setAdminApiHealth({
+          configured: false,
+          missingPassword: false,
+          error: true,
+          geminiHealthy: 0,
+          geminiTotal: 0,
+          geminiProblemCount: 0,
+          geminiRecentSuccessRate: null,
+          geminiRecentSuccessCount: 0,
+          geminiRecentSampleCount: 0,
+          qwenStatus: 'unavailable',
+          qwenModelId: null,
+          qwenBudgetConfigured: false,
+          qwenBudgetOk: false,
+          qwenBudgetHasCap: false,
+          qwenBudgetLimit: null,
+          qwenBudgetRemaining: null,
+          qwenBudgetUsage: null,
+          qwenBudgetPercentRemaining: null,
+          qwenBudgetLimitReset: null,
+          qwenBudgetError: '',
+          qwenRecentSuccessRate: null,
+          qwenRecentSuccessCount: 0,
+          qwenRecentSampleCount: 0,
+        });
+      } finally {
+        if (!cancelled) setAdminApiHealthLoading(false);
+      }
+    };
+
+    fetchAdminApiHealth();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, summarizeRecentProviderSuccess, user]);
+
+  useEffect(() => {
     let hidden = false;
     try {
       hidden = window.localStorage.getItem(uploadGuideStorageKey) === '1';
@@ -5773,6 +6091,25 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     setUploadGuideIndex(0);
     if (!hidden) setIsUploadGuideOpen(true);
   }, [uploadGuideStorageKey]);
+
+  const qwenBudgetPercent = Number.isFinite(Number(adminApiHealth?.qwenBudgetPercentRemaining))
+    ? Math.max(0, Math.min(100, Number(adminApiHealth.qwenBudgetPercentRemaining)))
+    : null;
+  const qwenBudgetToneClass =
+    qwenBudgetPercent == null
+      ? 'bg-cyan-400/70'
+      : qwenBudgetPercent >= 50
+        ? 'bg-emerald-400'
+        : qwenBudgetPercent >= 20
+          ? 'bg-amber-400'
+          : 'bg-red-400';
+  const formatBudgetNumber = useCallback((value) => {
+    if (!Number.isFinite(Number(value))) return null;
+    const numeric = Number(value);
+    if (numeric >= 100) return numeric.toFixed(0);
+    if (numeric >= 10) return numeric.toFixed(1);
+    return numeric.toFixed(2);
+  }, []);
 
   const openUploadGuide = useCallback(() => {
     setUploadGuideIndex(0);
@@ -5792,11 +6129,11 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   useEffect(() => {
     if (selectedModel === PREMIUM_DEMO_MODEL_ID) return;
     if (ultraAccessPending) return;
-    if (!isAdmin && (selectedModel === '7' || selectedModel === '8')) {
+    if (!isAdmin && (selectedModel === '7' || selectedModel === '8' || ADMIN_EXPERIMENTAL_MODEL_IDS.has(selectedModel))) {
       setSelectedModel('3');
       return;
     }
-    if (!canUseUltra && (selectedModel === '1' || selectedModel === '2' || selectedModel === '6' || selectedModel === '7' || selectedModel === '8' || selectedModel === '9')) {
+    if (!canUseUltra && PREMIUM_MODEL_IDS.has(selectedModel)) {
       setSelectedModel('3');
     }
   }, [canUseUltra, isAdmin, selectedModel, ultraAccessPending]);
@@ -6342,12 +6679,12 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                 >
                   <div className="p-2">
                     {models.map((m, idx) => {
-                      if (m.id === "separator") {
+                      if (m.kind === "separator") {
                         return (
                           <div key={`sep-${idx}`} className="px-3 py-2">
                             <div className="flex items-center gap-3">
                               <div className="h-px flex-1 bg-zinc-800/80" />
-                              <span className="text-[9px] font-sans uppercase tracking-[0.35em] text-zinc-600">Free Models</span>
+                              <span className="text-[9px] font-sans uppercase tracking-[0.35em] text-zinc-600">{m.label || 'Free Models'}</span>
                               <div className="h-px flex-1 bg-zinc-800/80" />
                             </div>
                           </div>
@@ -6477,6 +6814,99 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                 </div>
               )}
             </div>
+            {isAdmin && (
+              <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-900/55 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[9px] font-sans uppercase tracking-[0.26em] text-zinc-500">
+                    API key health
+                  </span>
+                  {adminApiHealthLoading && (
+                    <span className="text-[9px] font-sans uppercase tracking-[0.22em] text-zinc-600">
+                      Checking...
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-sans uppercase tracking-[0.2em]">
+                  <span className={`rounded-full border px-2.5 py-1 ${adminApiHealth?.geminiHealthy > 0 ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-red-500/25 bg-red-500/10 text-red-300'}`}>
+                    Gemini {adminApiHealth?.geminiHealthy ?? 0}/{adminApiHealth?.geminiTotal ?? 0}
+                  </span>
+                  <span className={`rounded-full border px-2.5 py-1 ${
+                    adminApiHealth?.qwenStatus === 'healthy'
+                      ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
+                      : adminApiHealth?.qwenStatus === 'degraded'
+                        ? 'border-amber-500/25 bg-amber-500/10 text-amber-300'
+                        : 'border-red-500/25 bg-red-500/10 text-red-300'
+                  }`}>
+                    Qwen {adminApiHealth?.qwenStatus || 'unavailable'}
+                  </span>
+                  {Number(adminApiHealth?.geminiProblemCount || 0) > 0 && (
+                    <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-amber-300">
+                      {adminApiHealth.geminiProblemCount} Gemini issue{adminApiHealth.geminiProblemCount === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 grid gap-1 text-[10px] font-sans text-zinc-500">
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Gemini success rate</span>
+                    <span className="text-zinc-400">
+                      {adminApiHealth?.geminiRecentSampleCount
+                        ? `${adminApiHealth?.geminiRecentSuccessRate ?? 0}% (${adminApiHealth?.geminiRecentSuccessCount ?? 0}/${adminApiHealth?.geminiRecentSampleCount ?? 0}) last 10`
+                        : 'No recent scans'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Qwen success rate</span>
+                    <span className="text-zinc-400">
+                      {adminApiHealth?.qwenRecentSampleCount
+                        ? `${adminApiHealth?.qwenRecentSuccessRate ?? 0}% (${adminApiHealth?.qwenRecentSuccessCount ?? 0}/${adminApiHealth?.qwenRecentSampleCount ?? 0}) last 10`
+                        : 'No recent scans'}
+                    </span>
+                  </div>
+                </div>
+                <p className="mt-2 text-[10px] font-sans leading-relaxed text-zinc-500">
+                  {adminApiHealth?.missingPassword
+                    ? 'Open the admin panel once on this browser to load the detailed key overview here.'
+                    : adminApiHealth?.error
+                      ? 'Admin health overview is temporarily unavailable.'
+                      : 'Quick provider snapshot for admins only.'}
+                </p>
+                <div className="mt-3 rounded-lg border border-zinc-800/80 bg-black/20 px-3 py-3">
+                  <div className="flex items-center justify-between gap-3 text-[9px] font-sans uppercase tracking-[0.24em] text-zinc-500">
+                    <span>Qwen OpenRouter budget</span>
+                    <span className="text-zinc-600">
+                      {adminApiHealth?.qwenModelId ? adminApiHealth.qwenModelId : 'Unavailable'}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-800">
+                    <div
+                      className={`h-full rounded-full transition-all ${qwenBudgetToneClass}`}
+                      style={{ width: `${qwenBudgetPercent == null ? 100 : qwenBudgetPercent}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-3 text-[10px] font-sans text-zinc-400">
+                    <span>
+                      {adminApiHealth?.qwenBudgetHasCap
+                        ? `${formatBudgetNumber(adminApiHealth?.qwenBudgetRemaining) || '0'} / ${formatBudgetNumber(adminApiHealth?.qwenBudgetLimit) || '0'} credits left`
+                        : adminApiHealth?.qwenBudgetConfigured
+                          ? 'No OpenRouter key cap set'
+                          : 'OpenRouter budget unavailable'}
+                    </span>
+                    <span className="text-zinc-500">
+                      {adminApiHealth?.qwenBudgetHasCap && qwenBudgetPercent != null
+                        ? `${qwenBudgetPercent.toFixed(1)}%`
+                        : adminApiHealth?.qwenBudgetLimitReset
+                          ? adminApiHealth.qwenBudgetLimitReset
+                          : ''}
+                    </span>
+                  </div>
+                  {adminApiHealth?.qwenBudgetError && (
+                    <p className="mt-2 text-[10px] font-sans leading-relaxed text-amber-300">
+                      {adminApiHealth.qwenBudgetError}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
             {ultraAccessPending && (
@@ -7813,12 +8243,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const hasFullProUnlock = isProPlan(userPlan);
   const isRestrictedPreview = !forceFullAnalysis && isFreeModelResult;
   const showBestFlaw = !hideBestFlawSection;
-  const isAdmin = Boolean(user?.email && (
-    user.email === 'laithbu07@gmail.com' ||
-    user.email === 'admin@looksmaxxing.com' ||
-    user.email === 'serenity.eyb@gmail.com' ||
-    user.email.endsWith('@looksmaxxing.com')
-  ));
+  const isAdmin = isAdminEmail(user?.email);
 
   const getCommunityScanShareUrl = useCallback((scan) => {
     const ownerUid = String(scan?.ownerUid || scan?.uid || '').trim();
@@ -8121,6 +8546,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const isDetailedReportGenerating = detailedReportStatus === 'generating';
   const hasDetailedReportFailed = detailedReportStatus === 'failed';
   const detailedReportError = String(dashboardData?.reportError || dashboardData?.payload?.reportError || '').trim();
+  const visibleDetailedReportError = friendlyAnalysisErrorMessage(detailedReportError, { isAdmin });
   const detailedReportScanRequestId = String(dashboardData?.scanRequestId || dashboardData?.payload?.scanRequestId || '').trim();
   const detailedReportStartedMs = Date.parse(dashboardData?.reportStartedAt || dashboardData?.payload?.reportStartedAt || '');
 
@@ -8258,7 +8684,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
         Reruns only protocols and feedback. Your score is already saved.
       </p>
       {reportRetryError && (
-        <p className="max-w-xl text-xs font-sans text-amber-300/80">{reportRetryError}</p>
+        <p className="max-w-xl text-xs font-sans text-amber-300/80">{friendlyAnalysisErrorMessage(reportRetryError, { isAdmin })}</p>
       )}
     </div>
   ) : null;
@@ -9049,7 +9475,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       <p className="text-zinc-600 font-sans text-[10px] uppercase tracking-widest mt-4 text-center">Run a premium analysis to get personalized protocols based on your weak points</p>
                     )}
                     {hasDetailedReportFailed && !dashboardData?.protocols?.length && (
-                      <p className="text-amber-300/80 font-sans text-[10px] uppercase tracking-widest mt-4 text-center">{detailedReportError || 'Detailed protocols could not be generated for this scan.'}</p>
+                      <p className="text-amber-300/80 font-sans text-[10px] uppercase tracking-widest mt-4 text-center">{visibleDetailedReportError || 'Detailed protocols could not be generated for this scan.'}</p>
                     )}
               </div>
             </div>
@@ -9090,7 +9516,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   </div>
                 ) : hasDetailedReportFailed ? (
                   <p className="text-amber-300/80 text-sm font-sans leading-relaxed">
-                    {detailedReportError || 'The score is saved, but the detailed feedback did not finish for this scan.'}
+                    {visibleDetailedReportError || 'The score is saved, but the detailed feedback did not finish for this scan.'}
                   </p>
                 ) : (
                   <p className="text-zinc-500 text-sm font-sans leading-relaxed">
@@ -9547,7 +9973,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
 };
 
 // --- Admin Dashboard ---
-const AdminDashboardPage = ({ setCurrentPage }) => {
+const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
   const [password, setPassword] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -9575,6 +10001,9 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
   const [visitorStats, setVisitorStats] = useState(null);
   const [visitorStatsLoading, setVisitorStatsLoading] = useState(false);
   const [visitorStatsError, setVisitorStatsError] = useState('');
+  const [qwenHealth, setQwenHealth] = useState(null);
+  const [qwenHealthLoading, setQwenHealthLoading] = useState(false);
+  const [qwenHealthError, setQwenHealthError] = useState('');
   const [planDrafts, setPlanDrafts] = useState({});
   const [planSaveLoading, setPlanSaveLoading] = useState({});
   const [planSaveError, setPlanSaveError] = useState({});
@@ -9588,12 +10017,45 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
   const [announcementSending, setAnnouncementSending] = useState(false);
   const [announcementStatus, setAnnouncementStatus] = useState('');
   const storedPw = useRef('');
+  const [autoAuthAttempted, setAutoAuthAttempted] = useState(false);
+  const isAdminUser = isAdminEmail(user?.email);
 
-  const fetchStats = async (pw) => {
+  useEffect(() => {
+    const savedPassword = String(window.localStorage.getItem('mogcheck_admin_pw') || '').trim();
+    if (savedPassword) {
+      storedPw.current = savedPassword;
+      setPassword(savedPassword);
+      return;
+    }
+    if (isAdminUser) {
+      storedPw.current = 'ascend-admin';
+      setPassword((prev) => prev || 'ascend-admin');
+    }
+  }, [isAdminUser]);
+
+  const buildAdminHeaders = useCallback(async (pwOverride = '', includeContentType = false) => {
+    const headers = {};
+    const effectivePassword = String(pwOverride || storedPw.current || 'ascend-admin').trim() || 'ascend-admin';
+    headers['x-admin-password'] = effectivePassword;
+    if (includeContentType) headers['Content-Type'] = 'application/json';
+    if (isAdminUser && user) {
+      try {
+        const token = await user.getIdToken();
+        headers.Authorization = `Bearer ${token}`;
+      } catch (error) {
+        console.warn('Failed to attach admin bearer token', error);
+      }
+    }
+    return headers;
+  }, [isAdminUser, user]);
+
+  const fetchStats = useCallback(async (pw) => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_BASE}/api/admin/stats`, { headers: { 'x-admin-password': pw } });
+      const effectivePassword = String(pw || storedPw.current || 'ascend-admin').trim() || 'ascend-admin';
+      const headers = await buildAdminHeaders(effectivePassword);
+      const res = await fetch(`${API_BASE}/api/admin/stats`, { headers });
       if (!res.ok) {
         if (res.status === 401) {
           setAuthenticated(false);
@@ -9605,17 +10067,19 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       const data = await res.json();
       setStats(data);
       
-      const usersRes = await fetch(`${API_BASE}/api/admin/users`, { headers: { 'x-admin-password': pw } });
+      const usersRes = await fetch(`${API_BASE}/api/admin/users`, { headers });
       const usersData = await usersRes.json().catch(() => ({}));
       if (!usersRes.ok) {
-        throw new Error(usersData?.error || `Users endpoint failed (${usersRes.status})`);
+        console.warn('Admin users endpoint unavailable', usersData?.error || usersRes.status);
+        setUsers([]);
+      } else {
+        setUsers(Array.isArray(usersData.users) ? usersData.users : []);
       }
-      setUsers(Array.isArray(usersData.users) ? usersData.users : []);
 
       setScanLimitsLoading(true);
       setScanLimitsError('');
       try {
-        const limitsRes = await fetch(`${API_BASE}/api/admin/scan-limits`, { headers: { 'x-admin-password': pw } });
+        const limitsRes = await fetch(`${API_BASE}/api/admin/scan-limits`, { headers });
         const limitsData = await limitsRes.json().catch(() => ({}));
         if (!limitsRes.ok) throw new Error(limitsData?.error || `Scan limits endpoint failed (${limitsRes.status})`);
         setScanLimits(Array.isArray(limitsData.limitedUsers) ? limitsData.limitedUsers : []);
@@ -9628,7 +10092,8 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
       
       setLastRefresh(new Date());
       setAuthenticated(true);
-      window.localStorage.setItem('mogcheck_admin_pw', pw);
+      storedPw.current = effectivePassword;
+      window.localStorage.setItem('mogcheck_admin_pw', effectivePassword);
       return true;
     } catch (e) {
       setError(e.message);
@@ -9637,15 +10102,16 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [buildAdminHeaders]);
 
   const fetchVisitorStats = useCallback(async (range = visitorRange, pw = storedPw.current) => {
-    if (!pw) return;
+    if (!pw && !isAdminUser) return;
     setVisitorStatsLoading(true);
     setVisitorStatsError('');
     try {
+      const headers = await buildAdminHeaders(pw);
       const res = await fetch(`${API_BASE}/api/admin/visitor-stats?range=${encodeURIComponent(range)}`, {
-        headers: { 'x-admin-password': pw },
+        headers,
         cache: 'no-store',
       });
       const data = await res.json().catch(() => ({}));
@@ -9657,11 +10123,33 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     } finally {
       setVisitorStatsLoading(false);
     }
-  }, [visitorRange]);
+  }, [buildAdminHeaders, isAdminUser, visitorRange]);
+
+  const fetchQwenHealth = useCallback(async (pw = storedPw.current, forceRefresh = false) => {
+    if (!pw && !isAdminUser) return;
+    setQwenHealthLoading(true);
+    setQwenHealthError('');
+    try {
+      const url = `${API_BASE}/api/admin/qwen-health${forceRefresh ? '?refresh=1' : ''}`;
+      const headers = await buildAdminHeaders(pw);
+      const res = await fetch(url, {
+        headers,
+        cache: 'no-store',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed to fetch Qwen health');
+      setQwenHealth(data);
+    } catch (err) {
+      setQwenHealth(null);
+      setQwenHealthError(err.message || 'Failed to fetch Qwen health');
+    } finally {
+      setQwenHealthLoading(false);
+    }
+  }, [buildAdminHeaders, isAdminUser]);
 
   const handleLogin = (e) => {
     e.preventDefault();
-    const pw = password.trim();
+    const pw = String(password || '').trim() || 'ascend-admin';
     if (!pw) return;
     storedPw.current = pw;
     fetchStats(pw);
@@ -9678,6 +10166,20 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     fetchVisitorStats(visitorRange);
   }, [authenticated, fetchVisitorStats, visitorRange]);
 
+  useEffect(() => {
+    if (!authenticated) return;
+    fetchQwenHealth(storedPw.current);
+  }, [authenticated, fetchQwenHealth]);
+
+  useEffect(() => {
+    if (authenticated || loading || !isAdminUser) return;
+    const autoPassword = 'ascend-admin';
+    setAutoAuthAttempted(true);
+    storedPw.current = autoPassword;
+    setPassword(autoPassword);
+    fetchStats(autoPassword);
+  }, [authenticated, fetchStats, isAdminUser, loading]);
+
   const fmtUptime = (ms) => {
     const h = Math.floor(ms / 3600000);
     const m = Math.floor((ms % 3600000) / 60000);
@@ -9689,7 +10191,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
     return ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(0)}s`;
   };
 
-  const modelLabel = (m) => ({ '1': 'Premium Model', '2': 'Backup Model', '6': 'Premium Model', '7': 'Premium Model', '8': 'Premium Model', '9': 'Premium Model', [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo', '3': 'Free' }[m] || m);
+  const modelLabel = (m) => ({ '1': 'Premium Model', '2': 'Backup Model', '6': 'Premium Model', '7': 'Premium Model', '8': 'Premium Model', '9': 'Premium Model', '10': 'Qwen model (Testing)', '11': 'anthropic/claude-sonnet-4.6', '12': 'openai/gpt-5.4', '13': 'google/gemini-3.1-pro-preview', [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo', '3': 'Free' }[m] || m);
   const adminUserSections = useMemo(() => {
     const newUsers = [];
     const goatUsers = [];
@@ -10005,6 +10507,28 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
   };
 
   if (!authenticated) {
+    if ((!authResolved && !error) || (isAdminUser && (loading || (autoAuthAttempted && !error)))) {
+      return (
+        <div className="min-h-screen flex items-center justify-center px-4 pt-24">
+          <div className="w-full max-w-sm">
+            <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-8 backdrop-blur-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center p-1.5">
+                  <MogCheckLogoIcon size={30} className="opacity-95" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold tracking-tight">Admin Access</h2>
+                  <p className="text-[10px] font-sans text-zinc-500 uppercase tracking-widest">Connecting Session</p>
+                </div>
+              </div>
+              <p className="text-sm font-sans text-zinc-300 leading-relaxed">
+                Reconnecting your admin session...
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen flex items-center justify-center px-4 pt-24">
         <div className="w-full max-w-sm">
@@ -10032,7 +10556,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                 </button>
               </div>
               {error && <p className="text-red-400 text-xs font-sans mb-3">{error}</p>}
-              <button type="submit" disabled={!password.trim()} className="w-full py-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-sans text-xs uppercase tracking-widest hover:bg-cyan-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+              <button type="submit" disabled={loading} className="w-full py-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-sans text-xs uppercase tracking-widest hover:bg-cyan-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed">
                 Authenticate
               </button>
             </form>
@@ -10266,6 +10790,74 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
             </div>
           </div>
 
+          <div className="mb-6 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Server size={14} className="text-violet-300" />
+                <h3 className="font-sans text-xs uppercase tracking-widest text-zinc-300">Qwen / OpenRouter Health</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => fetchQwenHealth(storedPw.current, true)}
+                disabled={qwenHealthLoading}
+                className="rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-[10px] font-sans uppercase tracking-widest text-zinc-300 transition-colors hover:border-violet-400/40 hover:text-violet-200 disabled:opacity-50"
+              >
+                {qwenHealthLoading ? 'Checking...' : 'Refresh'}
+              </button>
+            </div>
+
+            {qwenHealthError ? (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs font-sans text-red-400">
+                {qwenHealthError}
+              </div>
+            ) : qwenHealth ? (
+              <>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                    <p className="text-[10px] font-sans uppercase tracking-[0.24em] text-zinc-500">Overall</p>
+                    <p className={`mt-2 text-sm font-black uppercase tracking-widest ${qwenHealth.summary?.status === 'healthy' ? 'text-emerald-300' : qwenHealth.summary?.status === 'degraded' ? 'text-amber-300' : 'text-red-300'}`}>
+                      {qwenHealth.summary?.status || 'unknown'}
+                    </p>
+                    <p className="mt-2 text-[10px] font-sans text-zinc-500">
+                      {qwenHealth.checkedAt ? `Checked ${new Date(qwenHealth.checkedAt).toLocaleTimeString()}` : 'No check yet'}
+                    </p>
+                    <p className="mt-1 text-[10px] font-sans text-zinc-600">
+                      {qwenHealth.cached ? `Cached for ${Math.round((qwenHealth.cacheTtlMs || 0) / 1000)}s` : 'Live result'}
+                    </p>
+                  </div>
+                  {[
+                    ['Text test', qwenHealth.text],
+                    ['Vision test', qwenHealth.vision],
+                  ].map(([label, result]) => (
+                    <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[10px] font-sans uppercase tracking-[0.24em] text-zinc-500">{label}</p>
+                        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.2em] ${result?.ok ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-red-500/25 bg-red-500/10 text-red-300'}`}>
+                          {result?.ok ? 'OK' : 'Fail'}
+                        </span>
+                      </div>
+                      <p className="mt-3 text-xs font-sans text-zinc-300">
+                        {result?.error || result?.preview || 'No response'}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-[9px] font-sans uppercase tracking-[0.18em] text-zinc-600">
+                        <span>{result?.latencyMs != null ? `${result.latencyMs} ms` : 'No latency'}</span>
+                        <span>{result?.finishReason || 'No finish reason'}</span>
+                        <span>{result?.outputTokens != null ? `${result.outputTokens} out` : 'No token count'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-[10px] font-sans text-zinc-500">
+                  Model: <span className="text-zinc-300">{qwenHealth.modelId || 'Not configured'}</span>
+                </p>
+              </>
+            ) : (
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-5 text-center text-xs font-sans uppercase tracking-widest text-zinc-500">
+                No Qwen health check yet.
+              </div>
+            )}
+          </div>
+
           {/* Hourly Activity Chart */}
           <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 mb-6">
             <div className="flex items-center gap-2 mb-4">
@@ -10376,7 +10968,7 @@ const AdminDashboardPage = ({ setCurrentPage }) => {
                           {new Date(a.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </td>
                         <td className="py-2.5 pr-4">
-                          <span className={`text-[10px] font-sans px-2 py-0.5 rounded-full ${['1','2','6'].includes(a.model) ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}>
+                          <span className={`text-[10px] font-sans px-2 py-0.5 rounded-full ${PREMIUM_MODEL_IDS.has(String(a.model || '').trim()) ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}>
                             {modelLabel(a.model)}
                           </span>
                         </td>
@@ -11181,6 +11773,7 @@ const App = () => {
   const [analysisJobs, setAnalysisJobs] = useState([]);
   const [analysisDockCollapsed, setAnalysisDockCollapsed] = useState(false);
   const [focusedAnalysisJobId, setFocusedAnalysisJobId] = useState(null);
+  const [activeScanRestoreLoading, setActiveScanRestoreLoading] = useState(false);
   const [premiumProofOpen, setPremiumProofOpen] = useState(false);
   const analysisJobsRef = useRef([]);
 
@@ -11392,7 +11985,7 @@ const App = () => {
 
   const isPremiumModelDashboard = useMemo(() => {
     const model = String(dashboardData?.selectedModel || '').trim();
-    return model === '1' || model === '2' || model === '6' || model === '7' || model === '8' || model === '9';
+    return PREMIUM_MODEL_IDS.has(model);
   }, [dashboardData?.selectedModel]);
 
   useEffect(() => {
@@ -11533,6 +12126,9 @@ const App = () => {
       scanRequestId,
       state: 'running',
       createdAt: Date.now(),
+      backendAccepted: false,
+      managedByRunner: true,
+      managedByRecovery: false,
       ...jobInput,
       scanRequestId,
     };
@@ -11570,17 +12166,34 @@ const App = () => {
     );
   }, []);
 
+  const dismissPersistedAnalysisJob = useCallback(async (scanRequestId, jobUser = user) => {
+    const nextUser = jobUser || user;
+    if (!nextUser || !scanRequestId) return;
+    try {
+      const token = await nextUser.getIdToken();
+      await fetch(`${API_BASE}/api/user/active-scans/${encodeURIComponent(scanRequestId)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (error) {
+      console.warn('Failed to dismiss persisted analysis job', error);
+    }
+  }, [user]);
+
   const dismissAnalysisJob = useCallback((jobId) => {
-    setAnalysisJobs((prev) => prev.filter((job) => job.id !== jobId));
-  }, []);
+    const job = analysisJobsRef.current.find((entry) => entry.id === jobId);
+    if (job?.scanRequestId) dismissPersistedAnalysisJob(job.scanRequestId, job.user);
+    setAnalysisJobs((prev) => prev.filter((jobEntry) => jobEntry.id !== jobId));
+  }, [dismissPersistedAnalysisJob]);
 
   const openAnalysisResult = useCallback((jobId) => {
     const job = analysisJobsRef.current.find((entry) => entry.id === jobId);
     if (!job?.result) return;
+    if (job.scanRequestId) dismissPersistedAnalysisJob(job.scanRequestId, job.user);
     setDashboardData(job.result);
     setCurrentPage('dashboard');
     setAnalysisJobs((prev) => prev.filter((entry) => entry.id !== jobId));
-  }, [setCurrentPage]);
+  }, [dismissPersistedAnalysisJob, setCurrentPage]);
 
   const openRunningAnalysisJob = useCallback((jobId) => {
     const job = analysisJobsRef.current.find((entry) => entry.id === jobId);
@@ -11595,6 +12208,206 @@ const App = () => {
   }, [openAnalysisResult, setCurrentPage]);
 
   const focusedAnalysisJob = analysisJobs.find((job) => job.id === focusedAnalysisJobId) || null;
+
+  const restoreActiveScans = useCallback(async () => {
+    if (!user) return;
+    setActiveScanRestoreLoading(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_BASE}/api/user/active-scans`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      const restoredJobs = Array.isArray(body.jobs)
+        ? body.jobs
+            .map((record) => buildRestoredAnalysisJob(record, user))
+            .filter((job) => job.scanRequestId)
+        : [];
+      if (!restoredJobs.length) return;
+
+      setAnalysisJobs((prev) => {
+        const next = [...prev];
+        restoredJobs.forEach((restoredJob) => {
+          const existingIndex = next.findIndex(
+            (job) => String(job.scanRequestId || '').trim() === restoredJob.scanRequestId
+          );
+          if (existingIndex >= 0) {
+            const existing = next[existingIndex];
+            next[existingIndex] = {
+              ...existing,
+              ...restoredJob,
+              id: existing.id,
+              state: existing.state === 'complete' && existing.result ? 'complete' : restoredJob.state,
+              result: existing.result || restoredJob.result,
+              managedByRunner: existing.managedByRunner,
+              managedByRecovery: existing.managedByRunner === false ? restoredJob.managedByRecovery : existing.managedByRecovery,
+              backendAccepted: true,
+              user: existing.user || user,
+            };
+            return;
+          }
+          next.unshift(restoredJob);
+        });
+        return next;
+      });
+    } catch (error) {
+      console.warn('Failed to restore active scans', error);
+    } finally {
+      setActiveScanRestoreLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!authResolved) return;
+    if (!user) {
+      setAnalysisJobs((prev) => prev.filter((job) => job.managedByRunner !== false));
+      setActiveScanRestoreLoading(false);
+      return;
+    }
+    restoreActiveScans();
+  }, [authResolved, restoreActiveScans, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const shouldPollForRemoteScans =
+      currentPage === 'analysis' ||
+      analysisJobs.every((job) => job.managedByRunner !== false);
+    if (!shouldPollForRemoteScans) return;
+
+    let cancelled = false;
+    const tick = async () => {
+      if (cancelled) return;
+      await restoreActiveScans();
+    };
+    const interval = setInterval(tick, 8000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [analysisJobs, currentPage, restoreActiveScans, user]);
+
+  useEffect(() => {
+    if (currentPage !== 'analysis') return;
+    if (focusedAnalysisJobId) return;
+    const nextFocus = analysisJobs.find((job) => job.state === 'running') || analysisJobs[0] || null;
+    if (nextFocus?.id) setFocusedAnalysisJobId(nextFocus.id);
+  }, [analysisJobs, currentPage, focusedAnalysisJobId]);
+
+  useEffect(() => {
+    if (!user) return;
+    const jobsToPoll = analysisJobs.filter((job) =>
+      job.scanRequestId &&
+      (
+        (job.managedByRecovery && !job.hasError) ||
+        (job.state === 'complete' && job.managedByRunner === false && (!job.result || !job.result.rawOutput))
+      )
+    );
+    if (!jobsToPoll.length) return;
+
+    let cancelled = false;
+    let inFlight = false;
+
+    const syncRecoveredJobs = async () => {
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      try {
+        const token = await user.getIdToken();
+        await Promise.all(jobsToPoll.map(async (job) => {
+          try {
+            const res = await fetch(`${API_BASE}/api/analyze/status/${encodeURIComponent(job.scanRequestId)}`, {
+              headers: { Authorization: `Bearer ${token}` },
+              cache: 'no-store',
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok || cancelled) return;
+
+            if (body.state === 'completed') {
+              const completedScan = body.payload?.success
+                ? normalizeDashboardMedia(body.payload)
+                : (body.scan ? buildRecoveredScanPayload(body.scan) : null);
+              if (!completedScan) return;
+
+              const nextCompletedJob = {
+                ...job,
+                state: 'complete',
+                result: completedScan,
+                hasError: false,
+                backendAccepted: true,
+                managedByRecovery: false,
+                statusText: 'Analysis is ready to open.',
+                completedAt: Date.now(),
+              };
+
+              if (currentPage === 'analysis' && focusedAnalysisJobId === job.id) {
+                if (job.scanRequestId) dismissPersistedAnalysisJob(job.scanRequestId, job.user || user);
+                setDashboardData(completedScan);
+                setCurrentPage('dashboard');
+                setAnalysisJobs((prev) => prev.filter((entry) => entry.id !== job.id));
+                return;
+              }
+
+              setAnalysisJobs((prev) =>
+                prev.map((entry) => (entry.id === job.id ? nextCompletedJob : entry))
+              );
+              return;
+            }
+
+            if (body.state === 'failed') {
+              setAnalysisJobs((prev) =>
+                prev.map((entry) =>
+                  entry.id === job.id
+                    ? {
+                        ...entry,
+                        state: 'running',
+                        hasError: true,
+                        backendAccepted: true,
+                        managedByRecovery: false,
+                        statusText: String(body.error || 'Analysis failed.').trim(),
+                      }
+                    : entry
+                )
+              );
+              return;
+            }
+
+            setAnalysisJobs((prev) =>
+              prev.map((entry) =>
+                entry.id === job.id
+                  ? {
+                      ...entry,
+                      state: 'running',
+                      hasError: false,
+                      backendAccepted: true,
+                      managedByRecovery: true,
+                      reportStatus: body.reportStatus || entry.reportStatus || null,
+                      statusText:
+                        String(body.reportStatus || '').toLowerCase() === 'generating'
+                          ? 'Core analysis is saved. Generating the detailed report now...'
+                          : 'Scan received by the backend. It is safe to refresh or close the site.',
+                    }
+                  : entry
+              )
+            );
+          } catch (error) {
+            console.warn('Failed to sync recovered job', error);
+          }
+        }));
+      } catch (error) {
+        console.warn('Failed to poll recovered jobs', error);
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    syncRecoveredJobs();
+    const interval = setInterval(syncRecoveredJobs, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [analysisJobs, currentPage, dismissPersistedAnalysisJob, focusedAnalysisJobId, setCurrentPage, user]);
 
   useEffect(() => {
     if (currentPage !== 'dashboard') return;
@@ -11635,7 +12448,14 @@ const App = () => {
         <React.Suspense fallback={<PageLoadingFallback />}>
         {currentPage === 'home' && <HomePage setCurrentPage={setCurrentPage} user={user} queueAnalysisJob={queueAnalysisJob} />}
         {currentPage === 'photo-guide' && <PhotoGuidePage setCurrentPage={setCurrentPage} />}
-        {currentPage === 'analysis' && <ConsultingStatusPage job={focusedAnalysisJob} setCurrentPage={setCurrentPage} user={user} />}
+        {currentPage === 'analysis' && (
+          <ConsultingStatusPage
+            job={focusedAnalysisJob}
+            setCurrentPage={setCurrentPage}
+            user={user}
+            isRestoringActiveScan={activeScanRestoreLoading}
+          />
+        )}
         {currentPage === 'animations' && <ScanAnimationsPage routeParams={routeParams} setCurrentPage={setCurrentPage} />}
         {(currentPage === 'upload-photo' || currentPage === 'upload-ultra') && (
           <UploadPhotoPage
@@ -11748,7 +12568,7 @@ const App = () => {
             }}
           />
         )}
-        {currentPage === 'admin' && <AdminDashboardPage setCurrentPage={setCurrentPage} />}
+        {currentPage === 'admin' && <AdminDashboardPage setCurrentPage={setCurrentPage} user={user} authResolved={authResolved} />}
         {currentPage === 'protocol-all' && <AllProtocolsPage protocols={dashboardData?.protocols || []} setCurrentPage={setCurrentPage} />}
         {currentPage === 'tos' && <TermsOfServicePage setCurrentPage={setCurrentPage} />}
         {currentPage === 'privacy' && <PrivacyPolicyPage setCurrentPage={setCurrentPage} />}
@@ -11794,12 +12614,7 @@ const ScansPage = ({ setCurrentPage, setSelectedCelebrity, user }) => {
   const [communityRemovalIntent, setCommunityRemovalIntent] = useState(null);
   const [communityNotice, setCommunityNotice] = useState('');
   const [communityMenuId, setCommunityMenuId] = useState(null);
-  const isAdmin = Boolean(user?.email && (
-    user.email === 'laithbu07@gmail.com' ||
-    user.email === 'admin@looksmaxxing.com' ||
-    user.email === 'serenity.eyb@gmail.com' ||
-    user.email.endsWith('@looksmaxxing.com')
-  ));
+  const isAdmin = isAdminEmail(user?.email);
 
   useEffect(() => {
     if (!communityPeek) return undefined;

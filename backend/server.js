@@ -158,6 +158,22 @@ const activeAnalysisByUser = new Map();
 const analysisRecoveryByUser = new Map();
 const detailedReportContextByScan = new Map();
 const detailedReportInFlight = new Set();
+const activeScanRecordsByUser = new Map();
+
+const ACTIVE_SCAN_JOB_COLLECTION = 'activeScans';
+const ACTIVE_SCAN_RECORD_TTL_MS = Number(process.env.ACTIVE_SCAN_RECORD_TTL_MS || 2 * 60 * 60 * 1000);
+const QWEN_HEALTH_CACHE_MS = Number(process.env.QWEN_HEALTH_CACHE_MS || 2 * 60 * 1000);
+const OPENROUTER_API_KEY = String(process.env.OPENROUTER_API_KEY || '').trim();
+const OPENROUTER_QWEN_TEST_MODEL_ID = String(process.env.OPENROUTER_QWEN_TEST_MODEL_ID || 'qwen/qwen2.5-vl-72b-instruct').trim();
+const PREMIUM_MODEL_CHOICES = new Set(['1', '2', '6', '7', '8', '9', '10', '11', '12', '13']);
+const ADMIN_ONLY_MODEL_CHOICES = new Set(['7', '8', '9', '10', '11', '12', '13']);
+const QWEN_HEALTH_TEST_IMAGE_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9lJawAAAAASUVORK5CYII=';
+const qwenHealthCache = {
+  value: null,
+  fetchedAt: 0,
+  promise: null,
+};
 
 // Stale local scan fallbacks caused old parsed scores to reappear in dashboards.
 // Keep real Firestore persistence, but never read/write local cached scans.
@@ -391,6 +407,151 @@ function rememberAnalysisRecovery(uid, scanRequestId, patch = {}) {
 function readAnalysisRecovery(uid, scanRequestId) {
   const key = getAnalysisRecoveryKey(uid, scanRequestId);
   return key ? analysisRecoveryByUser.get(key) || null : null;
+}
+
+function getActiveScanRecordKey(uid, scanRequestId) {
+  return getAnalysisRecoveryKey(uid, scanRequestId);
+}
+
+function serializeActiveScanRecord(record = {}) {
+  const createdAtMs =
+    Number(record.createdAtMs) ||
+    timestampMs(record.createdAt) ||
+    Number(record.startedAt) ||
+    Number(record.updatedAtMs) ||
+    Date.now();
+  const updatedAtMs =
+    Number(record.updatedAtMs) ||
+    timestampMs(record.updatedAt) ||
+    createdAtMs;
+  return {
+    scanRequestId: String(record.scanRequestId || '').trim(),
+    profileId: String(record.profileId || 'default').trim() || 'default',
+    modelChoice: String(record.modelChoice || record.selectedModel || record.model || '3').trim() || '3',
+    state: String(record.state || 'running').trim() || 'running',
+    frontImage: record.frontImage || record.frontImageUrl || null,
+    sideImage: record.sideImage || record.sideImageUrl || null,
+    createdAtMs,
+    updatedAtMs,
+    reportStatus: record.reportStatus || null,
+    finalRating:
+      record.finalRating != null && !Number.isNaN(Number(record.finalRating))
+        ? Number(record.finalRating)
+        : null,
+    sideRating:
+      record.sideRating != null && !Number.isNaN(Number(record.sideRating))
+        ? Number(record.sideRating)
+        : null,
+    error: record.error || null,
+    scanId: record.scanId || null,
+  };
+}
+
+function rememberActiveScanRecord(uid, scanRequestId, patch = {}) {
+  const key = getActiveScanRecordKey(uid, scanRequestId);
+  if (!key) return null;
+  const previous = activeScanRecordsByUser.get(key) || {};
+  const next = serializeActiveScanRecord({
+    ...previous,
+    ...patch,
+    scanRequestId,
+    updatedAtMs: Date.now(),
+  });
+  activeScanRecordsByUser.set(key, next);
+
+  const cutoff = Date.now() - ACTIVE_SCAN_RECORD_TTL_MS;
+  for (const [entryKey, entry] of activeScanRecordsByUser.entries()) {
+    if ((entry?.updatedAtMs || 0) < cutoff) activeScanRecordsByUser.delete(entryKey);
+  }
+  return next;
+}
+
+function readActiveScanRecord(uid, scanRequestId) {
+  const key = getActiveScanRecordKey(uid, scanRequestId);
+  return key ? activeScanRecordsByUser.get(key) || null : null;
+}
+
+async function persistActiveScanRecord(uid, scanRequestId, patch = {}) {
+  const next = rememberActiveScanRecord(uid, scanRequestId, patch);
+  if (!uid || !scanRequestId || !next || !firestore) return next;
+  try {
+    await firestore
+      .collection('users')
+      .doc(uid)
+      .collection(ACTIVE_SCAN_JOB_COLLECTION)
+      .doc(scanRequestId)
+      .set({
+        ...next,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+  } catch (error) {
+    console.warn('[active-scans] Failed to persist active scan:', error.message);
+  }
+  return next;
+}
+
+async function listPersistedActiveScanRecords(uid) {
+  if (!uid) return [];
+
+  const cutoff = Date.now() - ACTIVE_SCAN_RECORD_TTL_MS;
+  const fallbackRecords = Array.from(activeScanRecordsByUser.entries())
+    .filter(([entryKey]) => entryKey.startsWith(`${uid}::`))
+    .map(([, record]) => serializeActiveScanRecord(record))
+    .filter((record) => record.updatedAtMs >= cutoff)
+    .sort((a, b) => b.updatedAtMs - a.updatedAtMs);
+
+  if (!firestore) return fallbackRecords;
+
+  try {
+    let snap = null;
+    try {
+      snap = await firestore
+        .collection('users')
+        .doc(uid)
+        .collection(ACTIVE_SCAN_JOB_COLLECTION)
+        .orderBy('updatedAtMs', 'desc')
+        .limit(10)
+        .get();
+    } catch (orderedError) {
+      console.warn('[active-scans] ordered lookup failed, falling back:', orderedError.message);
+      snap = await firestore
+        .collection('users')
+        .doc(uid)
+        .collection(ACTIVE_SCAN_JOB_COLLECTION)
+        .limit(10)
+        .get();
+    }
+
+    const records = [];
+    snap.forEach((doc) => {
+      const normalized = serializeActiveScanRecord(doc.data() || {});
+      if (!normalized.scanRequestId) return;
+      if (normalized.updatedAtMs < cutoff) return;
+      records.push(normalized);
+      rememberActiveScanRecord(uid, normalized.scanRequestId, normalized);
+    });
+    records.sort((a, b) => b.updatedAtMs - a.updatedAtMs);
+    return records;
+  } catch (error) {
+    console.warn('[active-scans] Failed to read active scans:', error.message);
+    return fallbackRecords;
+  }
+}
+
+async function deletePersistedActiveScanRecord(uid, scanRequestId) {
+  const key = getActiveScanRecordKey(uid, scanRequestId);
+  if (key) activeScanRecordsByUser.delete(key);
+  if (!uid || !scanRequestId || !firestore) return;
+  try {
+    await firestore
+      .collection('users')
+      .doc(uid)
+      .collection(ACTIVE_SCAN_JOB_COLLECTION)
+      .doc(scanRequestId)
+      .delete();
+  } catch (error) {
+    console.warn('[active-scans] Failed to delete active scan:', error.message);
+  }
 }
 
 function getDetailedReportContextKey(uid, scanRequestId) {
@@ -2590,6 +2751,11 @@ function extractProviderFailureMessage(output) {
     'Error: All configured Google GenAI/Gemma keys failed or hit quota.',
     'Error: All configured Gemini keys failed or hit quota.',
     'Error: No healthy Google GenAI/Gemma keys are available.',
+    'Error: OpenRouter Qwen testing model is not configured.',
+    'Error: OpenRouter Qwen testing model requires the Python openai package.',
+    'Error: OpenRouter Qwen testing model returned an empty response.',
+    'Error: OpenRouter Qwen testing model failed.',
+    'Error: OpenRouter experimental model',
   ];
   const marker = markers.find((candidate) => text.includes(candidate));
   if (!marker) return null;
@@ -2601,6 +2767,13 @@ function extractProviderFailureMessage(output) {
     .trim();
 
   if (!line) return null;
+
+  if (/OpenRouter (?:Qwen testing model|experimental model)/i.test(line)) {
+    return {
+      code: 'OPENROUTER_EXPERIMENTAL_MODEL_FAILED',
+      error: line.slice(0, 500),
+    };
+  }
 
   if (/No healthy Google GenAI\/Gemma keys are available/i.test(line)) {
     return {
@@ -2626,6 +2799,270 @@ function extractProviderFailureMessage(output) {
   return {
     code: 'GEMINI_KEYS_FAILED',
     error: line.slice(0, 500),
+  };
+}
+
+function isAiProviderErrorMessage(message) {
+  const text = String(message || '').trim().toLowerCase();
+  if (!text) return false;
+  return (
+    text.includes('python exited with code') ||
+    text.includes('gemini') ||
+    text.includes('gemma') ||
+    text.includes('openrouter') ||
+    text.includes('qwen') ||
+    text.includes('api key') ||
+    text.includes('provider timeout') ||
+    text.includes('high demand') ||
+    text.includes('timed out') ||
+    text.includes('cooling down') ||
+    text.includes('quota') ||
+    text.includes('no usable text was parsed') ||
+    text.includes('empty model response') ||
+    text.includes('analysis did not complete successfully.') ||
+    text.includes('detailed report exited with code') ||
+    text.includes('detailed report timed out') ||
+    text.includes('detailed report finished, but no personalized report text was parsed') ||
+    text.includes('premium model returned no parseable analysis text') ||
+    text.includes('premium model returned an incomplete structured analysis')
+  );
+}
+
+function maskAiProviderErrorForUser(req, message) {
+  const text = String(message || '').trim();
+  if (!text) return text;
+  if (isAdminAccountEmail(req?.userEmail)) return text;
+  if (!isAiProviderErrorMessage(text)) return text;
+  return 'Sorry, our servers are experiencing high load. Please try again in a moment.';
+}
+
+function extractOpenRouterTextContent(content) {
+  if (typeof content === 'string') return content.trim();
+  if (!Array.isArray(content)) return '';
+  return content
+    .map((item) => {
+      if (typeof item === 'string') return item;
+      if (!item || typeof item !== 'object') return '';
+      if (typeof item.text === 'string') return item.text;
+      if (typeof item.content === 'string') return item.content;
+      return '';
+    })
+    .join('\n')
+    .trim();
+}
+
+function buildQwenHealthResponseSummary(result = {}) {
+  const textOk = Boolean(result.text?.ok);
+  const visionOk = Boolean(result.vision?.ok);
+  const configured = Boolean(result.configured);
+  return {
+    configured,
+    ok: configured && textOk && visionOk,
+    status: configured
+      ? (textOk && visionOk ? 'healthy' : textOk || visionOk ? 'degraded' : 'failing')
+      : 'not_configured',
+  };
+}
+
+function parseOpenRouterNumeric(value) {
+  if (value == null || value === '') return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+async function runOpenRouterKeyBudgetCheck() {
+  if (!OPENROUTER_API_KEY) {
+    return {
+      ok: false,
+      configured: false,
+      hasCap: false,
+      limit: null,
+      limitRemaining: null,
+      usage: null,
+      percentRemaining: null,
+      limitReset: null,
+      label: null,
+      error: 'OpenRouter API key is not configured.',
+    };
+  }
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/key', {
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      },
+    });
+    const body = await response.json().catch(() => ({}));
+    const data = body?.data && typeof body.data === 'object' ? body.data : {};
+    const limit = parseOpenRouterNumeric(data.limit);
+    const limitRemaining = parseOpenRouterNumeric(data.limit_remaining);
+    const usage = parseOpenRouterNumeric(data.usage);
+    const hasCap = limit != null && limit > 0;
+    const percentRemaining = hasCap && limitRemaining != null
+      ? Math.max(0, Math.min(100, Math.round((limitRemaining / limit) * 1000) / 10))
+      : null;
+
+    return {
+      ok: response.ok,
+      configured: true,
+      hasCap,
+      limit,
+      limitRemaining,
+      usage,
+      percentRemaining,
+      limitReset: typeof data.limit_reset === 'string' ? data.limit_reset : null,
+      label: typeof data.label === 'string' ? data.label : null,
+      error: response.ok ? null : String(body?.error?.message || body?.message || `HTTP ${response.status}`).slice(0, 240),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      configured: true,
+      hasCap: false,
+      limit: null,
+      limitRemaining: null,
+      usage: null,
+      percentRemaining: null,
+      limitReset: null,
+      label: null,
+      error: String(error?.message || error || 'Unknown OpenRouter key error').slice(0, 240),
+    };
+  }
+}
+
+async function runOpenRouterQwenCheck({ includeImage = false } = {}) {
+  const startedAt = Date.now();
+  const messages = [
+    {
+      role: 'user',
+      content: includeImage
+        ? [
+            { type: 'text', text: 'Reply with exactly VISION_OK.' },
+            { type: 'image_url', image_url: { url: QWEN_HEALTH_TEST_IMAGE_DATA_URL } },
+          ]
+        : 'Reply with exactly OK.',
+    },
+  ];
+
+  const payload = {
+    model: OPENROUTER_QWEN_TEST_MODEL_ID,
+    messages,
+    temperature: 0,
+    max_tokens: 24,
+    reasoning: { effort: 'none', exclude: true },
+  };
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 25000);
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: ctrl.signal,
+    });
+    const body = await response.json().catch(() => ({}));
+    const firstChoice = Array.isArray(body?.choices) ? body.choices[0] : null;
+    const message = firstChoice?.message || null;
+    const outputText =
+      extractOpenRouterTextContent(message?.content) ||
+      extractOpenRouterTextContent(firstChoice?.text);
+    const usage = body?.usage || {};
+    return {
+      ok: response.ok && Boolean(outputText),
+      httpStatus: response.status,
+      latencyMs: Date.now() - startedAt,
+      finishReason: firstChoice?.finish_reason || null,
+      preview: outputText ? outputText.slice(0, 120) : '',
+      promptTokens: Number(usage.prompt_tokens) || null,
+      outputTokens: Number(usage.completion_tokens) || null,
+      totalTokens: Number(usage.total_tokens) || null,
+      error:
+        response.ok
+          ? (outputText ? null : 'Provider returned no visible text content.')
+          : String(body?.error?.message || body?.message || `HTTP ${response.status}`).slice(0, 240),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      httpStatus: null,
+      latencyMs: Date.now() - startedAt,
+      finishReason: null,
+      preview: '',
+      promptTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      error:
+        error?.name === 'AbortError'
+          ? 'Timed out while waiting for OpenRouter.'
+          : String(error?.message || error || 'Unknown provider error').slice(0, 240),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function runQwenHealthDiagnostic() {
+  const configured = Boolean(OPENROUTER_API_KEY && OPENROUTER_QWEN_TEST_MODEL_ID);
+  const checkedAt = new Date().toISOString();
+  if (!configured) {
+    return {
+      checkedAt,
+      configured: false,
+      modelId: OPENROUTER_QWEN_TEST_MODEL_ID || null,
+      keyBudget: null,
+      text: null,
+      vision: null,
+      summary: buildQwenHealthResponseSummary({ configured: false }),
+    };
+  }
+
+  const keyBudget = await runOpenRouterKeyBudgetCheck();
+  const text = await runOpenRouterQwenCheck({ includeImage: false });
+  const vision = await runOpenRouterQwenCheck({ includeImage: true });
+  return {
+    checkedAt,
+    configured: true,
+    modelId: OPENROUTER_QWEN_TEST_MODEL_ID,
+    keyBudget,
+    text,
+    vision,
+    summary: buildQwenHealthResponseSummary({ configured: true, text, vision }),
+  };
+}
+
+async function getCachedQwenHealthDiagnostic(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && qwenHealthCache.value && now - qwenHealthCache.fetchedAt < QWEN_HEALTH_CACHE_MS) {
+    return {
+      ...qwenHealthCache.value,
+      cached: true,
+      cacheAgeMs: now - qwenHealthCache.fetchedAt,
+      cacheTtlMs: QWEN_HEALTH_CACHE_MS,
+    };
+  }
+
+  if (!qwenHealthCache.promise) {
+    qwenHealthCache.promise = runQwenHealthDiagnostic()
+      .then((value) => {
+        qwenHealthCache.value = value;
+        qwenHealthCache.fetchedAt = Date.now();
+        return value;
+      })
+      .finally(() => {
+        qwenHealthCache.promise = null;
+      });
+  }
+
+  const diagnostic = await qwenHealthCache.promise;
+  return {
+    ...diagnostic,
+    cached: false,
+    cacheAgeMs: 0,
+    cacheTtlMs: QWEN_HEALTH_CACHE_MS,
   };
 }
 
@@ -2710,6 +3147,30 @@ async function persistDetailedReportPayload({
     payload,
     profileId: payload.profileId || profileId,
     modelChoice,
+  });
+
+  await persistActiveScanRecord(uid, scanRequestId, {
+    profileId: payload.profileId || profileId || 'default',
+    modelChoice,
+    state:
+      payload?.success === false
+        ? 'failed'
+        : String(payload?.reportStatus || '').toLowerCase() === 'generating'
+          ? 'report_generating'
+          : 'completed',
+    reportStatus: payload.reportStatus || null,
+    frontImage: payload.frontImage || payload.frontImageUrl || savedScanBase?.frontImageUrl || null,
+    sideImage: payload.sideImage || payload.sideImageUrl || savedScanBase?.sideImageUrl || null,
+    finalRating:
+      payload.finalRating != null && !Number.isNaN(Number(payload.finalRating))
+        ? Number(payload.finalRating)
+        : null,
+    sideRating:
+      payload.sideRating != null && !Number.isNaN(Number(payload.sideRating))
+        ? Number(payload.sideRating)
+        : null,
+    error: payload?.success === false ? payload.reportError || payload.error || null : null,
+    scanId: payload.scanId || savedScanBase?.id || null,
   });
 
   if (savedScanRef) {
@@ -3240,14 +3701,14 @@ async function verifyUltraAccess(req, res, next) {
     req.body.choice = '6';
     req.body.model = '6';
   }
-  const allowedModelChoices = new Set(['1', '2', '3', '4', '5', '6', '7', '8', '9']);
+  const allowedModelChoices = new Set(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13']);
   if (!allowedModelChoices.has(modelChoice)) {
     return res.status(400).json({
       success: false,
       error: 'Invalid AI model selected. Please choose an available scan model.',
     });
   }
-  const isUltra = modelChoice === '1' || modelChoice === '2' || modelChoice === '6' || modelChoice === '7' || modelChoice === '8' || modelChoice === '9';
+  const isUltra = PREMIUM_MODEL_CHOICES.has(modelChoice);
   if (!isUltra) {
     req.ultraContext = null;
     return next();
@@ -3282,7 +3743,7 @@ async function verifyUltraAccess(req, res, next) {
     email === 'laithbu07@gmail.com' ||
     email === 'laithabuamsheh@gmail.com';
 
-  if ((modelChoice === '7' || modelChoice === '8' || modelChoice === '9') && !isAdminEmail) {
+  if (ADMIN_ONLY_MODEL_CHOICES.has(modelChoice) && !isAdminEmail) {
     return res.status(403).json({
       success: false,
       error: 'This model is admin-only.',
@@ -3409,7 +3870,7 @@ app.post(
     const statsJson = req.body.stats;
     const requestedModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
     const modelChoice = requestedModelChoice === '1' ? '6' : requestedModelChoice;
-    const shouldRunSplitReport = modelChoice === '1' || modelChoice === '2' || modelChoice === '6' || modelChoice === '7' || modelChoice === '8' || modelChoice === '9';
+    const shouldRunSplitReport = PREMIUM_MODEL_CHOICES.has(modelChoice);
     const scanRequestId =
       String(req.body.scanRequestId || '').trim() ||
       `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -3417,6 +3878,8 @@ app.post(
     const safeRunId = `${scanRequestId.replace(/[^a-z0-9_-]/gi, '-').slice(0, 60)}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
     const runOutputDir = path.join(__dirname, 'tmp-analysis', safeRunId);
     fs.mkdirSync(runOutputDir, { recursive: true });
+    const frontFallbackUrl = getLocalUploadUrl(req, imagePath);
+    const sideFallbackUrl = getLocalUploadUrl(req, sideImagePath);
 
     console.log('\n========== PY ENGINE (this same terminal: npm start in /backend) ==========');
     console.log(`[api/analyze] image=${imagePath} sideImage=${sideImagePath || 'none'} model=${modelChoice}`);
@@ -3446,6 +3909,17 @@ app.post(
       profileId,
       modelChoice,
     });
+    await persistActiveScanRecord(req.uid, scanRequestId, {
+      state: 'running',
+      profileId,
+      modelChoice,
+      frontImage: frontFallbackUrl,
+      sideImage: sideFallbackUrl,
+      createdAtMs: analysisStartTime,
+      updatedAtMs: analysisStartTime,
+      reportStatus: shouldRunSplitReport ? 'queued' : null,
+      error: null,
+    });
 
     const py = spawn(pythonExecutable, args, {
       cwd: __dirname,
@@ -3473,6 +3947,15 @@ app.post(
         state: 'failed',
         error: timeoutMessage,
       });
+      persistActiveScanRecord(req.uid, scanRequestId, {
+        state: 'failed',
+        profileId,
+        modelChoice,
+        frontImage: frontFallbackUrl,
+        sideImage: sideFallbackUrl,
+        reportStatus: null,
+        error: timeoutMessage,
+      }).catch(() => {});
       if (!res.headersSent) {
         res.status(504).json({
           success: false,
@@ -3489,6 +3972,15 @@ app.post(
         state: 'failed',
         error: 'Python environment missing or final_engine.py failed to start.',
       });
+      persistActiveScanRecord(req.uid, scanRequestId, {
+        state: 'failed',
+        profileId,
+        modelChoice,
+        frontImage: frontFallbackUrl,
+        sideImage: sideFallbackUrl,
+        reportStatus: null,
+        error: 'Python environment missing or final_engine.py failed to start.',
+      }).catch(() => {});
       console.error('Failed to start Python process:', err);
       if (!res.headersSent) {
         res.json({
@@ -3530,6 +4022,15 @@ app.post(
           state: 'failed',
           error: 'This image cannot be analyzed. Please upload a non-explicit face photo.',
         });
+        await persistActiveScanRecord(req.uid, scanRequestId, {
+          state: 'failed',
+          profileId,
+          modelChoice,
+          frontImage: frontFallbackUrl,
+          sideImage: sideFallbackUrl,
+          reportStatus: null,
+          error: 'This image cannot be analyzed. Please upload a non-explicit face photo.',
+        });
         adminStore.logAnalysis({
           model: modelChoice,
           durationMs: Date.now() - analysisStartTime,
@@ -3566,6 +4067,12 @@ app.post(
         };
       }
 
+      try {
+        fs.writeFileSync(path.join(runOutputDir, 'core_output.txt'), pythonOutput, 'utf8');
+      } catch (error) {
+        console.warn('[api/analyze] Failed to save core output:', error.message);
+      }
+
       const isFreeModelChoice = ['3', '4', '5'].includes(modelChoice);
       if (isFreeModelChoice) {
         parsed.finalRating = null;
@@ -3585,7 +4092,9 @@ app.post(
       }
 
       const hasPremiumStructuredParse =
-        Array.isArray(parsed.biometrics) && parsed.biometrics.length > 0 &&
+        (
+          Array.isArray(parsed.biometrics) && parsed.biometrics.length > 0
+        ) ||
         (
           (Array.isArray(parsed.bestFeatures) && parsed.bestFeatures.length > 0) ||
           (Array.isArray(parsed.primaryFlaws) && parsed.primaryFlaws.length > 0) ||
@@ -3659,8 +4168,6 @@ app.post(
     payload.reportStatus = 'complete';
   }
 
-  const frontFallbackUrl = getLocalUploadUrl(req, imagePath);
-  const sideFallbackUrl = getLocalUploadUrl(req, sideImagePath);
   const debugAnchorsUrl = copyDebugArtifactToUploads(req, path.join(runOutputDir, 'debug_final_anchors.jpg'), 'debug-anchors');
   const debugRatiosUrl = copyDebugArtifactToUploads(req, path.join(runOutputDir, 'debug_ratios.jpg'), 'debug-ratios');
   if (frontFallbackUrl) payload.frontImage = frontFallbackUrl;
@@ -3682,23 +4189,31 @@ app.post(
 
   if (!success) {
     const providerFailureMessage = extractProviderFailureMessage(pythonOutput);
-    if (code !== 0) {
-      payload.error = `Python exited with code ${code}. Check this terminal for [FATAL] or API errors above.`;
-    } else if (providerFailureMessage) {
+    const isPremiumModelChoice = PREMIUM_MODEL_CHOICES.has(String(modelChoice || '').trim());
+    if (providerFailureMessage) {
       payload.code = providerFailureMessage.code;
       payload.error = providerFailureMessage.error;
+    } else if (code !== 0) {
+      payload.error = `Python exited with code ${code}. Check this terminal for [FATAL] or API errors above.`;
     } else if (/No healthy Google GenAI\/Gemma keys are available/i.test(pythonOutput)) {
       payload.code = 'GEMMA_KEYS_UNAVAILABLE';
       payload.error = 'All Google/Gemma API keys are temporarily cooling down after provider timeouts. Please wait a few minutes and try again.';
     } else if (/All configured Google GenAI\/Gemma keys failed or hit quota/i.test(pythonOutput)) {
       payload.code = 'GEMMA_KEYS_FAILED';
       payload.error = 'All Google/Gemma API keys failed or hit quota during this scan. Please wait a moment and try again.';
+    } else if (isPremiumModelChoice && !parsed.hasSubstantiveParse) {
+      payload.code = 'PREMIUM_MODEL_EMPTY_PARSE';
+      payload.error = 'Premium model returned no parseable analysis text. Please try again in a moment.';
+    } else if (isPremiumModelChoice) {
+      payload.code = 'PREMIUM_MODEL_INCOMPLETE';
+      payload.error = 'Premium model returned an incomplete structured analysis. Please try again in a moment.';
     } else if (!parsed.hasSubstantiveParse) {
       payload.error =
         'Analysis finished but no usable text was parsed (empty model response, wrong format, or API key/model issue). Check the PY ENGINE block above.';
     } else {
       payload.error = 'Analysis did not complete successfully.';
     }
+    payload.error = maskAiProviderErrorForUser(req, payload.error);
   }
   rememberAnalysisRecovery(req.uid, scanRequestId, {
     state: success ? 'completed' : 'failed',
@@ -3895,6 +4410,27 @@ app.post(
     });
   }
 
+  await persistActiveScanRecord(req.uid, scanRequestId, {
+    state: success
+      ? (shouldRunSplitReport ? 'report_generating' : 'completed')
+      : 'failed',
+    profileId: payload.profileId || profileId,
+    modelChoice,
+    reportStatus: payload.reportStatus || null,
+    frontImage: payload.frontImage || frontFallbackUrl || null,
+    sideImage: payload.sideImage || sideFallbackUrl || null,
+    finalRating:
+      finalRating != null && !Number.isNaN(Number(finalRating))
+        ? Number(finalRating)
+        : null,
+    sideRating:
+      sideRating != null && !Number.isNaN(Number(sideRating))
+        ? Number(sideRating)
+        : null,
+    error: success ? null : payload.error || 'Analysis failed',
+    scanId: payload.scanId || savedScanRef?.id || null,
+  });
+
   if (success) {
     rememberAnalysisRecovery(req.uid, scanRequestId, {
       state: 'completed',
@@ -3936,6 +4472,7 @@ app.get('/api/analyze/status/:scanRequestId', extractUserOptional, async (req, r
   if (!scanRequestId) return res.status(400).json({ error: 'Missing scan request id' });
 
   const recovery = readAnalysisRecovery(req.uid, scanRequestId);
+  let activeScanRecord = readActiveScanRecord(req.uid, scanRequestId);
   if (recovery?.state === 'completed' && recovery.payload) {
     return res.json({ state: 'completed', payload: recovery.payload });
   }
@@ -3958,8 +4495,36 @@ app.get('/api/analyze/status/:scanRequestId', extractUserOptional, async (req, r
     } catch (e) {
       console.warn('[analyze/status] scan lookup failed:', e.message);
     }
+
+    if (!activeScanRecord) {
+      try {
+        const activeDoc = await firestore
+          .collection('users')
+          .doc(req.uid)
+          .collection(ACTIVE_SCAN_JOB_COLLECTION)
+          .doc(scanRequestId)
+          .get();
+        if (activeDoc.exists) {
+          activeScanRecord = serializeActiveScanRecord(activeDoc.data() || {});
+          rememberActiveScanRecord(req.uid, scanRequestId, activeScanRecord);
+        }
+      } catch (e) {
+        console.warn('[analyze/status] active scan lookup failed:', e.message);
+      }
+    }
   }
 
+  if (activeScanRecord?.state === 'failed') {
+    return res.json({ state: 'failed', error: activeScanRecord.error || 'Analysis failed' });
+  }
+  if (activeScanRecord?.state === 'running' || activeScanRecord?.state === 'report_generating') {
+    return res.json({
+      state: 'running',
+      startedAt: activeScanRecord.createdAtMs || recovery?.startedAt || null,
+      profileId: activeScanRecord.profileId || recovery?.profileId || null,
+      reportStatus: activeScanRecord.reportStatus || null,
+    });
+  }
   if (recovery?.state === 'failed') {
     return res.json({ state: 'failed', error: recovery.error || 'Analysis failed' });
   }
@@ -4223,6 +4788,37 @@ app.get('/api/admin/stats', (req, res) => {
   res.json(adminStore.getStats());
 });
 
+app.get('/api/admin/qwen-health', async (req, res) => {
+  const pw = req.headers['x-admin-password'] || req.query.pw || '';
+  if (!adminStore.checkPassword(pw)) {
+    return res.status(401).json({ error: 'Invalid admin password' });
+  }
+  try {
+    const forceRefresh = String(req.query.refresh || '').trim() === '1';
+    const diagnostic = await getCachedQwenHealthDiagnostic(forceRefresh);
+    res.json(diagnostic);
+  } catch (error) {
+    console.error('[admin] Failed to run Qwen health diagnostic:', error);
+    res.status(500).json({
+      checkedAt: new Date().toISOString(),
+      configured: Boolean(OPENROUTER_API_KEY && OPENROUTER_QWEN_TEST_MODEL_ID),
+      modelId: OPENROUTER_QWEN_TEST_MODEL_ID || null,
+      keyBudget: null,
+      text: null,
+      vision: null,
+      summary: {
+        configured: Boolean(OPENROUTER_API_KEY && OPENROUTER_QWEN_TEST_MODEL_ID),
+        ok: false,
+        status: 'error',
+      },
+      cached: false,
+      cacheAgeMs: 0,
+      cacheTtlMs: QWEN_HEALTH_CACHE_MS,
+      error: String(error?.message || error || 'Unknown diagnostic error'),
+    });
+  }
+});
+
 app.get('/api/admin/visitor-stats', async (req, res) => {
   const pw = req.headers['x-admin-password'] || req.query.pw || '';
   if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
@@ -4395,6 +4991,9 @@ app.get('/api/admin/users', async (req, res) => {
     if (isQuotaExceededError(e)) {
       return res.json({ users: [], firestoreLimited: true, warning: 'Firestore quota exceeded.' });
     }
+    if (isCredentialsConfigError(e?.message)) {
+      return res.json({ users: [], firestoreLimited: true, warning: firebaseConfigHelpMessage() });
+    }
     res.status(500).json({ error: e.message });
   }
 });
@@ -4464,6 +5063,9 @@ app.get('/api/admin/scan-limits', async (req, res) => {
     console.error('[scan-limits] Failed to fetch limits:', e);
     if (isQuotaExceededError(e)) {
       return res.status(429).json({ error: 'Firestore quota exceeded while fetching scan limits.' });
+    }
+    if (isCredentialsConfigError(e?.message)) {
+      return res.json({ limitedUsers: [], warning: firebaseConfigHelpMessage() });
     }
     res.status(500).json({ error: e.message || 'Failed to fetch scan limits' });
   }
@@ -4930,6 +5532,25 @@ app.get('/api/user/scans', extractUserOptional, async (req, res) => {
     console.error('[user/scans] GET failed:', e.message || e);
     res.json({ scans: [], warning: 'Firestore failed. Scan history is temporarily unavailable.' });
   }
+});
+
+app.get('/api/user/active-scans', extractUserOptional, async (req, res) => {
+  if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const jobs = await listPersistedActiveScanRecords(req.uid);
+    res.json({ jobs });
+  } catch (error) {
+    console.error('[user/active-scans] GET failed:', error.message || error);
+    res.json({ jobs: [] });
+  }
+});
+
+app.delete('/api/user/active-scans/:scanRequestId', extractUserOptional, async (req, res) => {
+  if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
+  const scanRequestId = String(req.params.scanRequestId || '').trim();
+  if (!scanRequestId) return res.status(400).json({ error: 'Missing scan request id' });
+  await deletePersistedActiveScanRecord(req.uid, scanRequestId);
+  res.json({ ok: true });
 });
 
 app.get('/api/user/purchases', extractUserOptional, async (req, res) => {

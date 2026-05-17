@@ -148,6 +148,13 @@ try:
 except ImportError:
     print("[DEBUG] Engine A MISSING. Run: pip install google-genai")
 
+try:
+    from openai import OpenAI
+    print("[DEBUG] OpenRouter/OpenAI SDK Loaded.")
+except ImportError:
+    OpenAI = None
+    print("[DEBUG] OpenRouter/OpenAI SDK MISSING. Run: pip install openai")
+
 # Internal Module Imports
 try:
     from engine import get_clinical_biometrics
@@ -181,6 +188,17 @@ GEMINI_31_PRO_KEYS = [
     ("GEMINI_3_1_PRO_API_KEY", (os.getenv("GEMINI_3_1_PRO_API_KEY") or "").strip())
 ]
 GEMINI_31_PRO_KEYS = [(label, key) for label, key in GEMINI_31_PRO_KEYS if key]
+OPENROUTER_API_KEY = (os.getenv("OPENROUTER_API_KEY") or "").strip()
+OPENROUTER_QWEN_TEST_MODEL_ID = (os.getenv("OPENROUTER_QWEN_TEST_MODEL_ID") or "qwen/qwen2.5-vl-72b-instruct").strip()
+OPENROUTER_EXPERIMENTAL_MODEL_MAP = {
+    "10": {"model_id": OPENROUTER_QWEN_TEST_MODEL_ID, "friendly_name": "Qwen model (Testing)"},
+    "11": {"model_id": "anthropic/claude-sonnet-4.6", "friendly_name": "anthropic/claude-sonnet-4.6"},
+    "12": {"model_id": "openai/gpt-5.4", "friendly_name": "openai/gpt-5.4"},
+    "13": {"model_id": "google/gemini-3.1-pro-preview", "friendly_name": "google/gemini-3.1-pro-preview"},
+}
+OPENROUTER_EXPERIMENTAL_MODEL_CHOICES = set(OPENROUTER_EXPERIMENTAL_MODEL_MAP.keys())
+PREMIUM_MODEL_CHOICES = {"1", "2", "6", "7", "8", "9"} | OPENROUTER_EXPERIMENTAL_MODEL_CHOICES
+PREMIUM_CORE_REPORT_MODEL_CHOICES = {"2", "6", "7", "8", "9"} | OPENROUTER_EXPERIMENTAL_MODEL_CHOICES
 GEMMA_PER_KEY_TIMEOUT_MS = int(os.getenv("GEMMA_PER_KEY_TIMEOUT_MS") or "186000")
 EXPERT_31B_FALLBACK_AFTER_MS = int(os.getenv("EXPERT_31B_FALLBACK_AFTER_MS") or "200000")
 _raw_disabled_keys = os.getenv("GEMINI_DISABLED_KEYS") or ""
@@ -370,6 +388,40 @@ def load_benchmark_calibration_summary():
     return "\n".join(lines)
 
 
+def guess_image_mime_type(path_value):
+    suffix = Path(path_value or "").suffix.lower()
+    if suffix == ".png":
+        return "image/png"
+    if suffix == ".webp":
+        return "image/webp"
+    return "image/jpeg"
+
+
+def extract_openrouter_text_content(content):
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                text = item.strip()
+                if text:
+                    parts.append(text)
+                continue
+            if isinstance(item, dict):
+                text = str(item.get("text") or item.get("content") or "").strip()
+                if text:
+                    parts.append(text)
+                continue
+            text = str(getattr(item, "text", "") or getattr(item, "content", "") or "").strip()
+            if text:
+                parts.append(text)
+        return "\n".join(parts).strip()
+    return str(content).strip()
+
+
 def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=None):
     start_time = time.time()
 
@@ -384,7 +436,11 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             "6": ("gemma-4-31b-it", "Premium Model"),
             "7": (GEMINI_31_PRO_MODEL_ID, "Premium Model"),
             "8": (GEMINI_31_PRO_MODEL_ID, "Premium Model"),
-            "9": ("gemma-4-31b-it", "Premium Model")
+            "9": ("gemma-4-31b-it", "Premium Model"),
+            **{
+                choice_key: (config["model_id"], config["friendly_name"])
+                for choice_key, config in OPENROUTER_EXPERIMENTAL_MODEL_MAP.items()
+            },
         }
 
         if choice not in mapping:
@@ -399,6 +455,140 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             ]
 
         print(f"[DEBUG] Consulting {friendly_name}... (Press Ctrl+C to Cancel)")
+        analysis_phase = (os.getenv("MOGCHECK_ANALYSIS_PHASE") or "full").strip().lower()
+        request_type = "protocol" if analysis_phase == "report" else analysis_phase
+        scan_id = os.getenv("MOGCHECK_SCAN_REQUEST_ID") or None
+        include_image = not (choice in PREMIUM_CORE_REPORT_MODEL_CHOICES and analysis_phase == "report")
+        max_output_tokens = None
+        if choice in {"2", "6", "9"}:
+            max_output_tokens = 1400 if analysis_phase == "report" else 1500
+        elif choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
+            max_output_tokens = 1800 if analysis_phase == "report" else 2600
+        elif choice in {"7", "8"}:
+            # Gemini 3.x can spend a large part of maxOutputTokens on hidden thinking.
+            # Give it more visible room and cap thinking so the JSON is not truncated.
+            max_output_tokens = 2400 if analysis_phase == "report" else 4096
+        estimated_input_tokens = estimate_text_tokens(unified_prompt)
+        if include_image:
+            estimated_input_tokens += estimate_image_tokens(img_path)
+            if side_img_path and os.path.exists(side_img_path):
+                estimated_input_tokens += estimate_image_tokens(side_img_path)
+
+        if choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
+            provider_error_label = (
+                "OpenRouter Qwen testing model"
+                if choice == "10"
+                else f"OpenRouter experimental model {friendly_name}"
+            )
+            if OpenAI is None:
+                return (
+                    f"Error: {provider_error_label} requires the Python openai package. Run: pip install openai",
+                    friendly_name,
+                    0,
+                )
+            if not OPENROUTER_API_KEY or not model_id:
+                return (
+                    f"Error: {provider_error_label} is not configured. Add OPENROUTER_API_KEY and the model id configuration to backend/.env.",
+                    friendly_name,
+                    0,
+                )
+            attempt_started_at = time.time()
+            try:
+                client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
+                content = [{"type": "text", "text": unified_prompt}]
+                if include_image:
+                    with open(img_path, "rb") as f:
+                        front_base64 = base64.b64encode(f.read()).decode("utf-8")
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{guess_image_mime_type(img_path)};base64,{front_base64}"},
+                    })
+                if include_image and side_img_path and os.path.exists(side_img_path):
+                    with open(side_img_path, "rb") as f:
+                        side_base64 = base64.b64encode(f.read()).decode("utf-8")
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{guess_image_mime_type(side_img_path)};base64,{side_base64}"},
+                    })
+                res = client.chat.completions.create(
+                    model=model_id,
+                    messages=[{"role": "user", "content": content}],
+                    temperature=0,
+                    max_tokens=max_output_tokens,
+                    extra_body={"reasoning": {"effort": "none", "exclude": True}},
+                    timeout=240,
+                )
+                usage = getattr(res, "usage", None)
+                prompt_tokens = usage_value(usage, "prompt_tokens")
+                output_tokens = usage_value(usage, "completion_tokens")
+                total_tokens = usage_value(usage, "total_tokens")
+                output_text = ""
+                if getattr(res, "choices", None):
+                    first_choice = res.choices[0]
+                    message = getattr(first_choice, "message", None)
+                    output_text = extract_openrouter_text_content(getattr(message, "content", ""))
+                    if not output_text:
+                        output_text = extract_openrouter_text_content(getattr(first_choice, "text", ""))
+                if output_text:
+                    log_token_usage({
+                        "scan_id": scan_id,
+                        "request_type": request_type,
+                        "provider": "openrouter",
+                        "model": model_id,
+                        "key_index": "OPENROUTER_API_KEY",
+                        "attempt_number": 1,
+                        "success": True,
+                        "duration_ms": int((time.time() - attempt_started_at) * 1000),
+                        "input_token_count": prompt_tokens,
+                        "output_token_count": output_tokens,
+                        "total_token_count": total_tokens,
+                        "estimated_input_tokens": estimated_input_tokens,
+                        "max_output_tokens": max_output_tokens,
+                        "image_included": include_image,
+                    })
+                    duration = round(time.time() - start_time, 2)
+                    return output_text, friendly_name, duration
+                log_token_usage({
+                    "scan_id": scan_id,
+                    "request_type": request_type,
+                    "provider": "openrouter",
+                    "model": model_id,
+                    "key_index": "OPENROUTER_API_KEY",
+                    "attempt_number": 1,
+                    "success": False,
+                    "duration_ms": int((time.time() - attempt_started_at) * 1000),
+                    "error": "empty model response",
+                    "estimated_input_tokens": estimated_input_tokens,
+                    "max_output_tokens": max_output_tokens,
+                    "image_included": include_image,
+                })
+                try:
+                    raw_content = getattr(res.choices[0].message, "content", None) if getattr(res, "choices", None) else None
+                    print(f"[OPENROUTER_QWEN] Empty response content type: {type(raw_content).__name__}")
+                    print(f"[OPENROUTER_QWEN] Empty response preview: {str(raw_content)[:400]}")
+                except Exception:
+                    pass
+                duration = round(time.time() - start_time, 2)
+                return f"Error: {provider_error_label} returned an empty response.", friendly_name, duration
+            except Exception as e:
+                short_error = str(e).replace("\n", " ").strip()[:260] or "Unknown provider error"
+                log_token_usage({
+                    "scan_id": scan_id,
+                    "request_type": request_type,
+                    "provider": "openrouter",
+                    "model": model_id,
+                    "key_index": "OPENROUTER_API_KEY",
+                    "attempt_number": 1,
+                    "success": False,
+                    "duration_ms": int((time.time() - attempt_started_at) * 1000),
+                    "error": short_error,
+                    "estimated_input_tokens": estimated_input_tokens,
+                    "max_output_tokens": max_output_tokens,
+                    "image_included": include_image,
+                })
+                duration = round(time.time() - start_time, 2)
+                return f"Error: {provider_error_label} failed. {short_error}", friendly_name, duration
+
         if choice == "6":
             available_keys = GOOGLE_GENAI_KEYS
             key_help = "GEMINI_KEY_1 through GEMINI_KEY_5 for Gemma"
@@ -427,22 +617,6 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             )
         key_pool_label = "Gemma" if choice not in {"7", "8"} else "Gemini 3.1 Pro"
         print(f"[DEBUG] {key_pool_label} key order this scan: {', '.join(_key_label(index) for index, _ in key_attempts)}")
-        analysis_phase = (os.getenv("MOGCHECK_ANALYSIS_PHASE") or "full").strip().lower()
-        request_type = "protocol" if analysis_phase == "report" else analysis_phase
-        scan_id = os.getenv("MOGCHECK_SCAN_REQUEST_ID") or None
-        include_image = not (choice in {"2", "6", "7", "8", "9"} and analysis_phase == "report")
-        max_output_tokens = None
-        if choice in {"2", "6", "9"}:
-            max_output_tokens = 1400 if analysis_phase == "report" else 1500
-        elif choice in {"7", "8"}:
-            # Gemini 3.x can spend a large part of maxOutputTokens on hidden thinking.
-            # Give it more visible room and cap thinking so the JSON is not truncated.
-            max_output_tokens = 2400 if analysis_phase == "report" else 4096
-        estimated_input_tokens = estimate_text_tokens(unified_prompt)
-        if include_image:
-            estimated_input_tokens += estimate_image_tokens(img_path)
-            if side_img_path and os.path.exists(side_img_path):
-                estimated_input_tokens += estimate_image_tokens(side_img_path)
 
         for model_attempt_number, (attempt_model_id, attempt_friendly_name, fallback_after_ms) in enumerate(model_attempts, start=1):
             if model_attempt_number > 1:
@@ -594,24 +768,28 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("7. Premium Model")
     print("8. Premium Model")
     print("9. Premium Model")
+    print("10. Qwen model (Testing)")
+    print("11. anthropic/claude-sonnet-4.6")
+    print("12. openai/gpt-5.4")
+    print("13. google/gemini-3.1-pro-preview")
 
     if choice_override is not None and str(choice_override).strip():
         choice = str(choice_override).strip()
         print(f"\n[DEBUG] Model selected via API args: {choice}")
     else:
         try:
-            choice = input("\nSelect Model [1, 2, 3-5]: ").strip()
+            choice = input("\nSelect Model [1-13]: ").strip()
         except KeyboardInterrupt:
             print("\nExiting script...")
             return
 
-    if choice not in {"1", "2", "3", "4", "5", "6", "7", "8", "9"}:
+    if choice not in {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"}:
         print(f"[ERROR] Invalid model choice: {choice}")
         return "Error: Model selection failed."
 
     # --- SIDE PROFILE DATA COLLECTION ---
     side_data = "IGNORE_SIDE_ANALYSIS"
-    if choice in {"1", "2", "6", "7", "8", "9"}:
+    if choice in PREMIUM_MODEL_CHOICES:
         print("[ðŸš€] Gathering Lateral Data from engineside.py...")
         if side_img_path and os.path.exists(side_img_path):
             try:
@@ -621,7 +799,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         else:
             side_data = "IGNORE_SIDE_ANALYSIS"
     has_side_profile = bool(
-        choice in {"1", "2", "6", "7", "8", "9"} and side_img_path and os.path.exists(side_img_path) and side_data != "IGNORE_SIDE_ANALYSIS"
+        choice in PREMIUM_MODEL_CHOICES and side_img_path and os.path.exists(side_img_path) and side_data != "IGNORE_SIDE_ANALYSIS"
     )
     side_prompt_policy = """
         FRONT-ONLY MODE:
@@ -726,10 +904,10 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
     """ if False else ""
     prompt_clinical_data = clinical_data
     prompt_side_data = side_data
-    benchmark_calibration_summary = load_benchmark_calibration_summary() if choice in {"2", "6", "7", "8", "9"} else ""
+    benchmark_calibration_summary = load_benchmark_calibration_summary() if choice in PREMIUM_CORE_REPORT_MODEL_CHOICES else ""
 
     # --- PROMPT SELECTION LOGIC ---
-    if choice in {"2", "6", "7", "8", "9"}:
+    if choice in PREMIUM_CORE_REPORT_MODEL_CHOICES:
         compact_metrics = compact_metric_summary(prompt_clinical_data, prompt_side_data)
         legacy_experimental_prompt = f"""
         You are MogCheck Premium Backup Model.
@@ -1143,7 +1321,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         }}
         Limits: bestFeatures exactly 5 when possible. primaryFlaws exactly 5 when possible. keyRatios 12-20. pros 3-5. cons 3-5. Keep text concise.
         """
-        elif choice == "9":
+        elif choice in {"9"} | OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
             side_profile_metadata = (
                 str(prompt_side_data).strip()
                 if has_side_profile and prompt_side_data
@@ -1249,6 +1427,24 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
           "debugJustification":"admin-only reason for the score; explicitly mention Angularity Gate, Skin/Texture Tax, orbital/nasal refinement, grooming adjustment, and phenotype benchmark when relevant"
         }}
         Limits: bestFeatures exactly 5 when possible. primaryFlaws exactly 5 when possible. keyRatios 16-20 unless impossible. pros 3-5. cons 3-5. Keep text concise.
+        """
+            if choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
+                active_prompt += """
+
+        QWEN OUTPUT DENSITY RULES:
+        - Do not be terse. Use full, compact explanations rather than clipped fragments.
+        - technicalSummary must be 45-75 words across 2-3 sentences.
+        - appealAssessment must be 45-75 words.
+        - personalizedInterpretation must be 24-45 words.
+        - Each bestFeatures description must be about 18-28 words.
+        - Each primaryFlaws description must be about 18-28 words.
+        - Each keyRatios note should usually be 12-22 words.
+        - Each pros/cons item should usually be 5-10 words, not 1-3 words.
+
+        QWEN METRIC NAMING RULES:
+        - Use human dashboard labels, never snake_case labels like Bigonial_Width_Index.
+        - Prefer these exact names when applicable: Bigonial Width, IPD Index, Mouth Width, Upper Third, Middle Third, Lower Third, Brow Compactness, Philtrum Height, Eye Width, Eye Width Index (Horizontal), Canthal Tilt, Nose Width Index, Total Lip Height Index, Chin Support (Visual), Eye Shape/UEE (Visual), Skin Texture (Visual), Facial Fat (Visual), Symmetry (Visual), Maxillary Projection (Visual).
+        - Always include the four Other Ratios metrics when visible: Skin Texture (Visual), Facial Fat (Visual), Symmetry (Visual), Maxillary Projection (Visual).
         """
     elif choice == "1":
         active_prompt = f"""
@@ -1750,11 +1946,11 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
             """
 
     analysis_phase = (os.getenv("MOGCHECK_ANALYSIS_PHASE") or "full").strip().lower()
-    if choice in {"2", "6", "7", "8", "9"} and analysis_phase == "report":
+    if choice in PREMIUM_CORE_REPORT_MODEL_CHOICES and analysis_phase == "report":
         core_analysis = read_text_context(os.getenv("MOGCHECK_CORE_ANALYSIS_PATH"), 9000)
         active_prompt = f"""
         You are MogCheck Premium Backup Model.
-        {("This run uses Premium Model reasoning calibration." if choice in {"6", "7", "8", "9"} else "")}
+        {("This run uses Premium Model reasoning calibration." if choice in {"6", "7", "8", "9"} | OPENROUTER_EXPERIMENTAL_MODEL_CHOICES else "")}
         Generate ONLY the delayed protocols and personalized feedback for an already-scored scan.
 
         LOCKED_CORE_RESULT:
@@ -1780,6 +1976,16 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
           "reportDebugJustification":"one compact sentence confirming protocols align with locked core result"
         }}
         Limits: exactly 5 personalizedFeedback items, exactly 20 protocols. Each description max 26 words.
+        """
+        if choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
+            active_prompt += """
+
+        QWEN DELAYED REPORT DENSITY RULES:
+        - Do not be terse or skeletal.
+        - Each personalizedFeedback description should usually land around 20-26 words.
+        - Each protocol description should usually land around 20-26 words.
+        - reportDebugJustification should be one complete sentence of about 18-30 words.
+        - Keep every item specific to the locked weaknesses, but fill the available space with real detail.
         """
     elif choice == "1" and analysis_phase == "core":
         feedback_marker = "### Personalised feedback"
