@@ -191,7 +191,11 @@ GEMINI_31_PRO_KEYS = [(label, key) for label, key in GEMINI_31_PRO_KEYS if key]
 OPENROUTER_API_KEY = (os.getenv("OPENROUTER_API_KEY") or "").strip()
 OPENROUTER_QWEN_TEST_MODEL_ID = (os.getenv("OPENROUTER_QWEN_TEST_MODEL_ID") or "qwen/qwen2.5-vl-72b-instruct").strip()
 OPENROUTER_EXPERIMENTAL_MODEL_MAP = {
-    "10": {"model_id": OPENROUTER_QWEN_TEST_MODEL_ID, "friendly_name": "Qwen model (Testing)"},
+    "10": {
+        "model_id": OPENROUTER_QWEN_TEST_MODEL_ID,
+        "friendly_name": "Qwen model (Testing)",
+        "extra_body": {"reasoning": {"effort": "none", "exclude": True}},
+    },
     "11": {"model_id": "anthropic/claude-sonnet-4.6", "friendly_name": "anthropic/claude-sonnet-4.6"},
     "12": {"model_id": "openai/gpt-5.4", "friendly_name": "openai/gpt-5.4"},
     "13": {"model_id": "google/gemini-3.1-pro-preview", "friendly_name": "google/gemini-3.1-pro-preview"},
@@ -447,6 +451,7 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             return "Error: Model selection failed.", "None", 0
 
         model_id, friendly_name = mapping[choice]
+        openrouter_model_config = OPENROUTER_EXPERIMENTAL_MODEL_MAP.get(choice, {})
         model_attempts = [(model_id, friendly_name, None)]
         if choice == "6":
             model_attempts = [
@@ -510,14 +515,17 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
                         "type": "image_url",
                         "image_url": {"url": f"data:{guess_image_mime_type(side_img_path)};base64,{side_base64}"},
                     })
-                res = client.chat.completions.create(
-                    model=model_id,
-                    messages=[{"role": "user", "content": content}],
-                    temperature=0,
-                    max_tokens=max_output_tokens,
-                    extra_body={"reasoning": {"effort": "none", "exclude": True}},
-                    timeout=240,
-                )
+                request_kwargs = {
+                    "model": model_id,
+                    "messages": [{"role": "user", "content": content}],
+                    "temperature": 0,
+                    "max_tokens": max_output_tokens,
+                    "timeout": 240,
+                }
+                extra_body = openrouter_model_config.get("extra_body")
+                if extra_body:
+                    request_kwargs["extra_body"] = extra_body
+                res = client.chat.completions.create(**request_kwargs)
                 usage = getattr(res, "usage", None)
                 prompt_tokens = usage_value(usage, "prompt_tokens")
                 output_tokens = usage_value(usage, "completion_tokens")
