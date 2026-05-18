@@ -166,7 +166,6 @@ const QWEN_HEALTH_CACHE_MS = Number(process.env.QWEN_HEALTH_CACHE_MS || 2 * 60 *
 const OPENROUTER_API_KEY = String(process.env.OPENROUTER_API_KEY || '').trim();
 const OPENROUTER_QWEN_TEST_MODEL_ID = String(process.env.OPENROUTER_QWEN_TEST_MODEL_ID || 'qwen/qwen2.5-vl-72b-instruct').trim();
 const PREMIUM_MODEL_CHOICES = new Set(['1', '2', '6', '7', '8', '9', '10', '11', '12', '13']);
-const ADMIN_ONLY_MODEL_CHOICES = new Set(['7', '8', '9', '10', '11', '12', '13']);
 const QWEN_HEALTH_TEST_IMAGE_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9lJawAAAAASUVORK5CYII=';
 const qwenHealthCache = {
@@ -3693,7 +3692,7 @@ async function extractUserOptional(req, res, next) {
   next();
 }
 
-/** Ultra models require Firebase auth + Pro plan or Single Scan with credits. */
+/** Ultra models require Firebase auth + either a premium plan or at least one scan credit. */
 async function verifyUltraAccess(req, res, next) {
   const requestedModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
   const modelChoice = requestedModelChoice === '1' ? '6' : requestedModelChoice;
@@ -3743,13 +3742,6 @@ async function verifyUltraAccess(req, res, next) {
     email === 'laithbu07@gmail.com' ||
     email === 'laithabuamsheh@gmail.com';
 
-  if (ADMIN_ONLY_MODEL_CHOICES.has(modelChoice) && !isAdminEmail) {
-    return res.status(403).json({
-      success: false,
-      error: 'This model is admin-only.',
-    });
-  }
-
   if (isAdminEmail) {
     req.ultraContext = { uid, plan: 'pro', source: 'admin-email-bypass' };
     return next();
@@ -3774,20 +3766,21 @@ async function verifyUltraAccess(req, res, next) {
     const data = snap.exists ? snap.data() : {};
     const plan = normalizeUserPlan(data.plan || 'free');
     const scanCredits = Number(data.scanCredits) || 0;
+    const hasScanCredits = scanCredits > 0;
 
     if (isProPlanValue(plan) || data.isAdmin || isAdminEmail) {
-      req.ultraContext = { uid, plan: isProPlanValue(plan) ? plan : 'pro_infinite' };
+      req.ultraContext = { uid, plan: isProPlanValue(plan) ? plan : 'pro_infinite', usesCredit: false };
       return next();
     }
-    if (plan === 'single_scan' && scanCredits > 0) {
-      req.ultraContext = { uid, plan: 'single_scan' };
+    if (hasScanCredits) {
+      req.ultraContext = { uid, plan, usesCredit: true };
       return next();
     }
 
     return res.status(403).json({
       success: false,
       error:
-        'Premium models require MogCheck Pro or an unused Single Scan credit. Open Plans to upgrade.',
+        'Premium models require MogCheck Pro or at least 1 available scan credit. Open Plans to upgrade.',
     });
   } catch (e) {
     if (isQuotaExceededError(e)) {
@@ -4268,13 +4261,13 @@ app.post(
     platform: scanPlatform,
   });
 
-  if (success && req.ultraContext && req.ultraContext.plan === 'single_scan' && firestore) {
+  if (success && req.ultraContext?.usesCredit && firestore) {
     try {
       await firestore.collection('users').doc(req.ultraContext.uid).update({
         scanCredits: admin.firestore.FieldValue.increment(-1),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      console.log(`[analyze] Single Scan credit consumed for ${req.ultraContext.uid}`);
+      console.log(`[analyze] Scan credit consumed for ${req.ultraContext.uid}`);
     } catch (e) {
       console.error('[analyze] Failed to decrement scanCredits:', e.message);
     }

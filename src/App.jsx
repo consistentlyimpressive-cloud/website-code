@@ -1157,7 +1157,6 @@ const ANALYSIS_MODEL_LABELS = {
 };
 
 const PREMIUM_MODEL_IDS = new Set(['1', '2', '6', '7', '8', '9', '10', '11', '12', '13']);
-const ADMIN_EXPERIMENTAL_MODEL_IDS = new Set(['10', '11', '12', '13']);
 
 function getAnalysisModelLabel(model) {
   const key = String(model || '').trim();
@@ -5864,45 +5863,39 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       tier: "ultra",
       Icon: Crown
     },
-    ...(isAdmin ? [
-      { id: "separator-experimental", kind: "separator", label: "Experimental Models" },
-      {
-        id: "10",
-        name: "Qwen model (Testing)",
-        description:
-          "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
-        tier: "ultra",
-        Icon: Crown,
-        adminOnly: true,
-      },
-      {
-        id: "11",
-        name: "anthropic/claude-sonnet-4.6",
-        description:
-          "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
-        tier: "ultra",
-        Icon: Crown,
-        adminOnly: true,
-      },
-      {
-        id: "12",
-        name: "openai/gpt-5.4",
-        description:
-          "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
-        tier: "ultra",
-        Icon: Crown,
-        adminOnly: true,
-      },
-      {
-        id: "13",
-        name: "google/gemini-3.1-pro-preview",
-        description:
-          "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
-        tier: "ultra",
-        Icon: Crown,
-        adminOnly: true,
-      },
-    ] : []),
+    { id: "separator-experimental", kind: "separator", label: "Experimental Models" },
+    {
+      id: "10",
+      name: "Qwen model (Testing)",
+      description:
+        "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
+      tier: "ultra",
+      Icon: Crown,
+    },
+    {
+      id: "11",
+      name: "anthropic/claude-sonnet-4.6",
+      description:
+        "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
+      tier: "ultra",
+      Icon: Crown,
+    },
+    {
+      id: "12",
+      name: "openai/gpt-5.4",
+      description:
+        "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
+      tier: "ultra",
+      Icon: Crown,
+    },
+    {
+      id: "13",
+      name: "google/gemini-3.1-pro-preview",
+      description:
+        "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
+      tier: "ultra",
+      Icon: Crown,
+    },
     { id: "separator-free", kind: "separator", label: "Free Models" },
     {
       id: "3",
@@ -5950,12 +5943,13 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   );
 
   const ultraAccessPending = !!user && !isAdmin && !planResolved;
+  const hasAvailableScanCredits = Number(userPlan?.scanCredits ?? 0) > 0;
   const canUseUltra =
     !!user &&
     (isAdmin ||
       (planResolved &&
         (isProPlan(userPlan) ||
-          (userPlan?.plan === 'single_scan' && (userPlan?.scanCredits ?? 0) > 0))));
+          hasAvailableScanCredits)));
   const missingRequiredImage = isPremiumDemoModel ? false : (shouldUseSideProfile ? (!frontImage || !sideImage) : !frontImage);
   const scanAccessLocked = !isPremiumDemoModel && isUltraModel && (ultraAccessPending || !canUseUltra);
   const selectedProfileScanCount = selectedProfileId !== 'new'
@@ -6129,14 +6123,10 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   useEffect(() => {
     if (selectedModel === PREMIUM_DEMO_MODEL_ID) return;
     if (ultraAccessPending) return;
-    if (!isAdmin && (selectedModel === '7' || selectedModel === '8' || ADMIN_EXPERIMENTAL_MODEL_IDS.has(selectedModel))) {
-      setSelectedModel('3');
-      return;
-    }
     if (!canUseUltra && PREMIUM_MODEL_IDS.has(selectedModel)) {
       setSelectedModel('3');
     }
-  }, [canUseUltra, isAdmin, selectedModel, ultraAccessPending]);
+  }, [canUseUltra, selectedModel, ultraAccessPending]);
 
   useEffect(() => {
     if (!isAdmin && allPremiumDemosUsed && selectedModel === PREMIUM_DEMO_MODEL_ID) {
