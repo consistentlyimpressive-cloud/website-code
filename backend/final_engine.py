@@ -449,6 +449,10 @@ def normalize_model_choice(choice):
     normalized = _compact_model_choice(raw)
     if not normalized:
         return None
+    if "googlegemini31propreview" in normalized:
+        return "13"
+    if "gemini31propreview" in normalized:
+        return "13"
     if "googlegemini31pro" in normalized:
         return "13"
     if "gemini31pro" in normalized:

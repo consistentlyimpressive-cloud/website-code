@@ -1159,6 +1159,15 @@ const ANALYSIS_MODEL_LABELS = {
 const PREMIUM_MODEL_IDS = new Set(['1', '2', '6', '7', '8', '9', '10', '11', '12', '13']);
 const ADMIN_EXPERIMENTAL_MODEL_IDS = new Set(['10', '11', '12', '13']);
 
+function getOpenRouterGeminiPreviewChoice(model) {
+  const compact = String(model || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\bgemeni\b/g, 'gemini')
+    .replace(/[^a-z0-9]+/g, '');
+  return compact === '13' || compact.includes('gemini31propreview') ? '13' : null;
+}
+
 function getAnalysisModelLabel(model) {
   const key = String(model || '').trim();
   return ANALYSIS_MODEL_LABELS[key] || (key ? `Model ${key}` : 'Unknown AI');
@@ -4853,7 +4862,7 @@ const ScanningView = ({
           const blob = await response.blob();
           formData.append('image', blob, 'upload.jpg');
         }
-        formData.append('choice', choice || "3");
+        formData.append('choice', getOpenRouterGeminiPreviewChoice(choice) || choice || "3");
         formData.append('scanRequestId', scanRequestId);
         if (profileId) formData.append('profileId', profileId);
 
