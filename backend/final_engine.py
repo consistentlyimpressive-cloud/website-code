@@ -426,10 +426,57 @@ def extract_openrouter_text_content(content):
     return str(content).strip()
 
 
+def _compact_model_choice(value):
+    return (
+        str(value or "")
+        .strip()
+        .lower()
+        .replace("models/", "")
+        .replace("gemeni", "gemini")
+        .replace("/", "")
+        .replace("-", "")
+        .replace(".", "")
+        .replace("_", "")
+        .replace(" ", "")
+    )
+
+
+def normalize_model_choice(choice):
+    raw = str(choice or "").strip()
+    if raw in {str(index) for index in range(1, 14)}:
+        return raw
+
+    normalized = _compact_model_choice(raw)
+    if not normalized:
+        return None
+    if "googlegemini31pro" in normalized:
+        return "13"
+    if "gemini31pro" in normalized:
+        return "7"
+    if "anthropicclaudesonnet46" in normalized or "claude" in normalized:
+        return "11"
+    if "openaigpt54" in normalized or "gpt54" in normalized:
+        return "12"
+    if "qwen" in normalized:
+        return "10"
+    if "premium" in normalized or "ultra" in normalized:
+        return "6"
+    if "backup" in normalized or "fast" in normalized or "fun" in normalized:
+        return "2"
+    if "optic" in normalized or "balance" in normalized or "free" in normalized:
+        return "3"
+    if "core" in normalized or "objective" in normalized:
+        return "4"
+    if "geneva" in normalized or "goldenratio" in normalized:
+        return "5"
+    return None
+
+
 def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=None):
     start_time = time.time()
 
     try:
+        choice = normalize_model_choice(choice)
         # --- MODEL MAPPING ---
         mapping = {
             "1": ("gemma-4-31b-it", "Premium Model"),
@@ -782,11 +829,12 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("13. google/gemini-3.1-pro-preview")
 
     if choice_override is not None and str(choice_override).strip():
-        choice = str(choice_override).strip()
-        print(f"\n[DEBUG] Model selected via API args: {choice}")
+        raw_choice = str(choice_override).strip()
+        choice = normalize_model_choice(raw_choice)
+        print(f"\n[DEBUG] Model selected via API args: {raw_choice} -> {choice or 'invalid'}")
     else:
         try:
-            choice = input("\nSelect Model [1-13]: ").strip()
+            choice = normalize_model_choice(input("\nSelect Model [1-13]: ").strip())
         except KeyboardInterrupt:
             print("\nExiting script...")
             return
