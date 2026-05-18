@@ -20,6 +20,10 @@ const AVAILABLE_SCAN_MODELS = {
       'google/gemini-3.1-pro',
       'google/gemeni-3.1.pro',
       'google/gemeni-3.1-pro-preview',
+      'gemini.3.1pro.preview',
+      'gemeni.3.1pro.preview',
+      'gemini-3.1-pro-preview',
+      'gemeni-3.1-pro-preview',
     ],
   },
 };
@@ -51,6 +55,8 @@ function normalizeScanModelChoice(rawChoice) {
     }
   }
 
+  if (normalized.includes('googlegemini31propreview')) return '13';
+  if (normalized.includes('gemini31propreview')) return '13';
   if (normalized.includes('googlegemini31pro')) return '13';
   if (normalized.includes('gemini31pro')) return '7';
   if (normalized.includes('anthropicclaudesonnet46') || normalized.includes('claude')) return '11';
