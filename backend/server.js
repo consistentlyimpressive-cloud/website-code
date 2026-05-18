@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const { parseAnalysisOutput } = require('./parse-analysis-output');
+const { normalizeScanModelChoice, describeAvailableScanModels } = require('./scan-models');
 const adminStore = require('./admin-store');
 const localUserStore = require('./local-user-store');
 const {
@@ -1834,7 +1835,16 @@ async function extractUserOptional(req, res, next) {
 
 /** Ultra models (choice 1 / 2) require Firebase auth + Pro plan or Single Scan with credits. */
 async function verifyUltraAccess(req, res, next) {
-  const modelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
+  const rawModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
+  const modelChoice = normalizeScanModelChoice(rawModelChoice);
+  if (!modelChoice) {
+    return res.status(400).json({
+      success: false,
+      error: `Invalid AI model selected. Please choose an available scan model: ${describeAvailableScanModels()}.`,
+    });
+  }
+  req.scanModelChoice = modelChoice;
+  req.rawScanModelChoice = rawModelChoice;
   const isUltra = modelChoice === '1' || modelChoice === '2';
   if (!isUltra) {
     req.ultraContext = null;
@@ -1972,10 +1982,17 @@ app.post(
     const sideFile = req.files && req.files['sideImage'] && req.files['sideImage'][0];
     const sideImagePath = sideFile ? sideFile.path : '';
     const statsJson = req.body.stats;
-    const modelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
+    const rawModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
+    const modelChoice = req.scanModelChoice || normalizeScanModelChoice(rawModelChoice);
+    if (!modelChoice) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid AI model selected. Please choose an available scan model: ${describeAvailableScanModels()}.`,
+      });
+    }
 
     console.log('\n========== PY ENGINE (this same terminal: npm start in /backend) ==========');
-    console.log(`[api/analyze] image=${imagePath} sideImage=${sideImagePath || 'none'} model=${modelChoice}`);
+    console.log(`[api/analyze] image=${imagePath} sideImage=${sideImagePath || 'none'} model=${modelChoice} rawModel=${rawModelChoice || 'none'}`);
     console.log('All Python stdout/stderr from final_engine.py appears below until "Python process closed".\n');
 
     const analysisStartTime = Date.now();

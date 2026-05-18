@@ -102,17 +102,80 @@ def load_benchmark_calibration_summary():
     return "\n".join(lines)
 
 
+def _compact_model_choice(value):
+    return (
+        str(value or "")
+        .strip()
+        .lower()
+        .replace("models/", "")
+        .replace("gemeni", "gemini")
+        .replace("/", "")
+        .replace("-", "")
+        .replace(".", "")
+        .replace("_", "")
+        .replace(" ", "")
+    )
+
+
+def normalize_model_choice(choice):
+    raw = str(choice or "").strip()
+    if raw in {"1", "2", "3", "4", "5"}:
+        return raw
+
+    normalized = _compact_model_choice(raw)
+    aliases = {
+        "1": [
+            "premium",
+            "ultra",
+            "highestquality",
+            "gemini31pro",
+            "gemini31propreview",
+            "googlegemini31pro",
+            "googlegemini31propreview",
+        ],
+        "2": [
+            "fun",
+            "funmode",
+            "fast",
+            "flash",
+            "gemini3flash",
+            "gemini3flashpreview",
+            "googlegemini3flashpreview",
+        ],
+        "3": ["optic", "balance", "alignment", "basic", "free"],
+        "4": ["core", "objective", "objectiveattractiveness"],
+        "5": ["geneva", "mathematicalbeauty", "goldenratio"],
+    }
+
+    for model_choice, model_aliases in aliases.items():
+        if normalized in model_aliases:
+            return model_choice
+
+    if "gemini31pro" in normalized:
+        return "1"
+    if "gemini3flash" in normalized:
+        return "2"
+    if "optic" in normalized:
+        return "3"
+    if "core" in normalized:
+        return "4"
+    if "geneva" in normalized:
+        return "5"
+    return None
+
+
 def consult_ai_with_selection(unified_prompt, img_path, choice):
     start_time = time.time()
 
     try:
+        choice = normalize_model_choice(choice)
         # --- MODEL MAPPING ---
         mapping = {
-            "1": ("gemma-4-31b-it", "ULTRA - Highest Quality"),
-            "2": ("gemma-4-26b-a4b-it", "ULTRA - Fast"),
-            "3": ("gemma-4-26b-a4b-it", "OPTIC"),
-            "4": ("gemma-4-26b-a4b-it", "CORE"),
-            "5": ("gemma-4-26b-a4b-it", "GENEVA")
+            "1": ("gemini-3.1-pro-preview", "ULTRA - Highest Quality"),
+            "2": ("gemini-3-flash-preview", "ULTRA - Fast"),
+            "3": ("gemini-3.1-flash-lite", "OPTIC"),
+            "4": ("gemini-3.1-flash-lite", "CORE"),
+            "5": ("gemini-3.1-flash-lite", "GENEVA")
         }
 
         if choice not in mapping:
@@ -190,11 +253,12 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("5. GENEVA (Mathematical Beauty)")
 
     if choice_override is not None and str(choice_override).strip():
-        choice = str(choice_override).strip()
-        print(f"\n[DEBUG] Model selected via API args: {choice}")
+        raw_choice = str(choice_override).strip()
+        choice = normalize_model_choice(raw_choice)
+        print(f"\n[DEBUG] Model selected via API args: {raw_choice} -> {choice or 'invalid'}")
     else:
         try:
-            choice = input("\nSelect Model [1-5]: ").strip()
+            choice = normalize_model_choice(input("\nSelect Model [1-5]: ").strip())
         except KeyboardInterrupt:
             print("\nExiting script...")
             return
