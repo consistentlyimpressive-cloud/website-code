@@ -10601,6 +10601,11 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
         </div>
       </div>
 
+
+      <div className="mb-6 rounded-xl border border-red-500 bg-red-500/15 px-4 py-3 text-center font-sans text-sm font-black uppercase tracking-[0.28em] text-red-300 shadow-[0_0_24px_rgba(239,68,68,0.25)]">
+        CODEX LIVE ADMIN MARKER - MODEL FIX DEPLOY PATH CHECK - 2026-05-18
+      </div>
+
       {error && <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-sans">{error}</div>}
 
       {stats && (
