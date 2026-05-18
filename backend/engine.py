@@ -266,9 +266,6 @@ def get_clinical_biometrics(img_path):
         philtrum_h_px = abs(lms[p["subnasale"]][1] - lms[p["top_lip"]][1])
         lip_h_px = abs(lms[p["top_lip"]][1] - lms[p["bot_lip"]][1])
         eye_h_px = get_dist("eye_r_top", "eye_r_bot")
-        eye_width_r_px = abs(lms[p["eye_r_out"]][0] - lms[p["eye_r_in"]][0])
-        eye_width_l_px = abs(lms[p["eye_l_out"]][0] - lms[p["eye_l_in"]][0])
-        eye_width_px = (eye_width_r_px + eye_width_l_px) / 2.0
         brow_comp_px = abs(lms[p["pupil_r"]][1] - lms[p["brow_r_low"]][1])
 
         eye_dx = lms[p["eye_r_out"]][0] - lms[p["eye_r_in"]][0]
@@ -314,10 +311,6 @@ def get_clinical_biometrics(img_path):
         
         cv2.line(img_r, tuple(lms[p["eye_r_top"]].astype(int)), tuple(lms[p["eye_r_bot"]].astype(int)), (255, 0, 255), t)
         cv2.line(img_r, tuple(lms[p["pupil_r"]].astype(int)), (int(lms[p["pupil_r"]][0]), int(lms[p["brow_r_low"]][1])), (255, 255, 0), t)
-        eye_r_y = int((lms[p["eye_r_in"]][1] + lms[p["eye_r_out"]][1]) / 2.0)
-        eye_l_y = int((lms[p["eye_l_in"]][1] + lms[p["eye_l_out"]][1]) / 2.0)
-        cv2.line(img_r, (int(lms[p["eye_r_in"]][0]), eye_r_y), (int(lms[p["eye_r_out"]][0]), eye_r_y), (255, 150, 0), t)
-        cv2.line(img_r, (int(lms[p["eye_l_out"]][0]), eye_l_y), (int(lms[p["eye_l_in"]][0]), eye_l_y), (255, 150, 0), t)
 
         x_start, x_end = int(lms[p["zygo_r"]][0]), int(lms[p["zygo_l"]][0])
         cv2.line(img_r, (x_start, int(lms[p["hairline"]][1])), (x_end, int(lms[p["hairline"]][1])), (255, 255, 255), 1)
@@ -359,7 +352,6 @@ METADATA:
 
 [3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
 ------------------------------------------------------------
-- Eye_Width_Index (Horizontal): {round(eye_width_px/zygo_w, 3)}
 - Eye_Height_Index:         {round(eye_h_px/zygo_w, 3)}
 - Brow_Compactness_Index (distance from center of eye to bottom of brow): {round(brow_comp_px/zygo_w, 3)}
 - Philtrum_Height_Index:    {round(philtrum_h_px/zygo_w, 3)}
