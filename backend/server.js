@@ -9,6 +9,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 require('dotenv').config();
 const rateLimit = require('express-rate-limit');
 const { parseAnalysisOutput } = require('./parse-analysis-output');
+const { normalizeScanModelChoice, describeAvailableScanModels } = require('./scan-models');
 const adminStore = require('./admin-store');
 const {
   shouldSkipFirebaseStorage,
@@ -3695,18 +3696,20 @@ async function extractUserOptional(req, res, next) {
 
 /** Ultra models require Firebase auth + either a premium plan or at least one scan credit. */
 async function verifyUltraAccess(req, res, next) {
-  const requestedModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
-  const modelChoice = requestedModelChoice === '1' ? '6' : requestedModelChoice;
-  if (req.body && requestedModelChoice === '1') {
-    req.body.choice = '6';
-    req.body.model = '6';
-  }
-  const allowedModelChoices = new Set(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13']);
-  if (!allowedModelChoices.has(modelChoice)) {
+  const rawModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
+  const normalizedModelChoice = normalizeScanModelChoice(rawModelChoice);
+  if (!normalizedModelChoice) {
     return res.status(400).json({
       success: false,
-      error: 'Invalid AI model selected. Please choose an available scan model.',
+      error: `Invalid AI model selected. Please choose an available scan model: ${describeAvailableScanModels()}.`,
     });
+  }
+  const modelChoice = normalizedModelChoice === '1' ? '6' : normalizedModelChoice;
+  req.scanModelChoice = modelChoice;
+  req.rawScanModelChoice = rawModelChoice;
+  if (req.body) {
+    req.body.choice = modelChoice;
+    req.body.model = modelChoice;
   }
   const isUltra = PREMIUM_MODEL_CHOICES.has(modelChoice);
   if (!isUltra) {
@@ -3869,8 +3872,15 @@ app.post(
     const sideFile = req.files && req.files['sideImage'] && req.files['sideImage'][0];
     const sideImagePath = sideFile ? sideFile.path : '';
     const statsJson = req.body.stats;
-    const requestedModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
-    const modelChoice = requestedModelChoice === '1' ? '6' : requestedModelChoice;
+    const rawModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
+    const normalizedModelChoice = req.scanModelChoice || normalizeScanModelChoice(rawModelChoice);
+    if (!normalizedModelChoice) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid AI model selected. Please choose an available scan model: ${describeAvailableScanModels()}.`,
+      });
+    }
+    const modelChoice = normalizedModelChoice === '1' ? '6' : normalizedModelChoice;
     const shouldRunSplitReport = PREMIUM_MODEL_CHOICES.has(modelChoice);
     const scanRequestId =
       String(req.body.scanRequestId || '').trim() ||
@@ -3883,7 +3893,7 @@ app.post(
     const sideFallbackUrl = getLocalUploadUrl(req, sideImagePath);
 
     console.log('\n========== PY ENGINE (this same terminal: npm start in /backend) ==========');
-    console.log(`[api/analyze] image=${imagePath} sideImage=${sideImagePath || 'none'} model=${modelChoice}`);
+    console.log(`[api/analyze] image=${imagePath} sideImage=${sideImagePath || 'none'} model=${modelChoice} rawModel=${rawModelChoice || req.rawScanModelChoice || 'none'}`);
     console.log('All Python stdout/stderr from final_engine.py appears below until "Python process closed".\n');
 
     const analysisStartTime = Date.now();
