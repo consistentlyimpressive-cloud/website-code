@@ -166,6 +166,7 @@ const QWEN_HEALTH_CACHE_MS = Number(process.env.QWEN_HEALTH_CACHE_MS || 2 * 60 *
 const OPENROUTER_API_KEY = String(process.env.OPENROUTER_API_KEY || '').trim();
 const OPENROUTER_QWEN_TEST_MODEL_ID = String(process.env.OPENROUTER_QWEN_TEST_MODEL_ID || 'qwen/qwen2.5-vl-72b-instruct').trim();
 const PREMIUM_MODEL_CHOICES = new Set(['1', '2', '6', '7', '8', '9', '10', '11', '12', '13']);
+const ADMIN_ONLY_MODEL_CHOICES = new Set(['10', '11', '12', '13']);
 const QWEN_HEALTH_TEST_IMAGE_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9lJawAAAAASUVORK5CYII=';
 const qwenHealthCache = {
@@ -3741,6 +3742,13 @@ async function verifyUltraAccess(req, res, next) {
     email === 'serenity.eyb@gmail.com' ||
     email === 'laithbu07@gmail.com' ||
     email === 'laithabuamsheh@gmail.com';
+
+  if (ADMIN_ONLY_MODEL_CHOICES.has(modelChoice) && !isAdminEmail) {
+    return res.status(403).json({
+      success: false,
+      error: 'This model is admin-only.',
+    });
+  }
 
   if (isAdminEmail) {
     req.ultraContext = { uid, plan: 'pro', source: 'admin-email-bypass' };
