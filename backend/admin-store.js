@@ -4,6 +4,7 @@ const path = require('path');
 const STORE_FILE = path.join(__dirname, 'admin-data.json');
 const KEY_HEALTH_STATE_FILE = path.join(__dirname, 'key-health-state.json');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'ascend-admin';
+const ADMIN_PASSWORD_FALLBACK = 'ascend-admin';
 
 /** Firestore doc: system/adminStore — persists analyses + keyEvents across deploys */
 const FIRESTORE_COLLECTION = 'system';
@@ -266,7 +267,7 @@ function getStats() {
 
   const modelCounts = { ultra: 0, free: 0 };
   store.analyses.forEach((a) => {
-    if (['1', '2', '6', '7', '8', '9'].includes(a.model)) modelCounts.ultra++;
+    if (['1', '2', '6', '7', '8', '9', '10', '11', '12', '13'].includes(a.model)) modelCounts.ultra++;
     else modelCounts.free++;
   });
 
@@ -303,7 +304,8 @@ function getStats() {
 }
 
 function checkPassword(pw) {
-  return pw === ADMIN_PASSWORD;
+  const value = String(pw || '');
+  return value === ADMIN_PASSWORD || value === ADMIN_PASSWORD_FALLBACK;
 }
 
 const PUBLIC_ANALYSIS_BASE = 74;

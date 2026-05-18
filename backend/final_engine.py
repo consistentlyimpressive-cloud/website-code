@@ -75,6 +75,7 @@ def compact_metric_summary(clinical_data, side_data=None, max_side_chars=1800):
         "Upper_Third_Length",
         "Middle_Third_Length",
         "Lower_Third_Length",
+        "Eye_Width_Index (Horizontal)",
         "Eye_Height_Index",
         "Brow_Compactness_Index (distance from center of eye to bottom of brow)",
         "Philtrum_Height_Index",
@@ -149,9 +150,10 @@ except ImportError:
 
 try:
     from openai import OpenAI
-    print("[DEBUG] OpenAI SDK Loaded.")
+    print("[DEBUG] OpenRouter/OpenAI SDK Loaded.")
 except ImportError:
-    print("[DEBUG] OpenAI SDK MISSING. Run: pip install openai")
+    OpenAI = None
+    print("[DEBUG] OpenRouter/OpenAI SDK MISSING. Run: pip install openai")
 
 # Internal Module Imports
 try:
@@ -186,10 +188,23 @@ GEMINI_31_PRO_KEYS = [
     ("GEMINI_3_1_PRO_API_KEY", (os.getenv("GEMINI_3_1_PRO_API_KEY") or "").strip())
 ]
 GEMINI_31_PRO_KEYS = [(label, key) for label, key in GEMINI_31_PRO_KEYS if key]
+OPENROUTER_API_KEY = (os.getenv("OPENROUTER_API_KEY") or "").strip()
+OPENROUTER_QWEN_TEST_MODEL_ID = (os.getenv("OPENROUTER_QWEN_TEST_MODEL_ID") or "qwen/qwen2.5-vl-72b-instruct").strip()
+OPENROUTER_EXPERIMENTAL_MODEL_MAP = {
+    "10": {
+        "model_id": OPENROUTER_QWEN_TEST_MODEL_ID,
+        "friendly_name": "Qwen model (Testing)",
+        "extra_body": {"reasoning": {"effort": "none", "exclude": True}},
+    },
+    "11": {"model_id": "anthropic/claude-sonnet-4.6", "friendly_name": "anthropic/claude-sonnet-4.6"},
+    "12": {"model_id": "openai/gpt-5.4", "friendly_name": "openai/gpt-5.4"},
+    "13": {"model_id": "google/gemini-3.1-pro-preview", "friendly_name": "google/gemini-3.1-pro-preview"},
+}
+OPENROUTER_EXPERIMENTAL_MODEL_CHOICES = set(OPENROUTER_EXPERIMENTAL_MODEL_MAP.keys())
+PREMIUM_MODEL_CHOICES = {"1", "2", "6", "7", "8", "9"} | OPENROUTER_EXPERIMENTAL_MODEL_CHOICES
+PREMIUM_CORE_REPORT_MODEL_CHOICES = {"2", "6", "7", "8", "9"} | OPENROUTER_EXPERIMENTAL_MODEL_CHOICES
 GEMMA_PER_KEY_TIMEOUT_MS = int(os.getenv("GEMMA_PER_KEY_TIMEOUT_MS") or "186000")
 EXPERT_31B_FALLBACK_AFTER_MS = int(os.getenv("EXPERT_31B_FALLBACK_AFTER_MS") or "200000")
-GEMINI_31_PRO_TEST_TIMEOUT_MS = int(os.getenv("GEMINI_31_PRO_TEST_TIMEOUT_MS") or "35000")
-PRO_TEST_GEMMA_FALLBACK_AFTER_MS = int(os.getenv("PRO_TEST_GEMMA_FALLBACK_AFTER_MS") or "90000")
 _raw_disabled_keys = os.getenv("GEMINI_DISABLED_KEYS") or ""
 GEMINI_DISABLED_KEYS = {
     int(part)
@@ -377,6 +392,40 @@ def load_benchmark_calibration_summary():
     return "\n".join(lines)
 
 
+def guess_image_mime_type(path_value):
+    suffix = Path(path_value or "").suffix.lower()
+    if suffix == ".png":
+        return "image/png"
+    if suffix == ".webp":
+        return "image/webp"
+    return "image/jpeg"
+
+
+def extract_openrouter_text_content(content):
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                text = item.strip()
+                if text:
+                    parts.append(text)
+                continue
+            if isinstance(item, dict):
+                text = str(item.get("text") or item.get("content") or "").strip()
+                if text:
+                    parts.append(text)
+                continue
+            text = str(getattr(item, "text", "") or getattr(item, "content", "") or "").strip()
+            if text:
+                parts.append(text)
+        return "\n".join(parts).strip()
+    return str(content).strip()
+
+
 def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=None):
     start_time = time.time()
 
@@ -392,49 +441,35 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             "7": (GEMINI_31_PRO_MODEL_ID, "Premium Model"),
             "8": (GEMINI_31_PRO_MODEL_ID, "Premium Model"),
             "9": ("gemma-4-31b-it", "Premium Model"),
-            "10": (GEMINI_31_PRO_MODEL_ID, "3.1 Pro Test")
+            **{
+                choice_key: (config["model_id"], config["friendly_name"])
+                for choice_key, config in OPENROUTER_EXPERIMENTAL_MODEL_MAP.items()
+            },
         }
 
         if choice not in mapping:
             return "Error: Model selection failed.", "None", 0
 
         model_id, friendly_name = mapping[choice]
-
-        def build_model_attempt(attempt_model_id, attempt_friendly_name, fallback_after_ms=None):
-            is_gemini_31 = str(attempt_model_id).startswith("gemini-3")
-            return {
-                "model_id": attempt_model_id,
-                "friendly_name": attempt_friendly_name,
-                "fallback_after_ms": fallback_after_ms,
-                "keys": GEMINI_31_PRO_KEYS if is_gemini_31 else GOOGLE_GENAI_KEYS,
-                "key_help": "GEMINI_3_1_PRO_API_KEY" if is_gemini_31 else "GEMINI_KEY_1 through GEMINI_KEY_5 for Gemma",
-                "key_pool_label": "Gemini 3.1 Pro" if is_gemini_31 else "Gemma",
-            }
-
-        model_attempts = [build_model_attempt(model_id, friendly_name)]
+        openrouter_model_config = OPENROUTER_EXPERIMENTAL_MODEL_MAP.get(choice, {})
+        model_attempts = [(model_id, friendly_name, None)]
         if choice == "6":
             model_attempts = [
-                build_model_attempt(model_id, friendly_name, EXPERT_31B_FALLBACK_AFTER_MS),
-                build_model_attempt("gemma-4-26b-a4b-it", f"{friendly_name} fallback"),
-            ]
-        elif choice == "10":
-            model_attempts = [
-                build_model_attempt(GEMINI_31_PRO_MODEL_ID, friendly_name, GEMINI_31_PRO_TEST_TIMEOUT_MS),
-                build_model_attempt("gemma-4-31b-it", f"{friendly_name} Gemma fallback", PRO_TEST_GEMMA_FALLBACK_AFTER_MS),
-                build_model_attempt("gemma-4-26b-a4b-it", f"{friendly_name} backup fallback"),
+                (model_id, friendly_name, EXPERT_31B_FALLBACK_AFTER_MS),
+                ("gemma-4-26b-a4b-it", f"{friendly_name} fallback", None),
             ]
 
         print(f"[DEBUG] Consulting {friendly_name}... (Press Ctrl+C to Cancel)")
-        provider_errors = []
-        provider_error_texts = []
         analysis_phase = (os.getenv("MOGCHECK_ANALYSIS_PHASE") or "full").strip().lower()
         request_type = "protocol" if analysis_phase == "report" else analysis_phase
         scan_id = os.getenv("MOGCHECK_SCAN_REQUEST_ID") or None
-        include_image = not (choice in {"2", "6", "7", "8", "9", "10"} and analysis_phase == "report")
+        include_image = not (choice in PREMIUM_CORE_REPORT_MODEL_CHOICES and analysis_phase == "report")
         max_output_tokens = None
         if choice in {"2", "6", "9"}:
             max_output_tokens = 1400 if analysis_phase == "report" else 1500
-        elif choice in {"7", "8", "10"}:
+        elif choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
+            max_output_tokens = 1800 if analysis_phase == "report" else 2600
+        elif choice in {"7", "8"}:
             # Gemini 3.x can spend a large part of maxOutputTokens on hidden thinking.
             # Give it more visible room and cap thinking so the JSON is not truncated.
             max_output_tokens = 2400 if analysis_phase == "report" else 4096
@@ -444,26 +479,158 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             if side_img_path and os.path.exists(side_img_path):
                 estimated_input_tokens += estimate_image_tokens(side_img_path)
 
-        for model_attempt_number, model_attempt in enumerate(model_attempts, start=1):
-            attempt_model_id = model_attempt["model_id"]
-            attempt_friendly_name = model_attempt["friendly_name"]
-            fallback_after_ms = model_attempt["fallback_after_ms"]
+        if choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
+            provider_error_label = (
+                "OpenRouter Qwen testing model"
+                if choice == "10"
+                else f"OpenRouter experimental model {friendly_name}"
+            )
+            if OpenAI is None:
+                return (
+                    f"Error: {provider_error_label} requires the Python openai package. Run: pip install openai",
+                    friendly_name,
+                    0,
+                )
+            if not OPENROUTER_API_KEY or not model_id:
+                return (
+                    f"Error: {provider_error_label} is not configured. Add OPENROUTER_API_KEY and the model id configuration to backend/.env.",
+                    friendly_name,
+                    0,
+                )
+            attempt_started_at = time.time()
+            try:
+                client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
+                content = [{"type": "text", "text": unified_prompt}]
+                if include_image:
+                    with open(img_path, "rb") as f:
+                        front_base64 = base64.b64encode(f.read()).decode("utf-8")
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{guess_image_mime_type(img_path)};base64,{front_base64}"},
+                    })
+                if include_image and side_img_path and os.path.exists(side_img_path):
+                    with open(side_img_path, "rb") as f:
+                        side_base64 = base64.b64encode(f.read()).decode("utf-8")
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{guess_image_mime_type(side_img_path)};base64,{side_base64}"},
+                    })
+                request_kwargs = {
+                    "model": model_id,
+                    "messages": [{"role": "user", "content": content}],
+                    "temperature": 0,
+                    "max_tokens": max_output_tokens,
+                    "timeout": 240,
+                }
+                extra_body = openrouter_model_config.get("extra_body")
+                if extra_body:
+                    request_kwargs["extra_body"] = extra_body
+                res = client.chat.completions.create(**request_kwargs)
+                usage = getattr(res, "usage", None)
+                prompt_tokens = usage_value(usage, "prompt_tokens")
+                output_tokens = usage_value(usage, "completion_tokens")
+                total_tokens = usage_value(usage, "total_tokens")
+                output_text = ""
+                if getattr(res, "choices", None):
+                    first_choice = res.choices[0]
+                    message = getattr(first_choice, "message", None)
+                    output_text = extract_openrouter_text_content(getattr(message, "content", ""))
+                    if not output_text:
+                        output_text = extract_openrouter_text_content(getattr(first_choice, "text", ""))
+                if output_text:
+                    log_token_usage({
+                        "scan_id": scan_id,
+                        "request_type": request_type,
+                        "provider": "openrouter",
+                        "model": model_id,
+                        "key_index": "OPENROUTER_API_KEY",
+                        "attempt_number": 1,
+                        "success": True,
+                        "duration_ms": int((time.time() - attempt_started_at) * 1000),
+                        "input_token_count": prompt_tokens,
+                        "output_token_count": output_tokens,
+                        "total_token_count": total_tokens,
+                        "estimated_input_tokens": estimated_input_tokens,
+                        "max_output_tokens": max_output_tokens,
+                        "image_included": include_image,
+                    })
+                    duration = round(time.time() - start_time, 2)
+                    return output_text, friendly_name, duration
+                log_token_usage({
+                    "scan_id": scan_id,
+                    "request_type": request_type,
+                    "provider": "openrouter",
+                    "model": model_id,
+                    "key_index": "OPENROUTER_API_KEY",
+                    "attempt_number": 1,
+                    "success": False,
+                    "duration_ms": int((time.time() - attempt_started_at) * 1000),
+                    "error": "empty model response",
+                    "estimated_input_tokens": estimated_input_tokens,
+                    "max_output_tokens": max_output_tokens,
+                    "image_included": include_image,
+                })
+                try:
+                    raw_content = getattr(res.choices[0].message, "content", None) if getattr(res, "choices", None) else None
+                    print(f"[OPENROUTER_QWEN] Empty response content type: {type(raw_content).__name__}")
+                    print(f"[OPENROUTER_QWEN] Empty response preview: {str(raw_content)[:400]}")
+                except Exception:
+                    pass
+                duration = round(time.time() - start_time, 2)
+                return f"Error: {provider_error_label} returned an empty response.", friendly_name, duration
+            except Exception as e:
+                short_error = str(e).replace("\n", " ").strip()[:260] or "Unknown provider error"
+                log_token_usage({
+                    "scan_id": scan_id,
+                    "request_type": request_type,
+                    "provider": "openrouter",
+                    "model": model_id,
+                    "key_index": "OPENROUTER_API_KEY",
+                    "attempt_number": 1,
+                    "success": False,
+                    "duration_ms": int((time.time() - attempt_started_at) * 1000),
+                    "error": short_error,
+                    "estimated_input_tokens": estimated_input_tokens,
+                    "max_output_tokens": max_output_tokens,
+                    "image_included": include_image,
+                })
+                duration = round(time.time() - start_time, 2)
+                return f"Error: {provider_error_label} failed. {short_error}", friendly_name, duration
+
+        if choice == "6":
+            available_keys = GOOGLE_GENAI_KEYS
+            key_help = "GEMINI_KEY_1 through GEMINI_KEY_5 for Gemma"
+        elif choice in {"7", "8"}:
+            available_keys = GEMINI_31_PRO_KEYS
+            key_help = "GEMINI_3_1_PRO_API_KEY"
+        else:
+            available_keys = GOOGLE_GENAI_KEYS
+            key_help = "GEMINI_KEY_1 or more keys for Gemma"
+        if not available_keys:
+            return (
+                f"Error: No Google GenAI keys are configured in backend/.env. Add {key_help}.",
+                friendly_name,
+                0,
+            )
+
+        provider_errors = []
+        provider_error_texts = []
+        key_attempts = _healthy_key_attempts(available_keys)
+        random.shuffle(key_attempts)
+        if not key_attempts:
+            return (
+                "Error: No healthy Google GenAI/Gemma keys are available. All keys are disabled or quarantined.",
+                friendly_name,
+                0,
+            )
+        key_pool_label = "Gemma" if choice not in {"7", "8"} else "Gemini 3.1 Pro"
+        print(f"[DEBUG] {key_pool_label} key order this scan: {', '.join(_key_label(index) for index, _ in key_attempts)}")
+
+        for model_attempt_number, (attempt_model_id, attempt_friendly_name, fallback_after_ms) in enumerate(model_attempts, start=1):
             if model_attempt_number > 1:
-                if choice != "10" and (not provider_error_texts or not all(_is_transient_provider_error(error) for error in provider_error_texts)):
+                if not provider_error_texts or not all(_is_transient_provider_error(error) for error in provider_error_texts):
                     break
-                print(f"[DEBUG] {friendly_name} hit transient failures or timeout budget; trying {attempt_model_id} fallback.")
-            available_keys = model_attempt["keys"]
-            if not available_keys:
-                provider_errors.append(f"{attempt_friendly_name}: missing keys ({model_attempt['key_help']})")
-                provider_error_texts.append("missing keys")
-                continue
-            key_attempts = _healthy_key_attempts(available_keys)
-            random.shuffle(key_attempts)
-            if not key_attempts:
-                provider_errors.append(f"{attempt_friendly_name}: no healthy keys available")
-                provider_error_texts.append("no healthy keys available")
-                continue
-            print(f"[DEBUG] {model_attempt['key_pool_label']} key order this scan: {', '.join(_key_label(index) for index, _ in key_attempts)}")
+                print(f"[DEBUG] Premium Model 31B hit transient failures or the {EXPERT_31B_FALLBACK_AFTER_MS / 1000:.0f}s budget; trying {attempt_model_id} fallback.")
             model_started_at = time.time()
 
             for attempt_number, (key_index, key) in enumerate(key_attempts, start=1):
@@ -609,25 +776,28 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("7. Premium Model")
     print("8. Premium Model")
     print("9. Premium Model")
-    print("10. 3.1 Pro Test")
+    print("10. Qwen model (Testing)")
+    print("11. anthropic/claude-sonnet-4.6")
+    print("12. openai/gpt-5.4")
+    print("13. google/gemini-3.1-pro-preview")
 
     if choice_override is not None and str(choice_override).strip():
         choice = str(choice_override).strip()
         print(f"\n[DEBUG] Model selected via API args: {choice}")
     else:
         try:
-            choice = input("\nSelect Model [1, 2, 3-5]: ").strip()
+            choice = input("\nSelect Model [1-13]: ").strip()
         except KeyboardInterrupt:
             print("\nExiting script...")
             return
 
-    if choice not in {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}:
+    if choice not in {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"}:
         print(f"[ERROR] Invalid model choice: {choice}")
         return "Error: Model selection failed."
 
     # --- SIDE PROFILE DATA COLLECTION ---
     side_data = "IGNORE_SIDE_ANALYSIS"
-    if choice in {"1", "2", "6", "7", "8", "9", "10"}:
+    if choice in PREMIUM_MODEL_CHOICES:
         print("[ðŸš€] Gathering Lateral Data from engineside.py...")
         if side_img_path and os.path.exists(side_img_path):
             try:
@@ -637,7 +807,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         else:
             side_data = "IGNORE_SIDE_ANALYSIS"
     has_side_profile = bool(
-        choice in {"1", "2", "6", "7", "8", "9", "10"} and side_img_path and os.path.exists(side_img_path) and side_data != "IGNORE_SIDE_ANALYSIS"
+        choice in PREMIUM_MODEL_CHOICES and side_img_path and os.path.exists(side_img_path) and side_data != "IGNORE_SIDE_ANALYSIS"
     )
     side_prompt_policy = """
         FRONT-ONLY MODE:
@@ -742,10 +912,10 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
     """ if False else ""
     prompt_clinical_data = clinical_data
     prompt_side_data = side_data
-    benchmark_calibration_summary = load_benchmark_calibration_summary() if choice in {"2", "6", "7", "8", "9", "10"} else ""
+    benchmark_calibration_summary = load_benchmark_calibration_summary() if choice in PREMIUM_CORE_REPORT_MODEL_CHOICES else ""
 
     # --- PROMPT SELECTION LOGIC ---
-    if choice in {"2", "6", "7", "8", "9", "10"}:
+    if choice in PREMIUM_CORE_REPORT_MODEL_CHOICES:
         compact_metrics = compact_metric_summary(prompt_clinical_data, prompt_side_data)
         legacy_experimental_prompt = f"""
         You are MogCheck Premium Backup Model.
@@ -934,8 +1104,8 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         """
         calibration_preserving_prompt = f"""
         You are MogCheck Premium Experimental Calibration-Preserving Core.
-        {("This run uses Premium Model reasoning calibration." if choice in {"6", "7", "10"} else "")}
-        {(gemini_31_calibration_patch if choice in {"6", "7", "10"} else "")}
+        {("This run uses Premium Model reasoning calibration." if choice in {"6", "7"} else "")}
+        {(gemini_31_calibration_patch if choice in {"6", "7"} else "")}
         Produce the first dashboard result only. This is a lower-token Premium core request, not a softer model.
 
         INPUT A (Compact Frontal/Side Metrics JSON): {compact_metrics}
@@ -981,6 +1151,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - Midface_Ratio: 0.95-1.05 strongest/near-ideal with 1.00 as the peak; this should usually score about 90-100. 1.00-1.02 must not be listed as a flaw. 0.90-0.95 or 1.05-1.10 is acceptable/light concern only if visually supported. Above 1.10 is long, above 1.18 severe, below 0.90 compressed.
         - Upper_Third_Length: 0.34-0.43 balanced, above 0.46 long, above 0.52 severe, below 0.30 compressed. If hair/bangs/hat/hood/shadow/crop hides the hairline, ignore the raw number and visually estimate from forehead/temple/hair direction.
         - Middle_Third_Length: 0.40-0.50 balanced, above 0.54 elongated, above 0.60 severe, below 0.36 compressed. Lower_Third_Length: 0.42-0.52 balanced, below 0.38 short, above 0.56 long, above 0.62 severe.
+        - Eye_Width_Index (Horizontal): around 0.20-0.24 is generally balanced/strong, below about 0.18 reads short/small, above about 0.26 can read overly long only if visually disharmonious. Judge with eye shape and orbital support, not in isolation.
         - Eye_Height_Index: 0.055-0.075 balanced, below 0.045 narrow/squinty, above 0.085 overly round/exposed. Brow_Compactness_Index: 0.08-0.12 balanced, above 0.14 high brow/poor compactness, below 0.06 overly compressed/heavy.
         - Philtrum_Height_Index: 0.08-0.11 balanced, around 0.095 ideal, above 0.12 long, above 0.14 severe, below 0.07 short, below 0.055 very short. Do not mark balanced philtrums as long.
         - Total_Lip_Height_Index: 0.12-0.18 balanced, below 0.10 thin, below 0.08 very thin, above 0.22 overly large only if visually disharmonious. Penalize thin/inconspicuous lips when obvious.
@@ -1052,7 +1223,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - finalRating must be calibrated before writing any descriptions. The debugJustification should explain why the exact score is logical, what capped it, and why it is not higher/lower.
         - Return 12-20 keyRatios; prefer exactly 16 for normal frontal images, 18-20 when side profile adds real information. If a metric is visual-only, set value to a concise visual estimate.
         - Every keyRatios item must include name, value, score 0-100, impact, and a short face-specific note. Do not return only 2-5 metrics.
-        - Required metric coverage when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, Hairstyle and Grooming as a visual-only score. Add mouth width, philtrum/lips, brow compactness, side convexity, neck-jaw transition, or hyoid when relevant.
+        - Required metric coverage when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, eye width, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, Hairstyle and Grooming as a visual-only score. Add mouth width, philtrum/lips, brow compactness, side convexity, neck-jaw transition, or hyoid when relevant.
         - Return top 3-5 strengths and 3-5 weaknesses. Weaknesses must identify real bottlenecks and not random minor flaws. If uncanny/overbuilt, at least one weakness and mainLimitingFactor must say so.
         - pros/cons should be short scan-specific bullets and not duplicate strengths/flaws verbatim.
         - technicalSummary, appealAssessment, and personalizedInterpretation should be concise but not empty or fake. Keep them dashboard-ready.
@@ -1158,7 +1329,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         }}
         Limits: bestFeatures exactly 5 when possible. primaryFlaws exactly 5 when possible. keyRatios 12-20. pros 3-5. cons 3-5. Keep text concise.
         """
-        elif choice == "9":
+        elif choice in {"9"} | OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
             side_profile_metadata = (
                 str(prompt_side_data).strip()
                 if has_side_profile and prompt_side_data
@@ -1209,7 +1380,22 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
            - Deep brow support and low eyebrow setedness should not be required to reach 70/100, especially in faces with good harmony or faces whose appeal leans more toward good harmony than striking dimorphism. Examples: Cha Eun-woo, Haruma Miura.
            - Critique nose shape based on refinement. For African phenotypes, penalize a lack of bridge definition or excessive alar flaring that disrupts harmony.
         4. GROOMING & STYLING: Hairstyles and beard grooming contribute +/- 5 points. Punish patchy beards, neckbeards, or unkempt, greasy hair.
+        Penalize if hairstyle looks bad, frames the face poorly, has balding signs
         5. PHENOTYPE STANDARDS: For Asian phenotypes, use the "Cha Eun-woo" standard (80) - prioritize extreme skin clarity, orbital compactness, and elegant bone structure.
+                   6. Be stricter when judging nose width and punish exponentially the further it is from ideal. People with african noses tend to be severely overrated. ALso punish if there is a lot of nostril show.
+        Punish exponentially for facial fat the further it is from ideal. >20% body fat should be seen as quite a big flaw. Jaw definition should be related to facial fat - if jaw definition is clearly bad then facial fat
+         cannot be that good either.
+
+        *NEW OVERRIDE: Punish severely for an overly wide african nose. Be a lot stricter on african phenotypes when it comes to nasal width, brow compactness, eyebrow shape and sparseness.
+        Treat visible eyebags, upper eyelid exposure, not deep set eyes, almond shaped eyes, low brow ridge protrusion, flat maxilla, facial fat, as major flaws when it comes to african phenotypes.
+        Be VERY VERY STRICT and deduct HEAVILY. When a subject fits the phenotype i described with those flaws, theres a very high chance they're a 40-55/100 and NOT a >55.
+        you can CONSIDER raising the score past 55 if the subject has at least several of these features: Very good skin, low set eyebrows, thick eyebrows, low facial fat, hunter shaped eyes
+        Do not allow subject to score more than 60 if they have: sparse eyebrows, too wide nose, very bulbous nose, protruding ears, weak brow ridge protrusion, BUT Do not overrate simply because they do not have those features.
+
+        *OVERRIDE 2: Punish harsh ageing signs VERY VERY STRICTLY. Do not give ratings from a "age-relative" perspective (eg. he's a 60/100 because he looks good for his age). You are rating closer to like how
+        attractive the subject would be perceived by 18-30 year olds. Punish for wrinkles, saggy skin, crows feet eyes, saggy neck, balding, etc.
+        *OVERRIDE 3: Be very consistent on philtrum scoring. 0.090-0.100 is ideal and should score very high. 0.080-0.110 is balanced. 0.111-0.120 is mildly long. 0.121-0.140 is clearly long and should score noticeably lower than balanced values. Above 0.140 is severe. 0.070-0.079 is mildly short. Below 0.070 is clearly short. Do not let a clearly long philtrum outscore a balanced one unless the image is ambiguous or the landmark is unreliable. 0.11 and higher are considered flaws and must be rated <50.
+
 
         DASHBOARD OUTPUT ADAPTATION:
         - Return JSON only. No markdown. No prose outside JSON.
@@ -1223,8 +1409,8 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - primaryFlaws should contain exactly 5 entries when possible and should target the biggest visible score limiters. Only target facial fat, nasolabial folds, eyelid/brow issues, skin texture, or unrefined nasal structure when they are actually visible and rating-relevant.
         - Do not invent or overstate "soft tissue fullness" or "lack of sub-zygomatic hollowing" on a lean/defined face. If definition is normal-to-good, keep it neutral and choose a more real limiting factor.
         - keyRatios should list corrected 1-100 ratings from METADATA plus visual reality.
-        - Required metric coverage should match Backup Model when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, Hairstyle and Grooming as a visual-only score, mouth width, philtrum/lips, and brow compactness. Always include Upper Third, Middle Third, and Lower Third as separate keyRatios when the frontal metadata contains them. Add side convexity, neck-jaw transition, and hyoid/cervicomental area when side profile exists.
-        - Do not stop at only fWHR, midface ratio, bigonial width, IPD index, canthal tilt, mouth width, and philtrum height. Fill 16-20 metrics unless impossible.
+        - Required metric coverage should match Backup Model when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, eye width, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, Hairstyle and Grooming as a visual-only score, mouth width, philtrum/lips, and brow compactness. Always include Upper Third, Middle Third, and Lower Third as separate keyRatios when the frontal metadata contains them. Add side convexity, neck-jaw transition, and hyoid/cervicomental area when side profile exists.
+        - Do not stop at only fWHR, midface ratio, bigonial width, IPD index, eye width, canthal tilt, mouth width, and philtrum height. Fill 16-20 metrics unless impossible.
 
         JSON schema:
         {{
@@ -1249,6 +1435,24 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
           "debugJustification":"admin-only reason for the score; explicitly mention Angularity Gate, Skin/Texture Tax, orbital/nasal refinement, grooming adjustment, and phenotype benchmark when relevant"
         }}
         Limits: bestFeatures exactly 5 when possible. primaryFlaws exactly 5 when possible. keyRatios 16-20 unless impossible. pros 3-5. cons 3-5. Keep text concise.
+        """
+            if choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
+                active_prompt += """
+
+        QWEN OUTPUT DENSITY RULES:
+        - Do not be terse. Use full, compact explanations rather than clipped fragments.
+        - technicalSummary must be 45-75 words across 2-3 sentences.
+        - appealAssessment must be 45-75 words.
+        - personalizedInterpretation must be 24-45 words.
+        - Each bestFeatures description must be about 18-28 words.
+        - Each primaryFlaws description must be about 18-28 words.
+        - Each keyRatios note should usually be 12-22 words.
+        - Each pros/cons item should usually be 5-10 words, not 1-3 words.
+
+        QWEN METRIC NAMING RULES:
+        - Use human dashboard labels, never snake_case labels like Bigonial_Width_Index.
+        - Prefer these exact names when applicable: Bigonial Width, IPD Index, Mouth Width, Upper Third, Middle Third, Lower Third, Brow Compactness, Philtrum Height, Eye Width, Eye Width Index (Horizontal), Canthal Tilt, Nose Width Index, Total Lip Height Index, Chin Support (Visual), Eye Shape/UEE (Visual), Skin Texture (Visual), Facial Fat (Visual), Symmetry (Visual), Maxillary Projection (Visual).
+        - Always include the four Other Ratios metrics when visible: Skin Texture (Visual), Facial Fat (Visual), Symmetry (Visual), Maxillary Projection (Visual).
         """
     elif choice == "1":
         active_prompt = f"""
@@ -1352,6 +1556,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
            Upper_Third_Length: 0.34-0.43 is balanced, above 0.46 is long, above 0.52 is severe, below 0.30 is compressed. If hair, bangs, hats, hood, shadow, or cropping covers the hairline, disregard the MediaPipe Upper_Third_Length number, visually estimate where the hairline would naturally sit from visible forehead shape/temples/hair direction, and rate Upper_Third_Length from that visual estimate instead.
            Middle_Third_Length: 0.40-0.50 is balanced, above 0.54 is elongated, above 0.60 is severe, below 0.36 is compressed.
            Lower_Third_Length: 0.42-0.52 is balanced, below 0.38 is short, above 0.56 is long, above 0.62 is severe.
+           Eye_Width_Index (Horizontal): around 0.20-0.24 is balanced/strong, below about 0.18 is short/small, and above about 0.26 is overly long only if it visibly hurts harmony.
            Eye_Height_Index: 0.055-0.075 is balanced, below 0.045 is narrow/squinty, above 0.085 is overly round/exposed.
            Brow_Compactness_Index: 0.08-0.12 is balanced, above 0.14 means high brow/poor compactness, below 0.06 means overly compressed/heavy.
            Philtrum_Height_Index: 0.08-0.11 is balanced, around 0.095 is ideal, above 0.12 is long, above 0.14 is severe, below 0.07 is short, and below 0.055 is very short.
@@ -1540,6 +1745,8 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
            - Visible baldness, severe recession, diffuse thinning, or a weak/high hairline should count as an aging/presentation penalty when it noticeably worsens facial framing.
 
 
+
+
         OUTPUT FORMAT:
         ### ANALYSIS [SEX]
         **Final Frontal Rating: [Score]/100**
@@ -1615,7 +1822,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         If the face falls into the UNCANNY / SYNTHETIC / OVERBUILT bucket, at least 2 of the PRIMARY FLAWS must explicitly mention things like Synthetic / Uncanny Look, Over-aggressive Dimorphism, Overbuilt Lower Third, Over-stylized Eye Area, Brutalist Aesthetic, or Artificial Harmony.
         If the face is uncanny / overbuilt, the #1 WORST FEATURE should point to that unnatural / synthetic / over-aggressive trait rather than a random minor flaw.
         ### RATINGS (USE THIS)
-        [Look at the following data from INPUT A (mog_report) and rate them from 1-100 using the global baseline curves above, with ethnicity/sex tolerance adjustments. If hair, bangs, hats, hood, cropping, or shadow covers the hairline, ignore the MediaPipe Upper_Third_Length number and visually estimate the natural hairline position before scoring Upper_Third_Length. For Bigonial_Width_Index, score on a curve: around 0.87 should be in the 80s, the score should approach 100 near 0.98, below 0.75 is a flaw, and above 1.05 deducts for over-width/blockiness. For IPD_Index (Geometric), score around 0.46 closest to 100, keep 0.44-0.48 acceptable-to-good, below 0.44 close-set, and above 0.48 wide-set. For Mouth_Width_Index, score around 0.37 closest to 100, keep 0.36-0.38 acceptable-to-ideal, below 0.36 narrow, and above 0.38 overly wide.]
+        [Look at the following data from INPUT A (mog_report) and rate them from 1-100 using the global baseline curves above, with ethnicity/sex tolerance adjustments. If hair, bangs, hats, hood, cropping, or shadow covers the hairline, ignore the MediaPipe Upper_Third_Length number and visually estimate the natural hairline position before scoring Upper_Third_Length. For Bigonial_Width_Index, score on a curve: around 0.87 should be in the 80s, the score should approach 100 near 0.98, below 0.75 is a flaw, and above 1.05 deducts for over-width/blockiness. For IPD_Index (Geometric), score around 0.46 closest to 100, keep 0.44-0.48 acceptable-to-good, below 0.44 close-set, and above 0.48 wide-set. For Eye_Width_Index (Horizontal), score around 0.20-0.24 strongest, below about 0.18 short/small, and above about 0.26 only negative if visually disharmonious. For Mouth_Width_Index, score around 0.37 closest to 100, keep 0.36-0.38 acceptable-to-ideal, below 0.36 narrow, and above 0.38 overly wide.]
         - Bigonial_Width_Index: [Score]/100
         - IPD_Index (Geometric): [Score]/100
         - Mouth_Width_Index: [Score]/100
@@ -1623,6 +1830,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - Upper_Third_Length: [Score]/100
         - Middle_Third_Length: [Score]/100
         - Lower_Third_Length: [Score]/100
+        - Eye_Width_Index (Horizontal): [Score]/100
         - Eye_Height_Index: [Score]/100
         - Brow_Compactness_Index: [Score]/100
         - Philtrum_Height_Index: [Score]/100
@@ -1746,11 +1954,11 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
             """
 
     analysis_phase = (os.getenv("MOGCHECK_ANALYSIS_PHASE") or "full").strip().lower()
-    if choice in {"2", "6", "7", "8", "9", "10"} and analysis_phase == "report":
+    if choice in PREMIUM_CORE_REPORT_MODEL_CHOICES and analysis_phase == "report":
         core_analysis = read_text_context(os.getenv("MOGCHECK_CORE_ANALYSIS_PATH"), 9000)
         active_prompt = f"""
         You are MogCheck Premium Backup Model.
-        {("This run uses Premium Model reasoning calibration." if choice in {"6", "7", "8", "9", "10"} else "")}
+        {("This run uses Premium Model reasoning calibration." if choice in {"6", "7", "8", "9"} | OPENROUTER_EXPERIMENTAL_MODEL_CHOICES else "")}
         Generate ONLY the delayed protocols and personalized feedback for an already-scored scan.
 
         LOCKED_CORE_RESULT:
@@ -1776,6 +1984,16 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
           "reportDebugJustification":"one compact sentence confirming protocols align with locked core result"
         }}
         Limits: exactly 5 personalizedFeedback items, exactly 20 protocols. Each description max 26 words.
+        """
+        if choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
+            active_prompt += """
+
+        QWEN DELAYED REPORT DENSITY RULES:
+        - Do not be terse or skeletal.
+        - Each personalizedFeedback description should usually land around 20-26 words.
+        - Each protocol description should usually land around 20-26 words.
+        - reportDebugJustification should be one complete sentence of about 18-30 words.
+        - Keep every item specific to the locked weaknesses, but fill the available space with real detail.
         """
     elif choice == "1" and analysis_phase == "core":
         feedback_marker = "### Personalised feedback"
