@@ -7546,16 +7546,18 @@ const HexagonStats = ({ radarData4, radarData5, finalScore }) => {
       </div>
 
       {/* Stats Overlay Layer */}
-      <div className={`absolute inset-0 flex flex-col justify-center p-4 gap-2.5 transition-all duration-500 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+      <div className={`absolute inset-0 flex items-center justify-center p-4 transition-all duration-500 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+        <div className="flex w-[82%] max-w-[11.5rem] flex-col gap-2 rounded-xl border border-zinc-800/80 bg-[#0c0d0e]/88 p-3 shadow-[0_16px_36px_rgba(0,0,0,0.32)] backdrop-blur-md">
         {radarData4.map((item) => {
-          const scoreTone = getRatingToneClasses(item.val * 10);
+          const itemScore = Math.max(0, Math.min(10, Number(item.val) || 0));
+          const scoreTone = getRatingToneClasses(itemScore * 10);
           return (
           <div key={item.label} className="flex flex-col">
-            <div className="flex flex-col mb-1 px-0.5">
-              <span className={`text-[6px] font-black uppercase tracking-[0.24em] ${scoreTone.text} opacity-60 mb-0.5`}>Category</span>
+            <div className="flex flex-col mb-0.5 px-px">
+              <span className={`text-[5.5px] font-black uppercase tracking-[0.2em] ${scoreTone.text} opacity-60 mb-0.5`}>Category</span>
               <div className="flex justify-between items-end">
-                <span className="text-[8px] font-black uppercase tracking-[0.13em] text-white/90">{item.label}</span>
-                <span className={`text-[12px] font-black italic ${scoreTone.text}`}>{item.val.toFixed(1)}</span>
+                <span className="text-[7.5px] font-black uppercase tracking-[0.12em] text-white/90">{item.label}</span>
+                <span className={`text-[11px] font-black italic ${scoreTone.text}`}>{itemScore.toFixed(1)}</span>
               </div>
             </div>
             <div
@@ -7565,7 +7567,7 @@ const HexagonStats = ({ radarData4, radarData5, finalScore }) => {
               <div 
                 className="h-full transition-all duration-700 ease-out"
                 style={{
-                  width: isHovered ? `${(item.val / 10) * 100}%` : '0%',
+                  width: isHovered ? `${itemScore * 10}%` : '0%',
                   backgroundColor: scoreTone.stroke,
                   boxShadow: `0 0 10px ${scoreTone.stroke}99`,
                 }}
@@ -7574,6 +7576,7 @@ const HexagonStats = ({ radarData4, radarData5, finalScore }) => {
           </div>
           );
         })}
+        </div>
       </div>
     </div>
   );
