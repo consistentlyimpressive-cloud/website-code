@@ -7558,10 +7558,16 @@ const SecretMogScoreModal = ({ open, onClose, imageUrl, finalScore, metrics }) =
   const overall10 = Math.max(0, Math.min(10, Number(scoreToDisplay10(finalScore)) || 0));
   const overallTone = getRatingToneClasses(overall10 * 10);
   const overallPercent = Math.max(0, Math.min(100, overall10 * 10));
+  const statusScore = Math.round(overallPercent);
   const status =
-    overall10 >= 9 ? 'Elite' :
-    overall10 >= 7 ? 'Good' :
-    overall10 >= 5 ? 'Average' :
+    statusScore >= 95 ? 'Top Tier' :
+    statusScore >= 88 ? 'Elite' :
+    statusScore >= 80 ? 'Very High' :
+    statusScore >= 70 ? 'High' :
+    statusScore >= 63 ? 'Good' :
+    statusScore >= 56 ? 'Above Average' :
+    statusScore >= 50 ? 'Average' :
+    statusScore >= 40 ? 'Below Average' :
     'Low';
   const metricIcons = {
     Skin: Waves,
