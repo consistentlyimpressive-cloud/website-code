@@ -7598,7 +7598,7 @@ const SecretMogScoreModal = ({ open, onClose, imageUrl, finalScore, metrics }) =
             <img
               src={imageUrl}
               alt="Scan target"
-              className="h-full w-full rounded-full object-cover object-top"
+              className="h-full w-full rounded-full object-contain object-center"
             />
           </div>
 
