@@ -7452,6 +7452,7 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
     const { x, y } = getPoint(0.5, i);
     return `${x},${y}`;
   }).join(' ');
+  const chartTone = getRatingToneClasses(finalScore);
 
   return (
     <div className="relative w-full aspect-square">
@@ -7462,7 +7463,7 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
           const { x, y } = getPoint(1, i);
           return <line key={i} x1="50" y1="50" x2={x} y2={y} stroke="#3f3f46" strokeWidth="0.5" />;
         })}
-        <polygon points={points} fill={getRatingToneClasses(finalScore).fill || "rgba(34,211,238,0.2)"} stroke={getRatingToneClasses(finalScore).stroke || "#22d3ee"} strokeWidth="1" style={{ filter: `drop-shadow(0 0 4px ${getRatingToneClasses(finalScore).stroke || "rgba(34,211,238,0.8)"})` }} />
+        <polygon points={points} fill={chartTone.fill || "rgba(34,211,238,0.2)"} stroke={chartTone.stroke || "#22d3ee"} strokeWidth="1" style={{ filter: `drop-shadow(0 0 4px ${chartTone.stroke || "rgba(34,211,238,0.8)"})` }} />
         {data.map((d, i) => {
           const { x, y } = getPoint((d.val * progress) / 10, i);
           return <circle key={i} cx={x} cy={y} r="1.2" fill="#fff" className="drop-shadow-[0_0_4px_rgba(255,255,255,1)]" />;
@@ -7472,13 +7473,13 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
         <div className="absolute inset-0 pointer-events-none">
           {data.map((d, i) => {
             const angle = (Math.PI / 2) + (2 * Math.PI * i / numPoints);
-            const x = 50 + 50 * Math.cos(angle);
-            const y = 50 - 50 * Math.sin(angle);
-          const labelTone = getRatingToneClasses(d.val * 10);
-          return (
+            const labelRadius = 42;
+            const x = 50 + labelRadius * Math.cos(angle);
+            const y = 50 - labelRadius * Math.sin(angle);
+            return (
               <span 
                 key={i} 
-                className={`absolute text-[8px] font-black font-sans uppercase tracking-[0.16em] whitespace-nowrap ${labelTone.text.split(' ')[0]}`}
+                className={`absolute text-[8px] font-black font-sans uppercase tracking-[0.16em] whitespace-nowrap ${chartTone.text.split(' ')[0]}`}
                 style={{
                   left: `${x}%`,
                   top: `${y}%`,
@@ -7491,7 +7492,7 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
           })}
         </div>
       )}
-      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center font-black italic ${getRatingToneClasses(finalScore).text} ${compact ? 'text-sm' : 'text-lg'}`}>
+      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center font-black italic ${chartTone.text} ${compact ? 'text-sm' : 'text-lg'}`}>
         {scoreToDisplay10(finalScore) != null
           ? (scoreToDisplay10(finalScore) * progress).toFixed(1)
           : (data.reduce((a, b) => a + b.val * progress, 0) / data.length).toFixed(1)}
@@ -7515,8 +7516,8 @@ const HexagonStats = ({ radarData4, radarData5, finalScore }) => {
       </div>
 
       {/* Stats Overlay Layer */}
-      <div className={`absolute inset-0 flex items-center justify-center p-4 transition-all duration-500 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-        <div className="flex w-[92%] max-w-[13.75rem] flex-col gap-2 rounded-xl border border-zinc-800/80 bg-[#0c0d0e]/88 px-4 py-3 shadow-[0_16px_36px_rgba(0,0,0,0.32)] backdrop-blur-md">
+      <div className={`absolute inset-0 flex items-center justify-center p-2 transition-all duration-500 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+        <div className="flex w-full max-w-[15.25rem] flex-col gap-2 rounded-xl border border-zinc-800/80 bg-[#0c0d0e]/88 px-4 py-3 shadow-[0_16px_36px_rgba(0,0,0,0.32)] backdrop-blur-md">
         {radarData4.map((item) => {
           const itemScore = Math.max(0, Math.min(10, Number(item.val) || 0));
           const scoreTone = getRatingToneClasses(itemScore * 10);
