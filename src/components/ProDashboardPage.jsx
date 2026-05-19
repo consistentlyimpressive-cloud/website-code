@@ -17,14 +17,48 @@ const clampTextStyle = {
   overflow: 'hidden',
 };
 
+function compactModelKey(model) {
+  return String(model || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^models\//, '')
+    .replace(/\bgemeni\b/g, 'gemini')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function normalizeScanModelChoice(model) {
+  const raw = String(model || '').trim();
+  if (['1', '2', '3', '4', '5', '6', '7', '8', '9', '13', 'official'].includes(raw)) return raw;
+
+  const normalized = compactModelKey(raw);
+  if (!normalized) return '';
+  if (normalized.includes('gemini31pro') || normalized.includes('premium') || normalized.includes('ultra')) return '1';
+  if (normalized.includes('gemini3flash') || normalized.includes('fun') || normalized.includes('fast')) return '2';
+  if (normalized.includes('optic') || normalized.includes('balance') || normalized.includes('free')) return '3';
+  if (normalized.includes('core') || normalized.includes('objective')) return '4';
+  if (normalized.includes('geneva') || normalized.includes('goldenratio')) return '5';
+  return '';
+}
+
 const modelLabel = (model) => ({
   '1': 'Premium Ultra',
   '2': 'Fun Mode',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
+  '6': 'Premium Model',
+  '7': 'Premium Model',
+  '8': 'Premium Model',
+  '9': 'Premium Model',
+  '13': 'Gemini 3.1 Pro',
   official: 'Official Scan',
-}[String(model || '').trim()] || 'Unknown AI');
+}[normalizeScanModelChoice(model) || String(model || '').trim()] || 'Unknown AI');
+
+function toFiniteRating(value) {
+  if (value == null || value === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
 
 function getCommunityRatingTone(score) {
   const n = Number(score) || 0;
@@ -62,6 +96,8 @@ function DashboardCommunityScanCard({
   const rating = Number(scan?.finalRating ?? dd?.finalRating ?? 0);
   const ratingTone = getCommunityRatingTone(rating);
   const tierBadgeClass = getCommunityTierBadgeClass(scan?.tier);
+  const fallbackImage = staticCommunityFallbackImage(0);
+  const imageSrc = normalizeCommunityCardImage(dd?.frontImage) || fallbackImage;
   const rotateY = (mousePos.x - 50) * 0.22;
   const rotateX = (50 - mousePos.y) * 0.18;
 
@@ -100,9 +136,18 @@ function DashboardCommunityScanCard({
         }}
       >
         <div className="relative overflow-hidden rounded-[30px] bg-zinc-950">
-          {dd?.frontImage ? (
+          {imageSrc ? (
             <img
-              src={dd.frontImage}
+              src={imageSrc}
+              onLoad={(event) => {
+                if (/Portrait_Placeholder\.png/i.test(event.currentTarget.currentSrc || event.currentTarget.src)) {
+                  event.currentTarget.src = fallbackImage;
+                }
+              }}
+              onError={(event) => {
+                event.currentTarget.onerror = null;
+                event.currentTarget.src = fallbackImage;
+              }}
               className="w-full aspect-[3/4] object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.065]"
               alt="Community Scan"
             />
@@ -221,8 +266,8 @@ const timestampToIso = (value) => {
 };
 
 const modelUsesProDashboard = (model) => {
-  const normalized = String(model || '').trim();
-  return normalized === '1' || normalized === '2';
+  const normalized = normalizeScanModelChoice(model) || String(model || '').trim();
+  return ['1', '2', '6', '7', '8', '9', '13'].includes(normalized);
 };
 
 const hydrateScanForDashboard = (scan) => {
@@ -235,9 +280,9 @@ const hydrateScanForDashboard = (scan) => {
     visibility: scan.visibility || payload.visibility || 'private',
     frontImage: scan.frontImageUrl || payload.frontImage || null,
     sideImage: scan.sideImageUrl || payload.sideImage || null,
-    finalRating: typeof scan.finalRating === 'number' ? scan.finalRating : payload.finalRating,
-    sideRating: typeof scan.sideRating === 'number' ? scan.sideRating : payload.sideRating,
-    selectedModel: String(scan.model || payload.selectedModel || '').trim(),
+    finalRating: toFiniteRating(scan.finalRating) ?? toFiniteRating(payload.finalRating),
+    sideRating: toFiniteRating(scan.sideRating) ?? toFiniteRating(payload.sideRating),
+    selectedModel: normalizeScanModelChoice(scan.model || payload.selectedModel) || String(scan.model || payload.selectedModel || '').trim(),
     scannedAt: timestampToIso(scan.timestamp || scan.scannedAt),
   };
 };
@@ -256,18 +301,41 @@ const tierFromRating = (rating) => {
   return 'D-TIER';
 };
 
+const staticCommunityFallbackImage = (index = 0, side = false) => {
+  const fallback = COMMUNITY_SCANS[index % COMMUNITY_SCANS.length]?.dashboardData;
+  return (side ? fallback?.sideImage : fallback?.frontImage) || fallback?.frontImage || null;
+};
+
+const normalizeCommunityCardImage = (value) => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed || /Portrait_Placeholder\.png/i.test(trimmed)) return null;
+  return trimmed;
+};
+
 const communityScanToDashboardCard = (scan, index = 0) => {
   if (!scan) return null;
   const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : {};
+  const fallbackFrontImage = scan.dashboardData?.frontImage || staticCommunityFallbackImage(index);
+  const fallbackSideImage = scan.dashboardData?.sideImage || staticCommunityFallbackImage(index, true) || fallbackFrontImage;
   const dashboardData = {
     ...payload,
     scanId: scan.scanId || scan.id || payload.scanId || `community-${index}`,
     profileId: scan.profileId || payload.profileId || null,
     profileName: scan.profileName || payload.profileName || 'Community Scan',
-    selectedModel: String(scan.model || payload.selectedModel || (scan.officialScan || scan.official ? 'official' : '1')),
+    selectedModel: normalizeScanModelChoice(scan.model || payload.selectedModel) || String(scan.model || payload.selectedModel || (scan.officialScan || scan.official ? 'official' : '1')),
     cohesiveFrontSide: Boolean(scan.cohesiveFrontSide || payload.cohesiveFrontSide),
-    frontImage: scan.frontImageUrl || scan.frontImage || payload.frontImage || payload.imgSrc || null,
-    sideImage: scan.sideImageUrl || scan.sideImage || payload.sideImage || null,
+    frontImage:
+      normalizeCommunityCardImage(scan.frontImageUrl) ||
+      normalizeCommunityCardImage(scan.frontImage) ||
+      normalizeCommunityCardImage(payload.frontImage) ||
+      normalizeCommunityCardImage(payload.imgSrc) ||
+      fallbackFrontImage,
+    sideImage:
+      normalizeCommunityCardImage(scan.sideImageUrl) ||
+      normalizeCommunityCardImage(scan.sideImage) ||
+      normalizeCommunityCardImage(payload.sideImage) ||
+      fallbackSideImage,
     finalRating: Number(scan.finalRating ?? payload.finalRating ?? payload.rating) || 0,
     sideRating: Number(scan.sideRating ?? payload.sideRating) || 0,
     sex: scan.sex || payload.sex || payload.gender || '',
@@ -426,11 +494,12 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   }, [user]);
 
   const handleCreateProfileAndScan = (model) => {
-    if (setPendingUploadModel) setPendingUploadModel(model);
+    const normalizedModel = normalizeScanModelChoice(model) || model;
+    if (setPendingUploadModel) setPendingUploadModel(normalizedModel);
     if (setPendingUploadProfileId) {
       setPendingUploadProfileId(dashboardData?.profileId || null);
     }
-    if (model === '1' || model === '2') {
+    if (normalizedModel === '1' || normalizedModel === '2') {
       setCurrentPage('upload-ultra');
     } else {
       setCurrentPage('upload-photo');
@@ -685,7 +754,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
   const username = user?.email?.split('@')[0] || 'User';
   const hasFullProSubscription = userPlan?.plan === 'pro';
   const isFreeModelScan = !modelUsesProDashboard(dashboardData?.selectedModel);
-  const finalRating = Number(dashboardData?.finalRating) || 0;
+  const finalRating = toFiniteRating(dashboardData?.finalRating) ?? 0;
   const categorySignals = useMemo(() => {
     const cats = dashboardData?.categories || {};
     return [
@@ -820,12 +889,19 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
   const handleSelectScan = (scan) => {
     if (!scan || !setDashboardData) return;
-    setDashboardData((prev) => ({
-      ...(prev || {}),
+    const nextScanHistory = Array.isArray(scan.scanHistory)
+      ? scan.scanHistory
+      : historyCards.slice().reverse();
+    const nextRatingHistory = Array.isArray(scan.ratingHistory)
+      ? scan.ratingHistory
+      : nextScanHistory
+          .map((entry) => toFiniteRating(entry?.finalRating))
+          .filter((rating) => rating != null);
+    setDashboardData({
       ...scan,
-      scanHistory: Array.isArray(prev?.scanHistory) ? prev.scanHistory : historyCards.slice().reverse(),
-      ratingHistory: Array.isArray(prev?.ratingHistory) ? prev.ratingHistory : [],
-    }));
+      scanHistory: nextScanHistory,
+      ratingHistory: nextRatingHistory,
+    });
     setActiveSection('analysis');
     if (analysisRef.current) {
       analysisRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -879,8 +955,8 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       history = history.slice(-PROFILE_SCAN_HISTORY_LIMIT);
       const latestScan = history[history.length - 1];
       const ratingHistory = history
-        .map((scan) => scan.finalRating)
-        .filter((rating) => typeof rating === 'number' && !Number.isNaN(rating));
+        .map((scan) => toFiniteRating(scan.finalRating))
+        .filter((rating) => rating != null);
 
       setDashboardData({
         ...latestScan,
@@ -1186,7 +1262,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                       className={`group relative flex h-24 w-48 shrink-0 overflow-hidden rounded-2xl border bg-[#0c0d0e] text-left transition-all ${isActive ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.18)]' : 'border-zinc-800 hover:border-zinc-700'}`}
                     >
                       <div className="absolute left-2 top-2 z-10 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-cyan-300">
-                          {typeof scan.finalRating === 'number' ? scan.finalRating.toFixed(1) : '-'}
+                          {toFiniteRating(scan.finalRating) != null ? toFiniteRating(scan.finalRating).toFixed(1) : '-'}
                       </div>
                       {user && scan?.scanId && (
                         <span
