@@ -7546,24 +7546,34 @@ const HexagonStats = ({ radarData4, radarData5, finalScore }) => {
       </div>
 
       {/* Stats Overlay Layer */}
-      <div className={`absolute inset-0 flex flex-col justify-center p-6 gap-4 transition-all duration-500 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-        {radarData4.map((item, idx) => (
+      <div className={`absolute inset-0 flex flex-col justify-center p-4 gap-2.5 transition-all duration-500 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+        {radarData4.map((item) => {
+          const scoreTone = getRatingToneClasses(item.val * 10);
+          return (
           <div key={item.label} className="flex flex-col">
-            <div className="flex flex-col mb-1.5 px-0.5">
-              <span className="text-[7px] font-black uppercase tracking-[0.3em] text-cyan-500/50 mb-0.5">Category</span>
+            <div className="flex flex-col mb-1 px-0.5">
+              <span className={`text-[6px] font-black uppercase tracking-[0.24em] ${scoreTone.text} opacity-60 mb-0.5`}>Category</span>
               <div className="flex justify-between items-end">
-                <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white/90">{item.label}</span>
-                <span className="text-[14px] font-black italic text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">{item.val.toFixed(1)}</span>
+                <span className="text-[8px] font-black uppercase tracking-[0.13em] text-white/90">{item.label}</span>
+                <span className={`text-[12px] font-black italic ${scoreTone.text}`}>{item.val.toFixed(1)}</span>
               </div>
             </div>
-            <div className="h-1.5 w-full bg-cyan-900/30 rounded-full overflow-hidden">
+            <div
+              className="h-1 w-full rounded-full overflow-hidden"
+              style={{ backgroundColor: `${scoreTone.stroke}22` }}
+            >
               <div 
-                className="h-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.7)] transition-all duration-700 ease-out" 
-                style={{ width: isHovered ? `${(item.val / 10) * 100}%` : '0%' }}
+                className="h-full transition-all duration-700 ease-out"
+                style={{
+                  width: isHovered ? `${(item.val / 10) * 100}%` : '0%',
+                  backgroundColor: scoreTone.stroke,
+                  boxShadow: `0 0 10px ${scoreTone.stroke}99`,
+                }}
               />
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
