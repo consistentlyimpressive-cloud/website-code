@@ -731,6 +731,18 @@ async function savePurchaseRecord(userId, record = {}) {
   await firestore.collection('users').doc(userId).collection('purchases').doc(id).set(purchase, { merge: true });
 }
 
+function isManualInfiniteUserData(userData = {}) {
+  return normalizeUserPlan(userData.plan) === 'pro_infinite' || userData.subscriptionStatus === 'manual_infinite';
+}
+
+async function shouldPreserveManualInfinitePlan(userRef, source = 'webhook') {
+  if (!userRef) return false;
+  const snap = await userRef.get();
+  if (!snap.exists || !isManualInfiniteUserData(snap.data() || {})) return false;
+  console.log(`[${source}] Preserving manual PRO_INFINITE plan for ${userRef.id}; skipping Paddle plan overwrite.`);
+  return true;
+}
+
 /* Legacy Lemon Squeezy webhook kept disabled on purpose.
    MogCheck billing now runs through Paddle only. */
 /* app.post(
@@ -871,6 +883,8 @@ app.post(
     const userRef = firestore.collection('users').doc(userId);
 
     try {
+      const preserveManualInfinite = await shouldPreserveManualInfinitePlan(userRef, 'webhook:paddle');
+
       if (eventName === 'transaction.completed') {
         const isYearlyPurchase = PADDLE_PRICE_PRO_YEARLY && priceIds.includes(PADDLE_PRICE_PRO_YEARLY);
         const purchasePlan = priceIds.includes(PADDLE_PRICE_SINGLE_SCAN)
@@ -892,7 +906,7 @@ app.post(
           status: String(data.status || 'completed'),
         }).catch((purchaseErr) => console.warn('[webhook:paddle] Purchase record failed:', purchaseErr.message));
 
-        if (priceIds.includes(PADDLE_PRICE_SINGLE_SCAN)) {
+        if (priceIds.includes(PADDLE_PRICE_SINGLE_SCAN) && !preserveManualInfinite) {
           await userRef.set(
             {
               plan: 'single_scan',
@@ -905,9 +919,10 @@ app.post(
         }
 
         if (
-          priceIds.includes(PADDLE_PRICE_PRO) ||
-          (PADDLE_PRICE_PRO_YEARLY && priceIds.includes(PADDLE_PRICE_PRO_YEARLY)) ||
-          data.subscription_id
+          !preserveManualInfinite &&
+          (priceIds.includes(PADDLE_PRICE_PRO) ||
+            (PADDLE_PRICE_PRO_YEARLY && priceIds.includes(PADDLE_PRICE_PRO_YEARLY)) ||
+            data.subscription_id)
         ) {
           await userRef.set(
             {
@@ -926,6 +941,7 @@ app.post(
       }
 
       if (
+        !preserveManualInfinite &&
         ['subscription.created', 'subscription.activated', 'subscription.updated', 'subscription.resumed', 'subscription.trialing'].includes(eventName)
       ) {
         const status = String(data.status || 'active').toLowerCase();
@@ -959,6 +975,7 @@ app.post(
       }
 
       if (
+        !preserveManualInfinite &&
         ['subscription.canceled', 'subscription.paused', 'subscription.past_due', 'subscription.expired'].includes(eventName)
       ) {
         const status = String(data.status || eventName.replace('subscription.', '')).toLowerCase();
