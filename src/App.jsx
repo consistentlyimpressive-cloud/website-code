@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, useId } from 'react';
 import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Sparkles, Bell, Trash2, Bug, Share2 } from 'lucide-react';
 import { ConfirmDialog, ImageLightbox, SiteModal } from './components/ui/SiteModal';
 import { DashboardHubPreviewsCompact } from './components/DashboardHubPreviews';
@@ -1326,6 +1326,56 @@ function getRatingToneClasses(score) {
     fill: 'rgba(239,68,68,0.2)',
     stroke: '#ef4444',
   };
+}
+
+function GradientRatingText({
+  value,
+  endColor = '#22d3ee',
+  midStop = '48%',
+  className = '',
+  textClassName = '',
+  shadow = true,
+}) {
+  const rawId = useId();
+  const gradientId = `rating-gradient-${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const text = String(value ?? '');
+  const widthEm = Math.max(1.8, text.length * 0.72);
+
+  return (
+    <span
+      className={`inline-flex items-center justify-center leading-none ${className}`}
+      style={shadow ? { filter: `drop-shadow(0 0 18px ${endColor}55) saturate(0.95)` } : undefined}
+    >
+      <svg
+        className={`block h-[1em] overflow-visible ${textClassName}`}
+        style={{ width: `${widthEm}em`, fontFamily: 'inherit' }}
+        viewBox={`0 0 ${widthEm * 100} 120`}
+        preserveAspectRatio="xMidYMid meet"
+        role="img"
+        aria-label={text}
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset={midStop} stopColor="#ffffff" />
+            <stop offset="100%" stopColor={endColor} />
+          </linearGradient>
+        </defs>
+        <text
+          x="50%"
+          y="88"
+          textAnchor="middle"
+          fontSize="106"
+          fontWeight="900"
+          fontStyle="italic"
+          letterSpacing="-4"
+          fill={`url(#${gradientId})`}
+        >
+          {text}
+        </text>
+      </svg>
+    </span>
+  );
 }
 
 function slugifyScanName(value) {
@@ -8973,11 +9023,11 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   <div className="flex min-h-[7.25rem] flex-col items-center justify-center rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-3 text-center shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
                     <span className="mb-2 text-[10px] font-black uppercase tracking-[0.26em] text-white">Final Rating</span>
                     <div className="relative">
-                      <span
-                        className={`text-5xl font-black italic tracking-tight ${ratingTone.text} ${isFreeModelResult ? 'select-none blur-[8px]' : ''}`}
-                      >
-                        {displayedFinalRating}
-                      </span>
+                      <GradientRatingText
+                        value={displayedFinalRating}
+                        endColor={ratingTone.stroke || '#22d3ee'}
+                        className={`text-5xl font-black italic tracking-tight ${isFreeModelResult ? 'select-none blur-[8px]' : ''}`}
+                      />
                     </div>
                   </div>
                   <div className="relative flex min-h-[7.25rem] items-center justify-center overflow-hidden rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-4 shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
@@ -9119,16 +9169,17 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       <span className="font-sans text-[11px] uppercase tracking-[0.45em] mb-4 text-white">Final Rating</span>
                       <div className="relative leading-none">
                         <>
-                          <span
-                            className="absolute inset-0 block text-6xl font-black italic tracking-tighter text-green-300/90 blur-[26px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none"
-                          >
-                            {displayedFinalRating}
-                          </span>
-                          <span
-                            className="relative block text-6xl font-black italic tracking-tighter text-green-300 blur-[18px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_rgba(74,222,128,0.4)]"
-                          >
-                            {displayedFinalRating}
-                          </span>
+                          <GradientRatingText
+                            value={displayedFinalRating}
+                            endColor="#4ade80"
+                            className="absolute inset-0 text-6xl font-black italic tracking-tighter blur-[26px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none opacity-90"
+                            shadow={false}
+                          />
+                          <GradientRatingText
+                            value={displayedFinalRating}
+                            endColor="#4ade80"
+                            className="relative text-6xl font-black italic tracking-tighter blur-[18px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none"
+                          />
                         </>
                       </div>
                       {authenticityFlag && !isFreeModelResult && (
@@ -9226,11 +9277,11 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                         {'Final Rating'}
                       </span>
                       <div className="relative leading-none w-full flex justify-center">
-                        <span
-                          className={`block font-black tracking-tighter ${ratingTone.text} ${isFreeModelResult ? 'text-3xl' : 'text-[5.5rem] md:text-[6.5rem]'}`}
-                        >
-                          {displayedFinalRating}
-                        </span>
+                        <GradientRatingText
+                          value={displayedFinalRating}
+                          endColor={ratingTone.stroke || '#22d3ee'}
+                          className={`font-black tracking-tighter ${isFreeModelResult ? 'text-3xl' : 'text-[5.5rem] md:text-[6.5rem]'}`}
+                        />
                       </div>
                       {authenticityFlag && !isFreeModelResult && (
                         <span className="mt-3 max-w-[85%] rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
