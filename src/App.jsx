@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, useId } from 'react';
-import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Sparkles, Bell, Trash2, Bug, Share2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Sparkles, Bell, Trash2, Bug, Share2, Waves, Bone as BoneIcon, VenusAndMars, Scale, Flower2, Star as StarIcon } from 'lucide-react';
 import { ConfirmDialog, ImageLightbox, SiteModal } from './components/ui/SiteModal';
 import { DashboardHubPreviewsCompact } from './components/DashboardHubPreviews';
 import { getNavbarPlanChip, hasEffectiveProAccess, canAlwaysAccessDashboard, isProPlan, normalizePlanValue } from './utils/planAccess';
@@ -7552,6 +7552,148 @@ const HexagonStats = ({ radarData4, radarData5, finalScore }) => {
   );
 };
 
+const SecretMogScoreModal = ({ open, onClose, imageUrl, finalScore, metrics }) => {
+  if (!open) return null;
+
+  const overall10 = Math.max(0, Math.min(10, Number(scoreToDisplay10(finalScore)) || 0));
+  const overallTone = getRatingToneClasses(overall10 * 10);
+  const overallPercent = Math.max(0, Math.min(100, overall10 * 10));
+  const status =
+    overall10 >= 9 ? 'Elite' :
+    overall10 >= 7 ? 'Good' :
+    overall10 >= 5 ? 'Average' :
+    'Low';
+  const metricIcons = {
+    Skin: Waves,
+    Bone: BoneIcon,
+    Dimorphism: VenusAndMars,
+    Symmetry: Scale,
+    Harmony: Flower2,
+    Appeal: StarIcon,
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[260] flex items-center justify-center overflow-y-auto bg-black/82 px-4 py-8 backdrop-blur-xl"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Overall Mog Score"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose?.();
+      }}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        className="fixed right-5 top-5 z-[270] flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/70 text-zinc-300 transition-colors hover:border-white/25 hover:text-white"
+        aria-label="Close secret score"
+      >
+        <X size={18} />
+      </button>
+
+      <div className="relative my-auto w-full max-w-[41rem] overflow-hidden rounded-[2rem] border border-white/8 bg-[#020304] px-5 py-8 shadow-[0_0_90px_rgba(0,0,0,0.9)] sm:px-9 sm:py-10">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_14%,rgba(255,255,255,0.08),transparent_31%),radial-gradient(circle_at_24%_48%,rgba(52,211,153,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.025),transparent_24%)]" />
+        <div className="relative z-10 flex flex-col items-center">
+          <h2 className="text-center text-[4rem] font-black tracking-[-0.08em] text-white drop-shadow-[0_4px_18px_rgba(255,255,255,0.18)] sm:text-[5.3rem]">
+            MogCheck
+          </h2>
+          <p className="mt-1 text-center text-[0.8rem] font-black uppercase tracking-[0.55em] text-zinc-500 sm:text-[0.95rem]">
+            Overall Mog Score
+          </p>
+
+          <div className="mt-8 flex w-full items-end justify-between gap-5 px-1 sm:px-4">
+            <span
+              className="text-[5.6rem] font-black leading-[0.82] tracking-[-0.08em] sm:text-[7rem]"
+              style={{
+                color: overallTone.stroke,
+                filter: `drop-shadow(0 0 24px ${overallTone.stroke}66)`,
+              }}
+            >
+              {overall10.toFixed(1)}
+            </span>
+            <span
+              className="pb-2 text-2xl font-black tracking-[0.08em] sm:text-3xl"
+              style={{
+                color: overallTone.stroke,
+                filter: `drop-shadow(0 0 14px ${overallTone.stroke}66)`,
+              }}
+            >
+              {status}
+            </span>
+          </div>
+
+          <div className="mt-7 h-4 w-full overflow-hidden rounded-full bg-white/10 shadow-[inset_0_0_14px_rgba(0,0,0,0.45)]">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-lime-400 to-yellow-300 shadow-[0_0_28px_rgba(132,204,22,0.42)]"
+              style={{ width: `${overallPercent}%` }}
+            />
+          </div>
+
+          <div className="mt-9 flex h-72 w-72 items-center justify-center rounded-full border border-white/14 bg-black shadow-[0_0_28px_rgba(255,255,255,0.16)] sm:h-80 sm:w-80">
+            <img
+              src={imageUrl}
+              alt="Scan target"
+              className="h-full w-full rounded-full object-cover object-top"
+            />
+          </div>
+
+          <div className="mt-10 w-full rounded-[1.8rem] border border-white/13 bg-[linear-gradient(145deg,rgba(18,24,28,0.74),rgba(4,5,6,0.86))] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_22px_70px_rgba(0,0,0,0.42)] sm:p-8">
+            <div className="grid gap-x-10 gap-y-9 sm:grid-cols-2">
+              {metrics.map((metric) => {
+                const score = Math.max(0, Math.min(10, Number(metric.val) || 0));
+                const tone = getRatingToneClasses(score * 10);
+                const Icon = metricIcons[metric.label] || StarIcon;
+                return (
+                  <div key={metric.label} className="min-w-0">
+                    <div className="mb-4 flex items-center justify-between gap-4">
+                      <div className="flex min-w-0 items-center gap-4">
+                        <Icon
+                          size={30}
+                          strokeWidth={2.1}
+                          className="shrink-0"
+                          style={{
+                            color: tone.stroke,
+                            filter: `drop-shadow(0 0 10px ${tone.stroke}55)`,
+                          }}
+                        />
+                        <span className="truncate text-lg font-black uppercase tracking-[0.12em] text-white">
+                          {metric.label}
+                        </span>
+                      </div>
+                      <span
+                        className="text-2xl font-black tabular-nums"
+                        style={{
+                          color: tone.stroke,
+                          filter: `drop-shadow(0 0 10px ${tone.stroke}55)`,
+                        }}
+                      >
+                        {score.toFixed(1)}
+                      </span>
+                    </div>
+                    <div
+                      className="h-2.5 overflow-hidden rounded-full"
+                      style={{ backgroundColor: `${tone.stroke}24` }}
+                    >
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${score * 10}%`,
+                          backgroundColor: tone.stroke,
+                          boxShadow: `0 0 18px ${tone.stroke}88`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 
 // --- Metric Bar Component ---
@@ -7928,7 +8070,7 @@ const HoloCube = ({ data }) => {
   );
 };
 
-const FeatureHighlightCard = ({ type, feature, onHover }) => {
+const FeatureHighlightCard = ({ type, feature, onHover, onSecretMouseDown }) => {
   const isBest = type === 'best';
   if (!feature) return null;
   const cardClass = isBest
@@ -7944,7 +8086,10 @@ const FeatureHighlightCard = ({ type, feature, onHover }) => {
     ? 'text-green-400 font-bold uppercase text-lg tracking-widest mb-2.5'
     : 'text-red-400 font-bold uppercase text-lg tracking-widest mb-2.5';
   return (
-    <div className={cardClass}>
+    <div
+      className={cardClass}
+      onMouseDown={isBest ? onSecretMouseDown : undefined}
+    >
       <div className={railClass} />
       <span className={labelClass}>{isBest ? 'Best Feature' : 'Primary Flaw'}</span>
       <h4 className={titleClass}>{stripInlineMarkers(feature.title)}</h4>
@@ -8337,8 +8482,27 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const [showAllProtocols, setShowAllProtocols] = useState(false);
   const [completedProtocolIds, setCompletedProtocolIds] = useState({});
   const [scanLightbox, setScanLightbox] = useState(null);
+  const [secretMogScoreOpen, setSecretMogScoreOpen] = useState(false);
   const freeHistoryStripRef = useRef(null);
   const startedDetailedReportsRef = useRef(new Set());
+  const secretFeatureClicksRef = useRef({ count: 0, lastAt: 0 });
+
+  const handleSecretBestFeatureMouseDown = useCallback((event) => {
+    if (event.button !== 0 || !event.shiftKey) {
+      secretFeatureClicksRef.current = { count: 0, lastAt: 0 };
+      return;
+    }
+
+    const now = Date.now();
+    const previous = secretFeatureClicksRef.current;
+    const count = now - previous.lastAt <= 850 ? previous.count + 1 : 1;
+    secretFeatureClicksRef.current = { count, lastAt: now };
+
+    if (count >= 5) {
+      secretFeatureClicksRef.current = { count: 0, lastAt: 0 };
+      setSecretMogScoreOpen(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (!communityPeek) return undefined;
@@ -8750,6 +8914,34 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     ? freeRatingLoop
     : (numericDisplayedFinalRating ?? 85);
   const ratingTone = getRatingToneClasses(displayedFinalRating);
+  const secretAppealScore = useMemo(() => {
+    const base10 = Math.max(0, Math.min(10, Number(scoreToDisplay10(numericDisplayedFinalRating ?? displayedFinalRating)) || 0));
+    const seedText = [
+      dashboardData?.scanRequestId,
+      dashboardData?.scanId,
+      dashboardData?.frontImage,
+      effectiveProfileView,
+      base10.toFixed(1),
+    ].filter(Boolean).join('|') || 'mogcheck-secret-score';
+    let hash = 2166136261;
+    for (let i = 0; i < seedText.length; i += 1) {
+      hash ^= seedText.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    const unit = (hash >>> 0) / 4294967295;
+    const score = Math.max(0, Math.min(10, base10 + (unit * 2 - 1)));
+    return Math.round(score * 10) / 10;
+  }, [dashboardData?.frontImage, dashboardData?.scanId, dashboardData?.scanRequestId, displayedFinalRating, effectiveProfileView, numericDisplayedFinalRating]);
+  const secretMogMetrics = useMemo(
+    () => [
+      ...radarData.map((item) => ({
+        label: item.label,
+        val: Math.max(0, Math.min(10, Number(item.val) || 0)),
+      })),
+      { label: 'Appeal', val: secretAppealScore },
+    ],
+    [radarData, secretAppealScore]
+  );
   const openAnimationsViewer = useCallback(() => {
     if (typeof window === 'undefined') return;
     const animationId =
@@ -8881,6 +9073,13 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           </div>
         </div>
       )}
+      <SecretMogScoreModal
+        open={secretMogScoreOpen}
+        onClose={() => setSecretMogScoreOpen(false)}
+        imageUrl={activeImageUrl}
+        finalScore={numericDisplayedFinalRating ?? displayedFinalRating}
+        metrics={secretMogMetrics}
+      />
       <style>{`
         @keyframes freeRatingFlicker {
           0%, 100% { opacity: 0.92; filter: blur(9.25px); }
@@ -9025,7 +9224,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
               {showBestFlaw && (
                 <div className="space-y-3">
                   {primaryBestFeature && (
-                    <FeatureHighlightCard type="best" feature={primaryBestFeature} onHover={setActiveHover} />
+                    <FeatureHighlightCard type="best" feature={primaryBestFeature} onHover={setActiveHover} onSecretMouseDown={handleSecretBestFeatureMouseDown} />
                   )}
                   {primaryFlawFeature && (
                     <FeatureHighlightCard type="flaw" feature={primaryFlawFeature} onHover={setActiveHover} />
@@ -9232,7 +9431,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       {showBestFlaw && (
                         <div className="space-y-4">
                           {primaryBestFeature && (
-                            <FeatureHighlightCard type="best" feature={primaryBestFeature} onHover={setActiveHover} />
+                            <FeatureHighlightCard type="best" feature={primaryBestFeature} onHover={setActiveHover} onSecretMouseDown={handleSecretBestFeatureMouseDown} />
                           )}
                           {primaryFlawFeature && (
                             <FeatureHighlightCard type="flaw" feature={primaryFlawFeature} onHover={setActiveHover} />
@@ -9340,7 +9539,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       {showBestFlaw && (
                         <div className="space-y-4">
                           {primaryBestFeature && (
-                            <FeatureHighlightCard type="best" feature={primaryBestFeature} onHover={setActiveHover} />
+                            <FeatureHighlightCard type="best" feature={primaryBestFeature} onHover={setActiveHover} onSecretMouseDown={handleSecretBestFeatureMouseDown} />
                           )}
                           {primaryFlawFeature && (
                             <FeatureHighlightCard type="flaw" feature={primaryFlawFeature} onHover={setActiveHover} />
