@@ -22,6 +22,13 @@ try:
 except ImportError:
     print("[DEBUG] Engine A MISSING. Run: pip install google-genai")
 
+try:
+    from openai import OpenAI
+    print("[DEBUG] OpenRouter SDK Loaded.")
+except ImportError:
+    OpenAI = None
+    print("[DEBUG] OpenRouter SDK MISSING. Run: pip install openai")
+
 # Internal Module Imports
 try:
     from engine import get_clinical_biometrics
@@ -50,6 +57,8 @@ GEMINI_KEYS = [
     for index in range(1, 6)
 ]
 GEMINI_KEYS = [key for key in GEMINI_KEYS if key]
+OPENROUTER_API_KEY = (os.getenv("OPENROUTER_API_KEY") or "").strip()
+OPENROUTER_GEMINI_PREVIEW_MODEL_ID = "google/gemini-3.1-pro-preview"
 
 BENCHMARK_CALIBRATION_PATH = Path(__file__).resolve().parent / "gemini-benchmark-calibration.json"
 
@@ -119,10 +128,18 @@ def _compact_model_choice(value):
 
 def normalize_model_choice(choice):
     raw = str(choice or "").strip()
-    if raw in {"1", "2", "3", "4", "5"}:
+    if raw in {"6", "7", "8"}:
+        return "1"
+    if raw in {"1", "2", "3", "4", "5", "9", "13"}:
         return raw
 
     normalized = _compact_model_choice(raw)
+    if "googlegemini31propreview" in normalized:
+        return "13"
+    if "gemini31propreview" in normalized:
+        return "13"
+    if "googlegemini31pro" in normalized:
+        return "13"
     aliases = {
         "1": [
             "premium",
@@ -175,8 +192,49 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
             "2": ("gemini-3-flash-preview", "ULTRA - Fast"),
             "3": ("gemini-3.1-flash-lite", "OPTIC"),
             "4": ("gemini-3.1-flash-lite", "CORE"),
-            "5": ("gemini-3.1-flash-lite", "GENEVA")
+            "5": ("gemini-3.1-flash-lite", "GENEVA"),
+            "9": ("gemma-4-31b-it", "Premium Model")
         }
+
+        if choice == "13":
+            friendly_name = OPENROUTER_GEMINI_PREVIEW_MODEL_ID
+            if OpenAI is None:
+                return "Error: OpenRouter experimental model requires the Python openai package.", friendly_name, 0
+            if not OPENROUTER_API_KEY:
+                return "Error: OpenRouter experimental model is not configured. Add OPENROUTER_API_KEY to backend/.env.", friendly_name, 0
+
+            print(f"[DEBUG] Consulting {friendly_name} via OpenRouter... (Press Ctrl+C to Cancel)")
+            try:
+                with open(img_path, "rb") as f:
+                    front_base64 = base64.b64encode(f.read()).decode("utf-8")
+
+                client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
+                res = client.chat.completions.create(
+                    model=OPENROUTER_GEMINI_PREVIEW_MODEL_ID,
+                    messages=[{"role": "user", "content": [
+                        {"type": "text", "text": unified_prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{front_base64}"}},
+                    ]}],
+                    temperature=0,
+                    max_tokens=2600,
+                    timeout=240,
+                )
+                content = ""
+                if getattr(res, "choices", None):
+                    message = getattr(res.choices[0], "message", None)
+                    content = getattr(message, "content", "") if message else ""
+                    if isinstance(content, list):
+                        content = "\n".join(
+                            str(part.get("text", "") if isinstance(part, dict) else part)
+                            for part in content
+                        )
+                if content:
+                    duration = round(time.time() - start_time, 2)
+                    return str(content).strip(), friendly_name, duration
+                return "Error: OpenRouter experimental model returned an empty response.", friendly_name, round(time.time() - start_time, 2)
+            except Exception as e:
+                short_error = str(e).replace("\n", " ").strip()[:260]
+                return f"Error: OpenRouter experimental model failed. {short_error}", friendly_name, round(time.time() - start_time, 2)
 
         if choice not in mapping:
             return "Error: Model selection failed.", "None", 0
@@ -251,6 +309,8 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("3. OPTIC (Balance & Alignment)")
     print("4. CORE (Objective Attractiveness)")
     print("5. GENEVA (Mathematical Beauty)")
+    print("9. Premium Model")
+    print("13. google/gemini-3.1-pro-preview")
 
     if choice_override is not None and str(choice_override).strip():
         raw_choice = str(choice_override).strip()
@@ -258,18 +318,18 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         print(f"\n[DEBUG] Model selected via API args: {raw_choice} -> {choice or 'invalid'}")
     else:
         try:
-            choice = normalize_model_choice(input("\nSelect Model [1-5]: ").strip())
+            choice = normalize_model_choice(input("\nSelect Model [1-5,9,13]: ").strip())
         except KeyboardInterrupt:
             print("\nExiting script...")
             return
 
-    if choice not in {"1", "2", "3", "4", "5"}:
+    if choice not in {"1", "2", "3", "4", "5", "9", "13"}:
         print(f"[ERROR] Invalid model choice: {choice}")
         return "Error: Model selection failed."
 
     # --- SIDE PROFILE DATA COLLECTION ---
     side_data = "IGNORE_SIDE_ANALYSIS"
-    if choice in ["1", "2"]:
+    if choice in ["1", "2", "9", "13"]:
         print("[ðŸš€] Gathering Lateral Data from engineside.py...")
         if side_img_path and os.path.exists(side_img_path):
             try:
@@ -324,7 +384,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     """
 
     # --- PROMPT SELECTION LOGIC ---
-    if choice in ["1", "2"]:
+    if choice in ["1", "2", "9", "13"]:
         active_prompt = f"""
         MANDATE: Conduct a DUAL-INPUT structural evaluation (FRONTAL + LATERAL).
         INPUT A (Frontal Metadata): {clinical_data}

@@ -40,6 +40,23 @@ const AVAILABLE_SCAN_MODELS = {
     label: 'GENEVA',
     aliases: ['geneva', 'mathematical beauty', 'golden ratio'],
   },
+  '6': { label: 'Premium Model', aliases: ['premium model', 'premium gemini', 'main premium'] },
+  '7': { label: 'Premium Model', aliases: ['premium model alt', 'premium gemini alt'] },
+  '8': { label: 'Premium Model', aliases: ['premium model backup', 'premium gemini backup'] },
+  '9': { label: 'Premium Model', aliases: ['premium fallback'] },
+  '13': {
+    label: 'google/gemini-3.1-pro-preview',
+    aliases: [
+      'google/gemini-3.1-pro-preview',
+      'google/gemini-3.1-pro',
+      'google/gemeni-3.1.pro',
+      'google/gemeni-3.1-pro-preview',
+      'gemini.3.1pro.preview',
+      'gemeni.3.1pro.preview',
+      'gemini-3.1-pro-preview',
+      'gemeni-3.1-pro-preview',
+    ],
+  },
 };
 
 function compactModelKey(value) {
@@ -61,6 +78,10 @@ function normalizeScanModelChoice(rawChoice) {
 
   const normalized = compactModelKey(raw);
   if (!normalized) return '3';
+
+  if (normalized.includes('googlegemini31propreview')) return '13';
+  if (normalized.includes('gemini31propreview')) return '13';
+  if (normalized.includes('googlegemini31pro')) return '13';
 
   for (const [choice, config] of Object.entries(AVAILABLE_SCAN_MODELS)) {
     if (compactModelKey(choice) === normalized) return choice;

@@ -1833,7 +1833,7 @@ async function extractUserOptional(req, res, next) {
   next();
 }
 
-/** Ultra models (choice 1 / 2) require Firebase auth + Pro plan or Single Scan with credits. */
+/** Ultra models require Firebase auth + Pro plan or Single Scan with credits. */
 async function verifyUltraAccess(req, res, next) {
   const rawModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
   const modelChoice = normalizeScanModelChoice(rawModelChoice);
@@ -1845,7 +1845,14 @@ async function verifyUltraAccess(req, res, next) {
   }
   req.scanModelChoice = modelChoice;
   req.rawScanModelChoice = rawModelChoice;
-  const isUltra = modelChoice === '1' || modelChoice === '2';
+  const isUltra =
+    modelChoice === '1' ||
+    modelChoice === '2' ||
+    modelChoice === '6' ||
+    modelChoice === '7' ||
+    modelChoice === '8' ||
+    modelChoice === '9' ||
+    modelChoice === '13';
   if (!isUltra) {
     req.ultraContext = null;
     return next();
@@ -1879,6 +1886,13 @@ async function verifyUltraAccess(req, res, next) {
     email === 'serenity.eyb@gmail.com' ||
     email === 'laithbu07@gmail.com' ||
     email === 'laithabuamsheh@gmail.com';
+
+  if (modelChoice === '13' && !isAdminEmail) {
+    return res.status(403).json({
+      success: false,
+      error: 'This model is admin-only.',
+    });
+  }
 
   if (isAdminEmail) {
     req.ultraContext = { uid, plan: 'pro', source: 'admin-email-bypass' };
@@ -2158,8 +2172,21 @@ app.post(
   if (sideFallbackUrl) payload.sideImage = sideFallbackUrl;
 
   if (!success) {
+    const providerFailurePrefixes = [
+      'Error: OpenRouter experimental model',
+      'Error: All configured Gemini keys failed or hit quota',
+      'Error: All configured Google GenAI/Gemma keys failed or hit quota',
+      'Error: No Gemini API keys are configured',
+      'Error: No healthy Google GenAI/Gemma keys are available',
+    ];
+    const providerFailureLine = String(pythonOutput || '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => providerFailurePrefixes.some((prefix) => line.startsWith(prefix)));
     if (code !== 0) {
       payload.error = `Python exited with code ${code}. Check this terminal for [FATAL] or API errors above.`;
+    } else if (providerFailureLine) {
+      payload.error = providerFailureLine;
     } else if (!parsed.hasSubstantiveParse) {
       payload.error =
         'Analysis finished but no usable text was parsed (empty model response, wrong format, or API key/model issue). Check the PY ENGINE block above.';
