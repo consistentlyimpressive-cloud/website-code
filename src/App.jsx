@@ -7564,11 +7564,11 @@ const SecretMogScoreModal = ({ open, onClose, imageUrl, finalScore, metrics }) =
     statusScore >= 88 ? 'Elite' :
     statusScore >= 80 ? 'Very High' :
     statusScore >= 70 ? 'High' :
-    statusScore >= 63 ? 'Good' :
+    statusScore >= 63 ? 'Great' :
     statusScore >= 56 ? 'Above Average' :
     statusScore >= 50 ? 'Average' :
     statusScore >= 40 ? 'Below Average' :
-    'Low';
+    'Significant Flaws Detected';
   const metricIcons = {
     Skin: Waves,
     Bone: BoneIcon,
