@@ -7594,6 +7594,14 @@ const SecretMogScoreModal = ({ open, onClose, imageUrl, finalScore, metrics }) =
       <div className="relative my-auto w-full max-w-[41rem] overflow-hidden rounded-[2rem] border border-white/8 bg-[#020304] px-5 py-8 shadow-[0_0_90px_rgba(0,0,0,0.9)] sm:px-9 sm:py-10">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_14%,rgba(255,255,255,0.08),transparent_31%),radial-gradient(circle_at_24%_48%,rgba(52,211,153,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.025),transparent_24%)]" />
         <div className="relative z-10 flex flex-col items-center">
+          <div className="flex h-72 w-72 items-center justify-center rounded-full border border-white/14 bg-black shadow-[0_0_28px_rgba(255,255,255,0.16)] sm:h-80 sm:w-80">
+            <img
+              src={imageUrl}
+              alt="Scan target"
+              className="h-full w-full rounded-full object-cover object-top"
+            />
+          </div>
+
           <h2 className="text-center text-[4rem] font-black tracking-[-0.08em] text-white drop-shadow-[0_4px_18px_rgba(255,255,255,0.18)] sm:text-[5.3rem]">
             MogCheck
           </h2>
@@ -7626,14 +7634,6 @@ const SecretMogScoreModal = ({ open, onClose, imageUrl, finalScore, metrics }) =
             <div
               className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-lime-400 to-yellow-300 shadow-[0_0_28px_rgba(132,204,22,0.42)]"
               style={{ width: `${overallPercent}%` }}
-            />
-          </div>
-
-          <div className="mt-9 flex h-72 w-72 items-center justify-center rounded-full border border-white/14 bg-black shadow-[0_0_28px_rgba(255,255,255,0.16)] sm:h-80 sm:w-80">
-            <img
-              src={imageUrl}
-              alt="Scan target"
-              className="h-full w-full rounded-full object-cover object-top"
             />
           </div>
 
