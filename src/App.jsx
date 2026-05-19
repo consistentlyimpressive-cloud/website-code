@@ -38,7 +38,6 @@ const SettingsPage = React.lazy(() => import('./components/SettingsPage'));
 const GENERIC_ERROR = 'Something went wrong. Please try again later.';
 const EMPTY_ANALYSIS_RESPONSE_ERROR = 'Analysis finished but no usable text was parsed';
 const FRIENDLY_FRONTAL_IMAGE_ERROR = "Analysis failed. Are you sure you're using a frontal image?";
-const PREMIUM_PROOF_VIDEO_SRC = '/social-proof/premium-proof.mp4';
 const HOME_FEATURED_COMMUNITY_SCANS = [
   {
     id: 'home-community-cillian',
@@ -1518,36 +1517,8 @@ const FlipIn = ({ children, delay = 0 }) => {
   );
 };
 
-const PremiumProofModal = ({ onClose, onContinue }) => (
-  <SiteModal title="See Premium In Action" subtitle="Real scan flow preview" onClose={onClose} maxWidth="max-w-md">
-    <div className="space-y-5">
-      <div className="mx-auto aspect-[9/16] max-h-[68vh] w-full max-w-[360px] overflow-hidden rounded-2xl border border-yellow-500/25 bg-black shadow-[0_0_50px_rgba(234,179,8,0.10)]">
-        <video
-          src={PREMIUM_PROOF_VIDEO_SRC}
-          autoPlay
-          loop
-          muted
-          playsInline
-          preload="auto"
-          className="h-full w-full bg-black object-cover"
-        />
-      </div>
-
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={onContinue}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-600 to-yellow-400 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-black shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-transform hover:scale-[1.02]"
-        >
-          <Crown size={14} /> Continue
-        </button>
-      </div>
-    </div>
-  </SiteModal>
-);
-
 // --- Navbar ---
-const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignOut, userPlan, showDashboard }) => {
+const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDashboard }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -1655,10 +1626,7 @@ const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, user, onSignO
           )}
           <button onClick={() => setCurrentPage('celebrity')} className={`${currentPage === 'celebrity' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Scans</button>
           <button
-            onClick={() => {
-              if (currentPage === 'plans') setCurrentPage('plans');
-              else onOpenPremiumPlans?.();
-            }}
+            onClick={() => setCurrentPage('plans')}
             className={`${currentPage === 'plans' ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'text-yellow-500/70'} hover:text-yellow-400 transition-all uppercase tracking-widest flex items-center gap-1`}
           >
             <Crown size={13} /> Plans
@@ -3334,9 +3302,9 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           const imageFirst = idx % 2 === 0;
           return (
             <FadeUp key={item.step} delay={idx * 120}>
-              <div className="group/process grid gap-6 md:gap-12 md:grid-cols-2 md:items-center">
+              <div className="grid gap-6 md:gap-12 md:grid-cols-2 md:items-center">
                 <div
-                  className={`${imageFirst ? 'md:order-1' : 'md:order-2'} w-full order-1`}
+                  className={`group/process ${imageFirst ? 'md:order-1' : 'md:order-2'} w-full order-1`}
                   style={{ animation: `homeFloat ${6.8 + idx * 0.35}s ease-in-out infinite`, animationDelay: `${idx * 0.35}s` }}
                 >
                   <div className="relative overflow-hidden rounded-2xl border border-zinc-800/70 shadow-[0_24px_70px_rgba(0,0,0,0.38)] transition-all duration-500 group-hover/process:-translate-y-2 group-hover/process:border-cyan-400/35">
@@ -7506,10 +7474,11 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
             const angle = (Math.PI / 2) + (2 * Math.PI * i / numPoints);
             const x = 50 + 50 * Math.cos(angle);
             const y = 50 - 50 * Math.sin(angle);
-            return (
+          const labelTone = getRatingToneClasses(d.val * 10);
+          return (
               <span 
                 key={i} 
-                className={`absolute text-[6.5px] font-black font-sans uppercase tracking-[0.2em] whitespace-nowrap ${getRatingToneClasses(finalScore).text.split(' ')[0]}`}
+                className={`absolute text-[8px] font-black font-sans uppercase tracking-[0.16em] whitespace-nowrap ${labelTone.text.split(' ')[0]}`}
                 style={{
                   left: `${x}%`,
                   top: `${y}%`,
@@ -7547,7 +7516,7 @@ const HexagonStats = ({ radarData4, radarData5, finalScore }) => {
 
       {/* Stats Overlay Layer */}
       <div className={`absolute inset-0 flex items-center justify-center p-4 transition-all duration-500 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-        <div className="flex w-[82%] max-w-[11.5rem] flex-col gap-2 rounded-xl border border-zinc-800/80 bg-[#0c0d0e]/88 p-3 shadow-[0_16px_36px_rgba(0,0,0,0.32)] backdrop-blur-md">
+        <div className="flex w-[92%] max-w-[13.75rem] flex-col gap-2 rounded-xl border border-zinc-800/80 bg-[#0c0d0e]/88 px-4 py-3 shadow-[0_16px_36px_rgba(0,0,0,0.32)] backdrop-blur-md">
         {radarData4.map((item) => {
           const itemScore = Math.max(0, Math.min(10, Number(item.val) || 0));
           const scoreTone = getRatingToneClasses(itemScore * 10);
@@ -9311,10 +9280,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg overflow-hidden transition-all duration-500 hover:border-zinc-700">
                     <HexagonStats 
                       radarData4={radarData} 
-                      radarData5={[
-                        ...radarData,
-                        { label: 'Bone', val: categoryToRadar10(dashboardData?.categories?.Bone || 8.5, radarFinalScore) }
-                      ]}
+                      radarData5={radarData}
                       finalScore={radarFinalScore} 
                     />
                   </div>
@@ -9737,6 +9703,7 @@ const NoiseOverlay = () => (
 const PlansPage = ({ setCurrentPage, user }) => {
   const [tosAgreed, setTosAgreed] = useState(false);
   const [planNotice, setPlanNotice] = useState('');
+  const [proAnnual, setProAnnual] = useState(false);
 
   const handleCheckout = (plan) => {
     if (!tosAgreed) {
@@ -9791,7 +9758,187 @@ const PlansPage = ({ setCurrentPage, user }) => {
       </div>
     </FadeUp>
 
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 w-full max-w-7xl relative z-10">
+    <div className="mx-auto grid w-full max-w-6xl items-center gap-6 lg:grid-cols-[0.9fr_1.08fr_0.9fr] relative z-10">
+      <FadeUp delay={120}>
+        <div className="group flex min-h-[540px] flex-col rounded-[28px] border border-zinc-800 bg-zinc-950/55 p-7 shadow-[0_18px_70px_rgba(0,0,0,0.24)] transition-all duration-500 hover:-translate-y-2 hover:border-zinc-600">
+          <div className="mb-8">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.34em] text-zinc-500">Starter</p>
+            <h3 className="text-4xl font-black italic uppercase tracking-tighter text-white">Free</h3>
+          </div>
+          <div className="mb-8 flex items-end gap-2">
+            <span className="text-6xl font-black tracking-tighter text-white">$0</span>
+            <span className="pb-2 text-xs font-sans uppercase tracking-[0.24em] text-zinc-600">Forever</span>
+          </div>
+          <div className="mb-8 h-px w-full bg-zinc-800" />
+          <ul className="mb-10 flex flex-col gap-4 text-sm font-sans text-zinc-400">
+            <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-zinc-500" /> Basic appearance overview & general rating</li>
+            <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-zinc-500" /> Structural symmetry snapshot</li>
+            <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-zinc-500" /> 1 scan per day</li>
+            <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No detailed facial biometrics</li>
+            <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No AI potential analysis</li>
+            <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No personalized protocols</li>
+            <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No celebrity lookalike matching</li>
+          </ul>
+          <button
+            type="button"
+            onClick={() => setCurrentPage('photo-guide')}
+            className="group mt-auto inline-flex items-center justify-center gap-3 rounded-2xl border border-cyan-400/30 bg-[linear-gradient(135deg,rgba(15,23,42,0.92),rgba(8,47,73,0.9))] px-5 py-4 text-xs font-black uppercase tracking-[0.24em] text-cyan-100 shadow-[0_0_28px_rgba(34,211,238,0.08)] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/60 hover:shadow-[0_0_36px_rgba(34,211,238,0.16)]"
+          >
+            <span className="flex h-7 w-7 items-center justify-center rounded-full border border-cyan-400/30 bg-cyan-400/10 text-cyan-300">
+              <Plus size={14} />
+            </span>
+            Start Free
+            <ChevronRight size={16} className="transition-transform duration-300 group-hover:translate-x-0.5" />
+          </button>
+        </div>
+      </FadeUp>
+
+      <FadeUp delay={200}>
+        <div className={`relative flex min-h-[820px] flex-col overflow-hidden rounded-[30px] bg-zinc-950 p-8 transition-all duration-[2200ms] hover:-translate-y-3 ${
+          proAnnual
+            ? 'border border-emerald-500/35 shadow-[0_0_80px_rgba(16,185,129,0.11)] hover:border-emerald-300/70 hover:shadow-[0_0_100px_rgba(16,185,129,0.18)]'
+            : 'border border-yellow-400/45 shadow-[0_0_80px_rgba(234,179,8,0.13)] hover:border-yellow-300/70 hover:shadow-[0_0_100px_rgba(234,179,8,0.2)]'
+        }`}>
+          <div className={`pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(250,204,21,0.18),transparent_34%),linear-gradient(180deg,rgba(28,22,4,0.92),rgba(9,9,11,0.96))] transition-opacity duration-[2200ms] ease-in-out ${proAnnual ? 'opacity-0' : 'opacity-100'}`} />
+          <div className={`pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(16,185,129,0.18),transparent_34%),linear-gradient(180deg,rgba(9,21,27,0.92),rgba(9,9,11,0.96))] transition-opacity duration-[2200ms] ease-in-out ${proAnnual ? 'opacity-100' : 'opacity-0'}`} />
+          <div className="relative z-10 flex flex-1 flex-col">
+            <div className="mb-8 text-center">
+              <h3 className={`text-5xl font-black italic uppercase tracking-tighter text-white transition-[filter] duration-700 ${
+                proAnnual
+                  ? 'drop-shadow-[0_0_24px_rgba(16,185,129,0.24)]'
+                  : 'drop-shadow-[0_0_24px_rgba(234,179,8,0.22)]'
+              }`}>Pro</h3>
+              <p className={`-mt-1 text-xs font-sans uppercase tracking-[0.24em] transition-colors duration-700 ${proAnnual ? 'text-emerald-200/80' : 'text-yellow-200/80'}`}>Most popular</p>
+            </div>
+            <div className="mb-8 flex items-center justify-between gap-4">
+              <div>
+                <p className={`mb-2 text-[10px] font-black uppercase tracking-[0.34em] transition-colors duration-700 ${proAnnual ? 'text-emerald-400/70' : 'text-yellow-400/70'}`}>Full access</p>
+                <p className="text-sm font-sans text-zinc-400">{proAnnual ? 'Annual billing' : 'Monthly billing'}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProAnnual((value) => !value)}
+                className={`group/toggle flex h-11 w-24 items-center rounded-full bg-black/35 p-1 transition-all duration-700 ${
+                  proAnnual
+                    ? 'border border-emerald-300/40 ring-1 ring-emerald-400/20 hover:border-emerald-200/75 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/55'
+                    : 'border border-yellow-300/35 ring-1 ring-yellow-300/15 hover:border-yellow-200/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-200/55'
+                }`}
+                aria-pressed={proAnnual}
+              >
+                <span className={`h-9 w-9 rounded-full transition-all duration-700 ${
+                  proAnnual
+                    ? 'translate-x-[52px] bg-gradient-to-br from-emerald-100 to-emerald-400 shadow-[0_0_22px_rgba(16,185,129,0.42)]'
+                    : 'translate-x-0 bg-gradient-to-br from-yellow-100 to-yellow-400 shadow-[0_0_18px_rgba(250,204,21,0.36)]'
+                }`} />
+              </button>
+            </div>
+            <div className="mb-2 flex items-end gap-2">
+              <span className="text-6xl font-black tracking-tighter text-white">{proAnnual ? '$12' : '$15'}</span>
+              <span className="pb-2 text-xs font-sans uppercase tracking-[0.24em] text-zinc-500">/mo</span>
+            </div>
+            <p className="mb-6 text-xs font-sans uppercase tracking-[0.18em] text-zinc-400">
+              {proAnnual ? <>Billed annually at <span className="line-through text-zinc-600">$180</span> <span className="text-emerald-300">$144</span></> : 'Cancel anytime, no commitment'}
+            </p>
+            <div className={`mb-8 inline-flex w-fit rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] transition-colors duration-700 ${
+              proAnnual
+                ? 'border border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
+                : 'border border-yellow-400/25 bg-yellow-400/10 text-yellow-200'
+            }`}>
+              {proAnnual ? 'Save $36 yearly' : 'Switch to annual to save'}
+            </div>
+            <div className={`mb-8 h-px w-full transition-colors duration-700 ${proAnnual ? 'bg-emerald-500/15' : 'bg-yellow-400/15'}`} />
+            <p className={`mb-5 font-sans text-[10px] uppercase tracking-[0.24em] transition-colors duration-700 ${proAnnual ? 'text-emerald-400/60' : 'text-yellow-500/60'}`}>
+              {proAnnual ? 'Everything in monthly Pro, plus' : 'Everything in 2 Scans, plus'}
+            </p>
+            <ul className="mb-10 flex min-h-[250px] flex-col gap-4 text-sm font-sans text-zinc-300">
+              {proAnnual ? (
+                <>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> Best monthly rate for long-term access</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> Unlimited analysis (fair usage)</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> AI potential analysis, protocols, and progress tracking</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> Full-detail biometric breakdowns and premium dashboard access</li>
+                </>
+              ) : (
+                <>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Unlimited analysis (fair usage)</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> AI potential analysis - see your projected best self</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Full-detail AI facial analysis with 40+ biometric measurements</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Customized personal improvement protocols</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Celebrity lookalike matching & comparison</li>
+                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Progress tracking dashboard</li>
+                </>
+              )}
+            </ul>
+            <label className="mb-4 flex items-start gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                className={`mt-1 shrink-0 cursor-pointer ${proAnnual ? 'accent-emerald-500' : 'accent-yellow-500'}`}
+                checked={tosAgreed}
+                onChange={(e) => setTosAgreed(e.target.checked)}
+              />
+              <span className="text-zinc-500 font-sans text-[10px] leading-tight group-hover:text-zinc-400 transition-colors">
+                I agree to the <a href="/tos" onClick={(e) => { e.preventDefault(); setCurrentPage('tos'); }} className={`${proAnnual ? 'text-emerald-400 hover:text-emerald-300' : 'text-yellow-500 hover:text-yellow-400'} underline`}>Terms of Service</a> and acknowledge that I lose my right to a refund once the AI analysis is generated.
+              </span>
+            </label>
+            <button
+              type="button"
+              onClick={() => handleCheckout(proAnnual ? 'pro_yearly' : 'pro')}
+              className={`mt-auto rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-[0.24em] text-black transition-all duration-700 hover:scale-[1.02] ${
+                proAnnual
+                  ? 'bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.3)]'
+                  : 'bg-gradient-to-r from-yellow-500 to-yellow-300 shadow-[0_0_30px_rgba(234,179,8,0.28)]'
+              }`}
+            >
+              {proAnnual ? 'Go Yearly' : 'Upgrade To Pro'}
+            </button>
+          </div>
+        </div>
+      </FadeUp>
+
+      <FadeUp delay={280}>
+        <div className="group flex min-h-[600px] flex-col rounded-[28px] border border-cyan-500/30 bg-[linear-gradient(180deg,rgba(8,20,28,0.74),rgba(9,9,11,0.94))] p-7 shadow-[0_18px_80px_rgba(34,211,238,0.07)] transition-all duration-500 hover:-translate-y-2 hover:border-cyan-300/55 hover:shadow-[0_0_80px_rgba(34,211,238,0.14)]">
+          <div className="mb-8">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.34em] text-cyan-300/70">One-time</p>
+            <h3 className="text-4xl font-black italic uppercase tracking-tighter text-white">2 Scans</h3>
+          </div>
+          <div className="mb-8 flex items-end gap-2">
+            <span className="text-6xl font-black tracking-tighter text-white">$8</span>
+            <span className="pb-2 text-xs font-sans uppercase tracking-[0.24em] text-zinc-600">Once</span>
+          </div>
+          <div className="mb-8 h-px w-full bg-cyan-500/20" />
+          <p className="mb-5 font-sans text-[10px] uppercase tracking-[0.24em] text-cyan-400/60">Two premium analyses include</p>
+          <ul className="mb-10 flex flex-col gap-4 text-sm font-sans text-zinc-300">
+            <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> 2 full-detail AI facial analyses with 40+ measurements</li>
+            <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> Exact final rating with detailed ratio breakdown</li>
+            <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> Customized personal improvement protocols</li>
+            <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> Celebrity lookalike matching & comparison</li>
+            <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No AI potential analysis</li>
+            <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No ongoing monthly access</li>
+            <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No progress tracking</li>
+          </ul>
+          <label className="mb-4 flex items-start gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              className="mt-1 shrink-0 cursor-pointer accent-cyan-500"
+              checked={tosAgreed}
+              onChange={(e) => setTosAgreed(e.target.checked)}
+            />
+            <span className="text-zinc-500 font-sans text-[10px] leading-tight group-hover:text-zinc-400 transition-colors">
+              I agree to the <a href="/tos" onClick={(e) => { e.preventDefault(); setCurrentPage('tos'); }} className="text-cyan-400 hover:text-cyan-300 underline">Terms of Service</a> and acknowledge that I lose my right to a refund once the AI analysis is generated.
+            </span>
+          </label>
+          <button
+            type="button"
+            onClick={() => handleCheckout('single_scan')}
+            className="mt-auto rounded-2xl border border-cyan-300/45 bg-cyan-400/10 px-5 py-4 text-xs font-black uppercase tracking-[0.24em] text-cyan-100 shadow-[0_0_26px_rgba(34,211,238,0.14)] transition-all hover:bg-cyan-300 hover:text-black"
+          >
+            Buy 2 Scans
+          </button>
+        </div>
+      </FadeUp>
+    </div>
+
+    <div className="hidden grid-cols-1 lg:grid-cols-4 gap-6 w-full max-w-7xl relative z-10">
 
       {/* --- Free --- */}
       <FadeUp delay={150}>
@@ -11829,7 +11976,6 @@ const App = () => {
   const [analysisDockCollapsed, setAnalysisDockCollapsed] = useState(false);
   const [focusedAnalysisJobId, setFocusedAnalysisJobId] = useState(null);
   const [activeScanRestoreLoading, setActiveScanRestoreLoading] = useState(false);
-  const [premiumProofOpen, setPremiumProofOpen] = useState(false);
   const analysisJobsRef = useRef([]);
 
   useEffect(() => {
@@ -11852,16 +11998,7 @@ const App = () => {
     }
   }, [user?.uid]);
 
-  const openPremiumPlansProof = useCallback(() => {
-    if (currentPage === 'plans') {
-      setCurrentPage('plans');
-      return;
-    }
-    setPremiumProofOpen(true);
-  }, [currentPage, setCurrentPage]);
-
-  const continueToPremiumPlans = useCallback(() => {
-    setPremiumProofOpen(false);
+  const openPremiumPlansPage = useCallback(() => {
     setCurrentPage('plans');
   }, [setCurrentPage]);
 
@@ -12486,17 +12623,10 @@ const App = () => {
         <Navbar
           currentPage={currentPage}
           setCurrentPage={setCurrentPage}
-          onOpenPremiumPlans={openPremiumPlansProof}
           user={user}
           onSignOut={handleSignOut}
           userPlan={userPlan}
           showDashboard={Boolean(user || hasScanData)}
-        />
-      )}
-      {premiumProofOpen && (
-        <PremiumProofModal
-          onClose={() => setPremiumProofOpen(false)}
-          onContinue={continueToPremiumPlans}
         />
       )}
       <main className="flex flex-col min-h-screen">
@@ -12543,14 +12673,14 @@ const App = () => {
                 hasActiveAnalysis={hasScanData}
                 analysisContent={
                   hasScanData
-                    ? <DashboardPage dashboardData={dashboardData} setDashboardData={setDashboardData} setCurrentPage={setCurrentPage} onOpenPremiumPlans={openPremiumPlansProof} userPlan={userPlan} user={user} hideTopSection isEmbedded />
+                    ? <DashboardPage dashboardData={dashboardData} setDashboardData={setDashboardData} setCurrentPage={setCurrentPage} onOpenPremiumPlans={openPremiumPlansPage} userPlan={userPlan} user={user} hideTopSection isEmbedded />
                     : null
                 }
                 renderCommunityDashboard={(communityData) => (
                   <DashboardPage
                     dashboardData={communityData}
                     setCurrentPage={setCurrentPage}
-                    onOpenPremiumPlans={openPremiumPlansProof}
+                    onOpenPremiumPlans={openPremiumPlansPage}
                     userPlan={userPlan}
                     user={user}
                     hideTopSection
@@ -12568,7 +12698,7 @@ const App = () => {
                 dashboardData={dashboardData}
                 setDashboardData={setDashboardData}
                 setCurrentPage={setCurrentPage}
-                onOpenPremiumPlans={openPremiumPlansProof}
+                onOpenPremiumPlans={openPremiumPlansPage}
                 userPlan={userPlan}
                 user={user}
                 onBackToProfiles={() => {
@@ -12612,7 +12742,7 @@ const App = () => {
                 <DashboardPage
                   dashboardData={scanDashboardData}
                   setCurrentPage={setCurrentPage}
-                  onOpenPremiumPlans={openPremiumPlansProof}
+                  onOpenPremiumPlans={openPremiumPlansPage}
                   userPlan={userPlan}
                   user={user}
                   hideTopSection
