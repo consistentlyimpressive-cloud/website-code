@@ -8973,14 +8973,8 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   <div className="flex min-h-[7.25rem] flex-col items-center justify-center rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-3 text-center shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
                     <span className="mb-2 text-[10px] font-black uppercase tracking-[0.26em] text-white">Final Rating</span>
                     <div className="relative">
-                      <span 
-                        className={`text-5xl font-black italic tracking-tight ${isFreeModelResult ? 'select-none animate-free-rating-bg' : ''}`}
-                        style={{
-                          background: isFreeModelResult ? 'none' : `linear-gradient(to bottom, #ffffff 0%, #ffffff 48%, ${ratingTone.stroke || '#22d3ee'} 100%)`,
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          filter: `drop-shadow(0 0 18px ${ratingTone.stroke || 'rgba(34,211,238,0.18)'}) saturate(0.95) ${isFreeModelResult ? 'blur(8px)' : ''}`
-                        }}
+                      <span
+                        className={`text-5xl font-black italic tracking-tight ${ratingTone.text} ${isFreeModelResult ? 'select-none blur-[8px]' : ''}`}
                       >
                         {displayedFinalRating}
                       </span>
@@ -9125,25 +9119,13 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       <span className="font-sans text-[11px] uppercase tracking-[0.45em] mb-4 text-white">Final Rating</span>
                       <div className="relative leading-none">
                         <>
-                          <span 
-                            className={`absolute inset-0 block text-6xl font-black italic tracking-tighter animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none animate-free-rating-bg`}
-                            style={{
-                              background: 'none',
-                              WebkitBackgroundClip: 'text',
-                              WebkitTextFillColor: 'transparent',
-                              filter: 'saturate(0.85) blur(25.9px)'
-                            }}
+                          <span
+                            className="absolute inset-0 block text-6xl font-black italic tracking-tighter text-green-300/90 blur-[26px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none"
                           >
                             {displayedFinalRating}
                           </span>
-                          <span 
-                            className={`relative block text-6xl font-black italic tracking-tighter animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_${ratingTone.stroke || 'rgba(74,222,128,0.4)'}] animate-free-rating-bg`}
-                            style={{
-                              background: 'none',
-                              WebkitBackgroundClip: 'text',
-                              WebkitTextFillColor: 'transparent',
-                              filter: 'saturate(0.85) blur(18.5px)'
-                            }}
+                          <span
+                            className="relative block text-6xl font-black italic tracking-tighter text-green-300 blur-[18px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_rgba(74,222,128,0.4)]"
                           >
                             {displayedFinalRating}
                           </span>
@@ -9244,14 +9226,8 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                         {'Final Rating'}
                       </span>
                       <div className="relative leading-none w-full flex justify-center">
-                        <span 
-                          className={`block font-black tracking-tighter ${isFreeModelResult ? 'text-3xl animate-free-rating-bg' : 'text-[5.5rem] md:text-[6.5rem]'}`}
-                          style={{
-                            background: isFreeModelResult ? 'none' : `linear-gradient(to bottom, #ffffff 40%, ${ratingTone.stroke || '#22d3ee'})`,
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            filter: 'saturate(0.85)'
-                          }}
+                        <span
+                          className={`block font-black tracking-tighter ${ratingTone.text} ${isFreeModelResult ? 'text-3xl' : 'text-[5.5rem] md:text-[6.5rem]'}`}
                         >
                           {displayedFinalRating}
                         </span>
