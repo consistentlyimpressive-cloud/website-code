@@ -8122,6 +8122,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
   const [landmarker, setLandmarker] = useState(null);
   const [landmarks, setLandmarks] = useState(null);
   const imgRef = useRef(null);
+  const hasAnchorImage = Boolean(showAnchors && anchorImageUrl);
 
   const detectCurrentImage = useCallback(() => {
     if (!landmarker || !imgRef.current || !imgRef.current.complete || imgRef.current.naturalWidth === 0) {
@@ -8397,7 +8398,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
   return (
     <button
       type="button"
-      onClick={() => onImageClick?.(activeImageUrl)}
+      onClick={() => onImageClick?.(hasAnchorImage ? anchorImageUrl : activeImageUrl)}
       className="relative w-72 sm:w-72 md:w-[21rem] aspect-[3/4] shrink-0 bg-[#060708] rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 mx-auto text-left transition-colors hover:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
     >
       <img 
@@ -8406,19 +8407,26 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
         loading="eager"
         decoding="async"
         onLoad={detectCurrentImage}
-        className={`absolute inset-0 w-full h-full object-cover object-center scale-[1.14] transition-all duration-700 ${showAnchors && anchorImageUrl ? 'opacity-30 grayscale brightness-50' : 'opacity-100'}`}
+        className={`absolute inset-0 w-full h-full object-cover object-center scale-[1.14] transition-all duration-700 ${hasAnchorImage ? 'opacity-20 grayscale brightness-40' : 'opacity-100'}`}
         alt="face map"
       />
-      {showAnchors && anchorImageUrl && (
+      {hasAnchorImage && (
         <img 
           src={anchorImageUrl} 
           loading="eager"
           decoding="async"
-          className="absolute inset-0 w-full h-full object-cover object-center scale-[1.14] z-10 mix-blend-screen opacity-100"
+          className="absolute inset-0 z-30 h-full w-full bg-[#060708] object-contain object-center opacity-100"
           alt="anchors overlay"
         />
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-[#0a0a0b]/20 to-transparent z-20 pointer-events-none" />
+      {showAnchors && !anchorImageUrl && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 px-5 text-center">
+          <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-yellow-200">
+            Anchor image unavailable
+          </span>
+        </div>
+      )}
+      {!hasAnchorImage && <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-[#0a0a0b]/20 to-transparent z-20 pointer-events-none" />}
     </button>
   );
 };
