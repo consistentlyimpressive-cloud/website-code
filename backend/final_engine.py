@@ -216,11 +216,15 @@ def consult_ai_with_selection(unified_prompt, img_path, choice):
                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{front_base64}"}},
                     ]}],
                     temperature=0,
-                    max_tokens=2600,
+                    max_tokens=8192,
                     timeout=240,
                 )
                 content = ""
                 if getattr(res, "choices", None):
+                    finish_reason = getattr(res.choices[0], "finish_reason", None)
+                    usage = getattr(res, "usage", None)
+                    total_tokens = getattr(usage, "total_tokens", None) if usage else None
+                    print(f"[DEBUG] OpenRouter finish_reason={finish_reason or 'unknown'} total_tokens={total_tokens or 'unknown'}")
                     message = getattr(res.choices[0], "message", None)
                     content = getattr(message, "content", "") if message else ""
                     if isinstance(content, list):
