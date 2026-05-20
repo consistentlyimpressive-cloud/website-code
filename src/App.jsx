@@ -9191,6 +9191,32 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     </button>
   ) : null;
   const radarFinalScore = Number(numericDisplayedFinalRating ?? dashboardData?.finalRating ?? 0) || 0;
+  const normalizeFreeDashboardScan = useCallback((scan) => {
+    const payload = scan?.payload && typeof scan.payload === 'object' ? scan.payload : {};
+    const model = getDashboardScanModel(scan) || selectedModel || getDashboardScanModel(dashboardData) || '3';
+    const selectedFreeModel = isFreeScanModel(model) ? model : (isFreeModelResult ? selectedModel || '3' : model);
+    return normalizeDashboardMedia({
+      ...payload,
+      ...scan,
+      selectedModel: selectedFreeModel,
+      payload: {
+        ...payload,
+        selectedModel: selectedFreeModel,
+      },
+      frontImage: scan?.frontImage || scan?.frontImageUrl || payload.frontImage || payload.frontImageUrl || dashboardData?.frontImage || placeholderProfileImage,
+      frontImageUrl: scan?.frontImageUrl || scan?.frontImage || payload.frontImageUrl || payload.frontImage || dashboardData?.frontImageUrl || dashboardData?.frontImage || placeholderProfileImage,
+      sideImage: scan?.sideImage || scan?.sideImageUrl || payload.sideImage || payload.sideImageUrl || dashboardData?.sideImage || scan?.frontImage || payload.frontImage || dashboardData?.frontImage || placeholderProfileImage,
+      sideImageUrl: scan?.sideImageUrl || scan?.sideImage || payload.sideImageUrl || payload.sideImage || dashboardData?.sideImageUrl || dashboardData?.sideImage || null,
+      finalRating: scan?.finalRating ?? payload.finalRating ?? dashboardData?.finalRating ?? 0,
+      sideRating: scan?.sideRating ?? payload.sideRating ?? dashboardData?.sideRating ?? scan?.finalRating ?? payload.finalRating ?? dashboardData?.finalRating ?? 0,
+      categories: scan?.categories || payload.categories || dashboardData?.categories || null,
+      sideCategories: scan?.sideCategories || payload.sideCategories || dashboardData?.sideCategories || null,
+      biometrics: Array.isArray(scan?.biometrics) ? scan.biometrics : (Array.isArray(payload.biometrics) ? payload.biometrics : (Array.isArray(dashboardData?.biometrics) ? dashboardData.biometrics : [])),
+      sideBiometrics: Array.isArray(scan?.sideBiometrics) ? scan.sideBiometrics : (Array.isArray(payload.sideBiometrics) ? payload.sideBiometrics : (Array.isArray(dashboardData?.sideBiometrics) ? dashboardData.sideBiometrics : [])),
+      scannedAt: scan?.scannedAt || scan?.timestamp || payload.scannedAt || dashboardData?.scannedAt || new Date().toISOString(),
+    });
+  }, [dashboardData, isFreeModelResult, selectedModel]);
+
   const freeHistoryCards = useMemo(() => {
     const items = Array.isArray(dashboardData?.scanHistory) ? [...dashboardData.scanHistory] : [];
     const currentSnapshot = dashboardData?.frontImage || dashboardData?.finalRating != null
@@ -9208,8 +9234,9 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     return items
       .filter((item) => item && (item.frontImage || item.finalRating != null))
       .slice(-PROFILE_SCAN_HISTORY_LIMIT)
+      .map(normalizeFreeDashboardScan)
       .reverse();
-  }, [dashboardData]);
+  }, [dashboardData, normalizeFreeDashboardScan]);
 
   const scrollFreeHistoryStrip = (direction) => {
     const el = freeHistoryStripRef.current;
@@ -9218,6 +9245,18 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     el.scrollBy({ left: direction * amount, behavior: 'smooth' });
   };
   const isFreeHistoryScan = (scan) => ['3', '4', '5'].includes(String(scan?.selectedModel || scan?.model || scan?.payload?.selectedModel || '').trim());
+  const openFreeHistoryScan = useCallback((scan) => {
+    const normalizedScan = normalizeFreeDashboardScan(scan);
+    onOpenHistoryScan?.({
+      ...normalizedScan,
+      scanHistory: freeHistoryCards.slice().reverse(),
+      ratingHistory: freeHistoryCards
+        .slice()
+        .reverse()
+        .map((item) => Number(item?.finalRating))
+        .filter((value) => Number.isFinite(value)),
+    });
+  }, [freeHistoryCards, normalizeFreeDashboardScan, onOpenHistoryScan]);
 
   return (
     <div className={`w-full flex-grow flex flex-col items-center relative font-sans overflow-hidden bg-[#0a0a0b] ${isEmbedded ? '' : 'pt-16 pb-24 px-4 sm:px-6'}`}>
@@ -9386,15 +9425,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                     <button
                       key={idx}
                       type="button"
-                      onClick={() => onOpenHistoryScan?.({
-                        ...scan,
-                        scanHistory: freeHistoryCards.slice().reverse(),
-                        ratingHistory: freeHistoryCards
-                          .slice()
-                          .reverse()
-                          .map((item) => Number(item?.finalRating))
-                          .filter((value) => Number.isFinite(value)),
-                      })}
+                      onClick={() => openFreeHistoryScan(scan)}
                       className={`group relative flex h-20 w-40 shrink-0 overflow-hidden rounded-2xl border bg-[#0c0d0e] text-left transition-all md:h-24 md:w-48 ${isActive ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.18)]' : 'border-zinc-800 hover:border-zinc-700'}`}
                     >
                       <div
@@ -13181,7 +13212,11 @@ const App = () => {
                     setCurrentPage('dashboard');
                   }}
                   onOpenHistoryScan={(scan) => {
-                    setDashboardData(scan);
+                    setDashboardData(normalizeDashboardMedia({
+                      ...(scan?.payload && typeof scan.payload === 'object' ? scan.payload : {}),
+                      ...scan,
+                      selectedModel: getDashboardScanModel(scan) || '3',
+                    }));
                     setCurrentPage('dashboard');
                   }}
                 />
