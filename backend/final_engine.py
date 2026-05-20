@@ -452,7 +452,7 @@ def _compact_model_choice(value):
 
 def normalize_model_choice(choice):
     raw = str(choice or "").strip()
-    if raw in {str(index) for index in range(1, 14)}:
+    if raw in {str(index) for index in range(1, 15)}:
         return raw
 
     normalized = _compact_model_choice(raw)
@@ -472,6 +472,8 @@ def normalize_model_choice(choice):
         return "12"
     if "qwen" in normalized:
         return "10"
+    if "haiiii" in normalized or "googlegemma431bitfree" in normalized:
+        return "14"
     if "premium" in normalized or "ultra" in normalized:
         return "6"
     if "backup" in normalized or "fast" in normalized or "fun" in normalized:
@@ -854,7 +856,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
             print("\nExiting script...")
             return
 
-    if choice not in {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"}:
+    if choice not in {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"}:
         print(f"[ERROR] Invalid model choice: {choice}")
         return "Error: Model selection failed."
 

@@ -2774,6 +2774,9 @@ function extractProviderFailureMessage(output) {
     'Error: OpenRouter Qwen testing model returned an empty response.',
     'Error: OpenRouter Qwen testing model failed.',
     'Error: OpenRouter experimental model',
+    'Error: OpenRouter Haiiii model failed.',
+    'Error: OpenRouter Haiiii model is not configured.',
+    'Error: OpenRouter Haiiii model returned an empty response.',
   ];
   const marker = markers.find((candidate) => text.includes(candidate));
   if (!marker) return null;
@@ -2786,7 +2789,7 @@ function extractProviderFailureMessage(output) {
 
   if (!line) return null;
 
-  if (/OpenRouter (?:Qwen testing model|experimental model)/i.test(line)) {
+  if (/OpenRouter (?:Qwen testing model|experimental model|Haiiii model)/i.test(line)) {
     return {
       code: 'OPENROUTER_EXPERIMENTAL_MODEL_FAILED',
       error: line.slice(0, 500),
