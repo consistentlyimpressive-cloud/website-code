@@ -72,6 +72,52 @@
   background: linear-gradient(180deg, rgba(103, 232, 249, 0.95), rgba(8, 145, 178, 0.95));
 }
 
+.mog-hero-face-wrap {
+  mix-blend-mode: plus-lighter;
+}
+
+.mog-hero-face-video {
+  filter: contrast(1.08) brightness(1.05);
+  mix-blend-mode: plus-lighter;
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+  .mog-hero-face-wrap {
+    background: #111214;
+    border-radius: 999px;
+    height: min(46vh, 430px) !important;
+    mix-blend-mode: normal !important;
+    overflow: hidden;
+    top: 15vh !important;
+    width: min(130vw, 560px) !important;
+    -webkit-mask-image: radial-gradient(ellipse 42% 38% at center, #000 0%, #000 48%, rgba(0, 0, 0, 0.62) 64%, transparent 82%);
+    mask-image: radial-gradient(ellipse 42% 38% at center, #000 0%, #000 48%, rgba(0, 0, 0, 0.62) 64%, transparent 82%);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+  }
+
+  .mog-hero-face-video {
+    filter: contrast(1.08) brightness(1.08) drop-shadow(0 0 34px rgba(255, 255, 255, 0.18));
+    mix-blend-mode: normal !important;
+    opacity: 0.76 !important;
+  }
+}
+
+@media (max-width: 768px), (pointer: coarse) {
+  @supports not ((mask-image: radial-gradient(circle, #000, transparent)) or (-webkit-mask-image: radial-gradient(circle, #000, transparent))) {
+    .mog-hero-face-wrap {
+      box-shadow: inset 0 0 84px 46px #111214;
+    }
+
+    .mog-hero-face-video {
+      filter: contrast(1.06) brightness(1.06) blur(0.35px) drop-shadow(0 0 42px rgba(255, 255, 255, 0.16));
+      opacity: 0.64 !important;
+    }
+  }
+}
+
 @media (max-width: 768px) {
   .mog-mobile-compact [class*=" p-8"],
   .mog-mobile-compact [class^="p-8"],

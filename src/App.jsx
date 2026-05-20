@@ -2901,6 +2901,22 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
   );
 };
 
+const HeroFaceAnimation = ({ videoRef }) => (
+  <div
+    className="mog-hero-face-wrap pointer-events-none absolute left-1/2 top-[18vh] z-0 w-[min(118vw,1040px)] h-[min(82vh,760px)] origin-center -translate-x-1/2 -translate-y-[22%] sm:-translate-y-[27%] md:-translate-y-[32%] overflow-visible scale-[0.81]"
+    aria-hidden
+  >
+    <video
+      ref={videoRef}
+      muted
+      playsInline
+      preload="auto"
+      className="mog-hero-face-video w-full h-full object-contain object-center opacity-[0.92]"
+      src="/FaceANimationforwebsite.webm"
+    />
+  </div>
+);
+
 const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
   const [analysisHeroCount, setAnalysisHeroCount] = useState(74);
   const [activeUsers, setActiveUsers] = useState(106);
@@ -3093,22 +3109,8 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
     <header className="relative w-full flex flex-col items-center pt-[25vh] pb-32 text-center px-6 overflow-x-hidden overflow-y-visible">
       <div className="absolute inset-0 bg-radial-gradient from-white/5 to-transparent -z-10 opacity-30" />
       
-      {/* Extracted Video: Placed directly in the header to avoid FadeUp's stacking context which breaks mix-blend-screen */}
-      <div
-        className="pointer-events-none absolute left-1/2 top-[18vh] z-0 w-[min(118vw,1040px)] h-[min(82vh,760px)] origin-center -translate-x-1/2 -translate-y-[22%] sm:-translate-y-[27%] md:-translate-y-[32%] overflow-visible scale-[0.81]"
-        style={{ mixBlendMode: 'plus-lighter' }}
-        aria-hidden
-      >
-        <video
-          ref={heroFaceVideoRef}
-          muted 
-          playsInline 
-          preload="auto"
-          className="w-full h-full object-contain object-center opacity-[0.92]"
-          style={{ filter: 'contrast(1.08) brightness(1.05)', mixBlendMode: 'plus-lighter' }}
-          src="/FaceANimationforwebsite.webm" 
-        />
-      </div>
+      {/* Extracted Video: Placed directly in the header to avoid FadeUp's stacking context which breaks desktop blending. */}
+      <HeroFaceAnimation videoRef={heroFaceVideoRef} />
 
       {/* Animated gradient sweep */}
       <style>{`
