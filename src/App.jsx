@@ -125,6 +125,9 @@ function isAiProviderErrorMessage(message) {
 
 function friendlyAnalysisErrorMessage(message, { isAdmin = false } = {}) {
   const text = String(message || '').trim();
+  if (/OpenRouter Haiiii model/i.test(text) && /429|rate.?limit|temporarily rate-limited/i.test(text)) {
+    return 'The Haiiii provider is temporarily rate-limited upstream. This is on the provider side, not your account or image. Please retry shortly.';
+  }
   if (!isAdmin && isAiProviderErrorMessage(text)) {
     return GENERIC_AI_LOAD_ERROR;
   }
@@ -1157,7 +1160,7 @@ const ANALYSIS_MODEL_LABELS = {
 };
 
 const PREMIUM_MODEL_IDS = new Set(['1', '2', '6', '7', '8', '9', '10', '11', '12', '13', '14']);
-const ADMIN_EXPERIMENTAL_MODEL_IDS = new Set(['10', '11', '12', '14']);
+const ADMIN_EXPERIMENTAL_MODEL_IDS = new Set(['10', '11', '12']);
 
 function getOpenRouterGeminiPreviewChoice(model) {
   const compact = String(model || '')

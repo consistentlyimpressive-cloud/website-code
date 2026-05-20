@@ -2213,7 +2213,8 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     (finalRating != null && !Number.isNaN(finalRating)) ||
     categories != null ||
     hexagonFront != null ||
-    personalizedFeedback.length > 0;
+    personalizedFeedback.length > 0 ||
+    protocols.length > 0;
 
   return {
     sex,
