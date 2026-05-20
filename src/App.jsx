@@ -8554,7 +8554,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const isFreeModelResult = !forceFullAnalysis && ['3', '4', '5'].includes(selectedModel);
   const hasFullProUnlock = isProPlan(userPlan);
   const isRestrictedPreview = !forceFullAnalysis && isFreeModelResult;
-  const showBestFlaw = !hideBestFlawSection;
+  const showBestFlaw = !hideBestFlawSection && !isRestrictedPreview;
   const isAdmin = isAdminEmail(user?.email);
 
   const getCommunityScanShareUrl = useCallback((scan) => {
@@ -8693,7 +8693,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   };
 
   const [activeProfileView, setActiveProfileView] = useState('front');
-  const [freeRatingLoop, setFreeRatingLoop] = useState(70);
+  const [freeRatingLoop, setFreeRatingLoop] = useState(40);
   const [experimentalCohesiveEnabled, setExperimentalCohesiveEnabled] = useState(Boolean(dashboardData?.cohesiveFrontSide));
 
   useEffect(() => {
@@ -8711,7 +8711,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const effectiveProfileView = activeProfileView === 'side' && hasSideProfileImage ? 'side' : 'front';
   const isSideView = effectiveProfileView === 'side';
   const hasBothProfileViews = hasFrontProfileImage && hasSideProfileImage;
-  const effectiveCohesiveEnabled = hasBothProfileViews && experimentalCohesiveEnabled;
+  const effectiveCohesiveEnabled = !isFreeModelResult && hasBothProfileViews && experimentalCohesiveEnabled;
 
   useEffect(() => {
     if (!hasSideProfileImage && activeProfileView === 'side') {
@@ -9023,7 +9023,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   useEffect(() => {
     if (!isRestrictedPreview) return;
     const interval = setInterval(() => {
-      setFreeRatingLoop(Math.floor(70 + Math.random() * 30));
+      setFreeRatingLoop(Math.floor(40 + Math.random() * 60));
     }, 120);
     return () => clearInterval(interval);
   }, [isRestrictedPreview]);
@@ -9213,7 +9213,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
         }
       `}</style>
       <FadeUp>
-        <div className={`w-full mx-auto flex flex-col gap-12 ${isEmbedded ? 'max-w-5xl' : 'max-w-6xl'}`}>
+        <div className={`w-full mx-auto flex flex-col ${isFreeModelResult ? 'gap-8' : 'gap-12'} ${isEmbedded ? 'max-w-5xl' : 'max-w-6xl'}`}>
           {/* Mobile Header Buttons (Free Dashboard) */}
           {!isEmbedded && isFreeModelResult && (
             <div className="md:hidden">
@@ -9254,7 +9254,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                 Detailed report loading
               </span>
             )}
-            {(dashboardData?.cohesiveFrontSide || effectiveCohesiveEnabled) && (
+            {!isFreeModelResult && (dashboardData?.cohesiveFrontSide || effectiveCohesiveEnabled) && (
               <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">
                 Cohesive side/front enabled
               </span>
@@ -9292,9 +9292,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                       <div className={`absolute bottom-1 left-0 right-0 text-center text-[9px] font-black italic ${tone.text} ${rating === 0 ? 'animate-free-rating-bg' : ''}`}
                         style={{
-                          background: rating === 0 ? 'none' : 'white',
-                          WebkitBackgroundClip: rating === 0 ? 'text' : 'none',
-                          WebkitTextFillColor: rating === 0 ? 'transparent' : 'inherit',
+                          WebkitTextFillColor: rating === 0 ? 'currentColor' : 'inherit',
                           filter: rating === 0 ? 'blur(3.5px) saturate(0.85)' : 'none'
                         }}
                       >
@@ -9465,7 +9463,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           {/* Free vs Pro Adaptive Layout */}
           {isRestrictedPreview ? (
             <>
-              <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={effectiveProfileView} showFeatureLists={true} />
+              <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={effectiveProfileView} showFeatureLists={false} />
 
               <div className="hidden md:grid md:grid-cols-4 gap-6">
                 <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
@@ -9477,13 +9475,13 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                         <>
                           <GradientRatingText
                             value={displayedFinalRating}
-                            endColor="#4ade80"
+                            endColor={ratingTone.stroke || '#22d3ee'}
                             className="absolute inset-0 text-6xl font-black italic tracking-tighter blur-[26px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none opacity-90"
                             shadow={false}
                           />
                           <GradientRatingText
                             value={displayedFinalRating}
-                            endColor="#4ade80"
+                            endColor={ratingTone.stroke || '#22d3ee'}
                             className="relative text-6xl font-black italic tracking-tighter blur-[18px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none"
                           />
                         </>
@@ -9978,12 +9976,17 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           )}
 
           {!isEmbedded && isFreeModelResult && (
-            <DashboardHubPreviewsCompact
-              setCurrentPage={setCurrentPage}
-              variant="sections"
-              onOpenCommunityScan={openCommunityScan}
-              onAddScan={() => setCurrentPage('photo-guide')}
-            />
+            <div className="mt-4 border-t border-zinc-900/50 pt-8">
+              <div className="w-full max-w-[1400px] mx-auto">
+                <CommunityScansSection
+                  setCurrentPage={setCurrentPage}
+                  user={user}
+                  onOpenScan={openCommunityScan}
+                  filterMode="all"
+                  showAddScan
+                />
+              </div>
+            </div>
           )}
 
           {!isEmbedded && !isFreeModelResult && (

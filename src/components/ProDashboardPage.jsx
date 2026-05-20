@@ -191,18 +191,18 @@ function DashboardCommunityScanCard({
 }
 
 const FreeScanShiftingScore = ({ className = '' }) => {
-  const [score, setScore] = useState(70);
+  const [score, setScore] = useState(40);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setScore(Math.floor(70 + Math.random() * 30));
+      setScore(Math.floor(40 + Math.random() * 60));
     }, 120);
     return () => clearInterval(interval);
   }, []);
 
   return (
     <span
-      className={`inline-block select-none font-black italic tabular-nums text-emerald-300 blur-[4.625px] drop-shadow-[0_0_18px_rgba(16,185,129,0.8)] ${className}`}
+      className={`animate-free-rating-bg inline-block select-none font-black italic tabular-nums blur-[4.625px] ${className}`}
       aria-label="Free scan score hidden"
     >
       {score.toFixed(1)}

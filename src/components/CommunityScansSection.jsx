@@ -187,9 +187,9 @@ export const CommunityScanCard = ({ scan, rating, ratingTone, tierBadgeClass, sc
   );
 };
 
-export function CommunityScansSection({ user, setCurrentPage, onOpenScan, hideTitle = false, showFilters = true, showAddScan = false }) {
+export function CommunityScansSection({ user, setCurrentPage, onOpenScan, hideTitle = false, showFilters = true, showAddScan = false, filterMode: initialFilterMode = 'all' }) {
   const [communityScans, setCommunityScans] = useState([]);
-  const [filterMode, setFilterMode] = useState('all');
+  const [filterMode, setFilterMode] = useState(initialFilterMode);
   const [communitySort, setCommunitySort] = useState('latest');
   const [communityMenuId, setCommunityMenuId] = useState(null);
   const [notice, setNotice] = useState('');
@@ -199,6 +199,10 @@ export function CommunityScansSection({ user, setCurrentPage, onOpenScan, hideTi
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const isAdmin = Boolean(user?.email && (user.email === 'laithbu07@gmail.com' || user.email === 'admin@looksmaxxing.com'));
+
+  useEffect(() => {
+    setFilterMode(initialFilterMode);
+  }, [initialFilterMode]);
 
   const communityScanIds = useMemo(
     () => new Set(communityScans.map((s) => String(s.scanId || s.id || '').trim())),
