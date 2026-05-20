@@ -353,6 +353,20 @@ def _is_transient_provider_error(error_text):
     )
 
 
+def is_provider_rate_limit_error(error_text):
+    low = str(error_text or "").lower()
+    return (
+        "error code: 429" in low
+        or "'code': 429" in low
+        or '"code": 429' in low
+        or "rate-limited" in low
+        or "rate limited" in low
+        or "temporarily rate" in low
+        or "quota" in low
+        or "resource_exhausted" in low
+    )
+
+
 def _mean(values):
     values = [float(v) for v in values if isinstance(v, (int, float))]
     return round(sum(values) / len(values), 3) if values else None
@@ -658,6 +672,13 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
                     "image_included": include_image,
                 })
                 duration = round(time.time() - start_time, 2)
+                if is_provider_rate_limit_error(short_error):
+                    return (
+                        f"Error: {provider_error_label} is temporarily rate-limited by the upstream provider. "
+                        "Please retry shortly or use another available model.",
+                        friendly_name,
+                        duration,
+                    )
                 return f"Error: {provider_error_label} failed. {short_error}", friendly_name, duration
 
         if choice == "6":

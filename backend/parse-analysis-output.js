@@ -1787,6 +1787,59 @@ function parsePersonalizedFeedback(raw) {
   return feedback;
 }
 
+function parseJsonFeatureFragments(raw) {
+  const feedback = [];
+  const entryRegex = /"title"\s*:\s*"((?:\\.|[^"\\])*)"\s*,\s*"description"\s*:\s*"((?:\\.|[^"\\])*)"/gi;
+  let match;
+  while ((match = entryRegex.exec(String(raw || ''))) !== null) {
+    let title = '';
+    let description = '';
+    try {
+      title = JSON.parse(`"${match[1]}"`);
+      description = JSON.parse(`"${match[2]}"`);
+    } catch (_) {
+      title = match[1];
+      description = match[2];
+    }
+    title = compactString(title).slice(0, 90);
+    description = compactString(description).slice(0, 320);
+    if (!title || !description) continue;
+    feedback.push({ id: feedback.length + 1, title, description });
+  }
+  return feedback;
+}
+
+function parseJsonProtocolFragments(raw) {
+  const protocols = [];
+  const entryRegex = /"name"\s*:\s*"((?:\\.|[^"\\])*)"\s*,\s*"description"\s*:\s*"((?:\\.|[^"\\])*)"(?:\s*,\s*"impact"\s*:\s*"((?:\\.|[^"\\])*)")?/gi;
+  let match;
+  while ((match = entryRegex.exec(String(raw || ''))) !== null) {
+    let name = '';
+    let description = '';
+    let impact = '';
+    try {
+      name = JSON.parse(`"${match[1]}"`);
+      description = JSON.parse(`"${match[2]}"`);
+      impact = match[3] ? JSON.parse(`"${match[3]}"`) : '';
+    } catch (_) {
+      name = match[1];
+      description = match[2];
+      impact = match[3] || '';
+    }
+    name = compactString(name).slice(0, 90);
+    description = compactString(description).slice(0, 320);
+    if (!name || !description) continue;
+    protocols.push({
+      id: protocols.length + 1,
+      name,
+      description,
+      impact: normalizeImpactLabel(impact),
+      research: null,
+    });
+  }
+  return protocols;
+}
+
 function parseRatingsUseThis(raw, rawValues) {
   const biometrics = [];
   const ratingsMatch = raw.match(
@@ -1968,7 +2021,10 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   const hexagonSide = offsetScoreMap(parseHexagonChart(rawOutput, 'side'), 10);
 
   // Parse Personalized Feedback
-  const personalizedFeedback = parsePersonalizedFeedback(rawOutput);
+  let personalizedFeedback = parsePersonalizedFeedback(rawOutput);
+  if (personalizedFeedback.length === 0 && /"personalizedFeedback"\s*:/i.test(rawOutput)) {
+    personalizedFeedback = parseJsonFeatureFragments(rawOutput).slice(0, 5);
+  }
 
   const sideBiometrics = [];
   const sideRawMatch = rawOutput.match(/### SIDE_BIOMETRICS_RAW\r?\n([\s\S]*?)\r?\n### END_SIDE_BIOMETRICS_RAW/);
@@ -2141,6 +2197,9 @@ function parseAnalysisOutput(rawOutput, backendDir) {
         research: resMatch ? resMatch[1].trim() : null
       });
     }
+  }
+  if (protocols.length === 0 && /"protocols"\s*:/i.test(rawOutput)) {
+    protocols.push(...parseJsonProtocolFragments(rawOutput).slice(0, 25));
   }
 
   debugJustification = syncDebugJustificationRatings(debugJustification, finalRating, sideRating);

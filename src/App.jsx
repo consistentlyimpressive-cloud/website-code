@@ -1157,7 +1157,7 @@ const ANALYSIS_MODEL_LABELS = {
 };
 
 const PREMIUM_MODEL_IDS = new Set(['1', '2', '6', '7', '8', '9', '10', '11', '12', '13', '14']);
-const ADMIN_EXPERIMENTAL_MODEL_IDS = new Set(['10', '11', '12', '13', '14']);
+const ADMIN_EXPERIMENTAL_MODEL_IDS = new Set(['10', '11', '12', '14']);
 
 function getOpenRouterGeminiPreviewChoice(model) {
   const compact = String(model || '')
@@ -4512,6 +4512,9 @@ const ScanningView = ({
   const scanRequestId = String(suppliedScanRequestId || fallbackScanRequestIdRef.current).trim();
   const getQuotaAwareScanMessage = useCallback((rawMessage, fallbackMessage = '') => {
     const source = `${rawMessage || ''} ${fallbackMessage || ''}`.trim();
+    if (/OpenRouter|rate[-\s]?limited|upstream provider|temporarily rate|Error code:\s*429|code['"]?:\s*429/i.test(source)) {
+      return 'That AI model is temporarily rate-limited by its provider. It is not your image or account. Please retry shortly or choose another model.';
+    }
     if (/RESOURCE_EXHAUSTED|quota exceeded|firestore quota/i.test(source)) {
       return 'Firebase quota exceeded right now. The AI scan may still run, but saving or loading the scan into your dashboard can temporarily fail until quota resets.';
     }
