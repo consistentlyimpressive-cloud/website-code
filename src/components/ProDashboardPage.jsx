@@ -281,7 +281,7 @@ const formatDashboardDate = (value, fallback = '-') => {
 
 const modelUsesProDashboard = (model) => {
   const normalized = String(model || '').trim();
-  return normalized === '1' || normalized === '2' || normalized === '6' || normalized === '7' || normalized === '8' || normalized === '9' || normalized === '10' || normalized === 'premium-demo';
+  return normalized === '1' || normalized === '2' || normalized === '6' || normalized === '7' || normalized === '8' || normalized === '9' || normalized === '10' || normalized === '11' || normalized === '12' || normalized === '13' || normalized === '14' || normalized === 'premium-demo';
 };
 
 const isFreeScanModel = (model) => ['3', '4', '5'].includes(String(model || '').trim());

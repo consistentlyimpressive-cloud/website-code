@@ -1021,8 +1021,10 @@ const normalizeDashboardMedia = (data, includeHistory = true) => {
   const sideImage = resolveMediaUrl(data.sideImage || data.sideImageUrl || payload?.sideImage || payload?.sideImageUrl || null);
   const debugAnchorsImage = resolveMediaUrl(data.debugAnchorsImage || data.debugAnchorsImageUrl || payload?.debugAnchorsImage || payload?.debugAnchorsImageUrl || null);
   const debugRatiosImage = resolveMediaUrl(data.debugRatiosImage || data.debugRatiosImageUrl || payload?.debugRatiosImage || payload?.debugRatiosImageUrl || null);
+  const selectedModel = String(data.selectedModel || data.model || payload?.selectedModel || payload?.model || '').trim();
   const normalized = {
     ...data,
+    ...(selectedModel ? { selectedModel } : {}),
     frontImage,
     sideImage,
     debugAnchorsImage,
@@ -1036,6 +1038,7 @@ const normalizeDashboardMedia = (data, includeHistory = true) => {
   if (payload) {
     normalized.payload = {
       ...payload,
+      ...(selectedModel ? { selectedModel } : {}),
       frontImage,
       sideImage,
       debugAnchorsImage,
@@ -1174,6 +1177,10 @@ function getOpenRouterGeminiPreviewChoice(model) {
 function getAnalysisModelLabel(model) {
   const key = String(model || '').trim();
   return ANALYSIS_MODEL_LABELS[key] || (key ? `Model ${key}` : 'Unknown AI');
+}
+
+function getDashboardScanModel(scan) {
+  return String(scan?.selectedModel || scan?.model || scan?.payload?.selectedModel || scan?.payload?.model || '').trim();
 }
 
 function isFreeScanModel(model) {
@@ -1495,6 +1502,61 @@ const PageLoadingFallback = () => (
     </div>
   </div>
 );
+
+class DashboardErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, info) {
+    console.error('Dashboard render failed', error, info);
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center px-6 py-24">
+        <div className="w-full max-w-xl rounded-[28px] border border-red-500/20 bg-[#0c0d0e] p-7 text-center shadow-[0_0_40px_rgba(239,68,68,0.08)]">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-red-400/25 bg-red-500/10 text-red-300">
+            <AlertCircle size={22} />
+          </div>
+          <h1 className="text-lg font-black uppercase tracking-[0.24em] text-white">Dashboard needs a refresh</h1>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-zinc-400">
+            The scan loaded with unexpected data. Refresh the dashboard or start a new scan.
+          </p>
+          <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-5 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200 transition-colors hover:border-cyan-300/45 hover:text-white"
+            >
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={this.props.onNewScan}
+              className="rounded-full border border-zinc-700 bg-zinc-950 px-5 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-zinc-300 transition-colors hover:border-zinc-500 hover:text-white"
+            >
+              New Scan
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+}
 
 const FlipIn = ({ children, delay = 0 }) => {
   const domRef = useRef();
@@ -8549,7 +8611,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
 
 const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage, onOpenPremiumPlans = null, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback, forceFullAnalysis = false, onBackToProfiles = null, onOpenHistoryScan = null }) => {
   dashboardData = useMemo(() => normalizeDashboardMedia(dashboardData), [dashboardData]);
-  const selectedModel = String(dashboardData?.selectedModel || '').trim();
+  const selectedModel = getDashboardScanModel(dashboardData);
   const isPremiumDemoScan = Boolean(dashboardData?.isPremiumDemo || dashboardData?.demoScan || selectedModel === PREMIUM_DEMO_MODEL_ID);
   const isFreeModelResult = !forceFullAnalysis && ['3', '4', '5'].includes(selectedModel);
   const hasFullProUnlock = isProPlan(userPlan);
@@ -12565,14 +12627,12 @@ const App = () => {
   }, [dashboardData]);
 
   const isFreeModelDashboard = useMemo(() => {
-    const model = String(dashboardData?.selectedModel || '').trim();
-    return model === '3' || model === '4' || model === '5';
-  }, [dashboardData?.selectedModel]);
+    return isFreeScanModel(getDashboardScanModel(dashboardData));
+  }, [dashboardData]);
 
   const isPremiumModelDashboard = useMemo(() => {
-    const model = String(dashboardData?.selectedModel || '').trim();
-    return PREMIUM_MODEL_IDS.has(model);
-  }, [dashboardData?.selectedModel]);
+    return PREMIUM_MODEL_IDS.has(getDashboardScanModel(dashboardData));
+  }, [dashboardData]);
 
   useEffect(() => {
     const reportStatus = String(dashboardData?.reportStatus || dashboardData?.payload?.reportStatus || '').toLowerCase();
@@ -13052,59 +13112,64 @@ const App = () => {
         )}
         {currentPage === 'results' && <ResultsPage />}
         {currentPage === 'dashboard' && (
-          useProDashboard
-            ? (
-              <ProDashboardPage
-                dashboardData={dashboardData}
-                setCurrentPage={setCurrentPage}
-                userPlan={userPlan}
-                user={user}
-                onSignOut={handleSignOut}
-                setPendingUploadModel={setPendingUploadModel}
-                setPendingUploadProfileId={setPendingUploadProfileId}
-                setDashboardData={setDashboardData}
-                initialDashboardProfileId={dashboardRoute?.profileId || null}
-                hasActiveAnalysis={hasScanData}
-                analysisContent={
-                  hasScanData
-                    ? <DashboardPage dashboardData={dashboardData} setDashboardData={setDashboardData} setCurrentPage={setCurrentPage} onOpenPremiumPlans={openPremiumPlansPage} userPlan={userPlan} user={user} hideTopSection isEmbedded />
-                    : null
-                }
-                renderCommunityDashboard={(communityData) => (
-                  <DashboardPage
-                    dashboardData={communityData}
-                    setCurrentPage={setCurrentPage}
-                    onOpenPremiumPlans={openPremiumPlansPage}
-                    userPlan={userPlan}
-                    user={user}
-                    hideTopSection
-                    hideProtocols
-                    hideActionableProtocols
-                    isEmbedded
-                    hideUnlockPotential
-                    hidePersonalizedFeedback
-                  />
-                )}
-              />
-            )
-            : (
-              <DashboardPage
-                dashboardData={dashboardData}
-                setDashboardData={setDashboardData}
-                setCurrentPage={setCurrentPage}
-                onOpenPremiumPlans={openPremiumPlansPage}
-                userPlan={userPlan}
-                user={user}
-                onBackToProfiles={() => {
-                  setDashboardData(null);
-                  setCurrentPage('dashboard');
-                }}
-                onOpenHistoryScan={(scan) => {
-                  setDashboardData(scan);
-                  setCurrentPage('dashboard');
-                }}
-              />
-            )
+          <DashboardErrorBoundary
+            resetKey={`${getDashboardScanModel(dashboardData)}:${dashboardData?.scanRequestId || dashboardData?.scanId || dashboardData?.frontImage || dashboardData?.payload?.frontImage || 'empty'}`}
+            onNewScan={() => setCurrentPage('photo-guide')}
+          >
+            {useProDashboard
+              ? (
+                <ProDashboardPage
+                  dashboardData={dashboardData}
+                  setCurrentPage={setCurrentPage}
+                  userPlan={userPlan}
+                  user={user}
+                  onSignOut={handleSignOut}
+                  setPendingUploadModel={setPendingUploadModel}
+                  setPendingUploadProfileId={setPendingUploadProfileId}
+                  setDashboardData={setDashboardData}
+                  initialDashboardProfileId={dashboardRoute?.profileId || null}
+                  hasActiveAnalysis={hasScanData}
+                  analysisContent={
+                    hasScanData
+                      ? <DashboardPage dashboardData={dashboardData} setDashboardData={setDashboardData} setCurrentPage={setCurrentPage} onOpenPremiumPlans={openPremiumPlansPage} userPlan={userPlan} user={user} hideTopSection isEmbedded />
+                      : null
+                  }
+                  renderCommunityDashboard={(communityData) => (
+                    <DashboardPage
+                      dashboardData={communityData}
+                      setCurrentPage={setCurrentPage}
+                      onOpenPremiumPlans={openPremiumPlansPage}
+                      userPlan={userPlan}
+                      user={user}
+                      hideTopSection
+                      hideProtocols
+                      hideActionableProtocols
+                      isEmbedded
+                      hideUnlockPotential
+                      hidePersonalizedFeedback
+                    />
+                  )}
+                />
+              )
+              : (
+                <DashboardPage
+                  dashboardData={dashboardData}
+                  setDashboardData={setDashboardData}
+                  setCurrentPage={setCurrentPage}
+                  onOpenPremiumPlans={openPremiumPlansPage}
+                  userPlan={userPlan}
+                  user={user}
+                  onBackToProfiles={() => {
+                    setDashboardData(null);
+                    setCurrentPage('dashboard');
+                  }}
+                  onOpenHistoryScan={(scan) => {
+                    setDashboardData(scan);
+                    setCurrentPage('dashboard');
+                  }}
+                />
+              )}
+          </DashboardErrorBoundary>
         )}
         {currentPage === 'plans' && <PlansPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'mog-battles' && (
