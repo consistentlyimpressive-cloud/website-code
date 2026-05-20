@@ -26,6 +26,7 @@ const AVAILABLE_SCAN_MODELS = {
       'gemeni-3.1-pro-preview',
     ],
   },
+  '14': { label: 'Haiiii', aliases: ['haiiii', 'openrouter haiiii', 'google/gemma-4-31b-it:free'] },
 };
 
 function compactModelKey(value) {
@@ -61,6 +62,7 @@ function normalizeScanModelChoice(rawChoice) {
   if (normalized.includes('gemini31pro')) return '7';
   if (normalized.includes('anthropicclaudesonnet46') || normalized.includes('claude')) return '11';
   if (normalized.includes('openaigpt54') || normalized.includes('gpt54')) return '12';
+  if (normalized.includes('haiiii') || normalized.includes('googlegemma431bitfree')) return '14';
   if (normalized.includes('qwen')) return '10';
   if (normalized.includes('premium') || normalized.includes('ultra')) return '1';
   if (normalized.includes('backup') || normalized.includes('fast') || normalized.includes('fun')) return '2';

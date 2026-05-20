@@ -1148,6 +1148,7 @@ const ANALYSIS_MODEL_LABELS = {
   '11': 'anthropic/claude-sonnet-4.6',
   '12': 'openai/gpt-5.4',
   '13': 'google/gemini-3.1-pro-preview',
+  '14': 'Haiiii',
   [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo',
   '3': 'Free Optic',
   '4': 'Free Core',
@@ -1155,8 +1156,8 @@ const ANALYSIS_MODEL_LABELS = {
   official: 'Official Scan',
 };
 
-const PREMIUM_MODEL_IDS = new Set(['1', '2', '6', '7', '8', '9', '10', '11', '12', '13']);
-const ADMIN_EXPERIMENTAL_MODEL_IDS = new Set(['10', '11', '12', '13']);
+const PREMIUM_MODEL_IDS = new Set(['1', '2', '6', '7', '8', '9', '10', '11', '12', '13', '14']);
+const ADMIN_EXPERIMENTAL_MODEL_IDS = new Set(['10', '11', '12', '13', '14']);
 
 function getOpenRouterGeminiPreviewChoice(model) {
   const compact = String(model || '')
@@ -5929,6 +5930,15 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
         Icon: Crown,
         adminOnly: true,
       },
+      {
+        id: "14",
+        name: "Haiiii",
+        description:
+          "OpenRouter Gemma test model for admin-only provider checks.",
+        tier: "ultra",
+        Icon: Crown,
+        adminOnly: true,
+      },
     ] : []),
     { id: "separator-free", kind: "separator", label: "Free Models" },
     {
@@ -10602,7 +10612,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
     return ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(0)}s`;
   };
 
-  const modelLabel = (m) => ({ '1': 'Premium Model', '2': 'Backup Model', '6': 'Premium Model', '7': 'Premium Model', '8': 'Premium Model', '9': 'Premium Model', '10': 'Qwen model (Testing)', '11': 'anthropic/claude-sonnet-4.6', '12': 'openai/gpt-5.4', '13': 'google/gemini-3.1-pro-preview', [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo', '3': 'Free' }[m] || m);
+  const modelLabel = (m) => ({ '1': 'Premium Model', '2': 'Backup Model', '6': 'Premium Model', '7': 'Premium Model', '8': 'Premium Model', '9': 'Premium Model', '10': 'Qwen model (Testing)', '11': 'anthropic/claude-sonnet-4.6', '12': 'openai/gpt-5.4', '13': 'google/gemini-3.1-pro-preview', '14': 'Haiiii', [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo', '3': 'Free' }[m] || m);
   const adminUserSections = useMemo(() => {
     const newUsers = [];
     const goatUsers = [];

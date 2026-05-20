@@ -232,8 +232,8 @@ function jsonBiometricArray(items, limit = 20, rawOutput = '') {
 function isQwenTestingOutput(rawOutput) {
   const text = String(rawOutput || '');
   return (
-    /\[Using:\s*(?:Qwen model \(Testing\)|anthropic\/claude-sonnet-4\.6|openai\/gpt-5\.4|google\/gemini-3\.1-pro-preview)/i.test(text) ||
-    /(?:qwen\/qwen(?:2\.5-vl-72b-instruct|3\.6-27b)|anthropic\/claude-sonnet-4\.6|openai\/gpt-5\.4|google\/gemini-3\.1-pro-preview)/i.test(text)
+    /\[Using:\s*(?:Qwen model \(Testing\)|anthropic\/claude-sonnet-4\.6|openai\/gpt-5\.4|google\/gemini-3\.1-pro-preview|Haiiii)/i.test(text) ||
+    /(?:qwen\/qwen(?:2\.5-vl-72b-instruct|3\.6-27b)|anthropic\/claude-sonnet-4\.6|openai\/gpt-5\.4|google\/gemini-3\.1-pro-preview|google\/gemma-4-31b-it:free|Haiiii)/i.test(text)
   );
 }
 

@@ -190,6 +190,8 @@ GEMINI_31_PRO_KEYS = [
 GEMINI_31_PRO_KEYS = [(label, key) for label, key in GEMINI_31_PRO_KEYS if key]
 OPENROUTER_API_KEY = (os.getenv("OPENROUTER_API_KEY") or "").strip()
 OPENROUTER_QWEN_TEST_MODEL_ID = (os.getenv("OPENROUTER_QWEN_TEST_MODEL_ID") or "qwen/qwen2.5-vl-72b-instruct").strip()
+OPENROUTER_HAIIII_API_KEY = (os.getenv("OPENROUTER_HAIIII_API_KEY") or "").strip()
+OPENROUTER_HAIIII_MODEL_ID = (os.getenv("OPENROUTER_HAIIII_MODEL_ID") or "google/gemma-4-31b-it:free").strip()
 OPENROUTER_EXPERIMENTAL_MODEL_MAP = {
     "10": {
         "model_id": OPENROUTER_QWEN_TEST_MODEL_ID,
@@ -199,6 +201,13 @@ OPENROUTER_EXPERIMENTAL_MODEL_MAP = {
     "11": {"model_id": "anthropic/claude-sonnet-4.6", "friendly_name": "anthropic/claude-sonnet-4.6"},
     "12": {"model_id": "openai/gpt-5.4", "friendly_name": "openai/gpt-5.4"},
     "13": {"model_id": "google/gemini-3.1-pro-preview", "friendly_name": "google/gemini-3.1-pro-preview"},
+    "14": {
+        "model_id": OPENROUTER_HAIIII_MODEL_ID,
+        "friendly_name": "Haiiii",
+        "api_key": OPENROUTER_HAIIII_API_KEY,
+        "key_label": "OPENROUTER_HAIIII_API_KEY",
+        "provider_error_label": "OpenRouter Haiiii model",
+    },
 }
 OPENROUTER_EXPERIMENTAL_MODEL_CHOICES = set(OPENROUTER_EXPERIMENTAL_MODEL_MAP.keys())
 PREMIUM_MODEL_CHOICES = {"1", "2", "6", "7", "8", "9"} | OPENROUTER_EXPERIMENTAL_MODEL_CHOICES
@@ -532,25 +541,26 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
 
         if choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
             provider_error_label = (
-                "OpenRouter Qwen testing model"
-                if choice == "10"
-                else f"OpenRouter experimental model {friendly_name}"
+                openrouter_model_config.get("provider_error_label")
+                or ("OpenRouter Qwen testing model" if choice == "10" else f"OpenRouter experimental model {friendly_name}")
             )
+            openrouter_api_key = openrouter_model_config.get("api_key") if "api_key" in openrouter_model_config else OPENROUTER_API_KEY
+            openrouter_key_label = openrouter_model_config.get("key_label") or "OPENROUTER_API_KEY"
             if OpenAI is None:
                 return (
                     f"Error: {provider_error_label} requires the Python openai package. Run: pip install openai",
                     friendly_name,
                     0,
                 )
-            if not OPENROUTER_API_KEY or not model_id:
+            if not openrouter_api_key or not model_id:
                 return (
-                    f"Error: {provider_error_label} is not configured. Add OPENROUTER_API_KEY and the model id configuration to backend/.env.",
+                    f"Error: {provider_error_label} is not configured. Add {openrouter_key_label} and the model id configuration to backend/.env.",
                     friendly_name,
                     0,
                 )
             attempt_started_at = time.time()
             try:
-                client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
+                client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=openrouter_api_key)
                 content = [{"type": "text", "text": unified_prompt}]
                 if include_image:
                     with open(img_path, "rb") as f:
@@ -594,7 +604,7 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
                         "request_type": request_type,
                         "provider": "openrouter",
                         "model": model_id,
-                        "key_index": "OPENROUTER_API_KEY",
+                        "key_index": openrouter_key_label,
                         "attempt_number": 1,
                         "success": True,
                         "duration_ms": int((time.time() - attempt_started_at) * 1000),
@@ -612,7 +622,7 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
                     "request_type": request_type,
                     "provider": "openrouter",
                     "model": model_id,
-                    "key_index": "OPENROUTER_API_KEY",
+                    "key_index": openrouter_key_label,
                     "attempt_number": 1,
                     "success": False,
                     "duration_ms": int((time.time() - attempt_started_at) * 1000),
@@ -623,8 +633,8 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
                 })
                 try:
                     raw_content = getattr(res.choices[0].message, "content", None) if getattr(res, "choices", None) else None
-                    print(f"[OPENROUTER_QWEN] Empty response content type: {type(raw_content).__name__}")
-                    print(f"[OPENROUTER_QWEN] Empty response preview: {str(raw_content)[:400]}")
+                    print(f"[OPENROUTER] Empty response content type: {type(raw_content).__name__}")
+                    print(f"[OPENROUTER] Empty response preview: {str(raw_content)[:400]}")
                 except Exception:
                     pass
                 duration = round(time.time() - start_time, 2)
@@ -636,7 +646,7 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
                     "request_type": request_type,
                     "provider": "openrouter",
                     "model": model_id,
-                    "key_index": "OPENROUTER_API_KEY",
+                    "key_index": openrouter_key_label,
                     "attempt_number": 1,
                     "success": False,
                     "duration_ms": int((time.time() - attempt_started_at) * 1000),
@@ -831,6 +841,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("11. anthropic/claude-sonnet-4.6")
     print("12. openai/gpt-5.4")
     print("13. google/gemini-3.1-pro-preview")
+    print("14. Haiiii")
 
     if choice_override is not None and str(choice_override).strip():
         raw_choice = str(choice_override).strip()
@@ -838,7 +849,7 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         print(f"\n[DEBUG] Model selected via API args: {raw_choice} -> {choice or 'invalid'}")
     else:
         try:
-            choice = normalize_model_choice(input("\nSelect Model [1-13]: ").strip())
+            choice = normalize_model_choice(input("\nSelect Model [1-14]: ").strip())
         except KeyboardInterrupt:
             print("\nExiting script...")
             return
