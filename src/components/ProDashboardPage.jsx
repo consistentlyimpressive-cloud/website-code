@@ -286,23 +286,40 @@ const modelUsesProDashboard = (model) => {
 
 const isFreeScanModel = (model) => ['3', '4', '5'].includes(String(model || '').trim());
 
+const getSavedScanModel = (scan, fallback = '') => {
+  const payload = scan?.payload && typeof scan.payload === 'object' ? scan.payload : {};
+  const raw = String(
+    scan?.selectedModel ||
+    scan?.modelChoice ||
+    scan?.model ||
+    payload.selectedModel ||
+    payload.modelChoice ||
+    payload.model ||
+    fallback ||
+    ''
+  ).trim();
+  if (/free|optic|core|geneva/i.test(raw)) return '3';
+  return raw;
+};
+
 const hydrateScanForDashboard = (scan) => {
   if (!scan) return null;
   const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : {};
+  const selectedModel = getSavedScanModel(scan);
   return {
     ...payload,
-    scanId: scan.id,
+    scanId: scan.scanId || scan.id || payload.scanId || null,
     profileId: scan.profileId || payload.profileId || null,
     visibility: scan.visibility || payload.visibility || 'private',
-    frontImage: resolveMediaUrl(scan.frontImageUrl || payload.frontImage || null),
-    sideImage: resolveMediaUrl(scan.sideImageUrl || payload.sideImage || null),
+    frontImage: resolveMediaUrl(scan.frontImageUrl || scan.frontImage || payload.frontImage || payload.frontImageUrl || null),
+    sideImage: resolveMediaUrl(scan.sideImageUrl || scan.sideImage || payload.sideImage || payload.sideImageUrl || null),
     debugAnchorsImage: resolveMediaUrl(scan.debugAnchorsImageUrl || payload.debugAnchorsImage || payload.debugAnchorsImageUrl || null),
     debugAnchorsImageUrl: resolveMediaUrl(scan.debugAnchorsImageUrl || payload.debugAnchorsImageUrl || payload.debugAnchorsImage || null),
     debugRatiosImage: resolveMediaUrl(scan.debugRatiosImageUrl || payload.debugRatiosImage || payload.debugRatiosImageUrl || null),
     debugRatiosImageUrl: resolveMediaUrl(scan.debugRatiosImageUrl || payload.debugRatiosImageUrl || payload.debugRatiosImage || null),
     finalRating: typeof scan.finalRating === 'number' ? scan.finalRating : payload.finalRating,
     sideRating: typeof scan.sideRating === 'number' ? scan.sideRating : payload.sideRating,
-    selectedModel: String(scan.model || payload.selectedModel || '').trim(),
+    selectedModel,
     scannedAt: timestampToIso(scan.timestamp || scan.scannedAt),
   };
 };
@@ -962,7 +979,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     return [...allScans]
       .sort((a, b) => timestampToMillis(b.timestamp || b.scannedAt) - timestampToMillis(a.timestamp || a.scannedAt))[0] || null;
   }, [allScans]);
-  const latestScanIsFree = isFreeScanModel(latestScanAcrossProfiles?.model || latestScanAcrossProfiles?.payload?.selectedModel);
+  const latestScanIsFree = isFreeScanModel(getSavedScanModel(latestScanAcrossProfiles));
 
   const latestScanProfile = useMemo(() => {
     if (!latestScanAcrossProfiles) return null;
@@ -1009,7 +1026,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
   const handleSelectScan = (scan) => {
     if (!scan || !setDashboardData) return;
-    const selectedScanModel = String(scan.selectedModel || scan.model || scan.payload?.selectedModel || '').trim();
+    const selectedScanModel = getSavedScanModel(scan, dashboardData?.selectedModel || '3');
     const nextScanHistory = historyCards.slice().reverse();
     setDashboardData({
       ...scan,
@@ -1055,6 +1072,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       ...selected,
       profileId,
       profileName: scan.profileName || scan.payload?.profileName || selected.profileName || 'Saved Scan',
+      selectedModel: getSavedScanModel(selected, getSavedScanModel(scan, '3')),
       scanHistory: history,
       ratingHistory: history
         .map((item) => Number(item?.finalRating))
@@ -1107,6 +1125,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         ...latestScan,
         profileId: profile.id,
         profileName: profile.name,
+        selectedModel: getSavedScanModel(latestScan, '3'),
         scanHistory: history,
         ratingHistory,
       });
