@@ -2901,21 +2901,113 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
   );
 };
 
-const HeroFaceAnimation = ({ videoRef }) => (
-  <div
-    className="mog-hero-face-wrap pointer-events-none absolute left-1/2 top-[18vh] z-0 w-[min(118vw,1040px)] h-[min(82vh,760px)] origin-center -translate-x-1/2 -translate-y-[22%] sm:-translate-y-[27%] md:-translate-y-[32%] overflow-visible scale-[0.81]"
-    aria-hidden
-  >
-    <video
-      ref={videoRef}
-      muted
-      playsInline
-      preload="auto"
-      className="mog-hero-face-video w-full h-full object-contain object-center opacity-[0.92]"
-      src="/FaceANimationforwebsite.webm"
-    />
-  </div>
-);
+const HERO_FACE_VIDEO_SRC = '/FaceANimationforwebsite.webm';
+
+const HeroFaceAnimation = ({ videoRef }) => {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || typeof window === 'undefined') return undefined;
+
+    const mobileQuery = window.matchMedia('(max-width: 768px), (pointer: coarse)');
+    const canvasContext = canvas.getContext('2d', { alpha: true });
+    const keyCanvas = document.createElement('canvas');
+    const keyContext = keyCanvas.getContext('2d', { willReadFrequently: true });
+    if (!canvasContext || !keyContext) return undefined;
+
+    let rafId = 0;
+    let lastFrameAt = 0;
+
+    const syncCanvasSize = () => {
+      const width = video.videoWidth || 500;
+      const height = video.videoHeight || 500;
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      if (keyCanvas.width !== width || keyCanvas.height !== height) {
+        keyCanvas.width = width;
+        keyCanvas.height = height;
+      }
+    };
+
+    const drawKeyedFrame = (frameAt) => {
+      if (!mobileQuery.matches) {
+        canvasContext.clearRect(0, 0, canvas.width, canvas.height);
+        rafId = 0;
+        return;
+      }
+
+      rafId = window.requestAnimationFrame(drawKeyedFrame);
+      if (video.readyState < 2 || frameAt - lastFrameAt < 1000 / 30) return;
+      lastFrameAt = frameAt;
+
+      syncCanvasSize();
+
+      try {
+        keyContext.clearRect(0, 0, keyCanvas.width, keyCanvas.height);
+        keyContext.drawImage(video, 0, 0, keyCanvas.width, keyCanvas.height);
+        const frame = keyContext.getImageData(0, 0, keyCanvas.width, keyCanvas.height);
+        const { data } = frame;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const luminance = (data[i] * 0.2126) + (data[i + 1] * 0.7152) + (data[i + 2] * 0.0722);
+          const normalized = Math.min(1, Math.max(0, (luminance - 38) / 102));
+          const alpha = normalized * normalized * (3 - (2 * normalized));
+          data[i + 3] = Math.round(data[i + 3] * alpha);
+        }
+
+        canvasContext.clearRect(0, 0, canvas.width, canvas.height);
+        canvasContext.putImageData(frame, 0, 0);
+      } catch {
+        canvasContext.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    };
+
+    const refreshRenderer = () => {
+      window.cancelAnimationFrame(rafId);
+      rafId = 0;
+      lastFrameAt = 0;
+      syncCanvasSize();
+      canvasContext.clearRect(0, 0, canvas.width, canvas.height);
+      if (mobileQuery.matches) rafId = window.requestAnimationFrame(drawKeyedFrame);
+    };
+
+    video.addEventListener('loadedmetadata', refreshRenderer);
+    video.addEventListener('loadeddata', refreshRenderer);
+    mobileQuery.addEventListener('change', refreshRenderer);
+    refreshRenderer();
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      video.removeEventListener('loadedmetadata', refreshRenderer);
+      video.removeEventListener('loadeddata', refreshRenderer);
+      mobileQuery.removeEventListener('change', refreshRenderer);
+    };
+  }, [videoRef]);
+
+  return (
+    <div
+      className="mog-hero-face-wrap pointer-events-none absolute left-1/2 top-[18vh] z-0 w-[min(118vw,1040px)] h-[min(82vh,760px)] origin-center -translate-x-1/2 -translate-y-[22%] sm:-translate-y-[27%] md:-translate-y-[32%] overflow-visible scale-[0.81]"
+      aria-hidden
+    >
+      <video
+        ref={videoRef}
+        muted
+        playsInline
+        preload="auto"
+        className="mog-hero-face-video w-full h-full object-contain object-center opacity-[0.92]"
+        src={HERO_FACE_VIDEO_SRC}
+      />
+      <canvas
+        ref={canvasRef}
+        className="mog-hero-face-canvas absolute inset-0 w-full h-full object-contain object-center"
+      />
+    </div>
+  );
+};
 
 const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
   const [analysisHeroCount, setAnalysisHeroCount] = useState(74);
