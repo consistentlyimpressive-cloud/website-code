@@ -9261,18 +9261,48 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
             )}
           </div>
 
-          {/* Mobile Scan History Strip (Free) */}
-          {!isEmbedded && isFreeModelResult && freeHistoryCards.length > 1 && (
-            <div className="mb-4 md:hidden">
-              <div className="flex items-center justify-between mb-3 px-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">Scan History</p>
-                <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">{freeHistoryCards.length} scans</span>
+          {/* Scan History Strip (Free) */}
+          {!isEmbedded && isFreeModelResult && freeHistoryCards.length > 0 && (
+            <div className="mb-2 md:mb-3">
+              <div className="mb-5 flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-black uppercase tracking-[0.25em] text-white md:text-2xl">Face Analysis</h2>
+                  <p className="mt-1 text-[10px] font-sans uppercase tracking-widest text-zinc-500 md:text-sm">
+                    Snapshot of your latest scan, trajectory, and quick signals.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => scrollFreeHistoryStrip(-1)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-800 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300 md:h-9 md:w-9"
+                    aria-label="Previous scans"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollFreeHistoryStrip(1)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-800 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300 md:h-9 md:w-9"
+                    aria-label="Next scans"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-4 -mx-4 px-4 custom-scrollbar scroll-smooth">
+
+              <div
+                ref={freeHistoryStripRef}
+                className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar scroll-smooth"
+              >
                 {freeHistoryCards.map((scan, idx) => {
                   const isActive = scan?.frontImage === dashboardData?.frontImage && scan?.finalRating === dashboardData?.finalRating;
-                  const rating = Number(scan.finalRating || 0);
+                  const rating = Number(scan?.finalRating || 0);
                   const tone = getRatingToneClasses(rating);
+                  const frontImage = scan?.frontImage || scan?.sideImage || activeImageUrl;
+                  const sideImage = scan?.sideImage || scan?.frontImage || activeImageUrl;
+                  const scoreIsMasked = isFreeHistoryScan(scan) && rating === 0;
+
                   return (
                     <button
                       key={idx}
@@ -9284,23 +9314,60 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                           .slice()
                           .reverse()
                           .map((item) => Number(item?.finalRating))
-                          .filter((rating) => Number.isFinite(rating)),
+                          .filter((value) => Number.isFinite(value)),
                       })}
-                      className={`relative flex-shrink-0 w-14 aspect-square rounded-xl overflow-hidden border transition-all duration-300 ${isActive ? 'border-cyan-400 ring-2 ring-cyan-400/15 scale-[1.05] z-10' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}
+                      className={`group relative flex h-20 w-40 shrink-0 overflow-hidden rounded-2xl border bg-[#0c0d0e] text-left transition-all md:h-24 md:w-48 ${isActive ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.18)]' : 'border-zinc-800 hover:border-zinc-700'}`}
                     >
-                      <img loading="lazy" decoding="async" src={scan.frontImage} className="w-full h-full object-cover" alt="" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                      <div className={`absolute bottom-1 left-0 right-0 text-center text-[9px] font-black italic ${tone.text} ${rating === 0 ? 'animate-free-rating-bg' : ''}`}
-                        style={{
-                          WebkitTextFillColor: rating === 0 ? 'currentColor' : 'inherit',
-                          filter: rating === 0 ? 'blur(3.5px) saturate(0.85)' : 'none'
-                        }}
+                      <div
+                        className={`absolute left-2 top-2 z-20 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-black italic tracking-tight ${
+                          scoreIsMasked
+                            ? 'animate-free-rating-bg blur-[2.5px] drop-shadow-[0_0_8px_rgba(16,185,129,0.7)]'
+                            : tone.text
+                        }`}
+                        style={{ WebkitTextFillColor: scoreIsMasked ? 'currentColor' : 'inherit' }}
                       >
-                        {rating === 0 ? freeRatingLoop : rating.toFixed(1)}
+                        {scoreIsMasked ? freeRatingLoop : rating.toFixed(1)}
                       </div>
+
+                      <div className="relative flex-1 border-r border-zinc-900/50">
+                        <img
+                          loading="lazy"
+                          decoding="async"
+                          src={frontImage}
+                          className={`h-full w-full object-cover transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`}
+                          alt=""
+                        />
+                      </div>
+
+                      <div className="relative flex-1">
+                        <img
+                          loading="lazy"
+                          decoding="async"
+                          src={sideImage}
+                          className={`h-full w-full object-cover object-top transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`}
+                          alt=""
+                        />
+                      </div>
+
+                      {isActive && (
+                        <div className="absolute bottom-0 inset-x-0 h-1 bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+                      )}
                     </button>
                   );
                 })}
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage('upload-photo')}
+                  className="flex h-20 w-16 shrink-0 flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-800 bg-zinc-950/40 text-zinc-500 transition-all hover:border-zinc-600 hover:bg-zinc-900 hover:text-zinc-300 md:h-24 md:w-20"
+                  aria-label="Add scan"
+                >
+                  <Plus size={18} />
+                </button>
+
+                {freeHistoryCards.length < 3 && Array.from({ length: 3 - freeHistoryCards.length }).map((_, i) => (
+                  <div key={`empty-${i}`} className="h-20 w-32 shrink-0 rounded-2xl border border-zinc-900 bg-zinc-950/20 opacity-30 md:h-24 md:w-40" />
+                ))}
               </div>
             </div>
           )}
