@@ -8885,11 +8885,13 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
       (compactKeyword && compact.includes(compactKeyword))
     );
   };
-  const frontalBiometrics = dashboardData?.biometrics?.length
-    ? dashboardData.biometrics.filter(m => isFrontalMetric(m.label))
+  const dashboardBiometrics = Array.isArray(dashboardData?.biometrics) ? dashboardData.biometrics : [];
+  const dashboardSideBiometrics = Array.isArray(dashboardData?.sideBiometrics) ? dashboardData.sideBiometrics : [];
+  const frontalBiometrics = dashboardBiometrics.length
+    ? dashboardBiometrics.filter(m => isFrontalMetric(m?.label))
     : [];
   const metricData = isSideView
-    ? (dashboardData?.sideBiometrics?.length ? dashboardData.sideBiometrics : sideMetricDataGlobal)
+    ? (dashboardSideBiometrics.length ? dashboardSideBiometrics : sideMetricDataGlobal)
     : (frontalBiometrics.length ? frontalBiometrics : frontMetricData);
 
   const activeImageUrl = effectiveProfileView === 'front'
@@ -8934,6 +8936,21 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   );
   const personalizedFeedback = Array.isArray(dashboardData?.personalizedFeedback)
     ? dashboardData.personalizedFeedback.filter((item) => item && (item.title || item.description))
+    : [];
+  const dashboardProtocols = Array.isArray(dashboardData?.protocols)
+    ? dashboardData.protocols
+        .filter(Boolean)
+        .map((protocol, index) => (
+          typeof protocol === 'string'
+            ? { id: index + 1, name: protocol, description: '', impact: '' }
+            : {
+                ...protocol,
+                id: protocol.id || index + 1,
+                name: protocol.name || protocol.title || `Protocol ${index + 1}`,
+                description: protocol.description || protocol.summary || '',
+                impact: protocol.impact || protocol.priority || '',
+              }
+        ))
     : [];
   const detailedReportStatus = String(dashboardData?.reportStatus || dashboardData?.payload?.reportStatus || '').toLowerCase();
   const isDetailedReportGenerating = detailedReportStatus === 'generating';
@@ -9846,7 +9863,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
               <div className="flex flex-col gap-6">
               {Object.entries(
                 metricData.reduce((acc, m) => {
-                  const labelLow = m.label.toLowerCase();
+                  const labelLow = String(m?.label || '').toLowerCase();
                   let cat = 'Other Ratios';
                   if (labelLow.includes('bigonial') || labelLow.includes('fwhr') || labelLow.includes('midface') || labelLow.includes('third') || labelLow.includes('zygo') || labelLow.includes('mandib') || labelLow.includes('chin')) cat = 'Skeletal Structure & Harmony';
                   else if (labelLow.includes('eye') || labelLow.includes('canthal') || labelLow.includes('ipd') || labelLow.includes('brow') || labelLow.includes('pupil')) cat = 'Eye / Upper Third Area';
@@ -9860,7 +9877,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   <h4 className="text-cyan-500/80 font-bold uppercase tracking-widest text-xs mb-3 border-b border-zinc-800/80 pb-2">{cat}</h4>
                   <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 md:grid-cols-3">
                     {metrics.map((m, i) => (
-                      <MetricBar key={i} label={m.label} score={m.score} max={m.max || 100} displayValue={m.displayValue} isFreePlan={isRestrictedPreview} />
+                      <MetricBar key={i} label={m?.label || `Metric ${i + 1}`} score={Number(m?.score) || 0} max={Number(m?.max) || 100} displayValue={m?.displayValue} isFreePlan={isRestrictedPreview} />
                     ))}
                   </div>
                 </div>
@@ -9896,8 +9913,8 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {(dashboardData?.protocols && dashboardData.protocols.length > 0
-                      ? dashboardData.protocols
+                    {(dashboardProtocols.length > 0
+                      ? dashboardProtocols
                       : [
                           { id: 1, name: 'Reduce Body Fat to 12%', description: 'Will vastly improve buccal framing and expose zygomatic arch', impact: 'Highest Impact' },
                           { id: 2, name: 'Minoxidil for Brows', description: 'Increasing eyebrow density by 15% will heavily boost dimorphism score', impact: 'High Impact' },
@@ -9932,16 +9949,16 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   </div>
                 )}
                     {detailedReportRetryButton}
-                    {!isDetailedReportGenerating && ((dashboardData?.protocols && dashboardData.protocols.length > 3) || (!dashboardData?.protocols && 3 > 3)) && (
+                    {!isDetailedReportGenerating && dashboardProtocols.length > 3 && (
                       <button onClick={() => setShowAllProtocols(!showAllProtocols)} className="mt-6 self-center px-6 py-2 border border-zinc-700 rounded-full text-zinc-400 text-[10px] font-sans uppercase tracking-widest hover:text-white hover:border-zinc-500 transition-colors flex items-center gap-2">
-                        {showAllProtocols ? 'Show Less' : `Show All ${dashboardData?.protocols?.length || 3} Protocols`}
+                        {showAllProtocols ? 'Show Less' : `Show All ${dashboardProtocols.length} Protocols`}
                         <ChevronDown size={14} className={`transition-transform duration-300 ${showAllProtocols ? 'rotate-180' : ''}`} />
                       </button>
                     )}
-                    {!dashboardData?.protocols?.length && !isRestrictedPreview && !isDetailedReportGenerating && !hasDetailedReportFailed && (
+                    {dashboardProtocols.length === 0 && !isRestrictedPreview && !isDetailedReportGenerating && !hasDetailedReportFailed && (
                       <p className="text-zinc-600 font-sans text-[10px] uppercase tracking-widest mt-4 text-center">Run a premium analysis to get personalized protocols based on your weak points</p>
                     )}
-                    {hasDetailedReportFailed && !dashboardData?.protocols?.length && (
+                    {hasDetailedReportFailed && dashboardProtocols.length === 0 && (
                       <p className="text-amber-300/80 font-sans text-[10px] uppercase tracking-widest mt-4 text-center">{visibleDetailedReportError || 'Detailed protocols could not be generated for this scan.'}</p>
                     )}
               </div>
