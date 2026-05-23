@@ -1,0 +1,4 @@
+Railway backend deploy marker.
+
+Update this file when a backend-only redeploy needs to be forced through GitHub.
+Last forced backend deploy: 2026-05-23T09:03:17.5709605+03:00
