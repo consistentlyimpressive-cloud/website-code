@@ -526,10 +526,15 @@ async function listPersistedActiveScanRecords(uid) {
     }
 
     const records = [];
+    const failedCutoff = Date.now() - 10 * 60 * 1000;
     snap.forEach((doc) => {
       const normalized = serializeActiveScanRecord(doc.data() || {});
       if (!normalized.scanRequestId) return;
       if (normalized.updatedAtMs < cutoff) return;
+      if (normalized.state === 'failed' && normalized.updatedAtMs < failedCutoff) {
+        deletePersistedActiveScanRecord(uid, normalized.scanRequestId).catch(() => {});
+        return;
+      }
       records.push(normalized);
       rememberActiveScanRecord(uid, normalized.scanRequestId, normalized);
     });

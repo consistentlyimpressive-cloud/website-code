@@ -236,7 +236,15 @@ OPENROUTER_EXPERIMENTAL_MODEL_MAP = {
         "friendly_name": "Qwen model (Testing)",
         "extra_body": {"reasoning": {"effort": "none", "exclude": True}},
     },
-    "11": {"model_id": "anthropic/claude-sonnet-4.6", "friendly_name": "anthropic/claude-sonnet-4.6"},
+    "11": {
+        "model_id": "anthropic/claude-sonnet-4.6",
+        "friendly_name": "anthropic/claude-sonnet-4.6",
+        "key_pool": [
+            ("OPENROUTER_FINAL_BOSS", OPENROUTER_FINAL_BOSS_API_KEY),
+            ("OPENROUTER_API_KEY", OPENROUTER_API_KEY),
+            ("OPENROUTER_HAIIII_API_KEY", OPENROUTER_HAIIII_API_KEY),
+        ],
+    },
     "12": {"model_id": "openai/gpt-5.4", "friendly_name": "openai/gpt-5.4"},
     "13": {"model_id": "google/gemini-3.1-pro-preview", "friendly_name": "google/gemini-3.1-pro-preview"},
     "14": {
@@ -600,7 +608,9 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
         scan_id = os.getenv("MOGCHECK_SCAN_REQUEST_ID") or None
         include_image = not (choice in PREMIUM_CORE_REPORT_MODEL_CHOICES and analysis_phase == "report")
         max_output_tokens = None
-        if choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
+        if choice == "11":
+            max_output_tokens = 2600 if analysis_phase == "report" else 4096
+        elif choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
             max_output_tokens = 1800 if analysis_phase == "report" else 2600
         elif choice in {"2", "6", "9"}:
             max_output_tokens = 1400 if analysis_phase == "report" else 1500

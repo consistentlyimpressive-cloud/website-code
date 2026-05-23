@@ -1219,7 +1219,7 @@ function buildRestoredAnalysisJob(record = {}, user = null) {
   return {
     id: `restored-${scanRequestId}`,
     scanRequestId,
-    state: isComplete ? 'complete' : 'running',
+    state: isComplete ? 'complete' : (isFailed ? 'failed' : 'running'),
     createdAt: Number(record.createdAtMs) || Number(record.updatedAtMs) || Date.now(),
     updatedAt: Number(record.updatedAtMs) || Date.now(),
     choice,
@@ -5599,9 +5599,10 @@ const AnalysisDock = ({
 }) => {
   if (!Array.isArray(jobs) || jobs.length === 0) return null;
 
-  const runningJobs = jobs.filter((job) => job.state === 'running');
+  const runningJobs = jobs.filter((job) => job.state === 'running' && !job.hasError);
   const runningCount = runningJobs.length;
   const completedCount = jobs.filter((job) => job.state === 'complete').length;
+  const failedCount = jobs.filter((job) => job.state === 'failed' || job.hasError).length;
   const visibleJobs = jobs.slice(0, 4);
   const hiddenJobsCount = Math.max(0, jobs.length - visibleJobs.length);
   const runnerElements = runningJobs
@@ -5646,9 +5647,9 @@ const AnalysisDock = ({
               onClick={() => (job.state === 'complete' ? onOpenResult(job.id) : onOpenRunning(job.id))}
               className="inline-flex min-w-[184px] items-center gap-3 rounded-full border border-cyan-500/25 bg-[#0c0d0e]/95 px-4 py-3 shadow-[0_0_35px_rgba(34,211,238,0.18)] backdrop-blur-xl transition-transform hover:scale-[1.01]"
             >
-              <span className={`inline-flex h-2.5 w-2.5 rounded-full ${job.state === 'complete' ? 'bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.85)]' : 'bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse'}`} />
-              <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${job.state === 'complete' ? 'text-emerald-300' : 'text-cyan-300'}`}>
-                {job.state === 'complete' ? 'Ready' : '1 Running'}
+              <span className={`inline-flex h-2.5 w-2.5 rounded-full ${job.state === 'complete' ? 'bg-emerald-400 shadow-[0_0_12px_rgba(74,222,128,0.85)]' : job.state === 'failed' || job.hasError ? 'bg-red-400 shadow-[0_0_12px_rgba(248,113,113,0.85)]' : 'bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.85)] animate-pulse'}`} />
+              <span className={`text-[10px] font-black uppercase tracking-[0.3em] ${job.state === 'complete' ? 'text-emerald-300' : job.state === 'failed' || job.hasError ? 'text-red-300' : 'text-cyan-300'}`}>
+                {job.state === 'complete' ? 'Ready' : job.state === 'failed' || job.hasError ? 'Failed' : '1 Running'}
               </span>
             </button>
           ))}
@@ -5691,6 +5692,11 @@ const AnalysisDock = ({
           {completedCount > 0 && (
             <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">
               {completedCount} ready
+            </span>
+          )}
+          {failedCount > 0 && (
+            <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-red-300">
+              {failedCount} failed
             </span>
           )}
           {hiddenJobsCount > 0 && (
@@ -12815,11 +12821,19 @@ const App = () => {
   }, []);
 
   const queueAnalysisJob = useCallback((jobInput = {}) => {
-    const jobId =
-      createClientRequestId('analysis');
     const scanRequestId =
       String(jobInput.scanRequestId || '').trim() ||
       createClientRequestId('scan');
+    const existingJob = analysisJobsRef.current.find(
+      (job) => String(job.scanRequestId || '').trim() === scanRequestId
+    );
+    if (existingJob && existingJob.state === 'running') {
+      setFocusedAnalysisJobId(existingJob.id);
+      setAnalysisDockCollapsed(false);
+      return existingJob;
+    }
+    const jobId =
+      createClientRequestId('analysis');
 
     const baseJob = {
       id: jobId,
@@ -13060,7 +13074,7 @@ const App = () => {
                   entry.id === job.id
                     ? {
                         ...entry,
-                        state: 'running',
+                        state: 'failed',
                         hasError: true,
                         backendAccepted: true,
                         managedByRecovery: false,
