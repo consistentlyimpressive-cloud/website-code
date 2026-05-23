@@ -1316,7 +1316,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
         {showAnalysisShell && (
           <div className="mb-6 flex items-center justify-between md:hidden">
-            <span className="text-2xl font-black italic tracking-tighter text-white">MogCheck</span>
+            <span className="text-2xl font-black italic tracking-tighter text-white">FaceLab</span>
             <button
               type="button"
               onClick={() => handleCreateProfileAndScan(mobileNewScanModel)}

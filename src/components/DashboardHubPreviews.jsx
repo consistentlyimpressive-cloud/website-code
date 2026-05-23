@@ -418,7 +418,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
 
   return (
     <div className="mt-12 pt-10 border-t border-zinc-800/80">
-      <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-6">Explore MogCheck</h3>
+      <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-6">Explore FaceLab</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {!hideCommunity && (
           <div className="rounded-2xl border border-zinc-800 bg-[#070809]/40 p-4 md:p-5 flex flex-col gap-4">
@@ -445,7 +445,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
           </div>
         )}
 
-        {/* Mog Battles */}
+        {/* Face Battles */}
         <div className="rounded-2xl border border-cyan-500/10 bg-[#070809]/40 p-4 md:p-5 flex flex-col relative overflow-hidden group/battle">
           <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 blur-3xl rounded-full -mr-16 -mt-16 group-hover/battle:bg-cyan-500/10 transition-colors" />
           
@@ -458,7 +458,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
             </div>
 
             <div className="flex flex-col gap-2">
-              <h4 className="text-2xl font-black uppercase tracking-tighter italic text-white leading-none">Mog Battles</h4>
+              <h4 className="text-2xl font-black uppercase tracking-tighter italic text-white leading-none">Face Battles</h4>
               <p className="text-[10px] font-sans leading-relaxed text-zinc-500">
                 Vote in live community matchups.
               </p>
@@ -485,7 +485,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
               onClick={() => setCurrentPage('mog-battles')}
               className="mt-auto flex items-center justify-center gap-2 py-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-black uppercase tracking-[0.25em] hover:bg-cyan-500/20 transition-all group"
             >
-              Open Mog Battles <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+              Open Face Battles <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
         </div>

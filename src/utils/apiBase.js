@@ -6,7 +6,7 @@
  * Production (Vercel): set VITE_API_URL to your public https API URL.
  */
 const LOCAL_API = 'http://127.0.0.1:3001';
-const MOGCHECK_PROD_API = 'https://api.mogcheck.net';
+const PUBLIC_API = 'https://api.mogcheck.net';
 
 function normalizeApiBase(raw) {
   if (typeof raw !== 'string') return '';
@@ -47,8 +47,13 @@ export function getApiBase() {
 
   if (typeof window !== 'undefined') {
     const host = String(window.location.hostname || '').toLowerCase();
-    if (host === 'mogcheck.net' || host === 'www.mogcheck.net') {
-      return MOGCHECK_PROD_API;
+    if (
+      host === 'facelab.online' ||
+      host === 'www.facelab.online' ||
+      host === 'mogcheck.net' ||
+      host === 'www.mogcheck.net'
+    ) {
+      return PUBLIC_API;
     }
   }
 

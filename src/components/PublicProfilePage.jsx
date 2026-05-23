@@ -569,7 +569,7 @@ const PublicProfilePage = ({ routeParams, user, scanOnly = false, renderScanDash
           <h2 className="text-2xl font-black italic uppercase tracking-widest text-white mb-6 text-center">Explore Community</h2>
           <div className="flex justify-center gap-6">
              <button onClick={() => navigateTo('/mog-battles')} className="text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-widest text-sm flex items-center gap-2 bg-cyan-500/10 px-6 py-3 rounded-xl border border-cyan-500/20 transition-all hover:bg-cyan-500/20">
-               Mog Battles <ArrowUpRight size={16} />
+               Face Battles <ArrowUpRight size={16} />
              </button>
              <button onClick={() => navigateTo('/celebrity')} className="text-cyan-400 hover:text-cyan-300 font-bold uppercase tracking-widest text-sm flex items-center gap-2 bg-cyan-500/10 px-6 py-3 rounded-xl border border-cyan-500/20 transition-all hover:bg-cyan-500/20">
                Community Scans <ArrowUpRight size={16} />

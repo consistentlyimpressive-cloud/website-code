@@ -98,7 +98,7 @@ const getMogBattleNameError = (value) => {
   const raw = String(value || '').trim();
   if (!raw) return null;
   if (/(https?:\/\/|www\.|[a-z0-9-]+\.(?:com|net|org|gg|io|co|app|xyz|link|site|me)\b)/i.test(raw)) {
-    return 'Mog Battle names cannot contain links.';
+    return 'Face Battle names cannot contain links.';
   }
   const normalized = raw.toLowerCase().replace(/[^a-z0-9]+/g, ' ');
   const compact = raw.toLowerCase().replace(/[^a-z0-9]+/g, '');
@@ -107,7 +107,7 @@ const getMogBattleNameError = (value) => {
     return new RegExp(`(^|\\s)${escaped}(\\s|$)`, 'i').test(normalized) ||
       (MOG_BATTLE_COMPACT_BANNED_NAME_TERMS.has(term) && compact.includes(term));
   });
-  return hasBannedTerm ? 'Mog Battle names cannot contain inappropriate words.' : null;
+  return hasBannedTerm ? 'Face Battle names cannot contain inappropriate words.' : null;
 };
 
 const getPseudoVotes = (battleId, side, createdAt) => {
@@ -948,7 +948,7 @@ const MogBattlePage2 = ({ user, setCurrentPage, dashboardData }) => {
 
   const deleteBattle = useCallback(async (battle) => {
     if (!battle || !user) return;
-    const confirmed = window.confirm('Delete this Mog Battle?');
+    const confirmed = window.confirm('Delete this Face Battle?');
     if (!confirmed) return;
     try {
       let result;
@@ -1145,7 +1145,7 @@ const MogBattlePage2 = ({ user, setCurrentPage, dashboardData }) => {
             <div>
               <div className="flex flex-wrap items-center gap-5">
                 <h1 className="bg-[linear-gradient(180deg,#59ecff_0%,#1ab8ff_34%,#1676ff_66%,#0637a7_100%)] bg-clip-text text-[60px] font-black italic uppercase tracking-[-0.075em] text-transparent drop-shadow-[0_14px_38px_rgba(0,132,255,0.24)] md:text-[92px]">
-                  MOG BATTLES
+                  FACE BATTLES
                 </h1>
                 <Swords size={72} className="hidden text-[#00F0FF] drop-shadow-[0_0_24px_rgba(0,240,255,0.35)] md:block" strokeWidth={1.6} />
               </div>
@@ -1486,7 +1486,7 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
         body: JSON.stringify({ visibility: 'unlisted' }),
       });
       const data = await scanRes.json().catch(() => ({}));
-      if (!scanRes.ok) throw new Error(data.error || 'Could not make scan unlisted for Mog Battle.');
+      if (!scanRes.ok) throw new Error(data.error || 'Could not make scan unlisted for Face Battle.');
       nextVisibility = data.scan?.visibility || 'unlisted';
     }
     if (profileId) {

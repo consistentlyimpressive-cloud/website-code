@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, useId } from 
 import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Sparkles, Bell, Trash2, Bug, Share2, Waves, Bone as BoneIcon, VenusAndMars, Scale, Flower2, Star as StarIcon } from 'lucide-react';
 import { ConfirmDialog, ImageLightbox, SiteModal } from './components/ui/SiteModal';
 import { DashboardHubPreviewsCompact } from './components/DashboardHubPreviews';
+import { CommunityScansSection } from './components/CommunityScansSection';
 import { getNavbarPlanChip, hasEffectiveProAccess, canAlwaysAccessDashboard, isProPlan, normalizePlanValue } from './utils/planAccess';
 import { initializeApp } from 'firebase/app';
 import { celebrityData } from './data/celebrityData';
@@ -1451,6 +1452,29 @@ function celebrityToOfficialCommunityScan(celeb, index = 0) {
 
 const OFFICIAL_CELEBRITY_COMMUNITY_SCANS = celebrityData.map(celebrityToOfficialCommunityScan);
 
+function buildCelebrityCommunityFallbackScans() {
+  const merged = new Map();
+  [
+    ...OFFICIAL_CELEBRITY_COMMUNITY_SCANS,
+    ...COMMUNITY_SCANS.map((scan, idx) =>
+      hydrateCommunityScanEntry(
+        {
+          ...scan,
+          name: scan.name || `User ${idx + 1}`,
+          isCommunity: true,
+          profileId: scan.profileId || `mock-${idx}`,
+        },
+        idx
+      )
+    ),
+  ].forEach((scan, idx) => {
+    const hydrated = hydrateCommunityScanEntry(scan, idx);
+    const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
+    if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
+  });
+  return Array.from(merged.values());
+}
+
 const MOGCHECK_LOGO_SRC = '/mogcheck-logo.png';
 
 /** PNG mark for nav / footer / page heroes */
@@ -1685,7 +1709,7 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDa
         <div className="hidden md:flex items-center justify-center gap-8 text-xs font-bold absolute left-1/2 -translate-x-1/2">
           <button onClick={() => setCurrentPage('home')} className={`${currentPage === 'home' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Home</button>
           <button onClick={() => setCurrentPage('mog-battles')} className={`${currentPage === 'mog-battles' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>
-            <Swords size={14} className="text-cyan-500/90" /> Mog Battles
+            <Swords size={14} className="text-cyan-500/90" /> Face Battles
           </button>
           {showDashboard && (
             <button onClick={() => setCurrentPage('dashboard')} className={`${currentPage === 'dashboard' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}><Activity size={14} /> Dashboard</button>
@@ -2229,6 +2253,8 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
 
   useEffect(() => {
     const fetchCommunity = async () => {
+      const fallbackScans = buildCelebrityCommunityFallbackScans();
+      setCommunityScans(fallbackScans);
       try {
         const { fetchCommunityScans, fetchCommunityBattles } = await import('./api/mogBattleVotes');
         const res = await fetchCommunityScans(80);
@@ -2272,27 +2298,7 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
         setCommunityScans(Array.from(merged.values()));
       } catch(e) {
         console.error(e);
-        const merged = new Map();
-        [
-          ...OFFICIAL_CELEBRITY_COMMUNITY_SCANS,
-          ...COMMUNITY_SCANS.map((scan, idx) =>
-            hydrateCommunityScanEntry(
-              {
-                ...scan,
-                name: scan.name || `User ${idx + 1}`,
-                isCommunity: true,
-                profileId: scan.profileId || `mock-${idx}`,
-              },
-              idx
-            )
-          ),
-        ].forEach((scan, idx) => {
-          const hydrated = hydrateCommunityScanEntry(scan, idx);
-          const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
-          if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
-        });
-
-        setCommunityScans(Array.from(merged.values()));
+        setCommunityScans(fallbackScans);
       }
     };
     fetchCommunity();
@@ -3169,7 +3175,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
       step: '01 / Upload',
       title: 'Start With A Clear Front Photo',
       imgSrc: measureItems[0].imgSrc,
-      text: 'MogCheck begins with a clean face input, then prepares the image for structure, harmony, skin, and proportion analysis. No guessing, no trend-chasing, just a consistent scan target.',
+      text: 'FaceLab begins with a clean face input, then prepares the image for structure, harmony, skin, and proportion analysis. No guessing, no trend-chasing, just a consistent scan target.',
       note: 'Front-facing photos produce the cleanest ratings and profile history.',
     },
     {
@@ -3340,7 +3346,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           </div>
 
           <div className="w-16 h-[1px] bg-gradient-to-r from-transparent via-zinc-500 to-transparent mb-5" />
-          <p className="text-zinc-300 font-sans text-sm md:text-base uppercase tracking-[0.3em] mb-14 font-bold">Powered by AI - track your looks with MogCheck</p>
+          <p className="text-zinc-300 font-sans text-sm md:text-base uppercase tracking-[0.3em] mb-14 font-bold">Powered by AI - track your looks with FaceLab</p>
           <button
             onClick={() => setCurrentPage('login')}
             className="mx-auto group relative inline-flex items-center gap-5 overflow-hidden rounded-full border border-cyan-200/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(233,249,255,0.98)_54%,rgba(182,240,255,0.96))] px-10 py-4 text-black shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_0_44px_rgba(34,211,238,0.24),0_22px_70px_rgba(0,0,0,0.32)] transition-all duration-500 hover:-translate-y-1 hover:scale-[1.03] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.18),0_0_68px_rgba(34,211,238,0.36),0_28px_90px_rgba(0,0,0,0.42)]"
@@ -3385,7 +3391,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           <div className="grid gap-8 md:grid-cols-[1.25fr_0.75fr] md:items-center">
             <div>
               <p className="text-[10px] font-sans uppercase tracking-[0.3em] text-cyan-400/80">Live Matchups</p>
-              <h2 className="mt-3 text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white">Mog Battles</h2>
+              <h2 className="mt-3 text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white">Face Battles</h2>
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-zinc-400">
                 Compare scans head-to-head, track community voting, and follow how specific battles move over time.
               </p>
@@ -3396,7 +3402,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
                 onClick={() => setCurrentPage('mog-battles')}
                 className="group inline-flex items-center gap-3 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-6 py-4 text-sm font-black uppercase tracking-[0.22em] text-cyan-300 transition-all hover:scale-[1.02] hover:bg-cyan-500/20 hover:shadow-[0_0_24px_rgba(34,211,238,0.16)]"
               >
-                Open Mog Battles
+                Open Face Battles
                 <ArrowUpRight size={18} className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
               </button>
             </div>
@@ -3736,7 +3742,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
     <section className="w-full py-32 px-6 border-t border-zinc-900">
       <FadeUp>
         <div className="flex flex-col items-center gap-6">
-          <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white text-center">Ready for MogCheck?</h2>
+          <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white text-center">Ready for FaceLab?</h2>
           <p className="text-zinc-500 font-sans text-[10px] uppercase tracking-[0.3em] mb-4">Discover your true potential today</p>
           <button onClick={() => setCurrentPage('login')} className="group relative px-12 py-5 bg-white text-black font-black uppercase tracking-tighter text-lg flex items-center gap-5 hover:scale-110 hover:shadow-[0_0_60px_rgba(255,255,255,0.8)] transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.2)] rounded-sm">
             <span className="tracking-widest">START NOW</span>
@@ -4955,7 +4961,7 @@ const ScanningView = ({
           } catch (e) {
             console.error("Premium preflight failed", e);
             setStatusText(
-              `Can't verify premium access on ${API_BASE}. If you're using mogcheck.net with your PC backend, make sure the tunnel is up and Firebase Admin is configured on this machine.`
+              `Can't verify premium access on ${API_BASE}. If you're using facelab.online with your PC backend, make sure the tunnel is up and Firebase Admin is configured on this machine.`
             );
             setHasError(true);
             return;
@@ -6047,7 +6053,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       Icon: Zap
     },
     {
-      id: "9",
+      id: "13",
       name: "Premium Model",
       description:
         "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
@@ -7781,7 +7787,7 @@ const SecretMogScoreModal = ({ open, onClose, imageUrl, finalScore, metrics }) =
           </div>
 
           <h2 className="text-center text-[4rem] font-black tracking-[-0.08em] text-white drop-shadow-[0_4px_18px_rgba(255,255,255,0.18)] sm:text-[5.3rem]">
-            MogCheck
+            FaceLab
           </h2>
           <p className="mt-1 text-center text-[0.8rem] font-black uppercase tracking-[0.55em] text-zinc-500 sm:text-[0.95rem]">
             Overall Mog Score
@@ -9346,7 +9352,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                 </button>
               )}
               <div className="mb-6 flex items-center justify-between">
-                <span className="text-2xl font-black italic tracking-tighter text-white">MogCheck</span>
+                <span className="text-2xl font-black italic tracking-tighter text-white">FaceLab</span>
                 <button
                   type="button"
                   onClick={() => setCurrentPage('upload-photo')}
@@ -10219,13 +10225,13 @@ const PlansPage = ({ setCurrentPage, user }) => {
       return;
     }
     if (isLivePaddleBlockedOnLocalhost()) {
-      setPlanNotice('Paddle live checkout cannot run on localhost. Use mogcheck.net for live checkout, or add Paddle sandbox token/price IDs to .env.local for local testing.');
+      setPlanNotice('Paddle live checkout cannot run on localhost. Use facelab.online for live checkout, or add Paddle sandbox token/price IDs to .env.local for local testing.');
       return;
     }
     if (!PADDLE_PRICE_IDS[plan]) {
       setPlanNotice(
         plan === 'pro_yearly'
-          ? 'Yearly MogCheck Pro checkout is not configured yet. Add VITE_PADDLE_PRICE_PRO_YEARLY and redeploy, then try again.'
+          ? 'Yearly FaceLab Pro checkout is not configured yet. Add VITE_PADDLE_PRICE_PRO_YEARLY and redeploy, then try again.'
           : 'This checkout option is not configured yet. Please refresh and try again in a moment.'
       );
       return;
@@ -10534,7 +10540,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
         </div>
       </FadeUp>
 
-      {/* --- MogCheck Pro Monthly --- */}
+      {/* --- FaceLab Pro Monthly --- */}
       <FadeUp delay={450}>
         <div className="h-full bg-gradient-to-b from-[#1a1600] via-zinc-900/80 to-[#0c0d0e] border border-yellow-500/40 rounded-3xl p-8 md:p-10 flex flex-col relative shadow-[0_0_80px_rgba(234,179,8,0.08)] hover:shadow-[0_0_80px_rgba(234,179,8,0.15)] transition-shadow">
           <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-600 to-yellow-400 text-black px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Monthly</div>
@@ -10544,7 +10550,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
               <MogCheckLogoIcon size={28} className="opacity-95 [filter:drop-shadow(0_0_8px_rgba(234,179,8,0.4))]" />
             </div>
             <div>
-              <h3 className="text-xl font-black uppercase italic tracking-tighter text-yellow-500">MogCheck Pro</h3>
+              <h3 className="text-xl font-black uppercase italic tracking-tighter text-yellow-500">FaceLab Pro</h3>
               <p className="text-yellow-500/40 font-sans text-[9px] uppercase tracking-widest">Full access</p>
             </div>
           </div>
@@ -10587,7 +10593,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
         </div>
       </FadeUp>
 
-      {/* --- MogCheck Pro Annual --- */}
+      {/* --- FaceLab Pro Annual --- */}
       <FadeUp delay={600}>
         <div className="h-full bg-gradient-to-b from-[#09151b] via-zinc-900/80 to-[#0c0d0e] border border-emerald-500/35 rounded-3xl p-8 md:p-10 flex flex-col relative shadow-[0_0_80px_rgba(16,185,129,0.08)] hover:shadow-[0_0_80px_rgba(16,185,129,0.15)] transition-shadow">
           <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-emerald-600 to-emerald-400 text-black px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Annual</div>
@@ -10597,7 +10603,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
               <MogCheckLogoIcon size={28} className="opacity-95 [filter:drop-shadow(0_0_8px_rgba(16,185,129,0.4))]" />
             </div>
             <div>
-              <h3 className="text-xl font-black uppercase italic tracking-tighter text-emerald-400">MogCheck Pro</h3>
+              <h3 className="text-xl font-black uppercase italic tracking-tighter text-emerald-400">FaceLab Pro</h3>
               <p className="text-emerald-400/40 font-sans text-[9px] uppercase tracking-widest">Yearly billing</p>
             </div>
           </div>
@@ -10714,7 +10720,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
   const [scanLimitActionLoading, setScanLimitActionLoading] = useState({});
   const [pendingAdminDeleteUser, setPendingAdminDeleteUser] = useState(null);
   const [adminNotice, setAdminNotice] = useState('');
-  const [announcementDraft, setAnnouncementDraft] = useState({ title: 'MogCheck Announcement', body: '', url: '' });
+  const [announcementDraft, setAnnouncementDraft] = useState({ title: 'FaceLab Announcement', body: '', url: '' });
   const [announcementSending, setAnnouncementSending] = useState(false);
   const [announcementStatus, setAnnouncementStatus] = useState('');
   const storedPw = useRef('');
@@ -10942,7 +10948,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Failed to send announcement');
       setAnnouncementStatus(`Sent to ${data.count || 0} user${Number(data.count) === 1 ? '' : 's'}.`);
-      setAnnouncementDraft({ title: 'MogCheck Announcement', body: '', url: '' });
+      setAnnouncementDraft({ title: 'FaceLab Announcement', body: '', url: '' });
     } catch (err) {
       setAnnouncementStatus(err.message || 'Failed to send announcement');
     } finally {
@@ -11121,10 +11127,10 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
             cache: 'no-store',
           }).then(async (res) => {
             const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data?.error || 'Failed to fetch Mog Battles');
+            if (!res.ok) throw new Error(data?.error || 'Failed to fetch Face Battles');
             setUserMogBattlesByUser((prev) => ({ ...prev, [uid]: data.battles || [] }));
           }).catch((err) => {
-            setUserMogBattlesError((prev) => ({ ...prev, [uid]: err.message || 'Failed to fetch Mog Battles' }));
+            setUserMogBattlesError((prev) => ({ ...prev, [uid]: err.message || 'Failed to fetch Face Battles' }));
           })
         );
       }
@@ -11191,7 +11197,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
         headers: { 'x-admin-password': storedPw.current }
       });
       const data = await delRes.json().catch(() => ({}));
-      if (!delRes.ok) throw new Error(data.error || 'Failed to delete Mog Battle');
+      if (!delRes.ok) throw new Error(data.error || 'Failed to delete Face Battle');
       setUserMogBattlesByUser((prev) => ({
         ...prev,
         [uid]: Array.isArray(prev[uid]) ? prev[uid].filter((battle) => battle.id !== battleId) : [],
@@ -11350,7 +11356,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
                   value={announcementDraft.title}
                   onChange={(e) => setAnnouncementDraft((prev) => ({ ...prev, title: e.target.value }))}
                   className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-sans text-zinc-100 outline-none transition-colors focus:border-cyan-500/50"
-                  placeholder="MogCheck Announcement"
+                  placeholder="FaceLab Announcement"
                 />
               </label>
               <label className="block">
@@ -12011,7 +12017,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
                                                 </span>
                                                 <span className="text-xs font-sans text-zinc-200">
                                                   {event.type === 'mog_battle_vote'
-                                                    ? `${event.battleName || event.battleId || 'Mog Battle'} - ${String(event.side || '').toUpperCase()}`
+                                                    ? `${event.battleName || event.battleId || 'Face Battle'} - ${String(event.side || '').toUpperCase()}`
                                                     : (event.page || event.path || 'Unknown page')}
                                                 </span>
                                                 <span className="ml-auto rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] text-violet-300">{event.platform || 'unknown'}</span>
@@ -12070,7 +12076,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
                                     ) : mogBattlesError ? (
                                       <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs font-sans text-red-400">{mogBattlesError}</div>
                                     ) : mogBattles.length === 0 ? (
-                                      <div className="py-6 text-center text-zinc-500 text-xs font-sans uppercase tracking-widest">No Mog Battles found for this user.</div>
+                                      <div className="py-6 text-center text-zinc-500 text-xs font-sans uppercase tracking-widest">No Face Battles found for this user.</div>
                                     ) : (
                                       <div className="space-y-3">
                                         {mogBattles.map((battle) => {
@@ -12456,7 +12462,7 @@ const AdminFooterTrigger = ({ setCurrentPage }) => {
   return (
     <div className="flex items-center gap-2.5 cursor-pointer select-none" onClick={handleClick}>
       <MogCheckLogoMark size={32} className="w-8 h-8" />
-      <span className="text-2xl font-black italic tracking-tighter">MogCheck</span>
+      <span className="text-2xl font-black italic tracking-tighter">FaceLab</span>
     </div>
   );
 };
@@ -13323,6 +13329,8 @@ const ScansPage = ({ setCurrentPage, setSelectedCelebrity, user }) => {
 
   useEffect(() => {
     const fetchCommunity = async () => {
+      const fallbackScans = buildCelebrityCommunityFallbackScans();
+      setCommunityScans(fallbackScans);
       try {
         const { fetchCommunityScans, fetchCommunityBattles } = await import('./api/mogBattleVotes');
         const res = await fetchCommunityScans(80);
@@ -13358,19 +13366,7 @@ const ScansPage = ({ setCurrentPage, setSelectedCelebrity, user }) => {
         setCommunityScans(Array.from(merged.values()));
       } catch(e) {
         console.error(e);
-        const merged = new Map();
-        [
-          ...OFFICIAL_CELEBRITY_COMMUNITY_SCANS,
-          ...COMMUNITY_SCANS.map((scan, idx) =>
-            hydrateCommunityScanEntry({ ...scan, name: scan.name || `User ${idx + 1}`, isCommunity: true, profileId: scan.profileId || `mock-${idx}` }, idx)
-          ),
-        ].forEach((scan, idx) => {
-          const hydrated = hydrateCommunityScanEntry(scan, idx);
-          const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
-          if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
-        });
-
-        setCommunityScans(Array.from(merged.values()));
+        setCommunityScans(fallbackScans);
       }
     };
     fetchCommunity();

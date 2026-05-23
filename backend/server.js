@@ -1159,7 +1159,7 @@ function getMogBattleNameError(value) {
   const raw = String(value || '').trim();
   if (!raw) return null;
   if (/(https?:\/\/|www\.|[a-z0-9-]+\.(?:com|net|org|gg|io|co|app|xyz|link|site|me)\b)/i.test(raw)) {
-    return 'Mog Battle names cannot contain links.';
+    return 'Face Battle names cannot contain links.';
   }
   const normalized = raw.toLowerCase().replace(/[^a-z0-9]+/g, ' ');
   const compact = raw.toLowerCase().replace(/[^a-z0-9]+/g, '');
@@ -1168,7 +1168,7 @@ function getMogBattleNameError(value) {
     return new RegExp(`(^|\\s)${escaped}(\\s|$)`, 'i').test(normalized) ||
       (MOG_BATTLE_COMPACT_BANNED_NAME_TERMS.has(term) && compact.includes(term));
   });
-  return hasBannedTerm ? 'Mog Battle names cannot contain inappropriate words.' : null;
+  return hasBannedTerm ? 'Face Battle names cannot contain inappropriate words.' : null;
 }
 
 function hashMogBattleSeed(value) {
@@ -1415,7 +1415,7 @@ async function createNotification(uid, payload = {}) {
   const safeUid = String(uid || '').trim();
   if (!safeUid) return null;
   const doc = {
-    title: String(payload.title || 'MogCheck').slice(0, 140),
+    title: String(payload.title || 'FaceLab').slice(0, 140),
     body: String(payload.body || '').slice(0, 1000),
     url: payload.url ? String(payload.url).slice(0, 500) : '',
     type: String(payload.type || 'general').slice(0, 80),
@@ -1438,7 +1438,7 @@ function serializeNotification(doc) {
   const data = typeof doc.data === 'function' ? doc.data() : doc;
   return {
     id: doc.id || data.id || '',
-    title: data.title || 'MogCheck',
+    title: data.title || 'FaceLab',
     body: data.body || '',
     url: data.url || '',
     type: data.type || 'general',
@@ -1851,11 +1851,11 @@ app.delete('/api/admin/mog-battles/:battleId', async (req, res) => {
     if (!deleted) return res.status(404).json({ error: 'Battle not found' });
     return res.json({ ok: true });
   } catch (e) {
-    console.error('[admin] Failed to delete Mog Battle:', e);
+    console.error('[admin] Failed to delete Face Battle:', e);
     if (isQuotaExceededError(e)) {
       return res.status(503).json({ error: 'Firestore quota exceeded. Try again when quota resets.' });
     }
-    return res.status(500).json({ error: e.message || 'Failed to delete Mog Battle' });
+    return res.status(500).json({ error: e.message || 'Failed to delete Face Battle' });
   }
 });
 
@@ -1867,30 +1867,38 @@ app.get('/api/community-scans', requireFirestore, async (req, res) => {
   }
 
   try {
-    let snap;
-    try {
-      snap = await firestore.collection('communityScans').orderBy('timestamp', 'desc').limit(limit).get();
-    } catch (orderErr) {
-      console.warn('[community-scans] orderBy failed, falling back:', orderErr.message);
-      snap = await firestore.collection('communityScans').limit(limit).get();
-    }
-    const scans = [];
-    snap.forEach((doc) => scans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
-    scans.sort((a, b) => {
-      if (Boolean(a.officialScan || a.official) !== Boolean(b.officialScan || b.official)) {
-        return (a.officialScan || a.official) ? -1 : 1;
-      }
-      const aMs = a?.timestamp?.toMillis?.() || (typeof a?.timestamp?.seconds === 'number' ? a.timestamp.seconds * 1000 : new Date(a?.timestamp || 0).getTime() || 0);
-      const bMs = b?.timestamp?.toMillis?.() || (typeof b?.timestamp?.seconds === 'number' ? b.timestamp.seconds * 1000 : new Date(b?.timestamp || 0).getTime() || 0);
-      return bMs - aMs;
-    });
+    const scans = await Promise.race([
+      (async () => {
+        let snap;
+        try {
+          snap = await firestore.collection('communityScans').orderBy('timestamp', 'desc').limit(limit).get();
+        } catch (orderErr) {
+          console.warn('[community-scans] orderBy failed, falling back:', orderErr.message);
+          snap = await firestore.collection('communityScans').limit(limit).get();
+        }
+        const loadedScans = [];
+        snap.forEach((doc) => loadedScans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
+        loadedScans.sort((a, b) => {
+          if (Boolean(a.officialScan || a.official) !== Boolean(b.officialScan || b.official)) {
+            return (a.officialScan || a.official) ? -1 : 1;
+          }
+          const aMs = a?.timestamp?.toMillis?.() || (typeof a?.timestamp?.seconds === 'number' ? a.timestamp.seconds * 1000 : new Date(a?.timestamp || 0).getTime() || 0);
+          const bMs = b?.timestamp?.toMillis?.() || (typeof b?.timestamp?.seconds === 'number' ? b.timestamp.seconds * 1000 : new Date(b?.timestamp || 0).getTime() || 0);
+          return bMs - aMs;
+        });
+        return loadedScans;
+      })(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timed out loading community scans')), 3500)
+      ),
+    ]);
     return res.json({ scans });
   } catch (e) {
     console.error('[community-scans] GET failed', e);
-    if (isQuotaExceededError(e)) {
-      return res.json({ scans: localCommunityScans.slice(0, limit), warning: 'Firestore quota exhausted; using local fallback.' });
-    }
-    return res.status(500).json({ error: 'Server error' });
+    const warning = isQuotaExceededError(e)
+      ? 'Firestore quota exhausted; using local fallback.'
+      : 'Could not load Firestore community scans; using local fallback.';
+    return res.json({ scans: localCommunityScans.slice(0, limit), warning });
   }
 });
 
@@ -2004,7 +2012,7 @@ app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (
          recipients.forEach((recipientUid) => {
            createNotification(recipientUid, {
              type: 'mog_battle_vote',
-             title: 'New Mog Battle Vote',
+             title: 'New Face Battle Vote',
              body: `Someone voted on ${battleName(cb)}.`,
              url: `/mog-battles?battle=${encodeURIComponent(battleId)}`,
            }).catch((notifyErr) => console.warn('[notifications] local vote notification failed:', notifyErr.message));
@@ -2141,7 +2149,7 @@ app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (
           [...recipients].map((recipientUid) =>
             createNotification(recipientUid, {
               type: 'mog_battle_vote',
-              title: 'New Mog Battle Vote',
+              title: 'New Face Battle Vote',
               body: `Someone voted on ${battleName(battle)}.`,
               url: `/mog-battles?battle=${encodeURIComponent(battleId)}`,
             }).catch((notifyErr) => {
@@ -2494,8 +2502,8 @@ app.get('/api/ready', async (req, res) => {
   }
 });
 
-app.get('/api/public-stats', (req, res) => {
-  res.json({ analysisCount: adminStore.getPublicAnalysisDisplayNumber() });
+app.get('/api/public-stats', async (req, res) => {
+  res.json({ analysisCount: await adminStore.getFreshPublicAnalysisDisplayNumber() });
 });
 
 const DEBUG_LOG_PATH = path.join(__dirname, '..', 'debug-cb256d.log');
@@ -3811,7 +3819,7 @@ async function verifyUltraAccess(req, res, next) {
     return res.status(403).json({
       success: false,
       error:
-        'Premium models require MogCheck Pro or at least 1 available scan credit. Open Plans to upgrade.',
+        'Premium models require FaceLab Pro or at least 1 available scan credit. Open Plans to upgrade.',
     });
   } catch (e) {
     if (isQuotaExceededError(e)) {
@@ -3831,7 +3839,7 @@ async function verifyUltraAccess(req, res, next) {
       return res.status(503).json({
         success: false,
         error:
-          'This backend is in Firebase emulator mode. Live premium scans from mogcheck.net need real Firebase Admin credentials on this machine.',
+          'This backend is in Firebase emulator mode. Live premium scans from facelab.online need real Firebase Admin credentials on this machine.',
       });
     }
 
@@ -4918,7 +4926,7 @@ app.post('/api/admin/notifications/announcement', async (req, res) => {
   if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
   if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
 
-  const title = String(req.body?.title || 'MogCheck Announcement').trim().slice(0, 140);
+  const title = String(req.body?.title || 'FaceLab Announcement').trim().slice(0, 140);
   const body = String(req.body?.body || '').trim().slice(0, 1000);
   const url = String(req.body?.url || '').trim().slice(0, 500);
   if (!body) return res.status(400).json({ error: 'Announcement body is required' });
@@ -5296,8 +5304,8 @@ app.get('/api/admin/users/:uid/mog-battles', async (req, res) => {
     res.json({ battles });
   } catch (e) {
     if (isQuotaExceededError(e)) return res.json({ battles: [], warning: 'Firestore quota exceeded.' });
-    console.error('[admin] Failed to read user Mog Battles:', e);
-    res.json({ battles: [], warning: e.message || 'Failed to read Mog Battles' });
+    console.error('[admin] Failed to read user Face Battles:', e);
+    res.json({ battles: [], warning: e.message || 'Failed to read Face Battles' });
   }
 });
 
