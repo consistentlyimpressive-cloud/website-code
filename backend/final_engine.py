@@ -189,16 +189,46 @@ GEMINI_31_PRO_KEYS = [
 ]
 GEMINI_31_PRO_KEYS = [(label, key) for label, key in GEMINI_31_PRO_KEYS if key]
 OPENROUTER_API_KEY = (os.getenv("OPENROUTER_API_KEY") or "").strip()
+OPENROUTER_FINAL_BOSS_API_KEY = (os.getenv("OPENROUTER_FINAL_BOSS") or "").strip()
 OPENROUTER_PREMIUM_GEMMA_MODEL_ID = (os.getenv("OPENROUTER_PREMIUM_GEMMA_MODEL_ID") or "google/gemma-4-31b-it").strip()
 OPENROUTER_QWEN_TEST_MODEL_ID = (os.getenv("OPENROUTER_QWEN_TEST_MODEL_ID") or "qwen/qwen2.5-vl-72b-instruct").strip()
 OPENROUTER_HAIIII_API_KEY = (os.getenv("OPENROUTER_HAIIII_API_KEY") or "").strip()
-OPENROUTER_HAIIII_MODEL_ID = (os.getenv("OPENROUTER_HAIIII_MODEL_ID") or "google/gemma-4-31b-it:free").strip()
+OPENROUTER_HAIIII_MODEL_ID = (os.getenv("OPENROUTER_HAIIII_MODEL_ID") or "google/gemma-4-31b-it").strip()
+
+
+def build_openrouter_key_pool(*candidates):
+    pool = []
+    seen = set()
+    for label, key in candidates:
+        key = (key or "").strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        pool.append((label, key))
+    return pool
+
+
+def build_openrouter_model_pool(*candidates):
+    pool = []
+    seen = set()
+    for model_id in candidates:
+        model_id = (model_id or "").strip()
+        if not model_id or model_id in seen:
+            continue
+        seen.add(model_id)
+        pool.append(model_id)
+    return pool
+
+
+OPENROUTER_DEFAULT_KEY_POOL = build_openrouter_key_pool(
+    ("OPENROUTER_API_KEY", OPENROUTER_API_KEY),
+    ("OPENROUTER_FINAL_BOSS", OPENROUTER_FINAL_BOSS_API_KEY),
+    ("OPENROUTER_HAIIII_API_KEY", OPENROUTER_HAIIII_API_KEY),
+)
 OPENROUTER_EXPERIMENTAL_MODEL_MAP = {
     "9": {
         "model_id": OPENROUTER_PREMIUM_GEMMA_MODEL_ID,
         "friendly_name": "Premium Model",
-        "api_key": OPENROUTER_API_KEY,
-        "key_label": "OPENROUTER_API_KEY",
         "provider_error_label": "OpenRouter Premium Model",
     },
     "10": {
@@ -211,9 +241,13 @@ OPENROUTER_EXPERIMENTAL_MODEL_MAP = {
     "13": {"model_id": "google/gemini-3.1-pro-preview", "friendly_name": "google/gemini-3.1-pro-preview"},
     "14": {
         "model_id": OPENROUTER_HAIIII_MODEL_ID,
+        "model_fallback_ids": ["google/gemma-4-31b-it"],
         "friendly_name": "Haiiii",
-        "api_key": OPENROUTER_HAIIII_API_KEY,
-        "key_label": "OPENROUTER_HAIIII_API_KEY",
+        "key_pool": [
+            ("OPENROUTER_HAIIII_API_KEY", OPENROUTER_HAIIII_API_KEY),
+            ("OPENROUTER_FINAL_BOSS", OPENROUTER_FINAL_BOSS_API_KEY),
+            ("OPENROUTER_API_KEY", OPENROUTER_API_KEY),
+        ],
         "provider_error_label": "OpenRouter Haiiii model",
     },
 }
@@ -372,6 +406,23 @@ def is_provider_rate_limit_error(error_text):
         or "temporarily rate" in low
         or "quota" in low
         or "resource_exhausted" in low
+    )
+
+
+def is_openrouter_auth_error(error_text):
+    low = str(error_text or "").lower()
+    return (
+        "error code: 401" in low
+        or "error code: 403" in low
+        or "'code': 401" in low
+        or '"code": 401' in low
+        or "'code': 403" in low
+        or '"code": 403' in low
+        or "user not found" in low
+        or "invalid api key" in low
+        or "no auth credentials" in low
+        or "unauthorized" in low
+        or "forbidden" in low
     )
 
 
@@ -568,126 +619,147 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
                 openrouter_model_config.get("provider_error_label")
                 or ("OpenRouter Qwen testing model" if choice == "10" else f"OpenRouter experimental model {friendly_name}")
             )
-            openrouter_api_key = openrouter_model_config.get("api_key") if "api_key" in openrouter_model_config else OPENROUTER_API_KEY
-            openrouter_key_label = openrouter_model_config.get("key_label") or "OPENROUTER_API_KEY"
+            openrouter_key_pool = openrouter_model_config.get("key_pool") or OPENROUTER_DEFAULT_KEY_POOL
+            openrouter_key_pool = build_openrouter_key_pool(*openrouter_key_pool)
+            openrouter_model_pool = build_openrouter_model_pool(
+                model_id,
+                *(openrouter_model_config.get("model_fallback_ids") or []),
+            )
             if OpenAI is None:
                 return (
                     f"Error: {provider_error_label} requires the Python openai package. Run: pip install openai",
                     friendly_name,
                     0,
                 )
-            if not openrouter_api_key or not model_id:
+            if not openrouter_key_pool or not openrouter_model_pool:
+                expected_keys = "OPENROUTER_API_KEY, OPENROUTER_FINAL_BOSS, or OPENROUTER_HAIIII_API_KEY"
                 return (
-                    f"Error: {provider_error_label} is not configured. Add {openrouter_key_label} and the model id configuration to backend/.env.",
+                    f"Error: {provider_error_label} is not configured. Add {expected_keys} and the model id configuration to backend/.env.",
                     friendly_name,
                     0,
                 )
-            attempt_started_at = time.time()
-            try:
-                client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=openrouter_api_key)
-                content = [{"type": "text", "text": unified_prompt}]
-                if include_image:
-                    with open(img_path, "rb") as f:
-                        front_base64 = base64.b64encode(f.read()).decode("utf-8")
-                    content.append({
-                        "type": "image_url",
-                        "image_url": {"url": f"data:{guess_image_mime_type(img_path)};base64,{front_base64}"},
-                    })
-                if include_image and side_img_path and os.path.exists(side_img_path):
-                    with open(side_img_path, "rb") as f:
-                        side_base64 = base64.b64encode(f.read()).decode("utf-8")
-                    content.append({
-                        "type": "image_url",
-                        "image_url": {"url": f"data:{guess_image_mime_type(side_img_path)};base64,{side_base64}"},
-                    })
-                request_kwargs = {
-                    "model": model_id,
-                    "messages": [{"role": "user", "content": content}],
-                    "temperature": 0,
-                    "max_tokens": max_output_tokens,
-                    "timeout": 240,
-                }
-                extra_body = openrouter_model_config.get("extra_body")
-                if extra_body:
-                    request_kwargs["extra_body"] = extra_body
-                res = client.chat.completions.create(**request_kwargs)
-                usage = getattr(res, "usage", None)
-                prompt_tokens = usage_value(usage, "prompt_tokens")
-                output_tokens = usage_value(usage, "completion_tokens")
-                total_tokens = usage_value(usage, "total_tokens")
-                output_text = ""
-                if getattr(res, "choices", None):
-                    first_choice = res.choices[0]
-                    message = getattr(first_choice, "message", None)
-                    output_text = extract_openrouter_text_content(getattr(message, "content", ""))
-                    if not output_text:
-                        output_text = extract_openrouter_text_content(getattr(first_choice, "text", ""))
-                if output_text:
-                    log_token_usage({
-                        "scan_id": scan_id,
-                        "request_type": request_type,
-                        "provider": "openrouter",
-                        "model": model_id,
-                        "key_index": openrouter_key_label,
-                        "attempt_number": 1,
-                        "success": True,
-                        "duration_ms": int((time.time() - attempt_started_at) * 1000),
-                        "input_token_count": prompt_tokens,
-                        "output_token_count": output_tokens,
-                        "total_token_count": total_tokens,
-                        "estimated_input_tokens": estimated_input_tokens,
-                        "max_output_tokens": max_output_tokens,
-                        "image_included": include_image,
-                    })
-                    duration = round(time.time() - start_time, 2)
-                    return output_text, friendly_name, duration
-                log_token_usage({
-                    "scan_id": scan_id,
-                    "request_type": request_type,
-                    "provider": "openrouter",
-                    "model": model_id,
-                    "key_index": openrouter_key_label,
-                    "attempt_number": 1,
-                    "success": False,
-                    "duration_ms": int((time.time() - attempt_started_at) * 1000),
-                    "error": "empty model response",
-                    "estimated_input_tokens": estimated_input_tokens,
-                    "max_output_tokens": max_output_tokens,
-                    "image_included": include_image,
+            content = [{"type": "text", "text": unified_prompt}]
+            if include_image:
+                with open(img_path, "rb") as f:
+                    front_base64 = base64.b64encode(f.read()).decode("utf-8")
+                content.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{guess_image_mime_type(img_path)};base64,{front_base64}"},
                 })
-                try:
-                    raw_content = getattr(res.choices[0].message, "content", None) if getattr(res, "choices", None) else None
-                    print(f"[OPENROUTER] Empty response content type: {type(raw_content).__name__}")
-                    print(f"[OPENROUTER] Empty response preview: {str(raw_content)[:400]}")
-                except Exception:
-                    pass
-                duration = round(time.time() - start_time, 2)
-                return f"Error: {provider_error_label} returned an empty response.", friendly_name, duration
-            except Exception as e:
-                short_error = str(e).replace("\n", " ").strip()[:260] or "Unknown provider error"
-                log_token_usage({
-                    "scan_id": scan_id,
-                    "request_type": request_type,
-                    "provider": "openrouter",
-                    "model": model_id,
-                    "key_index": openrouter_key_label,
-                    "attempt_number": 1,
-                    "success": False,
-                    "duration_ms": int((time.time() - attempt_started_at) * 1000),
-                    "error": short_error,
-                    "estimated_input_tokens": estimated_input_tokens,
-                    "max_output_tokens": max_output_tokens,
-                    "image_included": include_image,
+            if include_image and side_img_path and os.path.exists(side_img_path):
+                with open(side_img_path, "rb") as f:
+                    side_base64 = base64.b64encode(f.read()).decode("utf-8")
+                content.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{guess_image_mime_type(side_img_path)};base64,{side_base64}"},
                 })
-                duration = round(time.time() - start_time, 2)
-                if is_provider_rate_limit_error(short_error):
-                    return (
-                        f"Error: {provider_error_label} is temporarily rate-limited by the upstream provider. "
-                        "Please retry shortly or use another available model.",
-                        friendly_name,
-                        duration,
-                    )
-                return f"Error: {provider_error_label} failed. {short_error}", friendly_name, duration
+
+            last_short_error = ""
+            attempt_number = 0
+            for attempt_model_id in openrouter_model_pool:
+                if attempt_model_id != model_id:
+                    print(f"[OPENROUTER] Retrying {provider_error_label} with fallback model {attempt_model_id}")
+                for openrouter_key_label, openrouter_api_key in openrouter_key_pool:
+                    attempt_number += 1
+                    attempt_started_at = time.time()
+                    try:
+                        client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=openrouter_api_key)
+                        request_kwargs = {
+                            "model": attempt_model_id,
+                            "messages": [{"role": "user", "content": content}],
+                            "temperature": 0,
+                            "max_tokens": max_output_tokens,
+                            "timeout": 240,
+                        }
+                        extra_body = openrouter_model_config.get("extra_body")
+                        if extra_body:
+                            request_kwargs["extra_body"] = extra_body
+                        res = client.chat.completions.create(**request_kwargs)
+                        usage = getattr(res, "usage", None)
+                        prompt_tokens = usage_value(usage, "prompt_tokens")
+                        output_tokens = usage_value(usage, "completion_tokens")
+                        total_tokens = usage_value(usage, "total_tokens")
+                        output_text = ""
+                        if getattr(res, "choices", None):
+                            first_choice = res.choices[0]
+                            message = getattr(first_choice, "message", None)
+                            output_text = extract_openrouter_text_content(getattr(message, "content", ""))
+                            if not output_text:
+                                output_text = extract_openrouter_text_content(getattr(first_choice, "text", ""))
+                        if output_text:
+                            log_token_usage({
+                                "scan_id": scan_id,
+                                "request_type": request_type,
+                                "provider": "openrouter",
+                                "model": attempt_model_id,
+                                "key_index": openrouter_key_label,
+                                "attempt_number": attempt_number,
+                                "success": True,
+                                "duration_ms": int((time.time() - attempt_started_at) * 1000),
+                                "input_token_count": prompt_tokens,
+                                "output_token_count": output_tokens,
+                                "total_token_count": total_tokens,
+                                "estimated_input_tokens": estimated_input_tokens,
+                                "max_output_tokens": max_output_tokens,
+                                "image_included": include_image,
+                            })
+                            duration = round(time.time() - start_time, 2)
+                            return output_text, friendly_name, duration
+                        log_token_usage({
+                            "scan_id": scan_id,
+                            "request_type": request_type,
+                            "provider": "openrouter",
+                            "model": attempt_model_id,
+                            "key_index": openrouter_key_label,
+                            "attempt_number": attempt_number,
+                            "success": False,
+                            "duration_ms": int((time.time() - attempt_started_at) * 1000),
+                            "error": "empty model response",
+                            "estimated_input_tokens": estimated_input_tokens,
+                            "max_output_tokens": max_output_tokens,
+                            "image_included": include_image,
+                        })
+                        try:
+                            raw_content = getattr(res.choices[0].message, "content", None) if getattr(res, "choices", None) else None
+                            print(f"[OPENROUTER] Empty response content type: {type(raw_content).__name__}")
+                            print(f"[OPENROUTER] Empty response preview: {str(raw_content)[:400]}")
+                        except Exception:
+                            pass
+                        duration = round(time.time() - start_time, 2)
+                        return f"Error: {provider_error_label} returned an empty response.", friendly_name, duration
+                    except Exception as e:
+                        short_error = str(e).replace("\n", " ").strip()[:260] or "Unknown provider error"
+                        last_short_error = short_error
+                        log_token_usage({
+                            "scan_id": scan_id,
+                            "request_type": request_type,
+                            "provider": "openrouter",
+                            "model": attempt_model_id,
+                            "key_index": openrouter_key_label,
+                            "attempt_number": attempt_number,
+                            "success": False,
+                            "duration_ms": int((time.time() - attempt_started_at) * 1000),
+                            "error": short_error,
+                            "estimated_input_tokens": estimated_input_tokens,
+                            "max_output_tokens": max_output_tokens,
+                            "image_included": include_image,
+                        })
+                        print(f"[OPENROUTER] {provider_error_label} attempt {attempt_number} using {openrouter_key_label} on {attempt_model_id} failed: {short_error}")
+                        if is_openrouter_auth_error(short_error) and openrouter_key_label != openrouter_key_pool[-1][0]:
+                            continue
+                        if is_provider_rate_limit_error(short_error) and attempt_model_id != openrouter_model_pool[-1]:
+                            break
+                        duration = round(time.time() - start_time, 2)
+                        if is_provider_rate_limit_error(short_error):
+                            return (
+                                f"Error: {provider_error_label} is temporarily rate-limited by the upstream provider. "
+                                "Please retry shortly or use another available model.",
+                                friendly_name,
+                                duration,
+                            )
+                        return f"Error: {provider_error_label} failed. {short_error}", friendly_name, duration
+            duration = round(time.time() - start_time, 2)
+            return f"Error: {provider_error_label} failed. {last_short_error or 'No OpenRouter key succeeded.'}", friendly_name, duration
 
         if choice == "6":
             available_keys = GOOGLE_GENAI_KEYS
