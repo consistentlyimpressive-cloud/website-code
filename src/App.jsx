@@ -5924,6 +5924,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [dropdownAnimOpen, setDropdownAnimOpen] = useState(false);
   const [justUnlocked, setJustUnlocked] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isSubmittingScan, setIsSubmittingScan] = useState(false);
   const [activeAnalysisJob, setActiveAnalysisJob] = useState(null);
   const [scanningCeleb, setScanningCeleb] = useState(null);
   const [uploadNotice, setUploadNotice] = useState('');
@@ -5934,6 +5935,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [adminApiHealthLoading, setAdminApiHealthLoading] = useState(false);
   const modelMenuRef = useRef(null);
   const scanTopRef = useRef(null);
+  const isSubmittingScanRef = useRef(false);
 
   const [profiles, setProfiles] = useState([]);
   const [selectedProfileId, setSelectedProfileId] = useState(initialProfileId || 'new');
@@ -7202,86 +7204,72 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
             <button 
               onClick={async () => {
-                if (isPremiumDemoModel) {
-                  if (!user) {
-                    setCurrentPage('login');
-                    return;
-                  }
-                  const requestedDemoId = normalizePremiumDemoId(visiblePremiumDemoFaceId);
-                  const requestedDemoFace = getPremiumDemoFace(requestedDemoId);
-                  let demoPayload = null;
-                  try {
-                    const token = await user.getIdToken();
-                    const res = await fetch(`${API_BASE}/api/user/demo-scan`, {
-                      method: 'POST',
-                      headers: {
-                        Authorization: `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({ demoId: requestedDemoId }),
-                    });
-                    const body = await res.json().catch(() => ({}));
-                    if (res.status === 409) {
-                      const nextUsedIds = Array.isArray(body.premiumDemoUsedIds)
-                        ? body.premiumDemoUsedIds
-                        : Array.from(new Set([...premiumDemoUsedIds, requestedDemoId]));
+                if (isSubmittingScanRef.current) return;
+                isSubmittingScanRef.current = true;
+                setIsSubmittingScan(true);
+                try {
+                  if (isPremiumDemoModel) {
+                    if (!user) {
+                      setCurrentPage('login');
+                      return;
+                    }
+                    const requestedDemoId = normalizePremiumDemoId(visiblePremiumDemoFaceId);
+                    const requestedDemoFace = getPremiumDemoFace(requestedDemoId);
+                    let demoPayload = null;
+                    try {
+                      const token = await user.getIdToken();
+                      const res = await fetch(`${API_BASE}/api/user/demo-scan`, {
+                        method: 'POST',
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ demoId: requestedDemoId }),
+                      });
+                      const body = await res.json().catch(() => ({}));
+                      if (res.status === 409) {
+                        const nextUsedIds = Array.isArray(body.premiumDemoUsedIds)
+                          ? body.premiumDemoUsedIds
+                          : Array.from(new Set([...premiumDemoUsedIds, requestedDemoId]));
+                        setPremiumDemoUsedIds(nextUsedIds);
+                        const nextAllUsed = ACTIVE_PREMIUM_DEMO_IDS.every((demoId) => nextUsedIds.includes(demoId));
+                        setPremiumDemoScanUsed(nextAllUsed);
+                        setProfileScanCounts((prev) => ({
+                          ...prev,
+                          [PREMIUM_DEMO_MODEL_ID]: nextUsedIds.length,
+                        }));
+                        if (nextAllUsed) {
+                          setSelectedModel('3');
+                        } else {
+                          const nextDemoId = getAvailablePremiumDemoId(nextUsedIds, requestedDemoId);
+                          const nextDemoFace = getPremiumDemoFace(nextDemoId);
+                          setSelectedPremiumDemoId(nextDemoId);
+                          setFrontImage(nextDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE);
+                        }
+                        setUploadNotice(body.error || 'You have already used this premium demo scan.');
+                        return;
+                      }
+                      if (!res.ok) throw new Error(body.error || 'Failed to save demo scan.');
+                      demoPayload = buildPremiumDemoScanPayload(body.payload || body.scan?.payload || await loadPremiumDemoScanPayload(requestedDemoId), {
+                        demoId: requestedDemoId,
+                        id: body.scan?.id || `premium-demo-scan-${requestedDemoId}`,
+                        scanId: body.scan?.scanId || body.scan?.id || `premium-demo-scan-${requestedDemoId}`,
+                        scannedAt: body.scan?.scannedAt || body.scan?.createdAt || new Date().toISOString(),
+                      });
+                      const nextUsedIds = Array.from(new Set([...premiumDemoUsedIds, requestedDemoId]));
                       setPremiumDemoUsedIds(nextUsedIds);
-                      const nextAllUsed = ACTIVE_PREMIUM_DEMO_IDS.every((demoId) => nextUsedIds.includes(demoId));
-                      setPremiumDemoScanUsed(nextAllUsed);
+                      setPremiumDemoScanUsed(ACTIVE_PREMIUM_DEMO_IDS.every((demoId) => nextUsedIds.includes(demoId)));
                       setProfileScanCounts((prev) => ({
                         ...prev,
                         [PREMIUM_DEMO_MODEL_ID]: nextUsedIds.length,
                       }));
-                      if (nextAllUsed) {
-                        setSelectedModel('3');
-                      } else {
-                        const nextDemoId = getAvailablePremiumDemoId(nextUsedIds, requestedDemoId);
-                        const nextDemoFace = getPremiumDemoFace(nextDemoId);
-                        setSelectedPremiumDemoId(nextDemoId);
-                        setFrontImage(nextDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE);
-                      }
-                      setUploadNotice(body.error || 'You have already used this premium demo scan.');
+                    } catch (e) {
+                      setUploadNotice(e.message || 'Failed to save demo scan.');
                       return;
                     }
-                    if (!res.ok) throw new Error(body.error || 'Failed to save demo scan.');
-                    demoPayload = buildPremiumDemoScanPayload(body.payload || body.scan?.payload || await loadPremiumDemoScanPayload(requestedDemoId), {
-                      demoId: requestedDemoId,
-                      id: body.scan?.id || `premium-demo-scan-${requestedDemoId}`,
-                      scanId: body.scan?.scanId || body.scan?.id || `premium-demo-scan-${requestedDemoId}`,
-                      scannedAt: body.scan?.scannedAt || body.scan?.createdAt || new Date().toISOString(),
-                    });
-                    const nextUsedIds = Array.from(new Set([...premiumDemoUsedIds, requestedDemoId]));
-                    setPremiumDemoUsedIds(nextUsedIds);
-                    setPremiumDemoScanUsed(ACTIVE_PREMIUM_DEMO_IDS.every((demoId) => nextUsedIds.includes(demoId)));
-                    setProfileScanCounts((prev) => ({
-                      ...prev,
-                      [PREMIUM_DEMO_MODEL_ID]: nextUsedIds.length,
-                    }));
-                  } catch (e) {
-                    setUploadNotice(e.message || 'Failed to save demo scan.');
-                    return;
-                  }
-                  setSelectedProfileId(PREMIUM_DEMO_MODEL_ID);
-                  setActiveScanProfileId(PREMIUM_DEMO_MODEL_ID);
-                  const queuedJob = queueAnalysisJob?.({
-                    analysisLabel: 'Demo Scan',
-                    mainImageSrc: requestedDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE,
-                    mainImageFile: null,
-                    sideImageUrl: null,
-                    sideImageFile: null,
-                    sideMetricData: null,
-                    choice: PREMIUM_DEMO_MODEL_ID,
-                    user,
-                    profileId: PREMIUM_DEMO_MODEL_ID,
-                    scanRequestId: demoPayload?.scanRequestId || `premium-demo-scan-${requestedDemoId}`,
-                    demoPayload,
-                  });
-                  if (queuedJob) {
-                    setActiveAnalysisJob(null);
-                    setIsScanning(false);
-                    setCurrentPage('analysis');
-                  } else {
-                    setActiveAnalysisJob({
+                    setSelectedProfileId(PREMIUM_DEMO_MODEL_ID);
+                    setActiveScanProfileId(PREMIUM_DEMO_MODEL_ID);
+                    const queuedJob = queueAnalysisJob?.({
                       analysisLabel: 'Demo Scan',
                       mainImageSrc: requestedDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE,
                       mainImageFile: null,
@@ -7294,81 +7282,105 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                       scanRequestId: demoPayload?.scanRequestId || `premium-demo-scan-${requestedDemoId}`,
                       demoPayload,
                     });
-                    setIsScanning(true);
-                  }
-                  return;
-                }
-                let actualProfileId = selectedProfileId;
-                if (actualProfileId !== 'new' && (profileScanCounts[actualProfileId] || 0) >= PROFILE_SCAN_HISTORY_LIMIT) {
-                  setUploadNotice('This profile has reached its 10/10 scan limit. Create a new profile or choose a different one.');
-                  return;
-                }
-                if (selectedProfileId === 'new') {
-                  if (!user) {
-                    actualProfileId = 'guest';
-                  } else if (profilesUnavailable) {
-                    actualProfileId = 'default';
-                  } else {
-                    if (!newProfileName.trim()) {
-                      setUploadNotice("Please enter a profile name");
-                      return;
-                    }
-                    try {
-                      const token = await user.getIdToken();
-                      const res = await fetch(`${API_BASE}/api/user/profiles`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: newProfileName, visibility: 'private' })
+                    if (queuedJob) {
+                      setActiveAnalysisJob(null);
+                      setIsScanning(false);
+                      setCurrentPage('analysis');
+                    } else {
+                      setActiveAnalysisJob({
+                        analysisLabel: 'Demo Scan',
+                        mainImageSrc: requestedDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE,
+                        mainImageFile: null,
+                        sideImageUrl: null,
+                        sideImageFile: null,
+                        sideMetricData: null,
+                        choice: PREMIUM_DEMO_MODEL_ID,
+                        user,
+                        profileId: PREMIUM_DEMO_MODEL_ID,
+                        scanRequestId: demoPayload?.scanRequestId || `premium-demo-scan-${requestedDemoId}`,
+                        demoPayload,
                       });
-                      if (res.ok) {
-                        const data = await res.json();
-                        actualProfileId = data.id;
-                      } else {
-                        const errBody = await res.json().catch(() => ({}));
-                        throw new Error(errBody.error || 'Failed to create profile');
+                      setIsScanning(true);
+                    }
+                    return;
+                  }
+
+                  let actualProfileId = selectedProfileId;
+                  if (actualProfileId !== 'new' && (profileScanCounts[actualProfileId] || 0) >= PROFILE_SCAN_HISTORY_LIMIT) {
+                    setUploadNotice('This profile has reached its 10/10 scan limit. Create a new profile or choose a different one.');
+                    return;
+                  }
+                  if (selectedProfileId === 'new') {
+                    if (!user) {
+                      actualProfileId = 'guest';
+                    } else if (profilesUnavailable) {
+                      actualProfileId = 'default';
+                    } else {
+                      const profileName = newProfileName.trim();
+                      if (!profileName) {
+                        setUploadNotice("Please enter a profile name");
+                        return;
                       }
-                    } catch (e) {
-                      setUploadNotice(e.message);
-                      return;
+                      try {
+                        const token = await user.getIdToken();
+                        const res = await fetch(`${API_BASE}/api/user/profiles`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ name: profileName, visibility: 'private' })
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          actualProfileId = data.id;
+                        } else {
+                          const errBody = await res.json().catch(() => ({}));
+                          throw new Error(errBody.error || 'Failed to create profile');
+                        }
+                      } catch (e) {
+                        setUploadNotice(e.message);
+                        return;
+                      }
                     }
                   }
-                }
-                setSelectedProfileId(actualProfileId);
-                setActiveScanProfileId(actualProfileId);
-                const queuedJob = queueAnalysisJob?.({
-                  analysisLabel:
-                    selectedProfileId === 'new'
-                      ? (newProfileName.trim() || 'New profile')
-                      : (profiles.find((p) => p.id === actualProfileId)?.name || 'Saved profile'),
-                  mainImageSrc: frontImage,
-                  mainImageFile: frontFile,
-                  sideImageUrl: shouldUseSideProfile ? sideImage : null,
-                  sideImageFile: shouldUseSideProfile ? sideFile : null,
-                  sideMetricData: sideMetricDataGlobal,
-                  choice: selectedModel,
-                  user,
-                  profileId: actualProfileId,
-                });
-                if (queuedJob) {
-                  setActiveAnalysisJob(null);
-                  setIsScanning(false);
-                  setCurrentPage('analysis');
-                }
+                  setSelectedProfileId(actualProfileId);
+                  setActiveScanProfileId(actualProfileId);
+                  const queuedJob = queueAnalysisJob?.({
+                    analysisLabel:
+                      selectedProfileId === 'new'
+                        ? (newProfileName.trim() || 'New profile')
+                        : (profiles.find((p) => p.id === actualProfileId)?.name || 'Saved profile'),
+                    mainImageSrc: frontImage,
+                    mainImageFile: frontFile,
+                    sideImageUrl: shouldUseSideProfile ? sideImage : null,
+                    sideImageFile: shouldUseSideProfile ? sideFile : null,
+                    sideMetricData: sideMetricDataGlobal,
+                    choice: selectedModel,
+                    user,
+                    profileId: actualProfileId,
+                  });
+                  if (queuedJob) {
+                    setActiveAnalysisJob(null);
+                    setIsScanning(false);
+                    setCurrentPage('analysis');
+                  }
 
-                setFrontImage(null);
-                setFrontFile(null);
-                setSideImage(null);
-                setSideFile(null);
-                setJustUnlocked(false);
-                if (selectedProfileId === 'new') {
-                  setNewProfileName('');
+                  setFrontImage(null);
+                  setFrontFile(null);
+                  setSideImage(null);
+                  setSideFile(null);
+                  setJustUnlocked(false);
+                  if (selectedProfileId === 'new') {
+                    setNewProfileName('');
+                  }
+                } finally {
+                  isSubmittingScanRef.current = false;
+                  setIsSubmittingScan(false);
                 }
               }} 
-              disabled={missingRequiredImage || scanAccessLocked || selectedProfileFull || selectedPremiumDemoLocked}
+              disabled={isSubmittingScan || missingRequiredImage || scanAccessLocked || selectedProfileFull || selectedPremiumDemoLocked}
               className={`relative overflow-hidden px-20 py-6 bg-white text-black font-black uppercase tracking-widest text-lg md:text-xl flex items-center justify-center gap-5 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none ${justUnlocked ? 'animate-[buttonUnlock_1s_ease-out_forwards]' : 'shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}
             >
             {justUnlocked && <div className="absolute top-0 bottom-0 w-[50%] bg-gradient-to-r from-transparent via-white to-transparent opacity-80 mix-blend-overlay" style={{ animation: 'sweepGlow 1.5s ease-out forwards' }} />}
-            <span className="relative z-10">{isPremiumDemoModel ? 'Scan Preview' : 'Analyze Profiles'}</span>
+            <span className="relative z-10">{isSubmittingScan ? 'Starting...' : (isPremiumDemoModel ? 'Scan Preview' : 'Analyze Profiles')}</span>
             {justUnlocked ? <Unlock size={28} className="text-black relative z-10" style={{ animation: 'popOpen 0.5s ease-out forwards' }} /> : <ChevronRight size={28} className="text-black relative z-10" />}
           </button>
           {isUploadGuideOpen && (
@@ -12936,6 +12948,10 @@ const App = () => {
       if (!res.ok) return;
       const restoredJobs = Array.isArray(body.jobs)
         ? body.jobs
+            .filter((record) => {
+              const state = String(record?.state || '').trim().toLowerCase();
+              return state === 'running' || state === 'report_generating';
+            })
             .map((record) => buildRestoredAnalysisJob(record, user))
             .filter((job) => job.scanRequestId)
         : [];

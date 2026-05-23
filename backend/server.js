@@ -165,6 +165,7 @@ const activeScanRecordsByUser = new Map();
 
 const ACTIVE_SCAN_JOB_COLLECTION = 'activeScans';
 const ACTIVE_SCAN_RECORD_TTL_MS = Number(process.env.ACTIVE_SCAN_RECORD_TTL_MS || 2 * 60 * 60 * 1000);
+const ACTIVE_RUNNING_SCAN_STALE_MS = Number(process.env.ACTIVE_RUNNING_SCAN_STALE_MS || 30 * 60 * 1000);
 const QWEN_HEALTH_CACHE_MS = Number(process.env.QWEN_HEALTH_CACHE_MS || 2 * 60 * 1000);
 const OPENROUTER_API_KEY = String(process.env.OPENROUTER_API_KEY || '').trim();
 const OPENROUTER_QWEN_TEST_MODEL_ID = String(process.env.OPENROUTER_QWEN_TEST_MODEL_ID || 'qwen/qwen2.5-vl-72b-instruct').trim();
@@ -526,12 +527,22 @@ async function listPersistedActiveScanRecords(uid) {
     }
 
     const records = [];
-    const failedCutoff = Date.now() - 10 * 60 * 1000;
+    const now = Date.now();
+    const failedCutoff = now - 10 * 60 * 1000;
+    const runningCutoff = now - ACTIVE_RUNNING_SCAN_STALE_MS;
     snap.forEach((doc) => {
       const normalized = serializeActiveScanRecord(doc.data() || {});
       if (!normalized.scanRequestId) return;
       if (normalized.updatedAtMs < cutoff) return;
+      if (normalized.state === 'completed') {
+        deletePersistedActiveScanRecord(uid, normalized.scanRequestId).catch(() => {});
+        return;
+      }
       if (normalized.state === 'failed' && normalized.updatedAtMs < failedCutoff) {
+        deletePersistedActiveScanRecord(uid, normalized.scanRequestId).catch(() => {});
+        return;
+      }
+      if (['running', 'report_generating'].includes(normalized.state) && normalized.updatedAtMs < runningCutoff) {
         deletePersistedActiveScanRecord(uid, normalized.scanRequestId).catch(() => {});
         return;
       }

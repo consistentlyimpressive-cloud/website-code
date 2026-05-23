@@ -1,6 +1,25 @@
 const { sanitizeFirebaseError, shouldSkipFirebaseStorage } = require('./firebase-errors');
 const localUserStore = require('./local-user-store');
 const adminStore = require('./admin-store');
+const crypto = require('crypto');
+
+function normalizeProfileName(value) {
+  return String(value || 'New Profile').trim().replace(/\s+/g, ' ') || 'New Profile';
+}
+
+function profileNameKey(value) {
+  return normalizeProfileName(value).toLowerCase();
+}
+
+function profileIdForName(value) {
+  const hash = crypto.createHash('sha256').update(profileNameKey(value)).digest('hex').slice(0, 24);
+  return `profile-${hash}`;
+}
+
+function findLocalProfileByName(uid, name) {
+  const targetKey = profileNameKey(name);
+  return localUserStore.listProfiles(uid).find((profile) => profileNameKey(profile?.name) === targetKey) || null;
+}
 
 function isPublicScanVisibility(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -86,32 +105,87 @@ module.exports = function(app, firestore, admin, extractUserOptional) {
     if (!req.uid) return res.status(401).json({ error: 'Unauthorized' });
     try {
       const { name, visibility } = req.body;
-      const localId = `local-profile-${Date.now()}`;
-      let responseId = localId;
+      const profileName = normalizeProfileName(name);
+      const profileVisibility = visibility || 'private';
+      const existingLocalProfile = findLocalProfileByName(req.uid, profileName);
+      const deterministicProfileId = existingLocalProfile?.id || profileIdForName(profileName);
+      let responseId = deterministicProfileId;
       if (firestore) {
-        const docRef = await firestore.collection('users').doc(req.uid).collection('profiles').add({
-          name: name || 'New Profile',
-          visibility: visibility || 'private',
+        const profilesRef = firestore.collection('users').doc(req.uid).collection('profiles');
+        const exactSnap = await profilesRef.where('nameKey', '==', profileNameKey(profileName)).limit(1).get();
+        if (!exactSnap.empty) {
+          const existingDoc = exactSnap.docs[0];
+          responseId = existingDoc.id;
+          const existingProfile = { id: responseId, ...existingDoc.data() };
+          localUserStore.upsertProfile(req.uid, responseId, existingProfile);
+          return res.json({
+            id: responseId,
+            name: existingProfile.name || profileName,
+            visibility: existingProfile.visibility || profileVisibility,
+            existing: true,
+          });
+        }
+
+        const legacySnap = await profilesRef.limit(200).get();
+        const legacyMatch = legacySnap.docs.find((doc) => profileNameKey(doc.data()?.name) === profileNameKey(profileName));
+        if (legacyMatch) {
+          responseId = legacyMatch.id;
+          const existingProfile = { id: responseId, ...legacyMatch.data() };
+          await legacyMatch.ref.set({
+            nameKey: profileNameKey(profileName),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          }, { merge: true });
+          localUserStore.upsertProfile(req.uid, responseId, existingProfile);
+          return res.json({
+            id: responseId,
+            name: existingProfile.name || profileName,
+            visibility: existingProfile.visibility || profileVisibility,
+            existing: true,
+          });
+        }
+
+        const docRef = profilesRef.doc(deterministicProfileId);
+        const docSnap = await docRef.get();
+        if (docSnap.exists) {
+          const existingProfile = { id: docRef.id, ...docSnap.data() };
+          localUserStore.upsertProfile(req.uid, docRef.id, existingProfile);
+          return res.json({
+            id: docRef.id,
+            name: existingProfile.name || profileName,
+            visibility: existingProfile.visibility || profileVisibility,
+            existing: true,
+          });
+        }
+
+        await docRef.set({
+          name: profileName,
+          nameKey: profileNameKey(profileName),
+          visibility: profileVisibility,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
+        }, { merge: true });
         responseId = docRef.id;
       }
       localUserStore.upsertProfile(req.uid, responseId, {
-        name: name || 'New Profile',
-        visibility: visibility || 'private',
+        name: profileName,
+        nameKey: profileNameKey(profileName),
+        visibility: profileVisibility,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
-      res.json({ id: responseId, name, visibility });
+      res.json({ id: responseId, name: profileName, visibility: profileVisibility, existing: Boolean(existingLocalProfile) });
     } catch (e) {
       console.error('[profiles] POST failed:', e.message || e);
-      const fallbackId = `local-profile-${Date.now()}`;
+      const fallbackName = normalizeProfileName(req.body?.name);
+      const fallbackVisibility = req.body?.visibility || 'private';
+      const existingLocalProfile = findLocalProfileByName(req.uid, fallbackName);
+      const fallbackId = existingLocalProfile?.id || profileIdForName(fallbackName);
       localUserStore.upsertProfile(req.uid, fallbackId, {
-        name: req.body?.name || 'New Profile',
-        visibility: req.body?.visibility || 'private',
+        name: fallbackName,
+        nameKey: profileNameKey(fallbackName),
+        visibility: fallbackVisibility,
       });
-      res.json({ id: fallbackId, name: req.body?.name || 'New Profile', visibility: req.body?.visibility || 'private', localFallback: true });
+      res.json({ id: fallbackId, name: fallbackName, visibility: fallbackVisibility, localFallback: true, existing: Boolean(existingLocalProfile) });
     }
   });
 
