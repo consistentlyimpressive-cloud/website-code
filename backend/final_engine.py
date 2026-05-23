@@ -549,10 +549,10 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
         scan_id = os.getenv("MOGCHECK_SCAN_REQUEST_ID") or None
         include_image = not (choice in PREMIUM_CORE_REPORT_MODEL_CHOICES and analysis_phase == "report")
         max_output_tokens = None
-        if choice in {"2", "6", "9"}:
-            max_output_tokens = 1400 if analysis_phase == "report" else 1500
-        elif choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
+        if choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
             max_output_tokens = 1800 if analysis_phase == "report" else 2600
+        elif choice in {"2", "6", "9"}:
+            max_output_tokens = 1400 if analysis_phase == "report" else 1500
         elif choice in {"7", "8"}:
             # Gemini 3.x can spend a large part of maxOutputTokens on hidden thinking.
             # Give it more visible room and cap thinking so the JSON is not truncated.
