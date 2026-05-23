@@ -189,10 +189,18 @@ GEMINI_31_PRO_KEYS = [
 ]
 GEMINI_31_PRO_KEYS = [(label, key) for label, key in GEMINI_31_PRO_KEYS if key]
 OPENROUTER_API_KEY = (os.getenv("OPENROUTER_API_KEY") or "").strip()
+OPENROUTER_PREMIUM_GEMMA_MODEL_ID = (os.getenv("OPENROUTER_PREMIUM_GEMMA_MODEL_ID") or "google/gemma-4-31b-it").strip()
 OPENROUTER_QWEN_TEST_MODEL_ID = (os.getenv("OPENROUTER_QWEN_TEST_MODEL_ID") or "qwen/qwen2.5-vl-72b-instruct").strip()
 OPENROUTER_HAIIII_API_KEY = (os.getenv("OPENROUTER_HAIIII_API_KEY") or "").strip()
 OPENROUTER_HAIIII_MODEL_ID = (os.getenv("OPENROUTER_HAIIII_MODEL_ID") or "google/gemma-4-31b-it:free").strip()
 OPENROUTER_EXPERIMENTAL_MODEL_MAP = {
+    "9": {
+        "model_id": OPENROUTER_PREMIUM_GEMMA_MODEL_ID,
+        "friendly_name": "Premium Model",
+        "api_key": OPENROUTER_API_KEY,
+        "key_label": "OPENROUTER_API_KEY",
+        "provider_error_label": "OpenRouter Premium Model",
+    },
     "10": {
         "model_id": OPENROUTER_QWEN_TEST_MODEL_ID,
         "friendly_name": "Qwen model (Testing)",

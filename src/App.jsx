@@ -6053,7 +6053,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       Icon: Zap
     },
     {
-      id: "13",
+      id: "9",
       name: "Premium Model",
       description:
         "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
