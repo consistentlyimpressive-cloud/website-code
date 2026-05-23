@@ -356,7 +356,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
         setLatestScans(officialCelebrityCommunityScans);
       }
       if (battlesResult.status === 'fulfilled') {
-        setLatestBattles(Array.isArray(battlesResult.value?.battles) ? battlesResult.value.battles.slice(0, 2) : []);
+        setLatestBattles(Array.isArray(battlesResult.value?.battles) ? battlesResult.value.battles.slice(0, 1) : []);
       }
     };
 
@@ -376,7 +376,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
     [latestScans, variant]
   );
   const previewBattles = useMemo(
-    () => latestBattles.slice(0, 3),
+    () => latestBattles.slice(0, 1),
     [latestBattles]
   );
 
