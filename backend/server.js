@@ -2224,6 +2224,7 @@ function healthPayload() {
     ok: true,
     service: 'mogcheck-backend',
     firebaseMode: USE_FIREBASE_EMULATOR ? 'emulator' : 'live',
+    storage: storageStatusPayload(),
     uptimeMs: Date.now() - SERVER_BOOT_AT,
     timestamp: new Date().toISOString(),
   };
@@ -3139,6 +3140,36 @@ function getLocalUploadUrl(req, localPath) {
   const filename = path.basename(localPath);
   if (!filename) return null;
   return `${getPublicBackendBase(req)}/uploads/${encodeURIComponent(filename)}`;
+}
+
+function isLocalUploadUrl(value) {
+  return typeof value === 'string' && /\/uploads\//i.test(value);
+}
+
+function isDurableStoredImageUrl(value) {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (/^(data|blob):/i.test(trimmed)) return true;
+  if (!/^https?:\/\//i.test(trimmed)) return !isLocalUploadUrl(trimmed);
+  return !isLocalUploadUrl(trimmed);
+}
+
+function getPersistableImageUrl(...values) {
+  for (const value of values) {
+    if (isDurableStoredImageUrl(value)) return String(value).trim();
+  }
+  return null;
+}
+
+function storageStatusPayload() {
+  return {
+    skipped: shouldSkipFirebaseStorage(),
+    bucket:
+      process.env.FIREBASE_STORAGE_BUCKET ||
+      process.env.FIREBASE_UPLOAD_BUCKET ||
+      `${process.env.FIREBASE_PROJECT_ID || 'mogcheck-net'}-uploads`,
+  };
 }
 
 function copyDebugArtifactToUploads(req, sourceName, label = 'debug') {
@@ -4353,8 +4384,8 @@ app.post(
         visibility: 'private',
         finalRating,
         sideRating,
-        frontImageUrl: frontFallbackUrl || payload.frontImage || null,
-        sideImageUrl: sideFallbackUrl || payload.sideImage || null,
+        frontImageUrl: getPersistableImageUrl(payload.frontImage, payload.frontImageUrl),
+        sideImageUrl: getPersistableImageUrl(payload.sideImage, payload.sideImageUrl),
         debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
         debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
         frontImageDest: null,
@@ -4363,8 +4394,8 @@ app.post(
         scanRequestId,
         payload: {
           ...payload,
-          frontImage: frontFallbackUrl || payload.frontImage || null,
-          sideImage: sideFallbackUrl || payload.sideImage || null,
+          frontImage: getPersistableImageUrl(payload.frontImage, payload.frontImageUrl),
+          sideImage: getPersistableImageUrl(payload.sideImage, payload.sideImageUrl),
           debugAnchorsImage: debugAnchorsUrl || payload.debugAnchorsImage || null,
           debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
           debugRatiosImage: debugRatiosUrl || payload.debugRatiosImage || null,
@@ -4396,8 +4427,15 @@ app.post(
       if (imagePath) frontUpload = await uploadImageToFirebase(imagePath, req.uid, 'front', { deleteLocal: false });
       if (sideImagePath) sideUpload = await uploadImageToFirebase(sideImagePath, req.uid, 'side', { deleteLocal: false });
 
-      const persistedFrontImage = frontUpload ? frontUpload.url : (payload.frontImage || savedScanBase?.frontImageUrl || frontFallbackUrl || null);
-      const persistedSideImage = sideUpload ? sideUpload.url : (payload.sideImage || savedScanBase?.sideImageUrl || sideFallbackUrl || null);
+      const persistedFrontImage = frontUpload ? frontUpload.url : getPersistableImageUrl(payload.frontImageUrl, payload.frontImage, savedScanBase?.frontImageUrl);
+      const persistedSideImage = sideUpload ? sideUpload.url : getPersistableImageUrl(payload.sideImageUrl, payload.sideImage, savedScanBase?.sideImageUrl);
+
+      if (!frontUpload && imagePath && !persistedFrontImage) {
+        console.warn('[storage] No durable front image URL saved for scan history; local /uploads URL is response-only.');
+      }
+      if (!sideUpload && sideImagePath && !persistedSideImage) {
+        console.warn('[storage] No durable side image URL saved for scan history; local /uploads URL is response-only.');
+      }
 
       payload.frontImage = persistedFrontImage || payload.frontImage || null;
       payload.frontImageUrl = persistedFrontImage || payload.frontImageUrl || null;
@@ -4413,10 +4451,10 @@ app.post(
         payload: {
           ...(savedScanBase?.payload || {}),
           ...payload,
-          frontImage: persistedFrontImage || payload.frontImage || null,
-          sideImage: persistedSideImage || payload.sideImage || null,
-          frontImageUrl: persistedFrontImage || payload.frontImageUrl || null,
-          sideImageUrl: persistedSideImage || payload.sideImageUrl || null,
+          frontImage: persistedFrontImage || null,
+          sideImage: persistedSideImage || null,
+          frontImageUrl: persistedFrontImage || null,
+          sideImageUrl: persistedSideImage || null,
           selectedModel: String(modelChoice || payload.selectedModel || '').trim() || '1',
           platform: scanPlatform,
         },
@@ -4446,15 +4484,17 @@ app.post(
       scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
       timestamp: new Date().toISOString(),
       scannedAt: new Date().toISOString(),
-      frontImageUrl: payload.frontImage || frontFallbackUrl || null,
-      sideImageUrl: payload.sideImage || sideFallbackUrl || null,
+      frontImage: getPersistableImageUrl(savedScanBase?.frontImageUrl, payload.frontImageUrl, payload.frontImage),
+      sideImage: getPersistableImageUrl(savedScanBase?.sideImageUrl, payload.sideImageUrl, payload.sideImage),
+      frontImageUrl: getPersistableImageUrl(savedScanBase?.frontImageUrl, payload.frontImageUrl, payload.frontImage),
+      sideImageUrl: getPersistableImageUrl(savedScanBase?.sideImageUrl, payload.sideImageUrl, payload.sideImage),
       debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
       debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
       platform: scanPlatform,
       payload: {
         ...payload,
-        frontImage: payload.frontImage || frontFallbackUrl || null,
-        sideImage: payload.sideImage || sideFallbackUrl || null,
+        frontImage: getPersistableImageUrl(savedScanBase?.frontImageUrl, payload.frontImageUrl, payload.frontImage),
+        sideImage: getPersistableImageUrl(savedScanBase?.sideImageUrl, payload.sideImageUrl, payload.sideImage),
         debugAnchorsImage: debugAnchorsUrl || payload.debugAnchorsImage || null,
         debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
         debugRatiosImage: debugRatiosUrl || payload.debugRatiosImage || null,

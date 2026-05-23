@@ -14,6 +14,41 @@ const API_BASE = getApiBase();
 const PROFILE_SCAN_HISTORY_LIMIT = 10;
 const DEMO_PROFILE_SCAN_LIMIT = 2;
 
+function SafeScanImage({
+  src,
+  alt,
+  className = 'h-full w-full object-cover object-top',
+  fallbackClassName = 'flex h-full w-full items-center justify-center bg-zinc-950 text-zinc-700',
+  iconSize = 18,
+  ...props
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (!src || failed) {
+    return (
+      <div className={fallbackClassName} aria-label={alt || 'Image unavailable'}>
+        <Users size={iconSize} />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      {...props}
+      loading="lazy"
+      decoding="async"
+      src={src}
+      alt={alt}
+      className={className}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 const clampTextStyle = {
   display: '-webkit-box',
   WebkitBoxOrient: 'vertical',
@@ -110,17 +145,13 @@ function DashboardCommunityScanCard({
         }}
       >
         <div className="relative overflow-hidden rounded-[30px] bg-zinc-950">
-          {dd?.frontImage ? (
-            <img loading="lazy" decoding="async"
-              src={dd.frontImage}
-              className="w-full aspect-[3/4] object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.065]"
-              alt="Community Scan"
-            />
-          ) : (
-            <div className="flex aspect-[3/4] w-full items-center justify-center text-zinc-700 opacity-50">
-              <Users size={48} />
-            </div>
-          )}
+          <SafeScanImage
+            src={dd?.frontImage}
+            alt="Community Scan"
+            className="w-full aspect-[3/4] object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.065]"
+            fallbackClassName="flex aspect-[3/4] w-full items-center justify-center bg-zinc-950 text-zinc-700 opacity-50"
+            iconSize={48}
+          />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent opacity-95" />
           <div
             className="pointer-events-none absolute inset-0 opacity-0 mix-blend-screen transition-opacity duration-300 group-hover:opacity-100"
@@ -1346,7 +1377,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                     onClick={() => handleSelectScan(scan)}
                     className={`relative flex-shrink-0 w-20 aspect-[4/5.5] rounded-xl overflow-hidden border transition-all duration-300 ${isActive ? 'border-cyan-400 ring-2 ring-cyan-400/20 scale-[1.05] z-10' : 'border-zinc-800 opacity-70 hover:opacity-100'}`}
                   >
-                    <img loading="lazy" decoding="async" src={scan.frontImage} className="w-full h-full object-cover" alt="" />
+                    <SafeScanImage src={scan.frontImage} className="w-full h-full object-cover" alt="" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
                     <div className={`absolute bottom-1.5 left-0 right-0 text-center text-[11px] font-black italic ${ratingTone.text}`}>
                       {rating.toFixed(1)}
@@ -1501,10 +1532,10 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                         </span>
                       )}
                       <div className="relative flex-1 border-r border-zinc-900">
-                        <img loading="lazy" decoding="async" src={scan.frontImage || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'} alt="Front profile" className="h-full w-full object-cover" />
+                        <SafeScanImage src={scan.frontImage} alt="Front profile" className="h-full w-full object-cover" />
                       </div>
                       <div className="relative flex-1">
-                        <img loading="lazy" decoding="async" src={scan.sideImage || scan.frontImage || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'} alt="Side profile" className="h-full w-full object-cover object-top" />
+                        <SafeScanImage src={scan.sideImage || scan.frontImage} alt="Side profile" className="h-full w-full object-cover object-top" />
                       </div>
                     </button>
                   );
@@ -1688,7 +1719,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-black/30">
-                      <img loading="lazy" decoding="async"
+                      <SafeScanImage
                         src={resolveMediaUrl(latestScanAcrossProfiles.frontImageUrl || latestScanAcrossProfiles.payload?.frontImage) || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'}
                         alt=""
                         className="h-24 w-24 object-cover"
@@ -1751,9 +1782,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                         <div className="grid h-24 grid-cols-3 divide-x divide-cyan-400/20 sm:h-28">
                           {p.previewScans.map((scan) => (
                             <div key={scan.id} className="relative overflow-hidden bg-zinc-900">
-                              <img
-                                loading="lazy"
-                                decoding="async"
+                              <SafeScanImage
                                 src={scan.frontImage}
                                 alt=""
                                 className="h-full w-full object-cover object-top grayscale-[0.15] transition-transform duration-500 group-hover:scale-105"
@@ -1970,11 +1999,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                     return (
                       <div key={scanId || scan.frontImageUrl} className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-3">
                         <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-zinc-900">
-                          {resolveMediaUrl(scan.frontImageUrl || scan.payload?.frontImage) ? (
-                            <img loading="lazy" decoding="async" src={resolveMediaUrl(scan.frontImageUrl || scan.payload?.frontImage)} alt="" className="h-full w-full object-cover object-top" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-zinc-700"><Users size={18} /></div>
-                          )}
+                          <SafeScanImage src={resolveMediaUrl(scan.frontImageUrl || scan.payload?.frontImage)} alt="" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-black uppercase tracking-[0.14em] text-white">{scan.profileName || scan.profileId || 'Saved scan'}</p>
