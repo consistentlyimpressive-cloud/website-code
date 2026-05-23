@@ -50,6 +50,26 @@ module.exports = function(app, firestore, admin, extractUserOptional) {
         profiles.push(profile);
         localUserStore.upsertProfile(req.uid, doc.id, profile);
       });
+      if (profiles.length === 0) {
+        const scanSnap = await firestore.collection('users').doc(req.uid).collection('scans').limit(200).get();
+        const derivedProfiles = new Map();
+        scanSnap.forEach(doc => {
+          const scan = doc.data() || {};
+          const profileId = String(scan.profileId || scan.payload?.profileId || 'default').trim() || 'default';
+          const existing = derivedProfiles.get(profileId) || {
+            id: profileId,
+            name: profileId === 'default' ? 'Default Profile' : (scan.profileName || scan.payload?.profileName || 'Profile'),
+            visibility: 'private',
+            scanCount: 0,
+            createdAt: scan.createdAt || scan.timestamp || scan.scannedAt || null,
+            derivedFromScans: true,
+          };
+          existing.scanCount += 1;
+          derivedProfiles.set(profileId, existing);
+        });
+        profiles.push(...derivedProfiles.values());
+        profiles.forEach(profile => localUserStore.upsertProfile(req.uid, profile.id, profile));
+      }
       res.json({ profiles });
     } catch (e) {
       console.error('[profiles] GET failed:', e.message || e);
