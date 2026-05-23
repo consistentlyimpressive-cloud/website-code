@@ -3,6 +3,18 @@
   "outputDirectory": "dist",
   "redirects": [
     {
+      "source": "/",
+      "has": [{ "type": "host", "value": "mogcheck.net" }],
+      "destination": "https://facelab.online/",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "www.mogcheck.net" }],
+      "destination": "https://facelab.online/",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "mogcheck.net" }],
       "destination": "https://facelab.online/:path*",
