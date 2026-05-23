@@ -3158,6 +3158,16 @@ function getLocalUploadUrl(req, localPath) {
   return `${getPublicBackendBase(req)}/uploads/${encodeURIComponent(filename)}`;
 }
 
+function publicUploadUrl(req, value) {
+  if (typeof value !== 'string') return value || null;
+  const trimmed = value.trim();
+  if (!trimmed || !/\/uploads\//i.test(trimmed)) return trimmed || null;
+  const match = trimmed.match(/\/uploads\/([^?#]+)/i);
+  if (!match) return trimmed;
+  const suffix = trimmed.slice(match.index + match[0].length);
+  return `${getPublicBackendBase(req)}/uploads/${match[1]}${suffix}`;
+}
+
 function isLocalUploadUrl(value) {
   return typeof value === 'string' && /\/uploads\//i.test(value);
 }
@@ -3549,25 +3559,22 @@ function buildDetailedReportContextFromPayload(uid, scanRequestId, payload = {})
   };
 }
 
-function publicizeStoredUploadUrl(value) {
+function publicizeStoredUploadUrl(req, value) {
   if (typeof value !== 'string' || !value.includes('/uploads/')) return value || null;
-  const rawBase = (process.env.PUBLIC_BACKEND_URL || '').trim().replace(/\/$/, '');
-  if (!rawBase || /(localhost|127\.0\.0\.1|trycloudflare\.com)/i.test(rawBase)) return value;
-
-  const match = value.match(/\/uploads\/([^?#]+)/i);
-  if (!match) return value;
-  return `${rawBase}/uploads/${match[1]}`;
+  return publicUploadUrl(req, value);
 }
 
-function normalizeStoredScanUrls(scan) {
+function normalizeStoredScanUrls(scan, req = null) {
   if (!scan || typeof scan !== 'object') return scan;
   const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : null;
-  const frontImageUrl = publicizeStoredUploadUrl(scan.frontImageUrl || payload?.frontImage || null);
-  const sideImageUrl = publicizeStoredUploadUrl(scan.sideImageUrl || payload?.sideImage || null);
+  const frontImageUrl = publicizeStoredUploadUrl(req, scan.frontImageUrl || payload?.frontImage || null);
+  const sideImageUrl = publicizeStoredUploadUrl(req, scan.sideImageUrl || payload?.sideImage || null);
   const debugAnchorsImageUrl = publicizeStoredUploadUrl(
+    req,
     scan.debugAnchorsImageUrl || payload?.debugAnchorsImage || payload?.debugAnchorsImageUrl || null
   );
   const debugRatiosImageUrl = publicizeStoredUploadUrl(
+    req,
     scan.debugRatiosImageUrl || payload?.debugRatiosImage || payload?.debugRatiosImageUrl || null
   );
 
@@ -3578,10 +3585,10 @@ function normalizeStoredScanUrls(scan) {
     debugAnchorsImageUrl,
     debugRatiosImageUrl,
     payload: payload
-      ? {
+        ? {
           ...payload,
-          frontImage: publicizeStoredUploadUrl(payload.frontImage || frontImageUrl),
-          sideImage: publicizeStoredUploadUrl(payload.sideImage || sideImageUrl),
+          frontImage: publicizeStoredUploadUrl(req, payload.frontImage || frontImageUrl),
+          sideImage: publicizeStoredUploadUrl(req, payload.sideImage || sideImageUrl),
           debugAnchorsImage: debugAnchorsImageUrl,
           debugAnchorsImageUrl,
           debugRatiosImage: debugRatiosImageUrl,
@@ -3767,6 +3774,43 @@ async function uploadImageToFirebase(localPath, uid, prefix = 'front', options =
     console.error('[storage] Upload failed (local file kept):', e.message);
     return null;
   }
+}
+
+async function getSignedStorageReadUrl(dest) {
+  const safeDest = String(dest || '').trim();
+  if (!safeDest || shouldSkipFirebaseStorage()) return null;
+  try {
+    const [url] = await admin.storage().bucket().file(safeDest).getSignedUrl({
+      action: 'read',
+      expires: Date.now() + 60 * 60 * 1000,
+    });
+    return url;
+  } catch (error) {
+    console.warn(`[storage] Failed to sign ${safeDest}:`, error.message);
+    return null;
+  }
+}
+
+async function addAdminSignedScanImageUrls(scan) {
+  if (!scan || typeof scan !== 'object') return scan;
+  const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : {};
+  const [signedFront, signedSide] = await Promise.all([
+    getSignedStorageReadUrl(scan.frontImageDest),
+    getSignedStorageReadUrl(scan.sideImageDest),
+  ]);
+  if (!signedFront && !signedSide) return scan;
+  return {
+    ...scan,
+    frontImageUrl: signedFront || scan.frontImageUrl,
+    sideImageUrl: signedSide || scan.sideImageUrl,
+    payload: {
+      ...payload,
+      frontImage: signedFront || payload.frontImage || scan.frontImageUrl,
+      frontImageUrl: signedFront || payload.frontImageUrl || scan.frontImageUrl,
+      sideImage: signedSide || payload.sideImage || scan.sideImageUrl,
+      sideImageUrl: signedSide || payload.sideImageUrl || scan.sideImageUrl,
+    },
+  };
 }
 
 /** Optional middleware to extract user ID from token without requiring it */
@@ -4443,8 +4487,16 @@ app.post(
       if (imagePath) frontUpload = await uploadImageToFirebase(imagePath, req.uid, 'front', { deleteLocal: false });
       if (sideImagePath) sideUpload = await uploadImageToFirebase(sideImagePath, req.uid, 'side', { deleteLocal: false });
 
-      const persistedFrontImage = frontUpload ? frontUpload.url : getPersistableImageUrl(payload.frontImageUrl, payload.frontImage, savedScanBase?.frontImageUrl);
-      const persistedSideImage = sideUpload ? sideUpload.url : getPersistableImageUrl(payload.sideImageUrl, payload.sideImage, savedScanBase?.sideImageUrl);
+      const fallbackFrontImage = publicUploadUrl(req, payload.frontImageUrl || payload.frontImage || frontFallbackUrl || savedScanBase?.frontImageUrl);
+      const fallbackSideImage = publicUploadUrl(req, payload.sideImageUrl || payload.sideImage || sideFallbackUrl || savedScanBase?.sideImageUrl);
+      const persistedFrontImage =
+        frontUpload?.url ||
+        getPersistableImageUrl(payload.frontImageUrl, payload.frontImage, savedScanBase?.frontImageUrl) ||
+        fallbackFrontImage;
+      const persistedSideImage =
+        sideUpload?.url ||
+        getPersistableImageUrl(payload.sideImageUrl, payload.sideImage, savedScanBase?.sideImageUrl) ||
+        fallbackSideImage;
 
       if (!frontUpload && imagePath && !persistedFrontImage) {
         console.warn('[storage] No durable front image URL saved for scan history; local /uploads URL is response-only.');
@@ -4598,7 +4650,7 @@ app.get('/api/analyze/status/:scanRequestId', extractUserOptional, async (req, r
         .limit(3)
         .get();
       const scans = [];
-      snap.forEach((doc) => scans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
+      snap.forEach((doc) => scans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() }, req)));
       if (scans.length) {
         scans.sort((a, b) => storedTimestampMillis(b.timestamp || b.scannedAt || b.createdAt) - storedTimestampMillis(a.timestamp || a.scannedAt || a.createdAt));
         return res.json({ state: 'completed', scan: scans[0] });
@@ -4667,7 +4719,7 @@ app.post('/api/analyze/report/start/:scanRequestId', extractUserOptional, async 
       if (!snap.empty) {
         const doc = snap.docs[0];
         savedScanRef = doc.ref;
-        savedScanBase = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
+        savedScanBase = normalizeStoredScanUrls({ id: doc.id, ...doc.data() }, req);
         payload = savedScanBase.payload || savedScanBase || null;
       }
     } catch (error) {
@@ -4757,7 +4809,7 @@ app.post('/api/analyze/report/retry/:scanRequestId', extractUserOptional, async 
       if (!snap.empty) {
         const doc = snap.docs[0];
         savedScanRef = doc.ref;
-        savedScanBase = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
+        savedScanBase = normalizeStoredScanUrls({ id: doc.id, ...doc.data() }, req);
         payload = savedScanBase.payload || savedScanBase || null;
       }
     } catch (error) {
@@ -5329,12 +5381,11 @@ app.get('/api/admin/users/:uid/scans', async (req, res) => {
 
   try {
     const snap = await firestore.collection('users').doc(req.params.uid).collection('scans').orderBy('timestamp', 'desc').get();
-    const scans = [];
-    snap.forEach(doc => {
-      const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
-      scans.push(scan);
+    const scans = await Promise.all(snap.docs.map(async (doc) => {
+      const scan = await addAdminSignedScanImageUrls(normalizeStoredScanUrls({ id: doc.id, ...doc.data() }, req));
       upsertLocalCachedScan(req.params.uid, doc.id, scan);
-    });
+      return scan;
+    }));
     res.json({ scans });
   } catch (e) {
     if (isQuotaExceededError(e)) return res.json({ scans: [], warning: 'Firestore quota exceeded. Scan history is temporarily unavailable.' });
@@ -5542,7 +5593,7 @@ app.post('/api/user/demo-scan', extractUserOptional, async (req, res) => {
     );
     if (!isDemoAdmin && usedIds.includes(demo.id)) {
       const existingScan = existingScanSnap
-        ? normalizeStoredScanUrls({ id: existingScanSnap.id, ...existingScanSnap.data() })
+        ? normalizeStoredScanUrls({ id: existingScanSnap.id, ...existingScanSnap.data() }, req)
         : null;
       return res.status(409).json({
         error: 'You have already used this premium demo scan.',
@@ -5555,7 +5606,7 @@ app.post('/api/user/demo-scan', extractUserOptional, async (req, res) => {
     const existing = await docRef.get();
     if (existing.exists) {
       if (isDemoAdmin) {
-        const scan = normalizeStoredScanUrls({ id: existing.id, ...existing.data() });
+        const scan = normalizeStoredScanUrls({ id: existing.id, ...existing.data() }, req);
         return res.json({
           ok: true,
           adminBypass: true,
@@ -5572,7 +5623,7 @@ app.post('/api/user/demo-scan', extractUserOptional, async (req, res) => {
       return res.status(409).json({
         error: 'You have already used this premium demo scan.',
         premiumDemoUsedIds: Array.from(new Set([...usedIds, demo.id])),
-        scan: normalizeStoredScanUrls({ id: existing.id, ...existing.data() }),
+        scan: normalizeStoredScanUrls({ id: existing.id, ...existing.data() }, req),
       });
     }
 
@@ -5591,7 +5642,7 @@ app.post('/api/user/demo-scan', extractUserOptional, async (req, res) => {
       }, { merge: true });
     }
 
-    const scan = normalizeStoredScanUrls({ id: created.id, ...created.data() });
+    const scan = normalizeStoredScanUrls({ id: created.id, ...created.data() }, req);
     return res.json({
       ok: true,
       scan,
@@ -5621,7 +5672,7 @@ app.get('/api/user/scans', extractUserOptional, async (req, res) => {
     const snap = await firestore.collection('users').doc(req.uid).collection('scans').orderBy('timestamp', 'desc').get();
     const scans = [];
     snap.forEach(doc => {
-      const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() });
+      const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() }, req);
       if (scan.state === 'running' || scan.payload?.status === 'running') return;
       scans.push(scan);
       upsertLocalCachedScan(req.uid, doc.id, scan);
@@ -5736,7 +5787,7 @@ app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
     }
 
     if (Object.keys(updateData).length === 1) {
-      return res.json({ ok: true, scan: normalizeStoredScanUrls({ id: scanId, ...currentData }) });
+      return res.json({ ok: true, scan: normalizeStoredScanUrls({ id: scanId, ...currentData }, req) });
     }
 
     if (docRef) {
@@ -5755,7 +5806,7 @@ app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
     res.json({
       ok: true,
       scan: {
-        ...normalizeStoredScanUrls({ id: scanId, ...nextData }),
+        ...normalizeStoredScanUrls({ id: scanId, ...nextData }, req),
       },
     });
   } catch (e) {
@@ -5767,7 +5818,7 @@ app.put('/api/user/scans/:scanId', extractUserOptional, async (req, res) => {
         fallbackUpdate.visibility = normalizeScanVisibility(req.body.visibility);
       }
       upsertLocalCachedScan(req.uid, scanId, fallbackUpdate);
-      return res.json({ ok: true, scan: normalizeStoredScanUrls({ ...localScan, ...fallbackUpdate }), localFallback: true });
+      return res.json({ ok: true, scan: normalizeStoredScanUrls({ ...localScan, ...fallbackUpdate }, req), localFallback: true });
     }
     res.status(500).json({ error: e.message });
   }

@@ -5,7 +5,19 @@ export function resolveMediaUrl(value) {
   const trimmed = value.trim();
   if (!trimmed) return null;
 
-  if (/^https?:\/\//i.test(trimmed) || /^data:/i.test(trimmed) || /^blob:/i.test(trimmed)) {
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      if (/^\/uploads\//i.test(url.pathname)) {
+        return `${getApiBase()}${url.pathname}${url.search}`;
+      }
+    } catch {
+      return trimmed;
+    }
+    return trimmed;
+  }
+
+  if (/^data:/i.test(trimmed) || /^blob:/i.test(trimmed)) {
     return trimmed;
   }
 

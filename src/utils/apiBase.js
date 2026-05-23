@@ -15,6 +15,9 @@ function normalizeApiBase(raw) {
 
   try {
     const url = new URL(trimmed);
+    if (url.hostname.toLowerCase() === 'api.mogcheck.net') {
+      return PUBLIC_API;
+    }
 
     // Guard against accidentally pasting health/ready endpoints into Vercel env vars.
     url.pathname = url.pathname
