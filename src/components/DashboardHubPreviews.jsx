@@ -419,7 +419,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
   return (
     <div className="mt-12 pt-10 border-t border-zinc-800/80">
       <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-6">Explore FaceLab</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
         {!hideCommunity && (
           <div className="rounded-2xl border border-zinc-800 bg-[#070809]/40 p-4 md:p-5 flex flex-col gap-4">
             <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em]">
