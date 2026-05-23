@@ -47,9 +47,11 @@ function isRemoteBrowserRequest(req) {
 
 function initFirebaseAdmin() {
   if (admin.apps.length) return;
-  const bucket =
-    process.env.FIREBASE_STORAGE_BUCKET || 'mogcheck-net.firebasestorage.app';
   const projectId = process.env.FIREBASE_PROJECT_ID || 'mogcheck-net';
+  const bucket =
+    process.env.FIREBASE_STORAGE_BUCKET ||
+    process.env.FIREBASE_UPLOAD_BUCKET ||
+    `${projectId}-uploads`;
   const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   const firestoreEmulator = USE_FIREBASE_EMULATOR && !!process.env.FIRESTORE_EMULATOR_HOST;
 
@@ -3098,6 +3100,20 @@ async function getCachedQwenHealthDiagnostic(forceRefresh = false) {
 function getPublicBackendBase(req) {
   const requestBase = getRequestBase(req);
   const raw = (process.env.PUBLIC_BACKEND_URL || '').trim().replace(/\/$/, '');
+  const rawHost = (() => {
+    try { return raw ? new URL(raw).host.toLowerCase() : ''; } catch { return ''; }
+  })();
+  const requestHost = (() => {
+    try { return requestBase ? new URL(requestBase).host.toLowerCase() : ''; } catch { return ''; }
+  })();
+  const rawLooksStale =
+    rawHost &&
+    requestHost &&
+    rawHost !== requestHost &&
+    (/onrender\.com$/i.test(rawHost) || rawHost === 'api.mogcheck.net');
+  if (rawLooksStale && requestBase) {
+    return requestBase;
+  }
   if (raw && !/(localhost|127\.0\.0\.1|trycloudflare\.com)/i.test(raw)) {
     return raw;
   }
