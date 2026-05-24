@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback, useId } from 'react';
-import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Sparkles, Bell, Trash2, Bug, Share2, Waves, Bone as BoneIcon, VenusAndMars, Scale, Flower2, Star as StarIcon } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { ChevronRight, ChevronLeft, Menu, X, Lock, Unlock, Play, ArrowUpRight, User, Mail, Swords, Shield, Activity, Target, Loader2, Plus, Crown, Zap, Check, AlertCircle, Key, Clock, Server, HardDrive, TrendingUp, RefreshCw, LogOut, Eye, EyeOff, BarChart3, ChevronDown, LogIn, UserPlus, Users, ExternalLink, ArrowLeft, Settings, Sparkles, Bell, Trash2, Bug, Share2 } from 'lucide-react';
 import { ConfirmDialog, ImageLightbox, SiteModal } from './components/ui/SiteModal';
 import { DashboardHubPreviewsCompact } from './components/DashboardHubPreviews';
-import { CommunityScansSection } from './components/CommunityScansSection';
 import { getNavbarPlanChip, hasEffectiveProAccess, canAlwaysAccessDashboard, isProPlan, normalizePlanValue } from './utils/planAccess';
 import { initializeApp } from 'firebase/app';
 import { celebrityData } from './data/celebrityData';
@@ -39,6 +38,7 @@ const SettingsPage = React.lazy(() => import('./components/SettingsPage'));
 const GENERIC_ERROR = 'Something went wrong. Please try again later.';
 const EMPTY_ANALYSIS_RESPONSE_ERROR = 'Analysis finished but no usable text was parsed';
 const FRIENDLY_FRONTAL_IMAGE_ERROR = "Analysis failed. Are you sure you're using a frontal image?";
+const PREMIUM_PROOF_VIDEO_SRC = '/social-proof/premium-proof.mp4';
 const HOME_FEATURED_COMMUNITY_SCANS = [
   {
     id: 'home-community-cillian',
@@ -112,7 +112,6 @@ function isAiProviderErrorMessage(message) {
     text.includes('gemini') ||
     text.includes('gemma') ||
     text.includes('openrouter') ||
-    text.includes('qwen') ||
     text.includes('api key') ||
     text.includes('high demand') ||
     text.includes('timed out') ||
@@ -126,9 +125,6 @@ function isAiProviderErrorMessage(message) {
 
 function friendlyAnalysisErrorMessage(message, { isAdmin = false } = {}) {
   const text = String(message || '').trim();
-  if (/OpenRouter Haiiii model/i.test(text) && /429|rate.?limit|temporarily rate-limited/i.test(text)) {
-    return 'The Haiiii provider is temporarily rate-limited upstream. This is on the provider side, not your account or image. Please retry shortly.';
-  }
   if (!isAdmin && isAiProviderErrorMessage(text)) {
     return GENERIC_AI_LOAD_ERROR;
   }
@@ -1022,10 +1018,8 @@ const normalizeDashboardMedia = (data, includeHistory = true) => {
   const sideImage = resolveMediaUrl(data.sideImage || data.sideImageUrl || payload?.sideImage || payload?.sideImageUrl || null);
   const debugAnchorsImage = resolveMediaUrl(data.debugAnchorsImage || data.debugAnchorsImageUrl || payload?.debugAnchorsImage || payload?.debugAnchorsImageUrl || null);
   const debugRatiosImage = resolveMediaUrl(data.debugRatiosImage || data.debugRatiosImageUrl || payload?.debugRatiosImage || payload?.debugRatiosImageUrl || null);
-  const selectedModel = String(data.selectedModel || data.model || payload?.selectedModel || payload?.model || '').trim();
   const normalized = {
     ...data,
-    ...(selectedModel ? { selectedModel } : {}),
     frontImage,
     sideImage,
     debugAnchorsImage,
@@ -1039,7 +1033,6 @@ const normalizeDashboardMedia = (data, includeHistory = true) => {
   if (payload) {
     normalized.payload = {
       ...payload,
-      ...(selectedModel ? { selectedModel } : {}),
       frontImage,
       sideImage,
       debugAnchorsImage,
@@ -1151,11 +1144,7 @@ const ANALYSIS_MODEL_LABELS = {
   '7': 'Premium Model',
   '8': 'Premium Model',
   '9': 'Premium Model',
-  '10': 'Qwen model (Testing)',
-  '11': 'anthropic/claude-sonnet-4.6',
-  '12': 'openai/gpt-5.4',
   '13': 'google/gemini-3.1-pro-preview',
-  '14': 'Haiiii',
   [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo',
   '3': 'Free Optic',
   '4': 'Free Core',
@@ -1163,25 +1152,12 @@ const ANALYSIS_MODEL_LABELS = {
   official: 'Official Scan',
 };
 
-const PREMIUM_MODEL_IDS = new Set(['1', '2', '6', '7', '8', '9', '10', '11', '12', '13', '14']);
-const ADMIN_EXPERIMENTAL_MODEL_IDS = new Set(['10', '11', '12']);
-
-function getOpenRouterGeminiPreviewChoice(model) {
-  const compact = String(model || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\bgemeni\b/g, 'gemini')
-    .replace(/[^a-z0-9]+/g, '');
-  return compact === '13' || compact.includes('gemini31propreview') ? '13' : null;
-}
+const PREMIUM_MODEL_IDS = new Set(['1', '2', '6', '7', '8', '9', '13']);
+const ADMIN_EXPERIMENTAL_MODEL_IDS = new Set(['13']);
 
 function getAnalysisModelLabel(model) {
   const key = String(model || '').trim();
   return ANALYSIS_MODEL_LABELS[key] || (key ? `Model ${key}` : 'Unknown AI');
-}
-
-function getDashboardScanModel(scan) {
-  return String(scan?.selectedModel || scan?.model || scan?.payload?.selectedModel || scan?.payload?.model || '').trim();
 }
 
 function isFreeScanModel(model) {
@@ -1339,56 +1315,6 @@ function getRatingToneClasses(score) {
   };
 }
 
-function GradientRatingText({
-  value,
-  endColor = '#22d3ee',
-  midStop = '48%',
-  className = '',
-  textClassName = '',
-  shadow = true,
-}) {
-  const rawId = useId();
-  const gradientId = `rating-gradient-${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
-  const text = String(value ?? '');
-  const widthEm = Math.max(1.8, text.length * 0.72);
-
-  return (
-    <span
-      className={`inline-flex items-center justify-center leading-none ${className}`}
-      style={shadow ? { filter: `drop-shadow(0 0 18px ${endColor}55) saturate(0.95)` } : undefined}
-    >
-      <svg
-        className={`block h-[1em] overflow-visible ${textClassName}`}
-        style={{ width: `${widthEm}em`, fontFamily: 'inherit' }}
-        viewBox={`0 0 ${widthEm * 100} 120`}
-        preserveAspectRatio="xMidYMid meet"
-        role="img"
-        aria-label={text}
-      >
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset={midStop} stopColor="#ffffff" />
-            <stop offset="100%" stopColor={endColor} />
-          </linearGradient>
-        </defs>
-        <text
-          x="50%"
-          y="88"
-          textAnchor="middle"
-          fontSize="106"
-          fontWeight="900"
-          fontStyle="italic"
-          letterSpacing="-4"
-          fill={`url(#${gradientId})`}
-        >
-          {text}
-        </text>
-      </svg>
-    </span>
-  );
-}
-
 function slugifyScanName(value) {
   return String(value || 'scan')
     .toLowerCase()
@@ -1452,29 +1378,6 @@ function celebrityToOfficialCommunityScan(celeb, index = 0) {
 
 const OFFICIAL_CELEBRITY_COMMUNITY_SCANS = celebrityData.map(celebrityToOfficialCommunityScan);
 
-function buildCelebrityCommunityFallbackScans() {
-  const merged = new Map();
-  [
-    ...OFFICIAL_CELEBRITY_COMMUNITY_SCANS,
-    ...COMMUNITY_SCANS.map((scan, idx) =>
-      hydrateCommunityScanEntry(
-        {
-          ...scan,
-          name: scan.name || `User ${idx + 1}`,
-          isCommunity: true,
-          profileId: scan.profileId || `mock-${idx}`,
-        },
-        idx
-      )
-    ),
-  ].forEach((scan, idx) => {
-    const hydrated = hydrateCommunityScanEntry(scan, idx);
-    const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
-    if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
-  });
-  return Array.from(merged.values());
-}
-
 const MOGCHECK_LOGO_SRC = '/mogcheck-logo.png';
 
 /** PNG mark for nav / footer / page heroes */
@@ -1527,61 +1430,6 @@ const PageLoadingFallback = () => (
   </div>
 );
 
-class DashboardErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error, info) {
-    console.error('Dashboard render failed', error, info);
-  }
-
-  componentDidUpdate(prevProps) {
-    if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
-      this.setState({ hasError: false });
-    }
-  }
-
-  render() {
-    if (!this.state.hasError) return this.props.children;
-
-    return (
-      <div className="flex min-h-[70vh] items-center justify-center px-6 py-24">
-        <div className="w-full max-w-xl rounded-[28px] border border-red-500/20 bg-[#0c0d0e] p-7 text-center shadow-[0_0_40px_rgba(239,68,68,0.08)]">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-red-400/25 bg-red-500/10 text-red-300">
-            <AlertCircle size={22} />
-          </div>
-          <h1 className="text-lg font-black uppercase tracking-[0.24em] text-white">Dashboard needs a refresh</h1>
-          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-zinc-400">
-            The scan loaded with unexpected data. Refresh the dashboard or start a new scan.
-          </p>
-          <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-5 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-200 transition-colors hover:border-cyan-300/45 hover:text-white"
-            >
-              Refresh
-            </button>
-            <button
-              type="button"
-              onClick={this.props.onNewScan}
-              className="rounded-full border border-zinc-700 bg-zinc-950 px-5 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-zinc-300 transition-colors hover:border-zinc-500 hover:text-white"
-            >
-              New Scan
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-}
-
 const FlipIn = ({ children, delay = 0 }) => {
   const domRef = useRef();
   const [isVisible, setVisible] = useState(false);
@@ -1607,8 +1455,36 @@ const FlipIn = ({ children, delay = 0 }) => {
   );
 };
 
+const PremiumProofModal = ({ onClose, onContinue }) => (
+  <SiteModal title="See Premium In Action" subtitle="Real scan flow preview" onClose={onClose} maxWidth="max-w-md">
+    <div className="space-y-5">
+      <div className="mx-auto aspect-[9/16] max-h-[68vh] w-full max-w-[360px] overflow-hidden rounded-2xl border border-yellow-500/25 bg-black shadow-[0_0_50px_rgba(234,179,8,0.10)]">
+        <video
+          src={PREMIUM_PROOF_VIDEO_SRC}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          className="h-full w-full bg-black object-cover"
+        />
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={onContinue}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-600 to-yellow-400 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-black shadow-[0_0_25px_rgba(234,179,8,0.25)] transition-transform hover:scale-[1.02]"
+        >
+          <Crown size={14} /> Continue
+        </button>
+      </div>
+    </div>
+  </SiteModal>
+);
+
 // --- Navbar ---
-const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDashboard }) => {
+const Navbar = ({ currentPage, setCurrentPage, onOpenPremiumPlans, onStartScan, user, onSignOut, userPlan, showDashboard }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -1709,14 +1585,17 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDa
         <div className="hidden md:flex items-center justify-center gap-8 text-xs font-bold absolute left-1/2 -translate-x-1/2">
           <button onClick={() => setCurrentPage('home')} className={`${currentPage === 'home' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Home</button>
           <button onClick={() => setCurrentPage('mog-battles')} className={`${currentPage === 'mog-battles' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}>
-            <Swords size={14} className="text-cyan-500/90" /> Face Battles
+            <Swords size={14} className="text-cyan-500/90" /> Mog Battles
           </button>
           {showDashboard && (
             <button onClick={() => setCurrentPage('dashboard')} className={`${currentPage === 'dashboard' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest flex items-center gap-1`}><Activity size={14} /> Dashboard</button>
           )}
           <button onClick={() => setCurrentPage('celebrity')} className={`${currentPage === 'celebrity' ? 'text-white' : 'text-zinc-400'} hover:text-white transition-colors uppercase tracking-widest`}>Scans</button>
           <button
-            onClick={() => setCurrentPage('plans')}
+            onClick={() => {
+              if (currentPage === 'plans') setCurrentPage('plans');
+              else onOpenPremiumPlans?.();
+            }}
             className={`${currentPage === 'plans' ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'text-yellow-500/70'} hover:text-yellow-400 transition-all uppercase tracking-widest flex items-center gap-1`}
           >
             <Crown size={13} /> Plans
@@ -1730,7 +1609,8 @@ const Navbar = ({ currentPage, setCurrentPage, user, onSignOut, userPlan, showDa
               <button
                 type="button"
                 onClick={() => {
-                  setCurrentPage('photo-guide');
+                  if (onStartScan) onStartScan();
+                  else setCurrentPage('photo-guide');
                   setShowUserMenu(false);
                   setShowNotifications(false);
                 }}
@@ -2253,8 +2133,6 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
 
   useEffect(() => {
     const fetchCommunity = async () => {
-      const fallbackScans = buildCelebrityCommunityFallbackScans();
-      setCommunityScans(fallbackScans);
       try {
         const { fetchCommunityScans, fetchCommunityBattles } = await import('./api/mogBattleVotes');
         const res = await fetchCommunityScans(80);
@@ -2298,7 +2176,27 @@ const CelebrityRatingPage = ({ setCurrentPage, setSelectedCelebrity, user }) => 
         setCommunityScans(Array.from(merged.values()));
       } catch(e) {
         console.error(e);
-        setCommunityScans(fallbackScans);
+        const merged = new Map();
+        [
+          ...OFFICIAL_CELEBRITY_COMMUNITY_SCANS,
+          ...COMMUNITY_SCANS.map((scan, idx) =>
+            hydrateCommunityScanEntry(
+              {
+                ...scan,
+                name: scan.name || `User ${idx + 1}`,
+                isCommunity: true,
+                profileId: scan.profileId || `mock-${idx}`,
+              },
+              idx
+            )
+          ),
+        ].forEach((scan, idx) => {
+          const hydrated = hydrateCommunityScanEntry(scan, idx);
+          const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
+          if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
+        });
+
+        setCommunityScans(Array.from(merged.values()));
       }
     };
     fetchCommunity();
@@ -2969,114 +2867,6 @@ const UserProfilePage = ({ user, userPlan, setCurrentPage }) => {
   );
 };
 
-const HERO_FACE_VIDEO_SRC = '/FaceANimationforwebsite.webm';
-
-const HeroFaceAnimation = ({ videoRef }) => {
-  const canvasRef = useRef(null);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas || typeof window === 'undefined') return undefined;
-
-    const mobileQuery = window.matchMedia('(max-width: 768px), (pointer: coarse)');
-    const canvasContext = canvas.getContext('2d', { alpha: true });
-    const keyCanvas = document.createElement('canvas');
-    const keyContext = keyCanvas.getContext('2d', { willReadFrequently: true });
-    if (!canvasContext || !keyContext) return undefined;
-
-    let rafId = 0;
-    let lastFrameAt = 0;
-
-    const syncCanvasSize = () => {
-      const width = video.videoWidth || 500;
-      const height = video.videoHeight || 500;
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
-      }
-      if (keyCanvas.width !== width || keyCanvas.height !== height) {
-        keyCanvas.width = width;
-        keyCanvas.height = height;
-      }
-    };
-
-    const drawKeyedFrame = (frameAt) => {
-      if (!mobileQuery.matches) {
-        canvasContext.clearRect(0, 0, canvas.width, canvas.height);
-        rafId = 0;
-        return;
-      }
-
-      rafId = window.requestAnimationFrame(drawKeyedFrame);
-      if (video.readyState < 2 || frameAt - lastFrameAt < 1000 / 30) return;
-      lastFrameAt = frameAt;
-
-      syncCanvasSize();
-
-      try {
-        keyContext.clearRect(0, 0, keyCanvas.width, keyCanvas.height);
-        keyContext.drawImage(video, 0, 0, keyCanvas.width, keyCanvas.height);
-        const frame = keyContext.getImageData(0, 0, keyCanvas.width, keyCanvas.height);
-        const { data } = frame;
-
-        for (let i = 0; i < data.length; i += 4) {
-          const luminance = (data[i] * 0.2126) + (data[i + 1] * 0.7152) + (data[i + 2] * 0.0722);
-          const normalized = Math.min(1, Math.max(0, (luminance - 38) / 102));
-          const alpha = normalized * normalized * (3 - (2 * normalized));
-          data[i + 3] = Math.round(data[i + 3] * alpha);
-        }
-
-        canvasContext.clearRect(0, 0, canvas.width, canvas.height);
-        canvasContext.putImageData(frame, 0, 0);
-      } catch {
-        canvasContext.clearRect(0, 0, canvas.width, canvas.height);
-      }
-    };
-
-    const refreshRenderer = () => {
-      window.cancelAnimationFrame(rafId);
-      rafId = 0;
-      lastFrameAt = 0;
-      syncCanvasSize();
-      canvasContext.clearRect(0, 0, canvas.width, canvas.height);
-      if (mobileQuery.matches) rafId = window.requestAnimationFrame(drawKeyedFrame);
-    };
-
-    video.addEventListener('loadedmetadata', refreshRenderer);
-    video.addEventListener('loadeddata', refreshRenderer);
-    mobileQuery.addEventListener('change', refreshRenderer);
-    refreshRenderer();
-
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      video.removeEventListener('loadedmetadata', refreshRenderer);
-      video.removeEventListener('loadeddata', refreshRenderer);
-      mobileQuery.removeEventListener('change', refreshRenderer);
-    };
-  }, [videoRef]);
-
-  return (
-    <div
-      className="mog-hero-face-wrap pointer-events-none absolute left-1/2 top-[18vh] z-0 w-[min(118vw,1040px)] h-[min(82vh,760px)] origin-center -translate-x-1/2 -translate-y-[22%] sm:-translate-y-[27%] md:-translate-y-[32%] overflow-visible scale-[0.81]"
-      aria-hidden
-    >
-      <video
-        ref={videoRef}
-        muted
-        playsInline
-        preload="auto"
-        className="mog-hero-face-video w-full h-full object-contain object-center opacity-[0.92]"
-        src={HERO_FACE_VIDEO_SRC}
-      />
-      <canvas
-        ref={canvasRef}
-        className="mog-hero-face-canvas absolute inset-0 w-full h-full object-contain object-center"
-      />
-    </div>
-  );
-};
-
 const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
   const [analysisHeroCount, setAnalysisHeroCount] = useState(74);
   const [activeUsers, setActiveUsers] = useState(106);
@@ -3175,7 +2965,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
       step: '01 / Upload',
       title: 'Start With A Clear Front Photo',
       imgSrc: measureItems[0].imgSrc,
-      text: 'FaceLab begins with a clean face input, then prepares the image for structure, harmony, skin, and proportion analysis. No guessing, no trend-chasing, just a consistent scan target.',
+      text: 'MogCheck begins with a clean face input, then prepares the image for structure, harmony, skin, and proportion analysis. No guessing, no trend-chasing, just a consistent scan target.',
       note: 'Front-facing photos produce the cleanest ratings and profile history.',
     },
     {
@@ -3269,8 +3059,22 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
     <header className="relative w-full flex flex-col items-center pt-[25vh] pb-32 text-center px-6 overflow-x-hidden overflow-y-visible">
       <div className="absolute inset-0 bg-radial-gradient from-white/5 to-transparent -z-10 opacity-30" />
       
-      {/* Extracted Video: Placed directly in the header to avoid FadeUp's stacking context which breaks desktop blending. */}
-      <HeroFaceAnimation videoRef={heroFaceVideoRef} />
+      {/* Extracted Video: Placed directly in the header to avoid FadeUp's stacking context which breaks mix-blend-screen */}
+      <div
+        className="pointer-events-none absolute left-1/2 top-[18vh] z-0 w-[min(118vw,1040px)] h-[min(82vh,760px)] origin-center -translate-x-1/2 -translate-y-[22%] sm:-translate-y-[27%] md:-translate-y-[32%] overflow-visible scale-[0.81]"
+        style={{ mixBlendMode: 'plus-lighter' }}
+        aria-hidden
+      >
+        <video
+          ref={heroFaceVideoRef}
+          muted
+          playsInline
+          preload="auto"
+          className="w-full h-full object-contain object-center opacity-[0.92]"
+          style={{ filter: 'contrast(1.08) brightness(1.05)', mixBlendMode: 'plus-lighter' }}
+          src="/FaceANimationforwebsite.webm"
+        />
+      </div>
 
       {/* Animated gradient sweep */}
       <style>{`
@@ -3346,7 +3150,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           </div>
 
           <div className="w-16 h-[1px] bg-gradient-to-r from-transparent via-zinc-500 to-transparent mb-5" />
-          <p className="text-zinc-300 font-sans text-sm md:text-base uppercase tracking-[0.3em] mb-14 font-bold">Powered by AI - track your looks with FaceLab</p>
+          <p className="text-zinc-300 font-sans text-sm md:text-base uppercase tracking-[0.3em] mb-14 font-bold">Powered by AI - track your looks with MogCheck</p>
           <button
             onClick={() => setCurrentPage('login')}
             className="mx-auto group relative inline-flex items-center gap-5 overflow-hidden rounded-full border border-cyan-200/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(233,249,255,0.98)_54%,rgba(182,240,255,0.96))] px-10 py-4 text-black shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_0_44px_rgba(34,211,238,0.24),0_22px_70px_rgba(0,0,0,0.32)] transition-all duration-500 hover:-translate-y-1 hover:scale-[1.03] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.18),0_0_68px_rgba(34,211,238,0.36),0_28px_90px_rgba(0,0,0,0.42)]"
@@ -3391,7 +3195,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           <div className="grid gap-8 md:grid-cols-[1.25fr_0.75fr] md:items-center">
             <div>
               <p className="text-[10px] font-sans uppercase tracking-[0.3em] text-cyan-400/80">Live Matchups</p>
-              <h2 className="mt-3 text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white">Face Battles</h2>
+              <h2 className="mt-3 text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white">Mog Battles</h2>
               <p className="mt-4 max-w-2xl text-sm leading-relaxed text-zinc-400">
                 Compare scans head-to-head, track community voting, and follow how specific battles move over time.
               </p>
@@ -3402,7 +3206,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
                 onClick={() => setCurrentPage('mog-battles')}
                 className="group inline-flex items-center gap-3 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-6 py-4 text-sm font-black uppercase tracking-[0.22em] text-cyan-300 transition-all hover:scale-[1.02] hover:bg-cyan-500/20 hover:shadow-[0_0_24px_rgba(34,211,238,0.16)]"
               >
-                Open Face Battles
+                Open Mog Battles
                 <ArrowUpRight size={18} className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
               </button>
             </div>
@@ -3468,9 +3272,9 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
           const imageFirst = idx % 2 === 0;
           return (
             <FadeUp key={item.step} delay={idx * 120}>
-              <div className="grid gap-6 md:gap-12 md:grid-cols-2 md:items-center">
+              <div className="group/process grid gap-6 md:gap-12 md:grid-cols-2 md:items-center">
                 <div
-                  className={`group/process ${imageFirst ? 'md:order-1' : 'md:order-2'} w-full order-1`}
+                  className={`${imageFirst ? 'md:order-1' : 'md:order-2'} w-full order-1`}
                   style={{ animation: `homeFloat ${6.8 + idx * 0.35}s ease-in-out infinite`, animationDelay: `${idx * 0.35}s` }}
                 >
                   <div className="relative overflow-hidden rounded-2xl border border-zinc-800/70 shadow-[0_24px_70px_rgba(0,0,0,0.38)] transition-all duration-500 group-hover/process:-translate-y-2 group-hover/process:border-cyan-400/35">
@@ -3742,7 +3546,7 @@ const HomePage = ({ setCurrentPage, user, queueAnalysisJob }) => {
     <section className="w-full py-32 px-6 border-t border-zinc-900">
       <FadeUp>
         <div className="flex flex-col items-center gap-6">
-          <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white text-center">Ready for FaceLab?</h2>
+          <h2 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white text-center">Ready for MogCheck?</h2>
           <p className="text-zinc-500 font-sans text-[10px] uppercase tracking-[0.3em] mb-4">Discover your true potential today</p>
           <button onClick={() => setCurrentPage('login')} className="group relative px-12 py-5 bg-white text-black font-black uppercase tracking-tighter text-lg flex items-center gap-5 hover:scale-110 hover:shadow-[0_0_60px_rgba(255,255,255,0.8)] transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.2)] rounded-sm">
             <span className="tracking-widest">START NOW</span>
@@ -4002,20 +3806,25 @@ const getMetricAnimationAxis = (label = '') => {
   const low = String(label || '').toLowerCase();
   const fallback = { left: 'Low', center: 'Ideal', right: 'High', ideal: [72, 92], domain: [0, 100], useScore: true };
   const configs = [
-    { test: /bigonial|jaw.*width|mandibular/, left: 'Too narrow', center: 'Ideal', right: 'Too wide', ideal: [0.95, 1.05], domain: [0.75, 1.2] },
+    { test: /skin|texture|clarity/, left: 'Lower quality', center: 'Best', right: 'Best', ideal: [78, 100], domain: [0, 100], useScore: true, rangeMode: 'quality' },
+    { test: /symmetry/, left: 'Less balanced', center: 'Best', right: 'Best', ideal: [78, 100], domain: [0, 100], useScore: true, rangeMode: 'quality' },
+    { test: /facial.*fat|soft.*tissue/, left: 'Too full', center: 'Ideal', right: 'Too lean', ideal: [58, 86], domain: [0, 100], useScore: true, rangeMode: 'balanced' },
+    { test: /bigonial|jaw.*width|mandibular/, left: 'Too narrow', center: 'Ideal', right: 'Too wide', ideal: [0.85, 1], domain: [0.65, 1.2] },
     { test: /\bipd|interpupillary/, left: 'Too close', center: 'Ideal', right: 'Too wide', ideal: [0.44, 0.48], domain: [0.36, 0.56] },
-    { test: /mouth.*width/, left: 'Too narrow', center: 'Ideal', right: 'Too wide', ideal: [0.38, 0.44], domain: [0.28, 0.54] },
-    { test: /nose.*width|nasal.*base/, left: 'Too narrow', center: 'Ideal', right: 'Too wide', ideal: [0.20, 0.25], domain: [0.15, 0.34] },
-    { test: /upper.*third/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.32, 0.39], domain: [0.24, 0.5] },
-    { test: /middle.*third/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.40, 0.46], domain: [0.30, 0.58] },
-    { test: /lower.*third/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.39, 0.47], domain: [0.30, 0.60] },
-    { test: /eye.*height/, left: 'Too small', center: 'Ideal', right: 'Too tall', ideal: [0.06, 0.09], domain: [0.035, 0.13] },
-    { test: /brow.*compact/, left: 'Too compact', center: 'Ideal', right: 'Too tall', ideal: [0.08, 0.11], domain: [0.04, 0.16] },
-    { test: /philtrum/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.09, 0.12], domain: [0.055, 0.17] },
-    { test: /lip.*height|total.*lip/, left: 'Too thin', center: 'Ideal', right: 'Too full', ideal: [0.11, 0.16], domain: [0.06, 0.24] },
-    { test: /fwhr|facial.*width.*height/, left: 'Too narrow', center: 'Ideal', right: 'Too wide', ideal: [1.75, 2.05], domain: [1.40, 2.40] },
+    { test: /mouth.*width/, left: 'Too narrow', center: 'Ideal', right: 'Too wide', ideal: [0.36, 0.38], domain: [0.28, 0.46] },
+    { test: /nose.*width|nasal.*base/, left: 'Too narrow', center: 'Ideal', right: 'Too wide', ideal: [0.23, 0.3], domain: [0.15, 0.38] },
+    { test: /upper.*third/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.34, 0.43], domain: [0.24, 0.52] },
+    { test: /middle.*third/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.4, 0.5], domain: [0.3, 0.6] },
+    { test: /lower.*third/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.42, 0.52], domain: [0.3, 0.62] },
+    { test: /eye.*width/, left: 'Too narrow', center: 'Ideal', right: 'Too wide', ideal: [0.2, 0.24], domain: [0.16, 0.3] },
+    { test: /eye.*height/, left: 'Too small', center: 'Ideal', right: 'Too tall', ideal: [0.055, 0.075], domain: [0.035, 0.1] },
+    { test: /brow.*compact/, left: 'Too compact', center: 'Ideal', right: 'Too tall', ideal: [0.08, 0.12], domain: [0.04, 0.18] },
+    { test: /philtrum/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.08, 0.11], domain: [0.055, 0.17] },
+    { test: /lip.*height|total.*lip/, left: 'Too thin', center: 'Ideal', right: 'Too full', ideal: [0.12, 0.18], domain: [0.06, 0.26] },
+    { test: /fwhr|facial.*width.*height/, left: 'Too narrow', center: 'Ideal', right: 'Too wide', ideal: [1.85, 2], domain: [1.4, 2.45] },
     { test: /midface/, left: 'Too short', center: 'Ideal', right: 'Too long', ideal: [0.95, 1.05], domain: [0.75, 1.28] },
-    { test: /canthal|tilt/, left: 'Negative tilt', center: 'Ideal', right: 'Too steep', ideal: [4, 10], domain: [-6, 20] },
+    { test: /canthal|tilt/, left: 'Negative tilt', center: 'Ideal', right: 'Too steep', ideal: [3, 8], domain: [-6, 20] },
+    { test: /neck.*width/, left: 'Too thin', center: 'Ideal', right: 'Too wide', ideal: [72, 88], domain: [0, 100], useScore: true },
     { test: /maxillary|cheekbone|projection|chin/, left: 'Too recessed', center: 'Ideal', right: 'Too projected', ideal: [72, 92], domain: [0, 100], useScore: true },
     { test: /nasolabial|angle|gonial|plane|convexity/, left: 'Too low', center: 'Ideal', right: 'Too high', ideal: [72, 92], domain: [0, 100], useScore: true },
   ];
@@ -4044,6 +3853,312 @@ const metricAnimationPosition = (metric = {}) => {
     status,
     severity: status === axis.center ? 'Ideal' : (Number.isFinite(score) && score >= 68 ? 'Slight Flaw' : 'Primary Flaw'),
   };
+};
+
+const clampMetricPercent = (value) => Math.max(0, Math.min(100, Number(value) || 0));
+
+const firstFiniteMetricNumber = (...values) => {
+  for (const value of values) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return numeric;
+  }
+  return null;
+};
+
+const metricPercentFromAxis = (axis = {}, value) => {
+  const [min, max] = Array.isArray(axis.domain) ? axis.domain : [0, 100];
+  if (!Number.isFinite(Number(value)) || !Number.isFinite(Number(min)) || !Number.isFinite(Number(max)) || max <= min) {
+    return 50;
+  }
+  return clampMetricPercent(((Number(value) - Number(min)) / (Number(max) - Number(min))) * 100);
+};
+
+const cleanMetricTitle = (label = '') =>
+  String(label || 'Measurement').replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+
+const formatMetricAxisValue = (value) => {
+  if (!Number.isFinite(Number(value))) return '-';
+  const numeric = Number(value);
+  if (Math.abs(numeric) >= 10) return `${Math.round(numeric * 10) / 10}`;
+  return `${Math.round(numeric * 1000) / 1000}`;
+};
+
+const getMetricRangeGradient = (axis = {}) => {
+  if (axis.rangeMode === 'quality') {
+    return 'linear-gradient(90deg, rgba(127,29,29,0.98) 0%, rgba(244,63,94,0.95) 24%, rgba(251,146,60,0.94) 48%, rgba(52,211,153,0.95) 78%, rgba(20,184,166,0.98) 100%)';
+  }
+
+  const idealStart = clampMetricPercent(metricPercentFromAxis(axis, axis.ideal?.[0]));
+  const idealEnd = clampMetricPercent(metricPercentFromAxis(axis, axis.ideal?.[1]));
+  const leftAmber = Math.max(6, idealStart - 12);
+  const rightAmber = Math.min(94, idealEnd + 12);
+  return `linear-gradient(90deg, rgba(127,29,29,0.98) 0%, rgba(244,63,94,0.95) ${leftAmber}%, rgba(16,185,129,0.96) ${idealStart}%, rgba(52,211,153,0.98) ${idealEnd}%, rgba(251,146,60,0.95) ${rightAmber}%, rgba(127,29,29,0.98) 100%)`;
+};
+
+const describeMetricRange = (metric = {}, axis = {}) => {
+  const title = cleanMetricTitle(metric.label);
+  const direction = String(axis.status || '').toLowerCase();
+  const displayScore = Number(metric.displayScore);
+  const readableScore = Number.isFinite(displayScore) ? Math.round(displayScore) : null;
+  const metricText = `${metric.impact || ''} ${metric.note || ''}`.toLowerCase();
+  const textNegationSoftensFlaw = /\b(no|not|without|minimal|minor|little)\s+(?:(?:severe|major|visible|noticeable|glaring|active)\s+){0,3}(?:asymmetr|acne|blemish|texture|scarring|recession|flatness|weakness|issue|flaw|liability)/.test(metricText);
+  const textFlagsVisibleFlaw = !textNegationSoftensFlaw && /\b(negative|flaw|weak|recessed|under-?supported|poor|bad|thin|sparse|soft|puffy|bloated|asymmetr|flare|nostril|long|narrow|wide|too )\b/.test(metricText);
+  const idealText = Array.isArray(axis.ideal)
+    ? `${formatMetricAxisValue(axis.ideal[0])} - ${formatMetricAxisValue(axis.ideal[1])}`
+    : '';
+
+  if (!axis.useScore && axis.status === axis.center) {
+    if (readableScore != null && readableScore >= 90) {
+      return `Your ${title} sits in the strongest part of the ideal range.`;
+    }
+    if (readableScore != null && readableScore >= 80) {
+      return `Your ${title} is inside the ideal range, but not at the peak.`;
+    }
+    return `Your ${title} is inside the displayed ideal range${idealText ? ` (${idealText})` : ''}.`;
+  }
+
+  if (textFlagsVisibleFlaw && axis.status === axis.center && readableScore != null && readableScore <= 60) {
+    return `Your ${title} is treated as a visible flaw here despite the raw value sitting near the normal band. The scan note flags a real appearance limiter, so this card caps it below a positive score.`;
+  }
+
+  if (axis.status === axis.center) {
+    if (readableScore != null && readableScore >= 90) {
+      return `Your ${title} sits in the strongest part of the ideal range.`;
+    }
+    if (readableScore != null && readableScore >= 80) {
+      return `Your ${title} is inside the ideal range, but not at the peak.`;
+    }
+    if (readableScore != null && readableScore >= 70) {
+      return `Your ${title} is acceptable, but close enough to the edge that it is not a major strength.`;
+    }
+    return `Your ${title} is broadly acceptable, but the scan does not read it as a strong positive.`;
+  }
+
+  if (readableScore != null && readableScore >= 55) {
+    return `Your ${title} is slightly ${direction}; it is outside ideal, so it is capped as a mild flaw.`;
+  }
+  if (readableScore != null && readableScore >= 45) {
+    return `Your ${title} is clearly ${direction}; the gap from ideal is noticeable rather than just close.`;
+  }
+  if (readableScore != null && readableScore >= 30) {
+    return `Your ${title} is far ${direction} relative to the ideal range${idealText ? ` (${idealText})` : ''}, making it a major ratio flaw.`;
+  }
+  return `Your ${title} is severely ${direction} and lands well outside the usable ideal range${idealText ? ` (${idealText})` : ''}.`;
+};
+
+const getMetricDisplayScore = (metric = {}, axis = {}) => {
+  const rawScore = Number(metric.score);
+  const hasRawScore = Number.isFinite(rawScore);
+  const fallbackScore = hasRawScore ? Math.max(1, Math.min(100, rawScore)) : 50;
+  const value = Number(axis.value);
+  const [idealMin, idealMax] = Array.isArray(axis.ideal) ? axis.ideal.map(Number) : [72, 92];
+  const [domainMin, domainMax] = Array.isArray(axis.domain) ? axis.domain.map(Number) : [0, 100];
+  const metricText = `${metric.impact || ''} ${metric.note || ''}`.toLowerCase();
+  const textNegationSoftensFlaw = /\b(no|not|without|minimal|minor|little)\s+(?:(?:severe|major|visible|noticeable|glaring|active)\s+){0,3}(?:asymmetr|acne|blemish|texture|scarring|recession|flatness|weakness|issue|flaw|liability)/.test(metricText);
+  const textFlagsVisibleFlaw = !textNegationSoftensFlaw && /\b(negative|flaw|weak|recessed|under-?supported|poor|bad|thin|sparse|soft|puffy|bloated|asymmetr|flare|nostril|long|narrow|wide|too )\b/.test(metricText);
+
+  if (!Number.isFinite(value) || !Number.isFinite(idealMin) || !Number.isFinite(idealMax)) {
+    return Math.round(textFlagsVisibleFlaw ? Math.min(fallbackScore, 60) : fallbackScore);
+  }
+
+  if (axis.useScore) {
+    if (textFlagsVisibleFlaw && hasRawScore && rawScore > 60) return 58;
+    return Math.round(fallbackScore);
+  }
+
+  if (value >= idealMin && value <= idealMax) {
+    const center = (idealMin + idealMax) / 2;
+    const halfWidth = Math.max((idealMax - idealMin) / 2, 0.0001);
+    const closeness = Math.max(0, 1 - Math.abs(value - center) / halfWidth);
+    return Math.round(Math.max(70, Math.min(100, 78 + closeness * 22)));
+  }
+
+  if (textFlagsVisibleFlaw && hasRawScore && rawScore > 60) {
+    return 58;
+  }
+
+  const outsideSpan = value < idealMin
+    ? Math.max(idealMin - domainMin, 0.0001)
+    : Math.max(domainMax - idealMax, 0.0001);
+  const distance = value < idealMin ? idealMin - value : value - idealMax;
+  const severity = Math.max(0, Math.min(1, distance / outsideSpan));
+  return Math.round(Math.max(20, Math.min(60, 60 - severity * 45)));
+};
+
+const metricNoteContradictsAxis = (note = '', axis = {}) => {
+  if (!note || axis.useScore || axis.status !== axis.center) return false;
+  if (/\b(no|not|without|minimal|minor|little)\s+(?:(?:severe|major|visible|noticeable|glaring|active)\s+){0,3}(?:asymmetr|acne|blemish|texture|scarring|recession|flatness|weakness|issue|flaw|liability)/i.test(note)) return false;
+  return /\b(negative|flaw|weak|recessed|under-?supported|poor|bad|thin|sparse|soft|puffy|bloated|asymmetr|flare|nostril|long|elongated|short|narrow|wide|too )\b/i.test(note);
+};
+
+const normalizeMetricArtLabel = (label = '') => String(label || '')
+  .toLowerCase()
+  .replace(/[_/()[\]{}-]+/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const metricGuideKind = (label = '') => {
+  const low = normalizeMetricArtLabel(label);
+  if (/gonial angle|jaw angle|nasofrontal|naso frontal|nasofacial|naso facial|nasolabial|naso labial|mentolabial|mento labial|convexity|subnasale|mandibular plane|projection|profile|hyoid|cervicomental/.test(low)) return 'side';
+  if (/canthal|eye|brow/.test(low)) return 'eye';
+  if (/philtrum/.test(low)) return 'philtrum';
+  if (/facial.*fat|soft.*tissue/.test(low)) return 'fat';
+  if (/symmetry/.test(low)) return 'symmetry';
+  if (/skin|texture|clarity/.test(low)) return 'skin';
+  if (/third/.test(low)) return 'thirds';
+  if (/ipd|interpupillary/.test(low)) return 'eye';
+  if (/mouth|lip/.test(low)) return 'mouth';
+  if (/nose|nasal/.test(low)) return 'nose';
+  if (/neck/.test(low)) return 'plain-front';
+  if (/fwhr|width.*height/.test(low)) return 'fwhr';
+  if (/bigonial|jaw|mandibular|chin/.test(low)) return 'jaw';
+  return 'front';
+};
+
+const getMetricGuideCustomImageSrc = (label = '') => {
+  const low = normalizeMetricArtLabel(label);
+  const specificArt = [
+    [/subnasale pogonion|subnasal.*pogonion|subnasale/, '/metrics/subnasalepogonion.png'],
+    [/mandibular plane|jaw plane|mandible plane|mandibular slope/, '/metrics/mandibularplane.png'],
+    [/maxillary projection|maxilla|maxillary|cheekbone|maxillary.*cheekbone|cheekbone.*maxillary|midface support|under eye support|ogee/, '/metrics/maxillaryprojection.png'],
+    [/chin projection|chin support|chin prominence|pogonion|weak chin|recessed chin/, '/metrics/chinprojection.png'],
+    [/facial convexity|side convexity|profile convexity|convexity angle|facial profile|profile harmony/, '/metrics/convexityangle.png'],
+    [/gonial angle|jaw angle|jaw definition|jawline definition|mandibular angle|lower third definition/, '/metrics/gonialangle.png'],
+    [/nasofrontal|naso frontal|nasal bridge|nose bridge/, '/metrics/nasofrontalangle.png'],
+    [/nasolabial|naso labial/, '/metrics/nasolabial.png'],
+    [/nasofacial|naso facial|nose projection|nasal projection|nose length|nasal length|nasal shape/, '/metrics/nasofacial.png'],
+    [/mentolabial|mento labial|labiomental/, '/metrics/mentolabial.png'],
+    [/nose width|nasal width|nose base|nasal base|alar width|nose breadth|nasal breadth/, '/metrics/nosewidth.png'],
+    [/bigonial width|bigonial|jaw width|mandibular width|lower face width|gonion width/, '/metrics/bigonial.png'],
+    [/brow compactness|brow support|brow framing|brow ridge|low set brow|brow height|eyebrow/, '/metrics/browcompactness.png'],
+    [/canthal tilt|eye tilt|tilt degrees|canthal/, '/metrics/canthaltilt.png'],
+    [/eye width|eye width index|horizontal eye|palpebral width|eye length/, '/metrics/eyewidth.png'],
+    [/fwhr|facial width.*height|face width.*height|width.*height/, '/metrics/fwhr.png'],
+    [/ipd|interpupillary|eye spacing|interocular|pupil spacing/, '/metrics/ipd.png'],
+    [/midface ratio|midface length|midface/, '/metrics/midface.png'],
+    [/mouth width|oral width|mouth.*jaw|mouth.*lower face/, '/metrics/mouthwidth.png'],
+    [/philtrum height|philtrum length|philtrum|upper lip length/, '/metrics/philtrumheight.png'],
+    [/total lip height|lip height|mouth height|lip thickness|lip fullness|lip volume/, '/metrics/mouthheight.png'],
+  ];
+  const matchedArt = specificArt.find(([pattern]) => pattern.test(low));
+  return matchedArt?.[1] || null;
+};
+
+const getMetricGuideImageSrc = (label = '') => {
+  const customArtSrc = getMetricGuideCustomImageSrc(label);
+  if (customArtSrc) return customArtSrc;
+
+  const kind = metricGuideKind(label);
+  if (kind === 'eye') return '/metrics/eyes.png';
+  if (kind === 'side') return '/metrics/side.png';
+  return '/metrics/front.png';
+};
+
+const MetricGuideArt = ({ label = '' }) => {
+  const low = normalizeMetricArtLabel(label);
+  const kind = metricGuideKind(label);
+  const customArtSrc = getMetricGuideCustomImageSrc(label);
+  const glow = 'drop-shadow(0 0 5px rgba(103,232,249,0.55))';
+  const artSrc = getMetricGuideImageSrc(label);
+
+  return (
+    <div className="relative h-32 w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
+      <img
+        src={artSrc}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover object-center"
+      />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(3,7,8,0.02),rgba(3,7,8,0.18))]" />
+      {!customArtSrc && kind !== 'plain-front' && (
+        <svg viewBox="0 0 144 128" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden="true">
+          {kind === 'eye' ? (
+            <>
+              {/canthal|tilt/.test(low) && (
+                <>
+                  <path d="M18 78 70 71M74 71l52 7" fill="none" stroke="rgba(103,232,249,0.98)" strokeLinecap="round" strokeWidth="2" style={{ filter: glow }} />
+                  <circle cx="19" cy="77" r="2.2" fill="rgba(103,232,249,1)" />
+                  <circle cx="70" cy="70" r="2.2" fill="rgba(103,232,249,1)" />
+                  <circle cx="74" cy="70" r="2.2" fill="rgba(103,232,249,1)" />
+                  <circle cx="125" cy="77" r="2.2" fill="rgba(103,232,249,1)" />
+                </>
+              )}
+              {/brow/.test(low) && <path d="M14 40c13-14 30-18 48-11M130 40c-13-14-30-18-48-11" fill="none" stroke="rgba(52,211,153,0.98)" strokeLinecap="round" strokeWidth="2.4" style={{ filter: glow }} />}
+              {/ipd|interpupillary/.test(low) && (
+                <>
+                  <circle cx="45" cy="70" r="3.5" fill="rgba(103,232,249,0.95)" />
+                  <circle cx="99" cy="70" r="3.5" fill="rgba(103,232,249,0.95)" />
+                  <path d="M45 70h54" stroke="rgba(103,232,249,0.98)" strokeLinecap="round" strokeWidth="2" style={{ filter: glow }} />
+                </>
+              )}
+              {/eye.*width/.test(low) && <path d="M16 77h56M72 77h56" stroke="rgba(103,232,249,0.98)" strokeLinecap="round" strokeWidth="2" style={{ filter: glow }} />}
+              {/eye.*height|eye.*shape|uee/.test(low) && <path d="M45 56v39M99 56v39" stroke="rgba(103,232,249,0.98)" strokeLinecap="round" strokeWidth="2" style={{ filter: glow }} />}
+            </>
+          ) : kind === 'side' ? (
+            <>
+              {/gonial/.test(low) && (
+                <>
+                  <path d="M58 93 87 110 96 84" fill="none" stroke="rgba(103,232,249,0.98)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" style={{ filter: glow }} />
+                  <path d="M80 106a18 18 0 0 0 12-15" fill="none" stroke="rgba(52,211,153,0.95)" strokeWidth="1.5" />
+                </>
+              )}
+              {/nasofrontal/.test(low) && <path d="M93 34 105 50 113 62" fill="none" stroke="rgba(103,232,249,0.98)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" style={{ filter: glow }} />}
+              {/nasofacial/.test(low) && <path d="M95 25 114 62 97 111" fill="none" stroke="rgba(103,232,249,0.98)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" style={{ filter: glow }} />}
+              {/nasolabial/.test(low) && <path d="M114 62 100 72 109 88" fill="none" stroke="rgba(103,232,249,0.98)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" style={{ filter: glow }} />}
+              {/mentolabial/.test(low) && <path d="M108 88 98 95 89 111" fill="none" stroke="rgba(103,232,249,0.98)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" style={{ filter: glow }} />}
+              {/convexity|subnasale/.test(low) && <path d="M95 25 102 75 89 111" fill="none" stroke="rgba(103,232,249,0.98)" strokeDasharray="3 3" strokeLinecap="round" strokeWidth="2" style={{ filter: glow }} />}
+              {/mandibular plane/.test(low) && <path d="M58 93 87 110" fill="none" stroke="rgba(103,232,249,0.98)" strokeLinecap="round" strokeWidth="2" style={{ filter: glow }} />}
+              {/projection/.test(low) && <path d="M47 80h77" fill="none" stroke="rgba(103,232,249,0.98)" strokeDasharray="4 3" strokeLinecap="round" strokeWidth="2" style={{ filter: glow }} />}
+            </>
+          ) : (
+            <>
+              {kind === 'fwhr' && (
+                <>
+                  <path d="M33 42h78M111 42v50M33 92h78" fill="none" stroke="rgba(103,232,249,0.98)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" style={{ filter: glow }} />
+                  <circle cx="33" cy="42" r="2" fill="rgba(103,232,249,1)" />
+                  <circle cx="111" cy="92" r="2" fill="rgba(103,232,249,1)" />
+                </>
+              )}
+              {kind === 'jaw' && (
+                <>
+                  <path d="M42 84 58 107 72 117 86 107 102 84" fill="none" stroke="rgba(103,232,249,0.98)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" style={{ filter: glow }} />
+                  {/bigonial|jaw.*width|mandibular/.test(low) && (
+                    <>
+                      <path d="M42 84h60" fill="none" stroke="rgba(52,211,153,0.98)" strokeLinecap="round" strokeWidth="2" style={{ filter: glow }} />
+                      <circle cx="42" cy="84" r="2.25" fill="rgba(52,211,153,1)" />
+                      <circle cx="102" cy="84" r="2.25" fill="rgba(52,211,153,1)" />
+                    </>
+                  )}
+                </>
+              )}
+              {kind === 'thirds' && (
+                <>
+                  <path d="M37 25h70M37 56h70M37 86h70M37 117h70" fill="none" stroke="rgba(52,211,153,0.98)" strokeLinecap="round" strokeWidth="1.8" style={{ filter: glow }} />
+                  <path d="M111 25v92" fill="none" stroke="rgba(103,232,249,0.78)" strokeDasharray="3 3" strokeWidth="1.4" />
+                </>
+              )}
+              {kind === 'philtrum' && (
+                <>
+                  <path d="M72 80v16" fill="none" stroke="rgba(103,232,249,0.98)" strokeLinecap="round" strokeWidth="2.2" style={{ filter: glow }} />
+                  <path d="M61 80h22M58 96h28" fill="none" stroke="rgba(103,232,249,0.88)" strokeLinecap="round" strokeWidth="1.4" />
+                </>
+              )}
+              {kind === 'mouth' && <path d="M53 98h38" fill="none" stroke="rgba(251,113,133,0.98)" strokeLinecap="round" strokeWidth="2" style={{ filter: 'drop-shadow(0 0 5px rgba(251,113,133,0.55))' }} />}
+              {kind === 'nose' && <path d="M58 81h28M60 76c4 5 20 5 24 0" fill="none" stroke="rgba(251,191,36,0.98)" strokeLinecap="round" strokeWidth="1.8" style={{ filter: 'drop-shadow(0 0 5px rgba(251,191,36,0.48))' }} />}
+              {kind === 'fat' && (
+                <>
+                  <ellipse cx="48" cy="79" rx="14" ry="18" fill="rgba(251,113,133,0.12)" stroke="rgba(251,113,133,0.9)" strokeWidth="1.7" />
+                  <ellipse cx="96" cy="79" rx="14" ry="18" fill="rgba(251,113,133,0.12)" stroke="rgba(251,113,133,0.9)" strokeWidth="1.7" />
+                </>
+              )}
+              {kind === 'symmetry' && <path d="M72 11v108" fill="none" stroke="rgba(103,232,249,0.98)" strokeLinecap="round" strokeWidth="1.8" style={{ filter: glow }} />}
+              {kind === 'front' && <path d="M42 64h60" fill="none" stroke="rgba(103,232,249,0.95)" strokeLinecap="round" strokeWidth="1.8" style={{ filter: glow }} />}
+            </>
+          )}
+        </svg>
+      )}
+    </div>
+  );
 };
 
 const ScanAnimationsPage = ({ routeParams, setCurrentPage }) => {
@@ -4677,9 +4792,6 @@ const ScanningView = ({
   const scanRequestId = String(suppliedScanRequestId || fallbackScanRequestIdRef.current).trim();
   const getQuotaAwareScanMessage = useCallback((rawMessage, fallbackMessage = '') => {
     const source = `${rawMessage || ''} ${fallbackMessage || ''}`.trim();
-    if (/OpenRouter|rate[-\s]?limited|upstream provider|temporarily rate|Error code:\s*429|code['"]?:\s*429/i.test(source)) {
-      return 'That AI model is temporarily rate-limited by its provider. It is not your image or account. Please retry shortly or choose another model.';
-    }
     if (/RESOURCE_EXHAUSTED|quota exceeded|firestore quota/i.test(source)) {
       return 'Firebase quota exceeded right now. The AI scan may still run, but saving or loading the scan into your dashboard can temporarily fail until quota resets.';
     }
@@ -4961,7 +5073,7 @@ const ScanningView = ({
           } catch (e) {
             console.error("Premium preflight failed", e);
             setStatusText(
-              `Can't verify premium access on ${API_BASE}. If you're using facelab.online with your PC backend, make sure the tunnel is up and Firebase Admin is configured on this machine.`
+              `Can't verify premium access on ${API_BASE}. If you're using mogcheck.net with your PC backend, make sure the tunnel is up and Firebase Admin is configured on this machine.`
             );
             setHasError(true);
             return;
@@ -5049,7 +5161,7 @@ const ScanningView = ({
           const blob = await response.blob();
           formData.append('image', blob, 'upload.jpg');
         }
-        formData.append('choice', getOpenRouterGeminiPreviewChoice(choice) || choice || "3");
+        formData.append('choice', choice || "3");
         formData.append('scanRequestId', scanRequestId);
         if (profileId) formData.append('profileId', profileId);
 
@@ -5924,7 +6036,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [dropdownAnimOpen, setDropdownAnimOpen] = useState(false);
   const [justUnlocked, setJustUnlocked] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
-  const [isSubmittingScan, setIsSubmittingScan] = useState(false);
   const [activeAnalysisJob, setActiveAnalysisJob] = useState(null);
   const [scanningCeleb, setScanningCeleb] = useState(null);
   const [uploadNotice, setUploadNotice] = useState('');
@@ -5935,7 +6046,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [adminApiHealthLoading, setAdminApiHealthLoading] = useState(false);
   const modelMenuRef = useRef(null);
   const scanTopRef = useRef(null);
-  const isSubmittingScanRef = useRef(false);
 
   const [profiles, setProfiles] = useState([]);
   const [selectedProfileId, setSelectedProfileId] = useState(initialProfileId || 'new');
@@ -6071,46 +6181,10 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     ...(isAdmin ? [
       { id: "separator-experimental", kind: "separator", label: "Experimental Models" },
       {
-        id: "10",
-        name: "Qwen model (Testing)",
-        description:
-          "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
-        tier: "ultra",
-        Icon: Crown,
-        adminOnly: true,
-      },
-      {
-        id: "11",
-        name: "anthropic/claude-sonnet-4.6",
-        description:
-          "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
-        tier: "ultra",
-        Icon: Crown,
-        adminOnly: true,
-      },
-      {
-        id: "12",
-        name: "openai/gpt-5.4",
-        description:
-          "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
-        tier: "ultra",
-        Icon: Crown,
-        adminOnly: true,
-      },
-      {
         id: "13",
         name: "google/gemini-3.1-pro-preview",
         description:
           "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
-        tier: "ultra",
-        Icon: Crown,
-        adminOnly: true,
-      },
-      {
-        id: "14",
-        name: "Haiiii",
-        description:
-          "OpenRouter Gemma test model for admin-only provider checks.",
         tier: "ultra",
         Icon: Crown,
         adminOnly: true,
@@ -6205,32 +6279,20 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
           }
         }
 
-        const [statsRes, qwenRes] = await Promise.all([
-          fetch(`${API_BASE}/api/admin/stats`, {
-            headers,
-            cache: 'no-store',
-          }),
-          fetch(`${API_BASE}/api/admin/qwen-health`, {
-            headers,
-            cache: 'no-store',
-          }),
-        ]);
+        const statsRes = await fetch(`${API_BASE}/api/admin/stats`, {
+          headers,
+          cache: 'no-store',
+        });
 
         const statsBody = await statsRes.json().catch(() => ({}));
-        const qwenBody = await qwenRes.json().catch(() => ({}));
         if (cancelled) return;
 
         const keyHealth = Array.isArray(statsBody?.keyHealth) ? statsBody.keyHealth : [];
         const enabledKeys = keyHealth.filter((key) => !key?.disabled);
         const geminiHealthy = enabledKeys.filter((key) => !key?.quarantined && key?.status !== 'quota' && key?.status !== 'errors').length;
         const geminiProblemCount = enabledKeys.filter((key) => key?.quarantined || key?.status === 'quota' || key?.status === 'errors').length;
-        const qwenStatus = statsRes.ok && qwenRes.ok
-          ? String(qwenBody?.summary?.status || 'unknown').trim().toLowerCase()
-          : 'unavailable';
-        const keyBudget = qwenBody?.keyBudget && typeof qwenBody.keyBudget === 'object' ? qwenBody.keyBudget : null;
         const recentAnalyses = Array.isArray(statsBody?.recentAnalyses) ? statsBody.recentAnalyses : [];
-        const geminiRecent = summarizeRecentProviderSuccess(recentAnalyses, new Set(['1', '2', '6', '7', '8', '9']));
-        const qwenRecent = summarizeRecentProviderSuccess(recentAnalyses, new Set(['10']));
+        const geminiRecent = summarizeRecentProviderSuccess(recentAnalyses, new Set(['1', '2', '6', '7', '8', '9', '13']));
 
         setAdminApiHealth({
           configured: true,
@@ -6241,20 +6303,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
           geminiRecentSuccessRate: geminiRecent.rate,
           geminiRecentSuccessCount: geminiRecent.successes,
           geminiRecentSampleCount: geminiRecent.total,
-          qwenStatus,
-          qwenModelId: typeof qwenBody?.modelId === 'string' ? qwenBody.modelId : null,
-          qwenBudgetConfigured: Boolean(keyBudget?.configured),
-          qwenBudgetOk: Boolean(keyBudget?.ok),
-          qwenBudgetHasCap: Boolean(keyBudget?.hasCap),
-          qwenBudgetLimit: Number.isFinite(Number(keyBudget?.limit)) ? Number(keyBudget.limit) : null,
-          qwenBudgetRemaining: Number.isFinite(Number(keyBudget?.limitRemaining)) ? Number(keyBudget.limitRemaining) : null,
-          qwenBudgetUsage: Number.isFinite(Number(keyBudget?.usage)) ? Number(keyBudget.usage) : null,
-          qwenBudgetPercentRemaining: Number.isFinite(Number(keyBudget?.percentRemaining)) ? Number(keyBudget.percentRemaining) : null,
-          qwenBudgetLimitReset: typeof keyBudget?.limitReset === 'string' ? keyBudget.limitReset : null,
-          qwenBudgetError: typeof keyBudget?.error === 'string' ? keyBudget.error : '',
-          qwenRecentSuccessRate: qwenRecent.rate,
-          qwenRecentSuccessCount: qwenRecent.successes,
-          qwenRecentSampleCount: qwenRecent.total,
         });
       } catch (error) {
         if (cancelled) return;
@@ -6268,20 +6316,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
           geminiRecentSuccessRate: null,
           geminiRecentSuccessCount: 0,
           geminiRecentSampleCount: 0,
-          qwenStatus: 'unavailable',
-          qwenModelId: null,
-          qwenBudgetConfigured: false,
-          qwenBudgetOk: false,
-          qwenBudgetHasCap: false,
-          qwenBudgetLimit: null,
-          qwenBudgetRemaining: null,
-          qwenBudgetUsage: null,
-          qwenBudgetPercentRemaining: null,
-          qwenBudgetLimitReset: null,
-          qwenBudgetError: '',
-          qwenRecentSuccessRate: null,
-          qwenRecentSuccessCount: 0,
-          qwenRecentSampleCount: 0,
         });
       } finally {
         if (!cancelled) setAdminApiHealthLoading(false);
@@ -6306,17 +6340,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
     if (!hidden) setIsUploadGuideOpen(true);
   }, [uploadGuideStorageKey]);
 
-  const qwenBudgetPercent = Number.isFinite(Number(adminApiHealth?.qwenBudgetPercentRemaining))
-    ? Math.max(0, Math.min(100, Number(adminApiHealth.qwenBudgetPercentRemaining)))
-    : null;
-  const qwenBudgetToneClass =
-    qwenBudgetPercent == null
-      ? 'bg-cyan-400/70'
-      : qwenBudgetPercent >= 50
-        ? 'bg-emerald-400'
-        : qwenBudgetPercent >= 20
-          ? 'bg-amber-400'
-          : 'bg-red-400';
   const formatBudgetNumber = useCallback((value) => {
     if (!Number.isFinite(Number(value))) return null;
     const numeric = Number(value);
@@ -7044,15 +7067,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                   <span className={`rounded-full border px-2.5 py-1 ${adminApiHealth?.geminiHealthy > 0 ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-red-500/25 bg-red-500/10 text-red-300'}`}>
                     Gemini {adminApiHealth?.geminiHealthy ?? 0}/{adminApiHealth?.geminiTotal ?? 0}
                   </span>
-                  <span className={`rounded-full border px-2.5 py-1 ${
-                    adminApiHealth?.qwenStatus === 'healthy'
-                      ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
-                      : adminApiHealth?.qwenStatus === 'degraded'
-                        ? 'border-amber-500/25 bg-amber-500/10 text-amber-300'
-                        : 'border-red-500/25 bg-red-500/10 text-red-300'
-                  }`}>
-                    Qwen {adminApiHealth?.qwenStatus || 'unavailable'}
-                  </span>
                   {Number(adminApiHealth?.geminiProblemCount || 0) > 0 && (
                     <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-amber-300">
                       {adminApiHealth.geminiProblemCount} Gemini issue{adminApiHealth.geminiProblemCount === 1 ? '' : 's'}
@@ -7068,14 +7082,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                         : 'No recent scans'}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span>Qwen success rate</span>
-                    <span className="text-zinc-400">
-                      {adminApiHealth?.qwenRecentSampleCount
-                        ? `${adminApiHealth?.qwenRecentSuccessRate ?? 0}% (${adminApiHealth?.qwenRecentSuccessCount ?? 0}/${adminApiHealth?.qwenRecentSampleCount ?? 0}) last 10`
-                        : 'No recent scans'}
-                    </span>
-                  </div>
                 </div>
                 <p className="mt-2 text-[10px] font-sans leading-relaxed text-zinc-500">
                   {adminApiHealth?.missingPassword
@@ -7084,41 +7090,6 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                       ? 'Admin health overview is temporarily unavailable.'
                       : 'Quick provider snapshot for admins only.'}
                 </p>
-                <div className="mt-3 rounded-lg border border-zinc-800/80 bg-black/20 px-3 py-3">
-                  <div className="flex items-center justify-between gap-3 text-[9px] font-sans uppercase tracking-[0.24em] text-zinc-500">
-                    <span>Qwen OpenRouter budget</span>
-                    <span className="text-zinc-600">
-                      {adminApiHealth?.qwenModelId ? adminApiHealth.qwenModelId : 'Unavailable'}
-                    </span>
-                  </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-800">
-                    <div
-                      className={`h-full rounded-full transition-all ${qwenBudgetToneClass}`}
-                      style={{ width: `${qwenBudgetPercent == null ? 100 : qwenBudgetPercent}%` }}
-                    />
-                  </div>
-                  <div className="mt-2 flex items-center justify-between gap-3 text-[10px] font-sans text-zinc-400">
-                    <span>
-                      {adminApiHealth?.qwenBudgetHasCap
-                        ? `${formatBudgetNumber(adminApiHealth?.qwenBudgetRemaining) || '0'} / ${formatBudgetNumber(adminApiHealth?.qwenBudgetLimit) || '0'} credits left`
-                        : adminApiHealth?.qwenBudgetConfigured
-                          ? 'No OpenRouter key cap set'
-                          : 'OpenRouter budget unavailable'}
-                    </span>
-                    <span className="text-zinc-500">
-                      {adminApiHealth?.qwenBudgetHasCap && qwenBudgetPercent != null
-                        ? `${qwenBudgetPercent.toFixed(1)}%`
-                        : adminApiHealth?.qwenBudgetLimitReset
-                          ? adminApiHealth.qwenBudgetLimitReset
-                          : ''}
-                    </span>
-                  </div>
-                  {adminApiHealth?.qwenBudgetError && (
-                    <p className="mt-2 text-[10px] font-sans leading-relaxed text-amber-300">
-                      {adminApiHealth.qwenBudgetError}
-                    </p>
-                  )}
-                </div>
               </div>
             )}
           </div>
@@ -7204,72 +7175,86 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
 
             <button 
               onClick={async () => {
-                if (isSubmittingScanRef.current) return;
-                isSubmittingScanRef.current = true;
-                setIsSubmittingScan(true);
-                try {
-                  if (isPremiumDemoModel) {
-                    if (!user) {
-                      setCurrentPage('login');
-                      return;
-                    }
-                    const requestedDemoId = normalizePremiumDemoId(visiblePremiumDemoFaceId);
-                    const requestedDemoFace = getPremiumDemoFace(requestedDemoId);
-                    let demoPayload = null;
-                    try {
-                      const token = await user.getIdToken();
-                      const res = await fetch(`${API_BASE}/api/user/demo-scan`, {
-                        method: 'POST',
-                        headers: {
-                          Authorization: `Bearer ${token}`,
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ demoId: requestedDemoId }),
-                      });
-                      const body = await res.json().catch(() => ({}));
-                      if (res.status === 409) {
-                        const nextUsedIds = Array.isArray(body.premiumDemoUsedIds)
-                          ? body.premiumDemoUsedIds
-                          : Array.from(new Set([...premiumDemoUsedIds, requestedDemoId]));
-                        setPremiumDemoUsedIds(nextUsedIds);
-                        const nextAllUsed = ACTIVE_PREMIUM_DEMO_IDS.every((demoId) => nextUsedIds.includes(demoId));
-                        setPremiumDemoScanUsed(nextAllUsed);
-                        setProfileScanCounts((prev) => ({
-                          ...prev,
-                          [PREMIUM_DEMO_MODEL_ID]: nextUsedIds.length,
-                        }));
-                        if (nextAllUsed) {
-                          setSelectedModel('3');
-                        } else {
-                          const nextDemoId = getAvailablePremiumDemoId(nextUsedIds, requestedDemoId);
-                          const nextDemoFace = getPremiumDemoFace(nextDemoId);
-                          setSelectedPremiumDemoId(nextDemoId);
-                          setFrontImage(nextDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE);
-                        }
-                        setUploadNotice(body.error || 'You have already used this premium demo scan.');
-                        return;
-                      }
-                      if (!res.ok) throw new Error(body.error || 'Failed to save demo scan.');
-                      demoPayload = buildPremiumDemoScanPayload(body.payload || body.scan?.payload || await loadPremiumDemoScanPayload(requestedDemoId), {
-                        demoId: requestedDemoId,
-                        id: body.scan?.id || `premium-demo-scan-${requestedDemoId}`,
-                        scanId: body.scan?.scanId || body.scan?.id || `premium-demo-scan-${requestedDemoId}`,
-                        scannedAt: body.scan?.scannedAt || body.scan?.createdAt || new Date().toISOString(),
-                      });
-                      const nextUsedIds = Array.from(new Set([...premiumDemoUsedIds, requestedDemoId]));
+                if (isPremiumDemoModel) {
+                  if (!user) {
+                    setCurrentPage('login');
+                    return;
+                  }
+                  const requestedDemoId = normalizePremiumDemoId(visiblePremiumDemoFaceId);
+                  const requestedDemoFace = getPremiumDemoFace(requestedDemoId);
+                  let demoPayload = null;
+                  try {
+                    const token = await user.getIdToken();
+                    const res = await fetch(`${API_BASE}/api/user/demo-scan`, {
+                      method: 'POST',
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ demoId: requestedDemoId }),
+                    });
+                    const body = await res.json().catch(() => ({}));
+                    if (res.status === 409) {
+                      const nextUsedIds = Array.isArray(body.premiumDemoUsedIds)
+                        ? body.premiumDemoUsedIds
+                        : Array.from(new Set([...premiumDemoUsedIds, requestedDemoId]));
                       setPremiumDemoUsedIds(nextUsedIds);
-                      setPremiumDemoScanUsed(ACTIVE_PREMIUM_DEMO_IDS.every((demoId) => nextUsedIds.includes(demoId)));
+                      const nextAllUsed = ACTIVE_PREMIUM_DEMO_IDS.every((demoId) => nextUsedIds.includes(demoId));
+                      setPremiumDemoScanUsed(nextAllUsed);
                       setProfileScanCounts((prev) => ({
                         ...prev,
                         [PREMIUM_DEMO_MODEL_ID]: nextUsedIds.length,
                       }));
-                    } catch (e) {
-                      setUploadNotice(e.message || 'Failed to save demo scan.');
+                      if (nextAllUsed) {
+                        setSelectedModel('3');
+                      } else {
+                        const nextDemoId = getAvailablePremiumDemoId(nextUsedIds, requestedDemoId);
+                        const nextDemoFace = getPremiumDemoFace(nextDemoId);
+                        setSelectedPremiumDemoId(nextDemoId);
+                        setFrontImage(nextDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE);
+                      }
+                      setUploadNotice(body.error || 'You have already used this premium demo scan.');
                       return;
                     }
-                    setSelectedProfileId(PREMIUM_DEMO_MODEL_ID);
-                    setActiveScanProfileId(PREMIUM_DEMO_MODEL_ID);
-                    const queuedJob = queueAnalysisJob?.({
+                    if (!res.ok) throw new Error(body.error || 'Failed to save demo scan.');
+                    demoPayload = buildPremiumDemoScanPayload(body.payload || body.scan?.payload || await loadPremiumDemoScanPayload(requestedDemoId), {
+                      demoId: requestedDemoId,
+                      id: body.scan?.id || `premium-demo-scan-${requestedDemoId}`,
+                      scanId: body.scan?.scanId || body.scan?.id || `premium-demo-scan-${requestedDemoId}`,
+                      scannedAt: body.scan?.scannedAt || body.scan?.createdAt || new Date().toISOString(),
+                    });
+                    const nextUsedIds = Array.from(new Set([...premiumDemoUsedIds, requestedDemoId]));
+                    setPremiumDemoUsedIds(nextUsedIds);
+                    setPremiumDemoScanUsed(ACTIVE_PREMIUM_DEMO_IDS.every((demoId) => nextUsedIds.includes(demoId)));
+                    setProfileScanCounts((prev) => ({
+                      ...prev,
+                      [PREMIUM_DEMO_MODEL_ID]: nextUsedIds.length,
+                    }));
+                  } catch (e) {
+                    setUploadNotice(e.message || 'Failed to save demo scan.');
+                    return;
+                  }
+                  setSelectedProfileId(PREMIUM_DEMO_MODEL_ID);
+                  setActiveScanProfileId(PREMIUM_DEMO_MODEL_ID);
+                  const queuedJob = queueAnalysisJob?.({
+                    analysisLabel: 'Demo Scan',
+                    mainImageSrc: requestedDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE,
+                    mainImageFile: null,
+                    sideImageUrl: null,
+                    sideImageFile: null,
+                    sideMetricData: null,
+                    choice: PREMIUM_DEMO_MODEL_ID,
+                    user,
+                    profileId: PREMIUM_DEMO_MODEL_ID,
+                    scanRequestId: demoPayload?.scanRequestId || `premium-demo-scan-${requestedDemoId}`,
+                    demoPayload,
+                  });
+                  if (queuedJob) {
+                    setActiveAnalysisJob(null);
+                    setIsScanning(false);
+                    setCurrentPage('analysis');
+                  } else {
+                    setActiveAnalysisJob({
                       analysisLabel: 'Demo Scan',
                       mainImageSrc: requestedDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE,
                       mainImageFile: null,
@@ -7282,105 +7267,81 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                       scanRequestId: demoPayload?.scanRequestId || `premium-demo-scan-${requestedDemoId}`,
                       demoPayload,
                     });
-                    if (queuedJob) {
-                      setActiveAnalysisJob(null);
-                      setIsScanning(false);
-                      setCurrentPage('analysis');
-                    } else {
-                      setActiveAnalysisJob({
-                        analysisLabel: 'Demo Scan',
-                        mainImageSrc: requestedDemoFace?.image || PREMIUM_DEMO_FRONT_IMAGE,
-                        mainImageFile: null,
-                        sideImageUrl: null,
-                        sideImageFile: null,
-                        sideMetricData: null,
-                        choice: PREMIUM_DEMO_MODEL_ID,
-                        user,
-                        profileId: PREMIUM_DEMO_MODEL_ID,
-                        scanRequestId: demoPayload?.scanRequestId || `premium-demo-scan-${requestedDemoId}`,
-                        demoPayload,
+                    setIsScanning(true);
+                  }
+                  return;
+                }
+                let actualProfileId = selectedProfileId;
+                if (actualProfileId !== 'new' && (profileScanCounts[actualProfileId] || 0) >= PROFILE_SCAN_HISTORY_LIMIT) {
+                  setUploadNotice('This profile has reached its 10/10 scan limit. Create a new profile or choose a different one.');
+                  return;
+                }
+                if (selectedProfileId === 'new') {
+                  if (!user) {
+                    actualProfileId = 'guest';
+                  } else if (profilesUnavailable) {
+                    actualProfileId = 'default';
+                  } else {
+                    if (!newProfileName.trim()) {
+                      setUploadNotice("Please enter a profile name");
+                      return;
+                    }
+                    try {
+                      const token = await user.getIdToken();
+                      const res = await fetch(`${API_BASE}/api/user/profiles`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: newProfileName, visibility: 'private' })
                       });
-                      setIsScanning(true);
-                    }
-                    return;
-                  }
-
-                  let actualProfileId = selectedProfileId;
-                  if (actualProfileId !== 'new' && (profileScanCounts[actualProfileId] || 0) >= PROFILE_SCAN_HISTORY_LIMIT) {
-                    setUploadNotice('This profile has reached its 10/10 scan limit. Create a new profile or choose a different one.');
-                    return;
-                  }
-                  if (selectedProfileId === 'new') {
-                    if (!user) {
-                      actualProfileId = 'guest';
-                    } else if (profilesUnavailable) {
-                      actualProfileId = 'default';
-                    } else {
-                      const profileName = newProfileName.trim();
-                      if (!profileName) {
-                        setUploadNotice("Please enter a profile name");
-                        return;
+                      if (res.ok) {
+                        const data = await res.json();
+                        actualProfileId = data.id;
+                      } else {
+                        const errBody = await res.json().catch(() => ({}));
+                        throw new Error(errBody.error || 'Failed to create profile');
                       }
-                      try {
-                        const token = await user.getIdToken();
-                        const res = await fetch(`${API_BASE}/api/user/profiles`, {
-                          method: 'POST',
-                          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ name: profileName, visibility: 'private' })
-                        });
-                        if (res.ok) {
-                          const data = await res.json();
-                          actualProfileId = data.id;
-                        } else {
-                          const errBody = await res.json().catch(() => ({}));
-                          throw new Error(errBody.error || 'Failed to create profile');
-                        }
-                      } catch (e) {
-                        setUploadNotice(e.message);
-                        return;
-                      }
+                    } catch (e) {
+                      setUploadNotice(e.message);
+                      return;
                     }
                   }
-                  setSelectedProfileId(actualProfileId);
-                  setActiveScanProfileId(actualProfileId);
-                  const queuedJob = queueAnalysisJob?.({
-                    analysisLabel:
-                      selectedProfileId === 'new'
-                        ? (newProfileName.trim() || 'New profile')
-                        : (profiles.find((p) => p.id === actualProfileId)?.name || 'Saved profile'),
-                    mainImageSrc: frontImage,
-                    mainImageFile: frontFile,
-                    sideImageUrl: shouldUseSideProfile ? sideImage : null,
-                    sideImageFile: shouldUseSideProfile ? sideFile : null,
-                    sideMetricData: sideMetricDataGlobal,
-                    choice: selectedModel,
-                    user,
-                    profileId: actualProfileId,
-                  });
-                  if (queuedJob) {
-                    setActiveAnalysisJob(null);
-                    setIsScanning(false);
-                    setCurrentPage('analysis');
-                  }
+                }
+                setSelectedProfileId(actualProfileId);
+                setActiveScanProfileId(actualProfileId);
+                const queuedJob = queueAnalysisJob?.({
+                  analysisLabel:
+                    selectedProfileId === 'new'
+                      ? (newProfileName.trim() || 'New profile')
+                      : (profiles.find((p) => p.id === actualProfileId)?.name || 'Saved profile'),
+                  mainImageSrc: frontImage,
+                  mainImageFile: frontFile,
+                  sideImageUrl: shouldUseSideProfile ? sideImage : null,
+                  sideImageFile: shouldUseSideProfile ? sideFile : null,
+                  sideMetricData: sideMetricDataGlobal,
+                  choice: selectedModel,
+                  user,
+                  profileId: actualProfileId,
+                });
+                if (queuedJob) {
+                  setActiveAnalysisJob(null);
+                  setIsScanning(false);
+                  setCurrentPage('analysis');
+                }
 
-                  setFrontImage(null);
-                  setFrontFile(null);
-                  setSideImage(null);
-                  setSideFile(null);
-                  setJustUnlocked(false);
-                  if (selectedProfileId === 'new') {
-                    setNewProfileName('');
-                  }
-                } finally {
-                  isSubmittingScanRef.current = false;
-                  setIsSubmittingScan(false);
+                setFrontImage(null);
+                setFrontFile(null);
+                setSideImage(null);
+                setSideFile(null);
+                setJustUnlocked(false);
+                if (selectedProfileId === 'new') {
+                  setNewProfileName('');
                 }
               }} 
-              disabled={isSubmittingScan || missingRequiredImage || scanAccessLocked || selectedProfileFull || selectedPremiumDemoLocked}
+              disabled={missingRequiredImage || scanAccessLocked || selectedProfileFull || selectedPremiumDemoLocked}
               className={`relative overflow-hidden px-20 py-6 bg-white text-black font-black uppercase tracking-widest text-lg md:text-xl flex items-center justify-center gap-5 hover:scale-[1.02] hover:bg-zinc-200 transition-all cursor-pointer rounded-lg disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none ${justUnlocked ? 'animate-[buttonUnlock_1s_ease-out_forwards]' : 'shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}
             >
             {justUnlocked && <div className="absolute top-0 bottom-0 w-[50%] bg-gradient-to-r from-transparent via-white to-transparent opacity-80 mix-blend-overlay" style={{ animation: 'sweepGlow 1.5s ease-out forwards' }} />}
-            <span className="relative z-10">{isSubmittingScan ? 'Starting...' : (isPremiumDemoModel ? 'Scan Preview' : 'Analyze Profiles')}</span>
+            <span className="relative z-10">{isPremiumDemoModel ? 'Scan Preview' : 'Analyze Profiles'}</span>
             {justUnlocked ? <Unlock size={28} className="text-black relative z-10" style={{ animation: 'popOpen 0.5s ease-out forwards' }} /> : <ChevronRight size={28} className="text-black relative z-10" />}
           </button>
           {isUploadGuideOpen && (
@@ -7648,7 +7609,6 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
     const { x, y } = getPoint(0.5, i);
     return `${x},${y}`;
   }).join(' ');
-  const chartTone = getRatingToneClasses(finalScore);
 
   return (
     <div className="relative w-full aspect-square">
@@ -7659,7 +7619,7 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
           const { x, y } = getPoint(1, i);
           return <line key={i} x1="50" y1="50" x2={x} y2={y} stroke="#3f3f46" strokeWidth="0.5" />;
         })}
-        <polygon points={points} fill={chartTone.fill || "rgba(34,211,238,0.2)"} stroke={chartTone.stroke || "#22d3ee"} strokeWidth="1" style={{ filter: `drop-shadow(0 0 4px ${chartTone.stroke || "rgba(34,211,238,0.8)"})` }} />
+        <polygon points={points} fill={getRatingToneClasses(finalScore).fill || "rgba(34,211,238,0.2)"} stroke={getRatingToneClasses(finalScore).stroke || "#22d3ee"} strokeWidth="1" style={{ filter: `drop-shadow(0 0 4px ${getRatingToneClasses(finalScore).stroke || "rgba(34,211,238,0.8)"})` }} />
         {data.map((d, i) => {
           const { x, y } = getPoint((d.val * progress) / 10, i);
           return <circle key={i} cx={x} cy={y} r="1.2" fill="#fff" className="drop-shadow-[0_0_4px_rgba(255,255,255,1)]" />;
@@ -7669,13 +7629,12 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
         <div className="absolute inset-0 pointer-events-none">
           {data.map((d, i) => {
             const angle = (Math.PI / 2) + (2 * Math.PI * i / numPoints);
-            const labelRadius = 42;
-            const x = 50 + labelRadius * Math.cos(angle);
-            const y = 50 - labelRadius * Math.sin(angle);
+            const x = 50 + 50 * Math.cos(angle);
+            const y = 50 - 50 * Math.sin(angle);
             return (
               <span 
                 key={i} 
-                className={`absolute text-[8px] font-black font-sans uppercase tracking-[0.16em] whitespace-nowrap ${chartTone.text.split(' ')[0]}`}
+                className={`absolute text-[6.5px] font-black font-sans uppercase tracking-[0.2em] whitespace-nowrap ${getRatingToneClasses(finalScore).text.split(' ')[0]}`}
                 style={{
                   left: `${x}%`,
                   top: `${y}%`,
@@ -7688,7 +7647,7 @@ const RadarChart = ({ data, finalScore, compact = false }) => {
           })}
         </div>
       )}
-      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center font-black italic ${chartTone.text} ${compact ? 'text-sm' : 'text-lg'}`}>
+      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center font-black italic ${getRatingToneClasses(finalScore).text} ${compact ? 'text-sm' : 'text-lg'}`}>
         {scoreToDisplay10(finalScore) != null
           ? (scoreToDisplay10(finalScore) * progress).toFixed(1)
           : (data.reduce((a, b) => a + b.val * progress, 0) / data.length).toFixed(1)}
@@ -7712,185 +7671,24 @@ const HexagonStats = ({ radarData4, radarData5, finalScore }) => {
       </div>
 
       {/* Stats Overlay Layer */}
-      <div className={`absolute inset-0 flex items-center justify-center p-2 transition-all duration-500 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-        <div className="flex w-full max-w-[15.25rem] flex-col gap-2 rounded-xl border border-zinc-800/80 bg-[#0c0d0e]/88 px-4 py-3 shadow-[0_16px_36px_rgba(0,0,0,0.32)] backdrop-blur-md">
-        {radarData4.map((item) => {
-          const itemScore = Math.max(0, Math.min(10, Number(item.val) || 0));
-          const scoreTone = getRatingToneClasses(itemScore * 10);
-          return (
+      <div className={`absolute inset-0 flex flex-col justify-center p-6 gap-4 transition-all duration-500 ${isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+        {radarData4.map((item, idx) => (
           <div key={item.label} className="flex flex-col">
-            <div className="flex flex-col mb-0.5 px-px">
-              <span className={`text-[5.5px] font-black uppercase tracking-[0.2em] ${scoreTone.text} opacity-60 mb-0.5`}>Category</span>
+            <div className="flex flex-col mb-1.5 px-0.5">
+              <span className="text-[7px] font-black uppercase tracking-[0.3em] text-cyan-500/50 mb-0.5">Category</span>
               <div className="flex justify-between items-end">
-                <span className="text-[7.5px] font-black uppercase tracking-[0.12em] text-white/90">{item.label}</span>
-                <span className={`text-[11px] font-black italic ${scoreTone.text}`}>{itemScore.toFixed(1)}</span>
+                <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white/90">{item.label}</span>
+                <span className="text-[14px] font-black italic text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">{item.val.toFixed(1)}</span>
               </div>
             </div>
-            <div
-              className="h-1 w-full rounded-full overflow-hidden"
-              style={{ backgroundColor: `${scoreTone.stroke}22` }}
-            >
-              <div 
-                className="h-full transition-all duration-700 ease-out"
-                style={{
-                  width: isHovered ? `${itemScore * 10}%` : '0%',
-                  backgroundColor: scoreTone.stroke,
-                  boxShadow: `0 0 10px ${scoreTone.stroke}99`,
-                }}
+            <div className="h-1.5 w-full bg-cyan-900/30 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.7)] transition-all duration-700 ease-out"
+                style={{ width: isHovered ? `${(item.val / 10) * 100}%` : '0%' }}
               />
             </div>
           </div>
-          );
-        })}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const SecretMogScoreModal = ({ open, onClose, imageUrl, finalScore, metrics }) => {
-  if (!open) return null;
-
-  const overall10 = Math.max(0, Math.min(10, Number(scoreToDisplay10(finalScore)) || 0));
-  const overallTone = getRatingToneClasses(overall10 * 10);
-  const overallPercent = Math.max(0, Math.min(100, overall10 * 10));
-  const statusScore = Math.round(overallPercent);
-  const status =
-    statusScore >= 95 ? 'Top Tier' :
-    statusScore >= 88 ? 'Elite' :
-    statusScore >= 80 ? 'Very High' :
-    statusScore >= 70 ? 'High' :
-    statusScore >= 63 ? 'Great' :
-    statusScore >= 56 ? 'Above Average' :
-    statusScore >= 50 ? 'Average' :
-    statusScore >= 40 ? 'Below Average' :
-    'Significant Flaws Detected';
-  const metricIcons = {
-    Skin: Waves,
-    Bone: BoneIcon,
-    Dimorphism: VenusAndMars,
-    Symmetry: Scale,
-    Harmony: Flower2,
-    Appeal: StarIcon,
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-[260] flex items-center justify-center overflow-y-auto bg-black/82 px-4 py-8 backdrop-blur-xl"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Overall Mog Score"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose?.();
-      }}
-    >
-      <button
-        type="button"
-        onClick={onClose}
-        className="fixed right-5 top-5 z-[270] flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/70 text-zinc-300 transition-colors hover:border-white/25 hover:text-white"
-        aria-label="Close secret score"
-      >
-        <X size={18} />
-      </button>
-
-      <div className="relative my-auto w-full max-w-[41rem] overflow-hidden rounded-[2rem] border border-white/8 bg-[#020304] px-5 py-8 shadow-[0_0_90px_rgba(0,0,0,0.9)] sm:px-9 sm:py-10">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_14%,rgba(255,255,255,0.08),transparent_31%),radial-gradient(circle_at_24%_48%,rgba(52,211,153,0.08),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.025),transparent_24%)]" />
-        <div className="relative z-10 flex flex-col items-center">
-          <div className="flex h-72 w-72 items-center justify-center rounded-full border border-white/14 bg-black shadow-[0_0_28px_rgba(255,255,255,0.16)] sm:h-80 sm:w-80">
-            <img
-              src={imageUrl}
-              alt="Scan target"
-              className="h-full w-full rounded-full object-contain object-center"
-            />
-          </div>
-
-          <h2 className="text-center text-[4rem] font-black tracking-[-0.08em] text-white drop-shadow-[0_4px_18px_rgba(255,255,255,0.18)] sm:text-[5.3rem]">
-            FaceLab
-          </h2>
-          <p className="mt-1 text-center text-[0.8rem] font-black uppercase tracking-[0.55em] text-zinc-500 sm:text-[0.95rem]">
-            Overall Mog Score
-          </p>
-
-          <div className="mt-8 flex w-full items-end justify-between gap-5 px-1 sm:px-4">
-            <span
-              className="text-[5.6rem] font-black leading-[0.82] tracking-[-0.08em] sm:text-[7rem]"
-              style={{
-                color: overallTone.stroke,
-                filter: `drop-shadow(0 0 24px ${overallTone.stroke}66)`,
-              }}
-            >
-              {overall10.toFixed(1)}
-            </span>
-            <span
-              className="pb-2 text-2xl font-black tracking-[0.08em] sm:text-3xl"
-              style={{
-                color: overallTone.stroke,
-                filter: `drop-shadow(0 0 14px ${overallTone.stroke}66)`,
-              }}
-            >
-              {status}
-            </span>
-          </div>
-
-          <div className="mt-7 h-4 w-full overflow-hidden rounded-full bg-white/10 shadow-[inset_0_0_14px_rgba(0,0,0,0.45)]">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-lime-400 to-yellow-300 shadow-[0_0_28px_rgba(132,204,22,0.42)]"
-              style={{ width: `${overallPercent}%` }}
-            />
-          </div>
-
-          <div className="mt-10 w-full rounded-[1.8rem] border border-white/13 bg-[linear-gradient(145deg,rgba(18,24,28,0.74),rgba(4,5,6,0.86))] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_22px_70px_rgba(0,0,0,0.42)] sm:p-8">
-            <div className="grid gap-x-10 gap-y-9 sm:grid-cols-2">
-              {metrics.map((metric) => {
-                const score = Math.max(0, Math.min(10, Number(metric.val) || 0));
-                const tone = getRatingToneClasses(score * 10);
-                const Icon = metricIcons[metric.label] || StarIcon;
-                return (
-                  <div key={metric.label} className="min-w-0">
-                    <div className="mb-4 flex items-center justify-between gap-4">
-                      <div className="flex min-w-0 items-center gap-4">
-                        <Icon
-                          size={30}
-                          strokeWidth={2.1}
-                          className="shrink-0"
-                          style={{
-                            color: tone.stroke,
-                            filter: `drop-shadow(0 0 10px ${tone.stroke}55)`,
-                          }}
-                        />
-                        <span className="truncate text-lg font-black uppercase tracking-[0.12em] text-white">
-                          {metric.label}
-                        </span>
-                      </div>
-                      <span
-                        className="text-2xl font-black tabular-nums"
-                        style={{
-                          color: tone.stroke,
-                          filter: `drop-shadow(0 0 10px ${tone.stroke}55)`,
-                        }}
-                      >
-                        {score.toFixed(1)}
-                      </span>
-                    </div>
-                    <div
-                      className="h-2.5 overflow-hidden rounded-full"
-                      style={{ backgroundColor: `${tone.stroke}24` }}
-                    >
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${score * 10}%`,
-                          backgroundColor: tone.stroke,
-                          boxShadow: `0 0 18px ${tone.stroke}88`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   );
@@ -7899,8 +7697,9 @@ const SecretMogScoreModal = ({ open, onClose, imageUrl, finalScore, metrics }) =
 
 
 // --- Metric Bar Component ---
-const MetricBar = ({ label, score, max = 100, displayValue, isFreePlan = false }) => {
+const MetricBar = ({ label, score, max = 100, displayValue, note, impact, isFreePlan = false, rangeView = false, cardView = false, isOpen = false, onOpen = null, onClose = null }) => {
   const [progress, setProgress] = useState(0);
+  const metricRef = useRef(null);
   useEffect(() => {
     if (isFreePlan) {
       const interval = setInterval(() => {
@@ -7915,11 +7714,49 @@ const MetricBar = ({ label, score, max = 100, displayValue, isFreePlan = false }
     }
   }, [score, isFreePlan]);
 
+  useEffect(() => {
+    if (!rangeView || !isOpen || typeof document === 'undefined') return undefined;
+    const closeOnOutsidePress = (event) => {
+      if (!metricRef.current?.contains(event.target)) onClose?.();
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePress);
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePress);
+  }, [isOpen, onClose, rangeView]);
+
   const percentage = Math.min(100, Math.max(0, (progress / max) * 100));
+  const metricAxis = metricAnimationPosition({ label, score: rangeView && cardView ? score : progress });
+  const idealStart = metricPercentFromAxis(metricAxis, metricAxis.ideal?.[0]);
+  const idealEnd = metricPercentFromAxis(metricAxis, metricAxis.ideal?.[1]);
+  const displayedMetricValue = isFreePlan
+    ? `${Math.round(progress)}/100`
+    : displayValue || `${progress.toFixed(1)}${max === 100 ? '%' : ''}`;
+  const rangeAccentLevel = (() => {
+    if (metricAxis.rangeMode === 'quality') {
+      if (metricAxis.position >= 78) return 'good';
+      if (metricAxis.position >= 48) return 'mid';
+      return 'bad';
+    }
+    if (metricAxis.position >= idealStart && metricAxis.position <= idealEnd) return 'good';
+    const distanceFromIdeal = metricAxis.position < idealStart
+      ? idealStart - metricAxis.position
+      : metricAxis.position - idealEnd;
+    return distanceFromIdeal <= 12 ? 'mid' : 'bad';
+  })();
   
   let colorClass = 'bg-gradient-to-r from-red-600 via-red-500 to-rose-400';
   let shadowClass = 'shadow-[0_0_15px_rgba(225,29,72,0.5)]';
   let textColorClass = 'text-rose-400';
+  let metricAccent = {
+    text: '#fb7185',
+    softText: '#fda4af',
+    marker: '#fb7185',
+    markerGlow: 'rgba(244,63,94,0.42)',
+    chipBackground: 'rgba(76,5,25,0.52)',
+    chipBorder: 'rgba(244,63,94,0.34)',
+  };
+  const accentLevel = rangeView
+    ? rangeAccentLevel
+    : percentage >= 70 ? 'good' : percentage >= 40 ? 'mid' : 'bad';
   if (percentage >= 70) {
     colorClass = 'bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-400';
     shadowClass = 'shadow-[0_0_15px_rgba(20,184,166,0.5)]';
@@ -7929,13 +7766,167 @@ const MetricBar = ({ label, score, max = 100, displayValue, isFreePlan = false }
     shadowClass = 'shadow-[0_0_15px_rgba(251,191,36,0.5)]';
     textColorClass = 'text-amber-400';
   }
+  if (accentLevel === 'good') {
+    metricAccent = {
+      text: '#6ee7b7',
+      softText: '#a7f3d0',
+      marker: '#34d399',
+      markerGlow: 'rgba(16,185,129,0.44)',
+      chipBackground: 'rgba(2,44,34,0.56)',
+      chipBorder: 'rgba(16,185,129,0.34)',
+    };
+  } else if (accentLevel === 'mid') {
+    metricAccent = {
+      text: '#fbbf24',
+      softText: '#fde68a',
+      marker: '#f59e0b',
+      markerGlow: 'rgba(245,158,11,0.44)',
+      chipBackground: 'rgba(69,26,3,0.56)',
+      chipBorder: 'rgba(245,158,11,0.34)',
+    };
+  }
+
+  if (rangeView) {
+    const displayAxisValue = metricAxis.rawValue != null
+      ? formatMetricAxisValue(metricAxis.rawValue)
+      : displayedMetricValue;
+    const displayMetricScore = getMetricDisplayScore({ label, score, impact, note }, metricAxis);
+    const detailCopy = describeMetricRange({ label, impact, note, displayScore: displayMetricScore }, metricAxis);
+    const noteContradictsAxis = metricNoteContradictsAxis(note, metricAxis);
+    const displayedNote = noteContradictsAxis
+      ? 'Raw value is inside the displayed ideal band, so the dashboard treats this metric as balanced.'
+      : note;
+    const scoreText = Number.isFinite(Number(displayMetricScore)) ? `${Math.round(Number(displayMetricScore))}/100` : displayedMetricValue;
+    const numericScore = Number(displayMetricScore);
+    const normalizedScore = Number.isFinite(numericScore) ? Math.max(1, Math.min(100, numericScore)) : 50;
+    const scoreHue = ((normalizedScore - 1) / 99) * 120;
+    const scoreColor = `hsl(${scoreHue}, 88%, 58%)`;
+    const detailCard = (
+      <div className="grid gap-3 rounded-lg border border-zinc-800 bg-zinc-950/95 p-3 shadow-[0_18px_54px_rgba(0,0,0,0.58),0_0_0_1px_rgba(255,255,255,0.02)] backdrop-blur-md sm:grid-cols-[minmax(0,1fr)_8.25rem]">
+        <div className="min-w-0">
+          <div className={`mb-2 flex flex-wrap items-center gap-2 ${cardView ? 'mb-3' : ''}`}>
+            {cardView ? (
+              <div className="flex items-baseline gap-2">
+                <span className="text-[8px] font-black uppercase tracking-[0.18em] text-zinc-500">Score</span>
+                <span
+                  className="text-3xl font-black leading-none tracking-normal"
+                  style={{ color: scoreColor, textShadow: `0 0 20px ${scoreColor}55` }}
+                >
+                  {scoreText}
+                </span>
+              </div>
+            ) : (
+              <span className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-zinc-300">
+                Score {scoreText}
+              </span>
+            )}
+            {impact && (
+              <span className="rounded-full border border-zinc-800 bg-zinc-900 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-cyan-200">
+                {impact}
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] font-sans leading-relaxed text-zinc-300">{detailCopy}</p>
+          {displayedNote && (
+            <p className="mt-1.5 text-[10px] font-sans leading-relaxed text-zinc-500">{displayedNote}</p>
+          )}
+          <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-500">
+            Ideal {formatMetricAxisValue(metricAxis.ideal?.[0])} - {formatMetricAxisValue(metricAxis.ideal?.[1])}
+          </p>
+        </div>
+        <MetricGuideArt label={label} />
+      </div>
+    );
+
+    if (cardView) {
+      return (
+        <div ref={metricRef} className="min-w-0">
+          {detailCard}
+        </div>
+      );
+    }
+
+    return (
+      <div
+        ref={metricRef}
+        className="group/metric relative flex min-w-0 flex-col"
+        onMouseEnter={() => onOpen?.()}
+        onMouseLeave={() => onClose?.()}
+        onFocus={() => onOpen?.()}
+      >
+        <button
+          type="button"
+          onClick={() => (isOpen ? onClose?.() : onOpen?.())}
+          className="min-w-0 text-left"
+          aria-expanded={isOpen}
+        >
+          <div className="mb-2 flex items-start justify-between gap-3 font-sans text-[10px] uppercase">
+            <span className="min-w-0 font-bold leading-tight tracking-[0.22em] transition-colors duration-500" style={{ color: metricAccent.text }}>{label}</span>
+            <span
+              className="shrink-0 rounded-md border border-white/20 px-2 py-0.5 text-xs font-black shadow-sm transition-colors duration-500"
+              style={{ backgroundColor: metricAccent.chipBackground, color: metricAccent.softText }}
+            >
+              {displayAxisValue}
+            </span>
+          </div>
+          <div className="relative pt-6">
+            <div
+              className="absolute top-0 -translate-x-1/2 rounded-md border border-white/20 px-1.5 py-0.5 text-[9px] font-black shadow-[0_10px_28px_rgba(0,0,0,0.35)] transition-[left,background-color,color] duration-700 ease-out"
+              style={{ left: `${metricAxis.position}%`, backgroundColor: metricAccent.chipBackground, color: metricAccent.softText }}
+            >
+              {metricAxis.status}
+            </div>
+            <div
+              className="relative h-2.5 overflow-visible rounded-full border border-zinc-800/90 bg-zinc-900 shadow-inner"
+              style={{ backgroundImage: getMetricRangeGradient(metricAxis) }}
+            >
+              {metricAxis.rangeMode !== 'quality' && (
+                <span
+                  className="absolute -top-5 text-[8px] font-black uppercase tracking-[0.18em] text-white"
+                  style={{ left: `${(idealStart + idealEnd) / 2}%`, transform: 'translateX(-50%)' }}
+                >
+                  Ideal
+                </span>
+              )}
+              {metricAxis.rangeMode === 'quality' && (
+                <span className="absolute -top-5 right-0 text-[8px] font-black uppercase tracking-[0.18em] text-white">
+                  Best
+                </span>
+              )}
+              <span
+                className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white transition-[left,background-color,box-shadow] duration-700 ease-out"
+                style={{
+                  left: `${metricAxis.position}%`,
+                  backgroundColor: metricAccent.marker,
+                  boxShadow: `0 0 0 1px rgba(255,255,255,0.22), 0 0 20px ${metricAccent.markerGlow}`,
+                }}
+              />
+            </div>
+            <div className="mt-2 flex justify-between gap-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-white">
+              <span>{metricAxis.left}</span>
+              <span className="text-right">{metricAxis.right}</span>
+            </div>
+          </div>
+        </button>
+        <div
+          className={`absolute bottom-[calc(100%+0.45rem)] left-1/2 z-50 w-[min(27rem,calc(100vw-2rem))] -translate-x-1/2 transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none ${
+            isOpen
+              ? 'translate-y-0 opacity-100'
+              : 'pointer-events-none translate-y-3 opacity-0'
+          }`}
+        >
+          {detailCard}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col relative group">
       <div className="flex justify-between items-end gap-3 text-[10px] uppercase font-sans text-zinc-400 mb-1.5">
         <span className="tracking-[0.22em] font-bold leading-tight">{label}</span>
         <span className={`font-black ${textColorClass} text-sm bg-zinc-900/80 px-2.5 py-0.5 rounded-md shadow-sm border border-zinc-800 transition-colors duration-500`}>
-          {isFreePlan ? `${Math.round(progress)}/100` : (displayValue ? displayValue : `${progress.toFixed(1)}${max === 100 ? '%' : ''}`)}
+          {displayedMetricValue}
         </span>
       </div>
       <div className="w-full h-2.5 bg-zinc-800/80 rounded-full relative overflow-hidden flex items-center shadow-inner">
@@ -8272,7 +8263,7 @@ const HoloCube = ({ data }) => {
   );
 };
 
-const FeatureHighlightCard = ({ type, feature, onHover, onSecretMouseDown }) => {
+const FeatureHighlightCard = ({ type, feature, onHover }) => {
   const isBest = type === 'best';
   if (!feature) return null;
   const cardClass = isBest
@@ -8288,10 +8279,7 @@ const FeatureHighlightCard = ({ type, feature, onHover, onSecretMouseDown }) => 
     ? 'text-green-400 font-bold uppercase text-lg tracking-widest mb-2.5'
     : 'text-red-400 font-bold uppercase text-lg tracking-widest mb-2.5';
   return (
-    <div
-      className={cardClass}
-      onMouseDown={isBest ? onSecretMouseDown : undefined}
-    >
+    <div className={cardClass}>
       <div className={railClass} />
       <span className={labelClass}>{isBest ? 'Best Feature' : 'Primary Flaw'}</span>
       <h4 className={titleClass}>{stripInlineMarkers(feature.title)}</h4>
@@ -8324,7 +8312,6 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
   const [landmarker, setLandmarker] = useState(null);
   const [landmarks, setLandmarks] = useState(null);
   const imgRef = useRef(null);
-  const hasAnchorImage = Boolean(showAnchors && anchorImageUrl);
 
   const detectCurrentImage = useCallback(() => {
     if (!landmarker || !imgRef.current || !imgRef.current.complete || imgRef.current.naturalWidth === 0) {
@@ -8600,7 +8587,7 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
   return (
     <button
       type="button"
-      onClick={() => onImageClick?.(hasAnchorImage ? anchorImageUrl : activeImageUrl)}
+      onClick={() => onImageClick?.(activeImageUrl)}
       className="relative w-72 sm:w-72 md:w-[21rem] aspect-[3/4] shrink-0 bg-[#060708] rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 mx-auto text-left transition-colors hover:border-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
     >
       <img 
@@ -8609,38 +8596,31 @@ const StructureMap = ({ activeImageUrl, bestFeature, primaryFlaw, activeHover, o
         loading="eager"
         decoding="async"
         onLoad={detectCurrentImage}
-        className={`absolute inset-0 w-full h-full object-cover object-center scale-[1.14] transition-all duration-700 ${hasAnchorImage ? 'opacity-20 grayscale brightness-40' : 'opacity-100'}`}
+        className={`absolute inset-0 w-full h-full object-cover object-center scale-[1.14] transition-all duration-700 ${showAnchors && anchorImageUrl ? 'opacity-30 grayscale brightness-50' : 'opacity-100'}`}
         alt="face map"
       />
-      {hasAnchorImage && (
+      {showAnchors && anchorImageUrl && (
         <img 
           src={anchorImageUrl} 
           loading="eager"
           decoding="async"
-          className="absolute inset-0 z-30 h-full w-full bg-[#060708] object-contain object-center opacity-100"
+          className="absolute inset-0 w-full h-full object-cover object-center scale-[1.14] z-10 mix-blend-screen opacity-100"
           alt="anchors overlay"
         />
       )}
-      {showAnchors && !anchorImageUrl && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 px-5 text-center">
-          <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-yellow-200">
-            Anchor image unavailable
-          </span>
-        </div>
-      )}
-      {!hasAnchorImage && <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-[#0a0a0b]/20 to-transparent z-20 pointer-events-none" />}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0b] via-[#0a0a0b]/20 to-transparent z-20 pointer-events-none" />
     </button>
   );
 };
 
 const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage, onOpenPremiumPlans = null, userPlan, user, hideTopSection, hideProtocols, hideActionableProtocols, isEmbedded, hideUnlockPotential, hideBestFlawSection, hidePersonalizedFeedback, forceFullAnalysis = false, onBackToProfiles = null, onOpenHistoryScan = null }) => {
   dashboardData = useMemo(() => normalizeDashboardMedia(dashboardData), [dashboardData]);
-  const selectedModel = getDashboardScanModel(dashboardData);
+  const selectedModel = String(dashboardData?.selectedModel || '').trim();
   const isPremiumDemoScan = Boolean(dashboardData?.isPremiumDemo || dashboardData?.demoScan || selectedModel === PREMIUM_DEMO_MODEL_ID);
   const isFreeModelResult = !forceFullAnalysis && ['3', '4', '5'].includes(selectedModel);
   const hasFullProUnlock = isProPlan(userPlan);
   const isRestrictedPreview = !forceFullAnalysis && isFreeModelResult;
-  const showBestFlaw = !hideBestFlawSection && !isRestrictedPreview;
+  const showBestFlaw = !hideBestFlawSection;
   const isAdmin = isAdminEmail(user?.email);
 
   const getCommunityScanShareUrl = useCallback((scan) => {
@@ -8692,27 +8672,11 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const [showAllProtocols, setShowAllProtocols] = useState(false);
   const [completedProtocolIds, setCompletedProtocolIds] = useState({});
   const [scanLightbox, setScanLightbox] = useState(null);
-  const [secretMogScoreOpen, setSecretMogScoreOpen] = useState(false);
+  const [activeMetricPanelKey, setActiveMetricPanelKey] = useState(null);
+  const [metricCardView, setMetricCardView] = useState(false);
+  const [dashboardSidePageOpen, setDashboardSidePageOpen] = useState(false);
   const freeHistoryStripRef = useRef(null);
   const startedDetailedReportsRef = useRef(new Set());
-  const secretFeatureClicksRef = useRef({ count: 0, lastAt: 0 });
-
-  const handleSecretBestFeatureMouseDown = useCallback((event) => {
-    if (event.button !== 0 || !event.shiftKey) {
-      secretFeatureClicksRef.current = { count: 0, lastAt: 0 };
-      return;
-    }
-
-    const now = Date.now();
-    const previous = secretFeatureClicksRef.current;
-    const count = now - previous.lastAt <= 850 ? previous.count + 1 : 1;
-    secretFeatureClicksRef.current = { count, lastAt: now };
-
-    if (count >= 5) {
-      secretFeatureClicksRef.current = { count: 0, lastAt: 0 };
-      setSecretMogScoreOpen(true);
-    }
-  }, []);
 
   useEffect(() => {
     if (!communityPeek) return undefined;
@@ -8779,7 +8743,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   };
 
   const [activeProfileView, setActiveProfileView] = useState('front');
-  const [freeRatingLoop, setFreeRatingLoop] = useState(40);
+  const [freeRatingLoop, setFreeRatingLoop] = useState(70);
   const [experimentalCohesiveEnabled, setExperimentalCohesiveEnabled] = useState(Boolean(dashboardData?.cohesiveFrontSide));
 
   useEffect(() => {
@@ -8797,13 +8761,17 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   const effectiveProfileView = activeProfileView === 'side' && hasSideProfileImage ? 'side' : 'front';
   const isSideView = effectiveProfileView === 'side';
   const hasBothProfileViews = hasFrontProfileImage && hasSideProfileImage;
-  const effectiveCohesiveEnabled = !isFreeModelResult && hasBothProfileViews && experimentalCohesiveEnabled;
+  const effectiveCohesiveEnabled = hasBothProfileViews && experimentalCohesiveEnabled;
 
   useEffect(() => {
     if (!hasSideProfileImage && activeProfileView === 'side') {
       setActiveProfileView('front');
     }
   }, [activeProfileView, hasSideProfileImage]);
+
+  useEffect(() => {
+    setActiveMetricPanelKey(null);
+  }, [effectiveProfileView]);
 
   const activeCats = isSideView && dashboardData?.sideCategories
     ? dashboardData.sideCategories
@@ -8909,14 +8877,35 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
       (compactKeyword && compact.includes(compactKeyword))
     );
   };
-  const dashboardBiometrics = Array.isArray(dashboardData?.biometrics) ? dashboardData.biometrics : [];
-  const dashboardSideBiometrics = Array.isArray(dashboardData?.sideBiometrics) ? dashboardData.sideBiometrics : [];
-  const frontalBiometrics = dashboardBiometrics.length
-    ? dashboardBiometrics.filter(m => isFrontalMetric(m?.label))
+  const frontalBiometrics = dashboardData?.biometrics?.length
+    ? dashboardData.biometrics.filter(m => isFrontalMetric(m.label))
     : [];
-  const metricData = isSideView
-    ? (dashboardSideBiometrics.length ? dashboardSideBiometrics : sideMetricDataGlobal)
+  const baseMetricData = isSideView
+    ? (dashboardData?.sideBiometrics?.length ? dashboardData.sideBiometrics : sideMetricDataGlobal)
     : (frontalBiometrics.length ? frontalBiometrics : frontMetricData);
+  const hasNeckWidthMetric = baseMetricData.some((metric) => /neck.*width/i.test(String(metric?.label || '')));
+  const neckWidthFallbackScore = firstFiniteMetricNumber(
+    dashboardData?.categories?.Dimorphism,
+    dashboardData?.categories?.Bone,
+    dashboardData?.finalRating,
+    60
+  );
+  const normalizedNeckWidthFallbackScore = neckWidthFallbackScore != null && neckWidthFallbackScore <= 10
+    ? neckWidthFallbackScore * 10
+    : neckWidthFallbackScore;
+  const metricData = !isSideView && !hasNeckWidthMetric
+    ? [
+        ...baseMetricData,
+        {
+          label: 'Neck Width (Visual)',
+          score: normalizedNeckWidthFallbackScore,
+          max: 100,
+          displayValue: 'Visual',
+          impact: 'neutral',
+          note: 'Visual neck width read; using the front guide image until a dedicated overlay exists.',
+        },
+      ]
+    : baseMetricData;
 
   const activeImageUrl = effectiveProfileView === 'front'
     ? (dashboardData?.frontImage || placeholderProfileImage)
@@ -8960,21 +8949,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   );
   const personalizedFeedback = Array.isArray(dashboardData?.personalizedFeedback)
     ? dashboardData.personalizedFeedback.filter((item) => item && (item.title || item.description))
-    : [];
-  const dashboardProtocols = Array.isArray(dashboardData?.protocols)
-    ? dashboardData.protocols
-        .filter(Boolean)
-        .map((protocol, index) => (
-          typeof protocol === 'string'
-            ? { id: index + 1, name: protocol, description: '', impact: '' }
-            : {
-                ...protocol,
-                id: protocol.id || index + 1,
-                name: protocol.name || protocol.title || `Protocol ${index + 1}`,
-                description: protocol.description || protocol.summary || '',
-                impact: protocol.impact || protocol.priority || '',
-              }
-        ))
     : [];
   const detailedReportStatus = String(dashboardData?.reportStatus || dashboardData?.payload?.reportStatus || '').toLowerCase();
   const isDetailedReportGenerating = detailedReportStatus === 'generating';
@@ -9126,7 +9100,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
   useEffect(() => {
     if (!isRestrictedPreview) return;
     const interval = setInterval(() => {
-      setFreeRatingLoop(Math.floor(40 + Math.random() * 60));
+      setFreeRatingLoop(Math.floor(70 + Math.random() * 30));
     }, 120);
     return () => clearInterval(interval);
   }, [isRestrictedPreview]);
@@ -9141,34 +9115,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     ? freeRatingLoop
     : (numericDisplayedFinalRating ?? 85);
   const ratingTone = getRatingToneClasses(displayedFinalRating);
-  const secretAppealScore = useMemo(() => {
-    const base10 = Math.max(0, Math.min(10, Number(scoreToDisplay10(numericDisplayedFinalRating ?? displayedFinalRating)) || 0));
-    const seedText = [
-      dashboardData?.scanRequestId,
-      dashboardData?.scanId,
-      dashboardData?.frontImage,
-      effectiveProfileView,
-      base10.toFixed(1),
-    ].filter(Boolean).join('|') || 'mogcheck-secret-score';
-    let hash = 2166136261;
-    for (let i = 0; i < seedText.length; i += 1) {
-      hash ^= seedText.charCodeAt(i);
-      hash = Math.imul(hash, 16777619);
-    }
-    const unit = (hash >>> 0) / 4294967295;
-    const score = Math.max(0, Math.min(10, base10 + (unit * 2 - 1)));
-    return Math.round(score * 10) / 10;
-  }, [dashboardData?.frontImage, dashboardData?.scanId, dashboardData?.scanRequestId, displayedFinalRating, effectiveProfileView, numericDisplayedFinalRating]);
-  const secretMogMetrics = useMemo(
-    () => [
-      ...radarData.map((item) => ({
-        label: item.label,
-        val: Math.max(0, Math.min(10, Number(item.val) || 0)),
-      })),
-      { label: 'Appeal', val: secretAppealScore },
-    ],
-    [radarData, secretAppealScore]
-  );
   const openAnimationsViewer = useCallback(() => {
     if (typeof window === 'undefined') return;
     const animationId =
@@ -9215,32 +9161,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     </button>
   ) : null;
   const radarFinalScore = Number(numericDisplayedFinalRating ?? dashboardData?.finalRating ?? 0) || 0;
-  const normalizeFreeDashboardScan = useCallback((scan) => {
-    const payload = scan?.payload && typeof scan.payload === 'object' ? scan.payload : {};
-    const model = getDashboardScanModel(scan) || selectedModel || getDashboardScanModel(dashboardData) || '3';
-    const selectedFreeModel = isFreeScanModel(model) ? model : (isFreeModelResult ? selectedModel || '3' : model);
-    return normalizeDashboardMedia({
-      ...payload,
-      ...scan,
-      selectedModel: selectedFreeModel,
-      payload: {
-        ...payload,
-        selectedModel: selectedFreeModel,
-      },
-      frontImage: scan?.frontImage || scan?.frontImageUrl || payload.frontImage || payload.frontImageUrl || dashboardData?.frontImage || placeholderProfileImage,
-      frontImageUrl: scan?.frontImageUrl || scan?.frontImage || payload.frontImageUrl || payload.frontImage || dashboardData?.frontImageUrl || dashboardData?.frontImage || placeholderProfileImage,
-      sideImage: scan?.sideImage || scan?.sideImageUrl || payload.sideImage || payload.sideImageUrl || dashboardData?.sideImage || scan?.frontImage || payload.frontImage || dashboardData?.frontImage || placeholderProfileImage,
-      sideImageUrl: scan?.sideImageUrl || scan?.sideImage || payload.sideImageUrl || payload.sideImage || dashboardData?.sideImageUrl || dashboardData?.sideImage || null,
-      finalRating: scan?.finalRating ?? payload.finalRating ?? dashboardData?.finalRating ?? 0,
-      sideRating: scan?.sideRating ?? payload.sideRating ?? dashboardData?.sideRating ?? scan?.finalRating ?? payload.finalRating ?? dashboardData?.finalRating ?? 0,
-      categories: scan?.categories || payload.categories || dashboardData?.categories || null,
-      sideCategories: scan?.sideCategories || payload.sideCategories || dashboardData?.sideCategories || null,
-      biometrics: Array.isArray(scan?.biometrics) ? scan.biometrics : (Array.isArray(payload.biometrics) ? payload.biometrics : (Array.isArray(dashboardData?.biometrics) ? dashboardData.biometrics : [])),
-      sideBiometrics: Array.isArray(scan?.sideBiometrics) ? scan.sideBiometrics : (Array.isArray(payload.sideBiometrics) ? payload.sideBiometrics : (Array.isArray(dashboardData?.sideBiometrics) ? dashboardData.sideBiometrics : [])),
-      scannedAt: scan?.scannedAt || scan?.timestamp || payload.scannedAt || dashboardData?.scannedAt || new Date().toISOString(),
-    });
-  }, [dashboardData, isFreeModelResult, selectedModel]);
-
   const freeHistoryCards = useMemo(() => {
     const items = Array.isArray(dashboardData?.scanHistory) ? [...dashboardData.scanHistory] : [];
     const currentSnapshot = dashboardData?.frontImage || dashboardData?.finalRating != null
@@ -9258,9 +9178,8 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     return items
       .filter((item) => item && (item.frontImage || item.finalRating != null))
       .slice(-PROFILE_SCAN_HISTORY_LIMIT)
-      .map(normalizeFreeDashboardScan)
       .reverse();
-  }, [dashboardData, normalizeFreeDashboardScan]);
+  }, [dashboardData]);
 
   const scrollFreeHistoryStrip = (direction) => {
     const el = freeHistoryStripRef.current;
@@ -9269,18 +9188,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
     el.scrollBy({ left: direction * amount, behavior: 'smooth' });
   };
   const isFreeHistoryScan = (scan) => ['3', '4', '5'].includes(String(scan?.selectedModel || scan?.model || scan?.payload?.selectedModel || '').trim());
-  const openFreeHistoryScan = useCallback((scan) => {
-    const normalizedScan = normalizeFreeDashboardScan(scan);
-    onOpenHistoryScan?.({
-      ...normalizedScan,
-      scanHistory: freeHistoryCards.slice().reverse(),
-      ratingHistory: freeHistoryCards
-        .slice()
-        .reverse()
-        .map((item) => Number(item?.finalRating))
-        .filter((value) => Number.isFinite(value)),
-    });
-  }, [freeHistoryCards, normalizeFreeDashboardScan, onOpenHistoryScan]);
 
   return (
     <div className={`w-full flex-grow flex flex-col items-center relative font-sans overflow-hidden bg-[#0a0a0b] ${isEmbedded ? '' : 'pt-16 pb-24 px-4 sm:px-6'}`}>
@@ -9288,6 +9195,18 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(18px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes dashboardPagerWiggleRight {
+          0%, 100% { transform: translateX(0); }
+          50% { transform: translateX(6px); }
+        }
+        @keyframes dashboardPagerWiggleLeft {
+          0%, 100% { transform: translateX(0); }
+          50% { transform: translateX(-6px); }
+        }
+        @keyframes dashboardSidePageIn {
+          from { opacity: 0; transform: translateX(72px); }
+          to { opacity: 1; transform: translateX(0); }
         }
       `}</style>
       {communityPeek && (
@@ -9339,13 +9258,6 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           </div>
         </div>
       )}
-      <SecretMogScoreModal
-        open={secretMogScoreOpen}
-        onClose={() => setSecretMogScoreOpen(false)}
-        imageUrl={activeImageUrl}
-        finalScore={numericDisplayedFinalRating ?? displayedFinalRating}
-        metrics={secretMogMetrics}
-      />
       <style>{`
         @keyframes freeRatingFlicker {
           0%, 100% { opacity: 0.92; filter: blur(9.25px); }
@@ -9354,8 +9266,30 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           75% { opacity: 0.88; filter: blur(8.325px); }
         }
       `}</style>
+      <button
+        type="button"
+        onClick={() => setDashboardSidePageOpen((prev) => !prev)}
+        className="fixed right-3 top-1/2 z-[60] hidden h-64 w-14 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/35 text-white/75 shadow-[0_0_28px_rgba(0,0,0,0.45)] backdrop-blur-md transition-colors hover:border-cyan-300/35 hover:bg-cyan-300/10 hover:text-white md:flex 2xl:right-6"
+        aria-label={dashboardSidePageOpen ? 'Return to analysis page' : 'Open next dashboard page'}
+      >
+        <span
+          className="flex items-center justify-center"
+          style={{
+            animation: `${dashboardSidePageOpen ? 'dashboardPagerWiggleLeft' : 'dashboardPagerWiggleRight'} 2.8s ease-in-out infinite`,
+          }}
+          aria-hidden="true"
+        >
+          {dashboardSidePageOpen ? <ChevronLeft size={62} strokeWidth={1.7} /> : <ChevronRight size={62} strokeWidth={1.7} />}
+        </span>
+      </button>
+      {dashboardSidePageOpen && (
+        <div
+          className="absolute inset-0 z-40 flex min-h-full bg-[#0a0a0b]"
+          style={{ animation: 'dashboardSidePageIn 420ms cubic-bezier(0.22,1,0.36,1) both' }}
+        />
+      )}
       <FadeUp>
-        <div className={`w-full mx-auto flex flex-col ${isFreeModelResult ? 'gap-8' : 'gap-12'} ${isEmbedded ? 'max-w-5xl' : 'max-w-6xl'}`}>
+        <div className={`w-full mx-auto flex flex-col gap-12 ${isEmbedded ? 'max-w-5xl' : 'max-w-6xl'}`}>
           {/* Mobile Header Buttons (Free Dashboard) */}
           {!isEmbedded && isFreeModelResult && (
             <div className="md:hidden">
@@ -9370,7 +9304,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                 </button>
               )}
               <div className="mb-6 flex items-center justify-between">
-                <span className="text-2xl font-black italic tracking-tighter text-white">FaceLab</span>
+                <span className="text-2xl font-black italic tracking-tighter text-white">MogCheck</span>
                 <button
                   type="button"
                   onClick={() => setCurrentPage('upload-photo')}
@@ -9396,112 +9330,55 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                 Detailed report loading
               </span>
             )}
-            {!isFreeModelResult && (dashboardData?.cohesiveFrontSide || effectiveCohesiveEnabled) && (
+            {(dashboardData?.cohesiveFrontSide || effectiveCohesiveEnabled) && (
               <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-300">
                 Cohesive side/front enabled
               </span>
             )}
           </div>
 
-          {/* Scan History Strip (Free) */}
-          {!isEmbedded && isFreeModelResult && freeHistoryCards.length > 0 && (
-            <div className="mb-2 md:mb-3">
-              <div className="mb-5 flex flex-col gap-3 px-1 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <h2 className="text-xl font-black uppercase tracking-[0.25em] text-white md:text-2xl">Face Analysis</h2>
-                  <p className="mt-1 text-[10px] font-sans uppercase tracking-widest text-zinc-500 md:text-sm">
-                    Snapshot of your latest scan, trajectory, and quick signals.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => scrollFreeHistoryStrip(-1)}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-800 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300 md:h-9 md:w-9"
-                    aria-label="Previous scans"
-                  >
-                    <ChevronLeft size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => scrollFreeHistoryStrip(1)}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-800 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-cyan-500/40 hover:text-cyan-300 md:h-9 md:w-9"
-                    aria-label="Next scans"
-                  >
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
+          {/* Mobile Scan History Strip (Free) */}
+          {!isEmbedded && isFreeModelResult && freeHistoryCards.length > 1 && (
+            <div className="mb-4 md:hidden">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">Scan History</p>
+                <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">{freeHistoryCards.length} scans</span>
               </div>
-
-              <div
-                ref={freeHistoryStripRef}
-                className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar scroll-smooth"
-              >
+              <div className="flex gap-2 overflow-x-auto pb-4 -mx-4 px-4 custom-scrollbar scroll-smooth">
                 {freeHistoryCards.map((scan, idx) => {
                   const isActive = scan?.frontImage === dashboardData?.frontImage && scan?.finalRating === dashboardData?.finalRating;
-                  const rating = Number(scan?.finalRating || 0);
+                  const rating = Number(scan.finalRating || 0);
                   const tone = getRatingToneClasses(rating);
-                  const frontImage = scan?.frontImage || scan?.sideImage || activeImageUrl;
-                  const sideImage = scan?.sideImage || scan?.frontImage || activeImageUrl;
-                  const scoreIsMasked = isFreeHistoryScan(scan) && rating === 0;
-
                   return (
                     <button
                       key={idx}
                       type="button"
-                      onClick={() => openFreeHistoryScan(scan)}
-                      className={`group relative flex h-20 w-40 shrink-0 overflow-hidden rounded-2xl border bg-[#0c0d0e] text-left transition-all md:h-24 md:w-48 ${isActive ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.18)]' : 'border-zinc-800 hover:border-zinc-700'}`}
+                      onClick={() => onOpenHistoryScan?.({
+                        ...scan,
+                        scanHistory: freeHistoryCards.slice().reverse(),
+                        ratingHistory: freeHistoryCards
+                          .slice()
+                          .reverse()
+                          .map((item) => Number(item?.finalRating))
+                          .filter((rating) => Number.isFinite(rating)),
+                      })}
+                      className={`relative flex-shrink-0 w-14 aspect-square rounded-xl overflow-hidden border transition-all duration-300 ${isActive ? 'border-cyan-400 ring-2 ring-cyan-400/15 scale-[1.05] z-10' : 'border-zinc-800 opacity-60 hover:opacity-100'}`}
                     >
-                      <div
-                        className={`absolute left-2 top-2 z-20 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-black italic tracking-tight ${
-                          scoreIsMasked
-                            ? 'animate-free-rating-bg blur-[2.5px] drop-shadow-[0_0_8px_rgba(16,185,129,0.7)]'
-                            : tone.text
-                        }`}
-                        style={{ WebkitTextFillColor: scoreIsMasked ? 'currentColor' : 'inherit' }}
+                      <img loading="lazy" decoding="async" src={scan.frontImage} className="w-full h-full object-cover" alt="" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                      <div className={`absolute bottom-1 left-0 right-0 text-center text-[9px] font-black italic ${tone.text} ${rating === 0 ? 'animate-free-rating-bg' : ''}`}
+                        style={{
+                          background: rating === 0 ? 'none' : 'white',
+                          WebkitBackgroundClip: rating === 0 ? 'text' : 'none',
+                          WebkitTextFillColor: rating === 0 ? 'transparent' : 'inherit',
+                          filter: rating === 0 ? 'blur(3.5px) saturate(0.85)' : 'none'
+                        }}
                       >
-                        {scoreIsMasked ? freeRatingLoop : rating.toFixed(1)}
+                        {rating === 0 ? freeRatingLoop : rating.toFixed(1)}
                       </div>
-
-                      <div className="relative flex-1 border-r border-zinc-900/50">
-                        <img
-                          loading="lazy"
-                          decoding="async"
-                          src={frontImage}
-                          className={`h-full w-full object-cover transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`}
-                          alt=""
-                        />
-                      </div>
-
-                      <div className="relative flex-1">
-                        <img
-                          loading="lazy"
-                          decoding="async"
-                          src={sideImage}
-                          className={`h-full w-full object-cover object-top transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'}`}
-                          alt=""
-                        />
-                      </div>
-
-                      {isActive && (
-                        <div className="absolute bottom-0 inset-x-0 h-1 bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
-                      )}
                     </button>
                   );
                 })}
-
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage('upload-photo')}
-                  className="flex h-20 w-16 shrink-0 flex-col items-center justify-center gap-1.5 rounded-2xl border border-zinc-800 bg-zinc-950/40 text-zinc-500 transition-all hover:border-zinc-600 hover:bg-zinc-900 hover:text-zinc-300 md:h-24 md:w-20"
-                  aria-label="Add scan"
-                >
-                  <Plus size={18} />
-                </button>
-
-                {freeHistoryCards.length < 3 && Array.from({ length: 3 - freeHistoryCards.length }).map((_, i) => (
-                  <div key={`empty-${i}`} className="h-20 w-32 shrink-0 rounded-2xl border border-zinc-900 bg-zinc-950/20 opacity-30 md:h-24 md:w-40" />
-                ))}
               </div>
             </div>
           )}
@@ -9528,11 +9405,20 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   <div className="flex min-h-[7.25rem] flex-col items-center justify-center rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-3 text-center shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
                     <span className="mb-2 text-[10px] font-black uppercase tracking-[0.26em] text-white">Final Rating</span>
                     <div className="relative">
-                      <GradientRatingText
-                        value={displayedFinalRating}
-                        endColor={ratingTone.stroke || '#22d3ee'}
-                        className={`text-5xl font-black italic tracking-tight ${isFreeModelResult ? 'select-none blur-[8px]' : ''}`}
-                      />
+                      <span
+                        className={`text-5xl font-black italic tracking-tight ${isFreeModelResult ? 'select-none animate-free-rating-bg' : ''}`}
+                        style={{
+                          backgroundImage: isFreeModelResult ? 'none' : `linear-gradient(to bottom, #ffffff 0%, #ffffff 48%, ${ratingTone.stroke || '#22d3ee'} 100%)`,
+                          backgroundClip: 'text',
+                          WebkitBackgroundClip: 'text',
+                          color: 'transparent',
+                          WebkitTextFillColor: 'transparent',
+                          display: 'inline-block',
+                          filter: `drop-shadow(0 0 18px ${ratingTone.stroke || 'rgba(34,211,238,0.18)'}) saturate(0.95) ${isFreeModelResult ? 'blur(8px)' : ''}`
+                        }}
+                      >
+                        {displayedFinalRating}
+                      </span>
                     </div>
                   </div>
                   <div className="relative flex min-h-[7.25rem] items-center justify-center overflow-hidden rounded-[26px] border border-zinc-900 bg-[#0c0d0e] p-4 shadow-[0_16px_42px_rgba(0,0,0,0.28)]">
@@ -9547,7 +9433,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
               {showBestFlaw && (
                 <div className="space-y-3">
                   {primaryBestFeature && (
-                    <FeatureHighlightCard type="best" feature={primaryBestFeature} onHover={setActiveHover} onSecretMouseDown={handleSecretBestFeatureMouseDown} />
+                    <FeatureHighlightCard type="best" feature={primaryBestFeature} onHover={setActiveHover} />
                   )}
                   {primaryFlawFeature && (
                     <FeatureHighlightCard type="flaw" feature={primaryFlawFeature} onHover={setActiveHover} />
@@ -9664,7 +9550,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           {/* Free vs Pro Adaptive Layout */}
           {isRestrictedPreview ? (
             <>
-              <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={effectiveProfileView} showFeatureLists={false} />
+              <DashboardOverview dashboardData={dashboardData} isRestrictedPreview={isRestrictedPreview} activeProfileView={effectiveProfileView} showFeatureLists={true} />
 
               <div className="hidden md:grid md:grid-cols-4 gap-6">
                 <div className="col-span-1 md:col-span-1 flex flex-col gap-6">
@@ -9674,17 +9560,28 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       <span className="font-sans text-[11px] uppercase tracking-[0.45em] mb-4 text-white">Final Rating</span>
                       <div className="relative leading-none">
                         <>
-                          <GradientRatingText
-                            value={displayedFinalRating}
-                            endColor={ratingTone.stroke || '#22d3ee'}
-                            className="absolute inset-0 text-6xl font-black italic tracking-tighter blur-[26px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none opacity-90"
-                            shadow={false}
-                          />
-                          <GradientRatingText
-                            value={displayedFinalRating}
-                            endColor={ratingTone.stroke || '#22d3ee'}
-                            className="relative text-6xl font-black italic tracking-tighter blur-[18px] animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none"
-                          />
+                          <span
+                            className={`absolute inset-0 block text-6xl font-black italic tracking-tighter animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none animate-free-rating-bg`}
+                            style={{
+                              background: 'none',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              filter: 'saturate(0.85) blur(25.9px)'
+                            }}
+                          >
+                            {displayedFinalRating}
+                          </span>
+                          <span
+                            className={`relative block text-6xl font-black italic tracking-tighter animate-[freeRatingFlicker_2.4s_ease-in-out_infinite] select-none drop-shadow-[0_0_15px_${ratingTone.stroke || 'rgba(74,222,128,0.4)'}] animate-free-rating-bg`}
+                            style={{
+                              background: 'none',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              filter: 'saturate(0.85) blur(18.5px)'
+                            }}
+                          >
+                            {displayedFinalRating}
+                          </span>
                         </>
                       </div>
                       {authenticityFlag && !isFreeModelResult && (
@@ -9754,7 +9651,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       {showBestFlaw && (
                         <div className="space-y-4">
                           {primaryBestFeature && (
-                            <FeatureHighlightCard type="best" feature={primaryBestFeature} onHover={setActiveHover} onSecretMouseDown={handleSecretBestFeatureMouseDown} />
+                            <FeatureHighlightCard type="best" feature={primaryBestFeature} onHover={setActiveHover} />
                           )}
                           {primaryFlawFeature && (
                             <FeatureHighlightCard type="flaw" feature={primaryFlawFeature} onHover={setActiveHover} />
@@ -9782,11 +9679,20 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                         {'Final Rating'}
                       </span>
                       <div className="relative leading-none w-full flex justify-center">
-                        <GradientRatingText
-                          value={displayedFinalRating}
-                          endColor={ratingTone.stroke || '#22d3ee'}
-                          className={`font-black tracking-tighter ${isFreeModelResult ? 'text-3xl' : 'text-[5.5rem] md:text-[6.5rem]'}`}
-                        />
+                        <span
+                          className={`block font-black tracking-tighter ${isFreeModelResult ? 'text-3xl animate-free-rating-bg' : 'text-[5.5rem] md:text-[6.5rem]'}`}
+                          style={{
+                            backgroundImage: isFreeModelResult ? 'none' : `linear-gradient(to bottom, #ffffff 40%, ${ratingTone.stroke || '#22d3ee'})`,
+                            backgroundClip: 'text',
+                            WebkitBackgroundClip: 'text',
+                            color: 'transparent',
+                            WebkitTextFillColor: 'transparent',
+                            display: 'inline-block',
+                            filter: 'saturate(0.85)'
+                          }}
+                        >
+                          {displayedFinalRating}
+                        </span>
                       </div>
                       {authenticityFlag && !isFreeModelResult && (
                         <span className="mt-3 max-w-[85%] rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[8px] font-bold uppercase tracking-[0.18em] text-red-300">
@@ -9803,7 +9709,10 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   <div className="relative bg-[#0c0d0e] rounded-2xl border border-zinc-800 flex items-center justify-center aspect-square shadow-lg overflow-hidden transition-all duration-500 hover:border-zinc-700">
                     <HexagonStats 
                       radarData4={radarData} 
-                      radarData5={radarData}
+                      radarData5={[
+                        ...radarData,
+                        { label: 'Bone', val: categoryToRadar10(dashboardData?.categories?.Bone || 8.5, radarFinalScore) }
+                      ]}
                       finalScore={radarFinalScore} 
                     />
                   </div>
@@ -9862,7 +9771,7 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                       {showBestFlaw && (
                         <div className="space-y-4">
                           {primaryBestFeature && (
-                            <FeatureHighlightCard type="best" feature={primaryBestFeature} onHover={setActiveHover} onSecretMouseDown={handleSecretBestFeatureMouseDown} />
+                            <FeatureHighlightCard type="best" feature={primaryBestFeature} onHover={setActiveHover} />
                           )}
                           {primaryFlawFeature && (
                             <FeatureHighlightCard type="flaw" feature={primaryFlawFeature} onHover={setActiveHover} />
@@ -9914,11 +9823,32 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           <div className="relative bg-[#0c0d0e] p-6 rounded-2xl border border-zinc-800 flex flex-col shadow-lg group hover:border-zinc-700 transition-colors">
             {isRestrictedPreview && renderBlurredOverlay("Detailed Ratios")}
             <div className={`flex flex-col ${isRestrictedPreview ? 'opacity-30 blur-[5.55px] pointer-events-none select-none' : ''}`}>
-              <h3 className="text-zinc-400 font-sans text-xs uppercase tracking-widest mb-6 flex items-center gap-2"><Activity size={14} className="text-zinc-500" /> Detailed Morphometric Ratios</h3>
+              <div className="mb-6 flex flex-wrap items-center gap-8">
+                <h3 className="flex items-center gap-2 text-xs font-sans uppercase tracking-widest text-zinc-400"><Activity size={14} className="text-zinc-500" /> Detailed Morphometric Ratios</h3>
+                {!isRestrictedPreview && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMetricCardView((current) => !current);
+                      setActiveMetricPanelKey(null);
+                    }}
+                    aria-pressed={metricCardView}
+                    className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 transition-colors hover:text-cyan-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`flex h-6 w-11 items-center rounded-full border p-0.5 transition-all duration-300 ${metricCardView ? 'border-cyan-300/55 bg-cyan-400/15' : 'border-zinc-700 bg-black/35'}`}
+                    >
+                      <span className={`h-[18px] w-[18px] rounded-full border transition-transform duration-300 ${metricCardView ? 'translate-x-5 border-cyan-200 bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.38)]' : 'translate-x-0 border-zinc-500 bg-zinc-900'}`} />
+                    </span>
+                    <span>Switch view</span>
+                  </button>
+                )}
+              </div>
               <div className="flex flex-col gap-6">
               {Object.entries(
                 metricData.reduce((acc, m) => {
-                  const labelLow = String(m?.label || '').toLowerCase();
+                  const labelLow = m.label.toLowerCase();
                   let cat = 'Other Ratios';
                   if (labelLow.includes('bigonial') || labelLow.includes('fwhr') || labelLow.includes('midface') || labelLow.includes('third') || labelLow.includes('zygo') || labelLow.includes('mandib') || labelLow.includes('chin')) cat = 'Skeletal Structure & Harmony';
                   else if (labelLow.includes('eye') || labelLow.includes('canthal') || labelLow.includes('ipd') || labelLow.includes('brow') || labelLow.includes('pupil')) cat = 'Eye / Upper Third Area';
@@ -9930,10 +9860,27 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
               ).map(([cat, metrics]) => (
                 <div key={cat} className="flex flex-col">
                   <h4 className="text-cyan-500/80 font-bold uppercase tracking-widest text-xs mb-3 border-b border-zinc-800/80 pb-2">{cat}</h4>
-                  <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 md:grid-cols-3">
-                    {metrics.map((m, i) => (
-                      <MetricBar key={i} label={m?.label || `Metric ${i + 1}`} score={Number(m?.score) || 0} max={Number(m?.max) || 100} displayValue={m?.displayValue} isFreePlan={isRestrictedPreview} />
-                    ))}
+                  <div className={`grid grid-cols-1 ${metricCardView ? 'gap-3 lg:grid-cols-2' : 'gap-x-8 gap-y-4 sm:grid-cols-2 md:grid-cols-3'}`}>
+                    {metrics.map((m, i) => {
+                      const metricPanelKey = `${effectiveProfileView}-${cat}-${m.label}-${i}`;
+                      return (
+                        <MetricBar
+                          key={metricPanelKey}
+                          label={m.label}
+                          score={m.score}
+                          max={m.max || 100}
+                          displayValue={m.displayValue}
+                          note={m.note}
+                          impact={m.impact}
+                          isFreePlan={isRestrictedPreview}
+                          rangeView
+                          cardView={metricCardView}
+                          isOpen={activeMetricPanelKey === metricPanelKey}
+                          onOpen={() => setActiveMetricPanelKey(metricPanelKey)}
+                          onClose={() => setActiveMetricPanelKey((current) => current === metricPanelKey ? null : current)}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -9968,8 +9915,8 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {(dashboardProtocols.length > 0
-                      ? dashboardProtocols
+                    {(dashboardData?.protocols && dashboardData.protocols.length > 0
+                      ? dashboardData.protocols
                       : [
                           { id: 1, name: 'Reduce Body Fat to 12%', description: 'Will vastly improve buccal framing and expose zygomatic arch', impact: 'Highest Impact' },
                           { id: 2, name: 'Minoxidil for Brows', description: 'Increasing eyebrow density by 15% will heavily boost dimorphism score', impact: 'High Impact' },
@@ -10004,16 +9951,16 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
                   </div>
                 )}
                     {detailedReportRetryButton}
-                    {!isDetailedReportGenerating && dashboardProtocols.length > 3 && (
+                    {!isDetailedReportGenerating && ((dashboardData?.protocols && dashboardData.protocols.length > 3) || (!dashboardData?.protocols && 3 > 3)) && (
                       <button onClick={() => setShowAllProtocols(!showAllProtocols)} className="mt-6 self-center px-6 py-2 border border-zinc-700 rounded-full text-zinc-400 text-[10px] font-sans uppercase tracking-widest hover:text-white hover:border-zinc-500 transition-colors flex items-center gap-2">
-                        {showAllProtocols ? 'Show Less' : `Show All ${dashboardProtocols.length} Protocols`}
+                        {showAllProtocols ? 'Show Less' : `Show All ${dashboardData?.protocols?.length || 3} Protocols`}
                         <ChevronDown size={14} className={`transition-transform duration-300 ${showAllProtocols ? 'rotate-180' : ''}`} />
                       </button>
                     )}
-                    {dashboardProtocols.length === 0 && !isRestrictedPreview && !isDetailedReportGenerating && !hasDetailedReportFailed && (
+                    {!dashboardData?.protocols?.length && !isRestrictedPreview && !isDetailedReportGenerating && !hasDetailedReportFailed && (
                       <p className="text-zinc-600 font-sans text-[10px] uppercase tracking-widest mt-4 text-center">Run a premium analysis to get personalized protocols based on your weak points</p>
                     )}
-                    {hasDetailedReportFailed && dashboardProtocols.length === 0 && (
+                    {hasDetailedReportFailed && !dashboardData?.protocols?.length && (
                       <p className="text-amber-300/80 font-sans text-[10px] uppercase tracking-widest mt-4 text-center">{visibleDetailedReportError || 'Detailed protocols could not be generated for this scan.'}</p>
                     )}
               </div>
@@ -10177,17 +10124,12 @@ const DashboardPage = ({ dashboardData, setDashboardData = null, setCurrentPage,
           )}
 
           {!isEmbedded && isFreeModelResult && (
-            <div className="mt-4 border-t border-zinc-900/50 pt-8">
-              <div className="w-full max-w-[1400px] mx-auto">
-                <CommunityScansSection
-                  setCurrentPage={setCurrentPage}
-                  user={user}
-                  onOpenScan={openCommunityScan}
-                  filterMode="all"
-                  showAddScan
-                />
-              </div>
-            </div>
+            <DashboardHubPreviewsCompact
+              setCurrentPage={setCurrentPage}
+              variant="sections"
+              onOpenCommunityScan={openCommunityScan}
+              onAddScan={() => setCurrentPage('photo-guide')}
+            />
           )}
 
           {!isEmbedded && !isFreeModelResult && (
@@ -10231,7 +10173,6 @@ const NoiseOverlay = () => (
 const PlansPage = ({ setCurrentPage, user }) => {
   const [tosAgreed, setTosAgreed] = useState(false);
   const [planNotice, setPlanNotice] = useState('');
-  const [proAnnual, setProAnnual] = useState(false);
 
   const handleCheckout = (plan) => {
     if (!tosAgreed) {
@@ -10243,13 +10184,13 @@ const PlansPage = ({ setCurrentPage, user }) => {
       return;
     }
     if (isLivePaddleBlockedOnLocalhost()) {
-      setPlanNotice('Paddle live checkout cannot run on localhost. Use facelab.online for live checkout, or add Paddle sandbox token/price IDs to .env.local for local testing.');
+      setPlanNotice('Paddle live checkout cannot run on localhost. Use mogcheck.net for live checkout, or add Paddle sandbox token/price IDs to .env.local for local testing.');
       return;
     }
     if (!PADDLE_PRICE_IDS[plan]) {
       setPlanNotice(
         plan === 'pro_yearly'
-          ? 'Yearly FaceLab Pro checkout is not configured yet. Add VITE_PADDLE_PRICE_PRO_YEARLY and redeploy, then try again.'
+          ? 'Yearly MogCheck Pro checkout is not configured yet. Add VITE_PADDLE_PRICE_PRO_YEARLY and redeploy, then try again.'
           : 'This checkout option is not configured yet. Please refresh and try again in a moment.'
       );
       return;
@@ -10286,187 +10227,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
       </div>
     </FadeUp>
 
-    <div className="mx-auto grid w-full max-w-6xl items-center gap-6 lg:grid-cols-[0.9fr_1.08fr_0.9fr] relative z-10">
-      <FadeUp delay={120}>
-        <div className="group flex min-h-[540px] flex-col rounded-[28px] border border-zinc-800 bg-zinc-950/55 p-7 shadow-[0_18px_70px_rgba(0,0,0,0.24)] transition-all duration-500 hover:-translate-y-2 hover:border-zinc-600">
-          <div className="mb-8">
-            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.34em] text-zinc-500">Starter</p>
-            <h3 className="text-4xl font-black italic uppercase tracking-tighter text-white">Free</h3>
-          </div>
-          <div className="mb-8 flex items-end gap-2">
-            <span className="text-6xl font-black tracking-tighter text-white">$0</span>
-            <span className="pb-2 text-xs font-sans uppercase tracking-[0.24em] text-zinc-600">Forever</span>
-          </div>
-          <div className="mb-8 h-px w-full bg-zinc-800" />
-          <ul className="mb-10 flex flex-col gap-4 text-sm font-sans text-zinc-400">
-            <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-zinc-500" /> Basic appearance overview & general rating</li>
-            <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-zinc-500" /> Structural symmetry snapshot</li>
-            <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-zinc-500" /> 1 scan per day</li>
-            <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No detailed facial biometrics</li>
-            <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No AI potential analysis</li>
-            <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No personalized protocols</li>
-            <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No celebrity lookalike matching</li>
-          </ul>
-          <button
-            type="button"
-            onClick={() => setCurrentPage('photo-guide')}
-            className="group mt-auto inline-flex items-center justify-center gap-3 rounded-2xl border border-cyan-400/30 bg-[linear-gradient(135deg,rgba(15,23,42,0.92),rgba(8,47,73,0.9))] px-5 py-4 text-xs font-black uppercase tracking-[0.24em] text-cyan-100 shadow-[0_0_28px_rgba(34,211,238,0.08)] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/60 hover:shadow-[0_0_36px_rgba(34,211,238,0.16)]"
-          >
-            <span className="flex h-7 w-7 items-center justify-center rounded-full border border-cyan-400/30 bg-cyan-400/10 text-cyan-300">
-              <Plus size={14} />
-            </span>
-            Start Free
-            <ChevronRight size={16} className="transition-transform duration-300 group-hover:translate-x-0.5" />
-          </button>
-        </div>
-      </FadeUp>
-
-      <FadeUp delay={200}>
-        <div className={`relative flex min-h-[820px] flex-col overflow-hidden rounded-[30px] bg-zinc-950 p-8 transition-all duration-[2200ms] hover:-translate-y-3 ${
-          proAnnual
-            ? 'border border-emerald-500/35 shadow-[0_0_80px_rgba(16,185,129,0.11)] hover:border-emerald-300/70 hover:shadow-[0_0_100px_rgba(16,185,129,0.18)]'
-            : 'border border-yellow-400/45 shadow-[0_0_80px_rgba(234,179,8,0.13)] hover:border-yellow-300/70 hover:shadow-[0_0_100px_rgba(234,179,8,0.2)]'
-        }`}>
-          <div className={`pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(250,204,21,0.18),transparent_34%),linear-gradient(180deg,rgba(28,22,4,0.92),rgba(9,9,11,0.96))] transition-opacity duration-[2200ms] ease-in-out ${proAnnual ? 'opacity-0' : 'opacity-100'}`} />
-          <div className={`pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(16,185,129,0.18),transparent_34%),linear-gradient(180deg,rgba(9,21,27,0.92),rgba(9,9,11,0.96))] transition-opacity duration-[2200ms] ease-in-out ${proAnnual ? 'opacity-100' : 'opacity-0'}`} />
-          <div className="relative z-10 flex flex-1 flex-col">
-            <div className="mb-8 text-center">
-              <h3 className={`text-5xl font-black italic uppercase tracking-tighter text-white transition-[filter] duration-700 ${
-                proAnnual
-                  ? 'drop-shadow-[0_0_24px_rgba(16,185,129,0.24)]'
-                  : 'drop-shadow-[0_0_24px_rgba(234,179,8,0.22)]'
-              }`}>Pro</h3>
-              <p className={`-mt-1 text-xs font-sans uppercase tracking-[0.24em] transition-colors duration-700 ${proAnnual ? 'text-emerald-200/80' : 'text-yellow-200/80'}`}>Most popular</p>
-            </div>
-            <div className="mb-8 flex items-center justify-between gap-4">
-              <div>
-                <p className={`mb-2 text-[10px] font-black uppercase tracking-[0.34em] transition-colors duration-700 ${proAnnual ? 'text-emerald-400/70' : 'text-yellow-400/70'}`}>Full access</p>
-                <p className="text-sm font-sans text-zinc-400">{proAnnual ? 'Annual billing' : 'Monthly billing'}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setProAnnual((value) => !value)}
-                className={`group/toggle flex h-11 w-24 items-center rounded-full bg-black/35 p-1 transition-all duration-700 ${
-                  proAnnual
-                    ? 'border border-emerald-300/40 ring-1 ring-emerald-400/20 hover:border-emerald-200/75 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/55'
-                    : 'border border-yellow-300/35 ring-1 ring-yellow-300/15 hover:border-yellow-200/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-200/55'
-                }`}
-                aria-pressed={proAnnual}
-              >
-                <span className={`h-9 w-9 rounded-full transition-all duration-700 ${
-                  proAnnual
-                    ? 'translate-x-[52px] bg-gradient-to-br from-emerald-100 to-emerald-400 shadow-[0_0_22px_rgba(16,185,129,0.42)]'
-                    : 'translate-x-0 bg-gradient-to-br from-yellow-100 to-yellow-400 shadow-[0_0_18px_rgba(250,204,21,0.36)]'
-                }`} />
-              </button>
-            </div>
-            <div className="mb-2 flex items-end gap-2">
-              <span className="text-6xl font-black tracking-tighter text-white">{proAnnual ? '$12' : '$15'}</span>
-              <span className="pb-2 text-xs font-sans uppercase tracking-[0.24em] text-zinc-500">/mo</span>
-            </div>
-            <p className="mb-6 text-xs font-sans uppercase tracking-[0.18em] text-zinc-400">
-              {proAnnual ? <>Billed annually at <span className="line-through text-zinc-600">$180</span> <span className="text-emerald-300">$144</span></> : 'Cancel anytime, no commitment'}
-            </p>
-            <div className={`mb-8 inline-flex w-fit rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] transition-colors duration-700 ${
-              proAnnual
-                ? 'border border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
-                : 'border border-yellow-400/25 bg-yellow-400/10 text-yellow-200'
-            }`}>
-              {proAnnual ? 'Save $36 yearly' : 'Switch to annual to save'}
-            </div>
-            <div className={`mb-8 h-px w-full transition-colors duration-700 ${proAnnual ? 'bg-emerald-500/15' : 'bg-yellow-400/15'}`} />
-            <p className={`mb-5 font-sans text-[10px] uppercase tracking-[0.24em] transition-colors duration-700 ${proAnnual ? 'text-emerald-400/60' : 'text-yellow-500/60'}`}>
-              {proAnnual ? 'Everything in monthly Pro, plus' : 'Everything in 2 Scans, plus'}
-            </p>
-            <ul className="mb-10 flex min-h-[250px] flex-col gap-4 text-sm font-sans text-zinc-300">
-              {proAnnual ? (
-                <>
-                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> Best monthly rate for long-term access</li>
-                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> Unlimited analysis (fair usage)</li>
-                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> AI potential analysis, protocols, and progress tracking</li>
-                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-emerald-400" /> Full-detail biometric breakdowns and premium dashboard access</li>
-                </>
-              ) : (
-                <>
-                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Unlimited analysis (fair usage)</li>
-                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> AI potential analysis - see your projected best self</li>
-                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Full-detail AI facial analysis with 40+ biometric measurements</li>
-                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Customized personal improvement protocols</li>
-                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Celebrity lookalike matching & comparison</li>
-                  <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-yellow-500" /> Progress tracking dashboard</li>
-                </>
-              )}
-            </ul>
-            <label className="mb-4 flex items-start gap-3 cursor-pointer group">
-              <input
-                type="checkbox"
-                className={`mt-1 shrink-0 cursor-pointer ${proAnnual ? 'accent-emerald-500' : 'accent-yellow-500'}`}
-                checked={tosAgreed}
-                onChange={(e) => setTosAgreed(e.target.checked)}
-              />
-              <span className="text-zinc-500 font-sans text-[10px] leading-tight group-hover:text-zinc-400 transition-colors">
-                I agree to the <a href="/tos" onClick={(e) => { e.preventDefault(); setCurrentPage('tos'); }} className={`${proAnnual ? 'text-emerald-400 hover:text-emerald-300' : 'text-yellow-500 hover:text-yellow-400'} underline`}>Terms of Service</a> and acknowledge that I lose my right to a refund once the AI analysis is generated.
-              </span>
-            </label>
-            <button
-              type="button"
-              onClick={() => handleCheckout(proAnnual ? 'pro_yearly' : 'pro')}
-              className={`mt-auto rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-[0.24em] text-black transition-all duration-700 hover:scale-[1.02] ${
-                proAnnual
-                  ? 'bg-gradient-to-r from-emerald-600 to-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.3)]'
-                  : 'bg-gradient-to-r from-yellow-500 to-yellow-300 shadow-[0_0_30px_rgba(234,179,8,0.28)]'
-              }`}
-            >
-              {proAnnual ? 'Go Yearly' : 'Upgrade To Pro'}
-            </button>
-          </div>
-        </div>
-      </FadeUp>
-
-      <FadeUp delay={280}>
-        <div className="group flex min-h-[600px] flex-col rounded-[28px] border border-cyan-500/30 bg-[linear-gradient(180deg,rgba(8,20,28,0.74),rgba(9,9,11,0.94))] p-7 shadow-[0_18px_80px_rgba(34,211,238,0.07)] transition-all duration-500 hover:-translate-y-2 hover:border-cyan-300/55 hover:shadow-[0_0_80px_rgba(34,211,238,0.14)]">
-          <div className="mb-8">
-            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.34em] text-cyan-300/70">One-time</p>
-            <h3 className="text-4xl font-black italic uppercase tracking-tighter text-white">2 Scans</h3>
-          </div>
-          <div className="mb-8 flex items-end gap-2">
-            <span className="text-6xl font-black tracking-tighter text-white">$8</span>
-            <span className="pb-2 text-xs font-sans uppercase tracking-[0.24em] text-zinc-600">Once</span>
-          </div>
-          <div className="mb-8 h-px w-full bg-cyan-500/20" />
-          <p className="mb-5 font-sans text-[10px] uppercase tracking-[0.24em] text-cyan-400/60">Two premium analyses include</p>
-          <ul className="mb-10 flex flex-col gap-4 text-sm font-sans text-zinc-300">
-            <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> 2 full-detail AI facial analyses with 40+ measurements</li>
-            <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> Exact final rating with detailed ratio breakdown</li>
-            <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> Customized personal improvement protocols</li>
-            <li className="flex gap-3"><Check size={16} className="mt-0.5 shrink-0 text-cyan-300" /> Celebrity lookalike matching & comparison</li>
-            <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No AI potential analysis</li>
-            <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No ongoing monthly access</li>
-            <li className="flex gap-3 text-zinc-600"><X size={16} className="mt-0.5 shrink-0 text-zinc-700" /> No progress tracking</li>
-          </ul>
-          <label className="mb-4 flex items-start gap-3 cursor-pointer group">
-            <input
-              type="checkbox"
-              className="mt-1 shrink-0 cursor-pointer accent-cyan-500"
-              checked={tosAgreed}
-              onChange={(e) => setTosAgreed(e.target.checked)}
-            />
-            <span className="text-zinc-500 font-sans text-[10px] leading-tight group-hover:text-zinc-400 transition-colors">
-              I agree to the <a href="/tos" onClick={(e) => { e.preventDefault(); setCurrentPage('tos'); }} className="text-cyan-400 hover:text-cyan-300 underline">Terms of Service</a> and acknowledge that I lose my right to a refund once the AI analysis is generated.
-            </span>
-          </label>
-          <button
-            type="button"
-            onClick={() => handleCheckout('single_scan')}
-            className="mt-auto rounded-2xl border border-cyan-300/45 bg-cyan-400/10 px-5 py-4 text-xs font-black uppercase tracking-[0.24em] text-cyan-100 shadow-[0_0_26px_rgba(34,211,238,0.14)] transition-all hover:bg-cyan-300 hover:text-black"
-          >
-            Buy 2 Scans
-          </button>
-        </div>
-      </FadeUp>
-    </div>
-
-    <div className="hidden grid-cols-1 lg:grid-cols-4 gap-6 w-full max-w-7xl relative z-10">
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 w-full max-w-7xl relative z-10">
 
       {/* --- Free --- */}
       <FadeUp delay={150}>
@@ -10558,7 +10319,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
         </div>
       </FadeUp>
 
-      {/* --- FaceLab Pro Monthly --- */}
+      {/* --- MogCheck Pro Monthly --- */}
       <FadeUp delay={450}>
         <div className="h-full bg-gradient-to-b from-[#1a1600] via-zinc-900/80 to-[#0c0d0e] border border-yellow-500/40 rounded-3xl p-8 md:p-10 flex flex-col relative shadow-[0_0_80px_rgba(234,179,8,0.08)] hover:shadow-[0_0_80px_rgba(234,179,8,0.15)] transition-shadow">
           <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-600 to-yellow-400 text-black px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Monthly</div>
@@ -10568,7 +10329,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
               <MogCheckLogoIcon size={28} className="opacity-95 [filter:drop-shadow(0_0_8px_rgba(234,179,8,0.4))]" />
             </div>
             <div>
-              <h3 className="text-xl font-black uppercase italic tracking-tighter text-yellow-500">FaceLab Pro</h3>
+              <h3 className="text-xl font-black uppercase italic tracking-tighter text-yellow-500">MogCheck Pro</h3>
               <p className="text-yellow-500/40 font-sans text-[9px] uppercase tracking-widest">Full access</p>
             </div>
           </div>
@@ -10611,7 +10372,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
         </div>
       </FadeUp>
 
-      {/* --- FaceLab Pro Annual --- */}
+      {/* --- MogCheck Pro Annual --- */}
       <FadeUp delay={600}>
         <div className="h-full bg-gradient-to-b from-[#09151b] via-zinc-900/80 to-[#0c0d0e] border border-emerald-500/35 rounded-3xl p-8 md:p-10 flex flex-col relative shadow-[0_0_80px_rgba(16,185,129,0.08)] hover:shadow-[0_0_80px_rgba(16,185,129,0.15)] transition-shadow">
           <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-emerald-600 to-emerald-400 text-black px-5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg">Annual</div>
@@ -10621,7 +10382,7 @@ const PlansPage = ({ setCurrentPage, user }) => {
               <MogCheckLogoIcon size={28} className="opacity-95 [filter:drop-shadow(0_0_8px_rgba(16,185,129,0.4))]" />
             </div>
             <div>
-              <h3 className="text-xl font-black uppercase italic tracking-tighter text-emerald-400">FaceLab Pro</h3>
+              <h3 className="text-xl font-black uppercase italic tracking-tighter text-emerald-400">MogCheck Pro</h3>
               <p className="text-emerald-400/40 font-sans text-[9px] uppercase tracking-widest">Yearly billing</p>
             </div>
           </div>
@@ -10726,9 +10487,6 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
   const [visitorStats, setVisitorStats] = useState(null);
   const [visitorStatsLoading, setVisitorStatsLoading] = useState(false);
   const [visitorStatsError, setVisitorStatsError] = useState('');
-  const [qwenHealth, setQwenHealth] = useState(null);
-  const [qwenHealthLoading, setQwenHealthLoading] = useState(false);
-  const [qwenHealthError, setQwenHealthError] = useState('');
   const [planDrafts, setPlanDrafts] = useState({});
   const [planSaveLoading, setPlanSaveLoading] = useState({});
   const [planSaveError, setPlanSaveError] = useState({});
@@ -10738,7 +10496,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
   const [scanLimitActionLoading, setScanLimitActionLoading] = useState({});
   const [pendingAdminDeleteUser, setPendingAdminDeleteUser] = useState(null);
   const [adminNotice, setAdminNotice] = useState('');
-  const [announcementDraft, setAnnouncementDraft] = useState({ title: 'FaceLab Announcement', body: '', url: '' });
+  const [announcementDraft, setAnnouncementDraft] = useState({ title: 'MogCheck Announcement', body: '', url: '' });
   const [announcementSending, setAnnouncementSending] = useState(false);
   const [announcementStatus, setAnnouncementStatus] = useState('');
   const storedPw = useRef('');
@@ -10850,28 +10608,6 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
     }
   }, [buildAdminHeaders, isAdminUser, visitorRange]);
 
-  const fetchQwenHealth = useCallback(async (pw = storedPw.current, forceRefresh = false) => {
-    if (!pw && !isAdminUser) return;
-    setQwenHealthLoading(true);
-    setQwenHealthError('');
-    try {
-      const url = `${API_BASE}/api/admin/qwen-health${forceRefresh ? '?refresh=1' : ''}`;
-      const headers = await buildAdminHeaders(pw);
-      const res = await fetch(url, {
-        headers,
-        cache: 'no-store',
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Failed to fetch Qwen health');
-      setQwenHealth(data);
-    } catch (err) {
-      setQwenHealth(null);
-      setQwenHealthError(err.message || 'Failed to fetch Qwen health');
-    } finally {
-      setQwenHealthLoading(false);
-    }
-  }, [buildAdminHeaders, isAdminUser]);
-
   const handleLogin = (e) => {
     e.preventDefault();
     const pw = String(password || '').trim() || 'ascend-admin';
@@ -10890,11 +10626,6 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
     if (!authenticated) return;
     fetchVisitorStats(visitorRange);
   }, [authenticated, fetchVisitorStats, visitorRange]);
-
-  useEffect(() => {
-    if (!authenticated) return;
-    fetchQwenHealth(storedPw.current);
-  }, [authenticated, fetchQwenHealth]);
 
   useEffect(() => {
     if (authenticated || loading || !isAdminUser) return;
@@ -10916,7 +10647,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
     return ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(0)}s`;
   };
 
-  const modelLabel = (m) => ({ '1': 'Premium Model', '2': 'Backup Model', '6': 'Premium Model', '7': 'Premium Model', '8': 'Premium Model', '9': 'Premium Model', '10': 'Qwen model (Testing)', '11': 'anthropic/claude-sonnet-4.6', '12': 'openai/gpt-5.4', '13': 'google/gemini-3.1-pro-preview', '14': 'Haiiii', [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo', '3': 'Free' }[m] || m);
+  const modelLabel = (m) => ({ '1': 'Premium Model', '2': 'Backup Model', '6': 'Premium Model', '7': 'Premium Model', '8': 'Premium Model', '9': 'Premium Model', '13': 'google/gemini-3.1-pro-preview', [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo', '3': 'Free' }[m] || m);
   const adminUserSections = useMemo(() => {
     const newUsers = [];
     const goatUsers = [];
@@ -10966,7 +10697,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Failed to send announcement');
       setAnnouncementStatus(`Sent to ${data.count || 0} user${Number(data.count) === 1 ? '' : 's'}.`);
-      setAnnouncementDraft({ title: 'FaceLab Announcement', body: '', url: '' });
+      setAnnouncementDraft({ title: 'MogCheck Announcement', body: '', url: '' });
     } catch (err) {
       setAnnouncementStatus(err.message || 'Failed to send announcement');
     } finally {
@@ -11145,10 +10876,10 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
             cache: 'no-store',
           }).then(async (res) => {
             const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data?.error || 'Failed to fetch Face Battles');
+            if (!res.ok) throw new Error(data?.error || 'Failed to fetch Mog Battles');
             setUserMogBattlesByUser((prev) => ({ ...prev, [uid]: data.battles || [] }));
           }).catch((err) => {
-            setUserMogBattlesError((prev) => ({ ...prev, [uid]: err.message || 'Failed to fetch Face Battles' }));
+            setUserMogBattlesError((prev) => ({ ...prev, [uid]: err.message || 'Failed to fetch Mog Battles' }));
           })
         );
       }
@@ -11215,7 +10946,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
         headers: { 'x-admin-password': storedPw.current }
       });
       const data = await delRes.json().catch(() => ({}));
-      if (!delRes.ok) throw new Error(data.error || 'Failed to delete Face Battle');
+      if (!delRes.ok) throw new Error(data.error || 'Failed to delete Mog Battle');
       setUserMogBattlesByUser((prev) => ({
         ...prev,
         [uid]: Array.isArray(prev[uid]) ? prev[uid].filter((battle) => battle.id !== battleId) : [],
@@ -11325,11 +11056,6 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
         </div>
       </div>
 
-
-      <div className="mb-6 rounded-xl border border-red-500 bg-red-500/15 px-4 py-3 text-center font-sans text-sm font-black uppercase tracking-[0.28em] text-red-300 shadow-[0_0_24px_rgba(239,68,68,0.25)]">
-        CODEX LIVE ADMIN MARKER - MODEL FIX DEPLOY PATH CHECK - 2026-05-18
-      </div>
-
       {error && <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-sans">{error}</div>}
 
       {stats && (
@@ -11374,7 +11100,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
                   value={announcementDraft.title}
                   onChange={(e) => setAnnouncementDraft((prev) => ({ ...prev, title: e.target.value }))}
                   className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-sans text-zinc-100 outline-none transition-colors focus:border-cyan-500/50"
-                  placeholder="FaceLab Announcement"
+                  placeholder="MogCheck Announcement"
                 />
               </label>
               <label className="block">
@@ -11518,74 +11244,6 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
                 );
               })()}
             </div>
-          </div>
-
-          <div className="mb-6 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-5">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Server size={14} className="text-violet-300" />
-                <h3 className="font-sans text-xs uppercase tracking-widest text-zinc-300">Qwen / OpenRouter Health</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => fetchQwenHealth(storedPw.current, true)}
-                disabled={qwenHealthLoading}
-                className="rounded-lg border border-zinc-700 bg-zinc-900/70 px-3 py-2 text-[10px] font-sans uppercase tracking-widest text-zinc-300 transition-colors hover:border-violet-400/40 hover:text-violet-200 disabled:opacity-50"
-              >
-                {qwenHealthLoading ? 'Checking...' : 'Refresh'}
-              </button>
-            </div>
-
-            {qwenHealthError ? (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs font-sans text-red-400">
-                {qwenHealthError}
-              </div>
-            ) : qwenHealth ? (
-              <>
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                    <p className="text-[10px] font-sans uppercase tracking-[0.24em] text-zinc-500">Overall</p>
-                    <p className={`mt-2 text-sm font-black uppercase tracking-widest ${qwenHealth.summary?.status === 'healthy' ? 'text-emerald-300' : qwenHealth.summary?.status === 'degraded' ? 'text-amber-300' : 'text-red-300'}`}>
-                      {qwenHealth.summary?.status || 'unknown'}
-                    </p>
-                    <p className="mt-2 text-[10px] font-sans text-zinc-500">
-                      {qwenHealth.checkedAt ? `Checked ${new Date(qwenHealth.checkedAt).toLocaleTimeString()}` : 'No check yet'}
-                    </p>
-                    <p className="mt-1 text-[10px] font-sans text-zinc-600">
-                      {qwenHealth.cached ? `Cached for ${Math.round((qwenHealth.cacheTtlMs || 0) / 1000)}s` : 'Live result'}
-                    </p>
-                  </div>
-                  {[
-                    ['Text test', qwenHealth.text],
-                    ['Vision test', qwenHealth.vision],
-                  ].map(([label, result]) => (
-                    <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-[10px] font-sans uppercase tracking-[0.24em] text-zinc-500">{label}</p>
-                        <span className={`rounded-full border px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.2em] ${result?.ok ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300' : 'border-red-500/25 bg-red-500/10 text-red-300'}`}>
-                          {result?.ok ? 'OK' : 'Fail'}
-                        </span>
-                      </div>
-                      <p className="mt-3 text-xs font-sans text-zinc-300">
-                        {result?.error || result?.preview || 'No response'}
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2 text-[9px] font-sans uppercase tracking-[0.18em] text-zinc-600">
-                        <span>{result?.latencyMs != null ? `${result.latencyMs} ms` : 'No latency'}</span>
-                        <span>{result?.finishReason || 'No finish reason'}</span>
-                        <span>{result?.outputTokens != null ? `${result.outputTokens} out` : 'No token count'}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <p className="mt-3 text-[10px] font-sans text-zinc-500">
-                  Model: <span className="text-zinc-300">{qwenHealth.modelId || 'Not configured'}</span>
-                </p>
-              </>
-            ) : (
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-5 text-center text-xs font-sans uppercase tracking-widest text-zinc-500">
-                No Qwen health check yet.
-              </div>
-            )}
           </div>
 
           {/* Hourly Activity Chart */}
@@ -12035,7 +11693,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
                                                 </span>
                                                 <span className="text-xs font-sans text-zinc-200">
                                                   {event.type === 'mog_battle_vote'
-                                                    ? `${event.battleName || event.battleId || 'Face Battle'} - ${String(event.side || '').toUpperCase()}`
+                                                    ? `${event.battleName || event.battleId || 'Mog Battle'} - ${String(event.side || '').toUpperCase()}`
                                                     : (event.page || event.path || 'Unknown page')}
                                                 </span>
                                                 <span className="ml-auto rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[9px] font-sans uppercase tracking-[0.22em] text-violet-300">{event.platform || 'unknown'}</span>
@@ -12094,7 +11752,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
                                     ) : mogBattlesError ? (
                                       <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs font-sans text-red-400">{mogBattlesError}</div>
                                     ) : mogBattles.length === 0 ? (
-                                      <div className="py-6 text-center text-zinc-500 text-xs font-sans uppercase tracking-widest">No Face Battles found for this user.</div>
+                                      <div className="py-6 text-center text-zinc-500 text-xs font-sans uppercase tracking-widest">No Mog Battles found for this user.</div>
                                     ) : (
                                       <div className="space-y-3">
                                         {mogBattles.map((battle) => {
@@ -12480,7 +12138,7 @@ const AdminFooterTrigger = ({ setCurrentPage }) => {
   return (
     <div className="flex items-center gap-2.5 cursor-pointer select-none" onClick={handleClick}>
       <MogCheckLogoMark size={32} className="w-8 h-8" />
-      <span className="text-2xl font-black italic tracking-tighter">FaceLab</span>
+      <span className="text-2xl font-black italic tracking-tighter">MogCheck</span>
     </div>
   );
 };
@@ -12504,6 +12162,7 @@ const App = () => {
   const [analysisDockCollapsed, setAnalysisDockCollapsed] = useState(false);
   const [focusedAnalysisJobId, setFocusedAnalysisJobId] = useState(null);
   const [activeScanRestoreLoading, setActiveScanRestoreLoading] = useState(false);
+  const [premiumProofOpen, setPremiumProofOpen] = useState(false);
   const analysisJobsRef = useRef([]);
 
   useEffect(() => {
@@ -12526,7 +12185,16 @@ const App = () => {
     }
   }, [user?.uid]);
 
-  const openPremiumPlansPage = useCallback(() => {
+  const openPremiumPlansProof = useCallback(() => {
+    if (currentPage === 'plans') {
+      setCurrentPage('plans');
+      return;
+    }
+    setPremiumProofOpen(true);
+  }, [currentPage, setCurrentPage]);
+
+  const continueToPremiumPlans = useCallback(() => {
+    setPremiumProofOpen(false);
     setCurrentPage('plans');
   }, [setCurrentPage]);
 
@@ -12683,7 +12351,7 @@ const App = () => {
   }, [currentPage, user?.uid]);
 
   useEffect(() => {
-    if (currentPage !== 'upload-photo' && currentPage !== 'upload-ultra') {
+    if (currentPage !== 'upload-photo' && currentPage !== 'upload-ultra' && currentPage !== 'photo-guide') {
       setPendingUploadModel(null);
       setPendingUploadProfileId(null);
     }
@@ -12699,12 +12367,14 @@ const App = () => {
   }, [dashboardData]);
 
   const isFreeModelDashboard = useMemo(() => {
-    return isFreeScanModel(getDashboardScanModel(dashboardData));
-  }, [dashboardData]);
+    const model = String(dashboardData?.selectedModel || '').trim();
+    return model === '3' || model === '4' || model === '5';
+  }, [dashboardData?.selectedModel]);
 
   const isPremiumModelDashboard = useMemo(() => {
-    return PREMIUM_MODEL_IDS.has(getDashboardScanModel(dashboardData));
-  }, [dashboardData]);
+    const model = String(dashboardData?.selectedModel || '').trim();
+    return PREMIUM_MODEL_IDS.has(model);
+  }, [dashboardData?.selectedModel]);
 
   useEffect(() => {
     const reportStatus = String(dashboardData?.reportStatus || dashboardData?.payload?.reportStatus || '').toLowerCase();
@@ -12778,6 +12448,16 @@ const App = () => {
 
   const useProDashboard = Boolean(user || hasScanData) && !isFreeModelDashboard;
   const isScanOnlyPage = currentPage === 'public-scan';
+  const defaultNewScanModel = user && (
+    isAdminEmail(user?.email) ||
+    isProPlan(userPlan) ||
+    Number(userPlan?.scanCredits || 0) > 0
+  ) ? '9' : '3';
+  const startScanFromNav = useCallback(() => {
+    setPendingUploadModel(defaultNewScanModel);
+    setPendingUploadProfileId(null);
+    setCurrentPage('photo-guide');
+  }, [defaultNewScanModel, setCurrentPage]);
 
   const registerCompletedScan = useCallback((data, meta = {}, options = {}) => {
     const completedAt = new Date().toISOString();
@@ -13161,10 +12841,18 @@ const App = () => {
         <Navbar
           currentPage={currentPage}
           setCurrentPage={setCurrentPage}
+          onOpenPremiumPlans={openPremiumPlansProof}
+          onStartScan={startScanFromNav}
           user={user}
           onSignOut={handleSignOut}
           userPlan={userPlan}
           showDashboard={Boolean(user || hasScanData)}
+        />
+      )}
+      {premiumProofOpen && (
+        <PremiumProofModal
+          onClose={() => setPremiumProofOpen(false)}
+          onContinue={continueToPremiumPlans}
         />
       )}
       <main className="flex flex-col min-h-screen">
@@ -13189,75 +12877,66 @@ const App = () => {
             user={user}
             userPlan={userPlan}
             initialModel={pendingUploadModel ?? (currentPage === 'upload-ultra' ? '6' : '3')}
-            isLockedToUltra={currentPage === 'upload-ultra'}
+            isLockedToUltra={false}
             initialProfileId={pendingUploadProfileId}
             queueAnalysisJob={queueAnalysisJob}
           />
         )}
         {currentPage === 'results' && <ResultsPage />}
         {currentPage === 'dashboard' && (
-          <DashboardErrorBoundary
-            resetKey={`${getDashboardScanModel(dashboardData)}:${dashboardData?.scanRequestId || dashboardData?.scanId || dashboardData?.frontImage || dashboardData?.payload?.frontImage || 'empty'}`}
-            onNewScan={() => setCurrentPage('photo-guide')}
-          >
-            {useProDashboard
-              ? (
-                <ProDashboardPage
-                  dashboardData={dashboardData}
-                  setCurrentPage={setCurrentPage}
-                  userPlan={userPlan}
-                  user={user}
-                  onSignOut={handleSignOut}
-                  setPendingUploadModel={setPendingUploadModel}
-                  setPendingUploadProfileId={setPendingUploadProfileId}
-                  setDashboardData={setDashboardData}
-                  initialDashboardProfileId={dashboardRoute?.profileId || null}
-                  hasActiveAnalysis={hasScanData}
-                  analysisContent={
-                    hasScanData
-                      ? <DashboardPage dashboardData={dashboardData} setDashboardData={setDashboardData} setCurrentPage={setCurrentPage} onOpenPremiumPlans={openPremiumPlansPage} userPlan={userPlan} user={user} hideTopSection isEmbedded />
-                      : null
-                  }
-                  renderCommunityDashboard={(communityData) => (
-                    <DashboardPage
-                      dashboardData={communityData}
-                      setCurrentPage={setCurrentPage}
-                      onOpenPremiumPlans={openPremiumPlansPage}
-                      userPlan={userPlan}
-                      user={user}
-                      hideTopSection
-                      hideProtocols
-                      hideActionableProtocols
-                      isEmbedded
-                      hideUnlockPotential
-                      hidePersonalizedFeedback
-                    />
-                  )}
-                />
-              )
-              : (
-                <DashboardPage
-                  dashboardData={dashboardData}
-                  setDashboardData={setDashboardData}
-                  setCurrentPage={setCurrentPage}
-                  onOpenPremiumPlans={openPremiumPlansPage}
-                  userPlan={userPlan}
-                  user={user}
-                  onBackToProfiles={() => {
-                    setDashboardData(null);
-                    setCurrentPage('dashboard');
-                  }}
-                  onOpenHistoryScan={(scan) => {
-                    setDashboardData(normalizeDashboardMedia({
-                      ...(scan?.payload && typeof scan.payload === 'object' ? scan.payload : {}),
-                      ...scan,
-                      selectedModel: getDashboardScanModel(scan) || '3',
-                    }));
-                    setCurrentPage('dashboard');
-                  }}
-                />
-              )}
-          </DashboardErrorBoundary>
+          useProDashboard
+            ? (
+              <ProDashboardPage
+                dashboardData={dashboardData}
+                setCurrentPage={setCurrentPage}
+                userPlan={userPlan}
+                user={user}
+                onSignOut={handleSignOut}
+                setPendingUploadModel={setPendingUploadModel}
+                setPendingUploadProfileId={setPendingUploadProfileId}
+                setDashboardData={setDashboardData}
+                initialDashboardProfileId={dashboardRoute?.profileId || null}
+                hasActiveAnalysis={hasScanData}
+                analysisContent={
+                  hasScanData
+                    ? <DashboardPage dashboardData={dashboardData} setDashboardData={setDashboardData} setCurrentPage={setCurrentPage} onOpenPremiumPlans={openPremiumPlansProof} userPlan={userPlan} user={user} hideTopSection isEmbedded />
+                    : null
+                }
+                renderCommunityDashboard={(communityData) => (
+                  <DashboardPage
+                    dashboardData={communityData}
+                    setCurrentPage={setCurrentPage}
+                    onOpenPremiumPlans={openPremiumPlansProof}
+                    userPlan={userPlan}
+                    user={user}
+                    hideTopSection
+                    hideProtocols
+                    hideActionableProtocols
+                    isEmbedded
+                    hideUnlockPotential
+                    hidePersonalizedFeedback
+                  />
+                )}
+              />
+            )
+            : (
+              <DashboardPage
+                dashboardData={dashboardData}
+                setDashboardData={setDashboardData}
+                setCurrentPage={setCurrentPage}
+                onOpenPremiumPlans={openPremiumPlansProof}
+                userPlan={userPlan}
+                user={user}
+                onBackToProfiles={() => {
+                  setDashboardData(null);
+                  setCurrentPage('dashboard');
+                }}
+                onOpenHistoryScan={(scan) => {
+                  setDashboardData(scan);
+                  setCurrentPage('dashboard');
+                }}
+              />
+            )
         )}
         {currentPage === 'plans' && <PlansPage setCurrentPage={setCurrentPage} user={user} />}
         {currentPage === 'mog-battles' && (
@@ -13289,7 +12968,7 @@ const App = () => {
                 <DashboardPage
                   dashboardData={scanDashboardData}
                   setCurrentPage={setCurrentPage}
-                  onOpenPremiumPlans={openPremiumPlansPage}
+                  onOpenPremiumPlans={openPremiumPlansProof}
                   userPlan={userPlan}
                   user={user}
                   hideTopSection
@@ -13359,8 +13038,6 @@ const ScansPage = ({ setCurrentPage, setSelectedCelebrity, user }) => {
 
   useEffect(() => {
     const fetchCommunity = async () => {
-      const fallbackScans = buildCelebrityCommunityFallbackScans();
-      setCommunityScans(fallbackScans);
       try {
         const { fetchCommunityScans, fetchCommunityBattles } = await import('./api/mogBattleVotes');
         const res = await fetchCommunityScans(80);
@@ -13396,7 +13073,19 @@ const ScansPage = ({ setCurrentPage, setSelectedCelebrity, user }) => {
         setCommunityScans(Array.from(merged.values()));
       } catch(e) {
         console.error(e);
-        setCommunityScans(fallbackScans);
+        const merged = new Map();
+        [
+          ...OFFICIAL_CELEBRITY_COMMUNITY_SCANS,
+          ...COMMUNITY_SCANS.map((scan, idx) =>
+            hydrateCommunityScanEntry({ ...scan, name: scan.name || `User ${idx + 1}`, isCommunity: true, profileId: scan.profileId || `mock-${idx}` }, idx)
+          ),
+        ].forEach((scan, idx) => {
+          const hydrated = hydrateCommunityScanEntry(scan, idx);
+          const key = hydrated.scanId || hydrated.id || `${hydrated.frontImage}-${idx}`;
+          if (hydrated?.dashboardData && hydrated?.frontImage && !merged.has(key)) merged.set(key, hydrated);
+        });
+
+        setCommunityScans(Array.from(merged.values()));
       }
     };
     fetchCommunity();
