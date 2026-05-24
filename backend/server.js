@@ -9,7 +9,6 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 require('dotenv').config();
 const rateLimit = require('express-rate-limit');
 const { parseAnalysisOutput } = require('./parse-analysis-output');
-const { normalizeScanModelChoice, describeAvailableScanModels } = require('./scan-models');
 const adminStore = require('./admin-store');
 const {
   shouldSkipFirebaseStorage,
@@ -47,11 +46,9 @@ function isRemoteBrowserRequest(req) {
 
 function initFirebaseAdmin() {
   if (admin.apps.length) return;
-  const projectId = process.env.FIREBASE_PROJECT_ID || 'mogcheck-net';
   const bucket =
-    process.env.FIREBASE_STORAGE_BUCKET ||
-    process.env.FIREBASE_UPLOAD_BUCKET ||
-    `${projectId}-uploads`;
+    process.env.FIREBASE_STORAGE_BUCKET || 'mogcheck-net.firebasestorage.app';
+  const projectId = process.env.FIREBASE_PROJECT_ID || 'mogcheck-net';
   const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   const firestoreEmulator = USE_FIREBASE_EMULATOR && !!process.env.FIRESTORE_EMULATOR_HOST;
 
@@ -166,18 +163,8 @@ const activeScanRecordsByUser = new Map();
 const ACTIVE_SCAN_JOB_COLLECTION = 'activeScans';
 const ACTIVE_SCAN_RECORD_TTL_MS = Number(process.env.ACTIVE_SCAN_RECORD_TTL_MS || 2 * 60 * 60 * 1000);
 const ACTIVE_RUNNING_SCAN_STALE_MS = Number(process.env.ACTIVE_RUNNING_SCAN_STALE_MS || 30 * 60 * 1000);
-const QWEN_HEALTH_CACHE_MS = Number(process.env.QWEN_HEALTH_CACHE_MS || 2 * 60 * 1000);
-const OPENROUTER_API_KEY = String(process.env.OPENROUTER_API_KEY || '').trim();
-const OPENROUTER_QWEN_TEST_MODEL_ID = String(process.env.OPENROUTER_QWEN_TEST_MODEL_ID || 'qwen/qwen2.5-vl-72b-instruct').trim();
-const PREMIUM_MODEL_CHOICES = new Set(['1', '2', '6', '7', '8', '9', '10', '11', '12', '13', '14']);
-const ADMIN_ONLY_MODEL_CHOICES = new Set(['10', '11', '12']);
-const QWEN_HEALTH_TEST_IMAGE_DATA_URL =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9lJawAAAAASUVORK5CYII=';
-const qwenHealthCache = {
-  value: null,
-  fetchedAt: 0,
-  promise: null,
-};
+const PREMIUM_MODEL_CHOICES = new Set(['1', '2', '6', '7', '8', '9', '13']);
+const ADMIN_ONLY_MODEL_CHOICES = new Set(['13']);
 
 // Stale local scan fallbacks caused old parsed scores to reappear in dashboards.
 // Keep real Firestore persistence, but never read/write local cached scans.
@@ -749,18 +736,6 @@ async function savePurchaseRecord(userId, record = {}) {
   await firestore.collection('users').doc(userId).collection('purchases').doc(id).set(purchase, { merge: true });
 }
 
-function isManualInfiniteUserData(userData = {}) {
-  return normalizeUserPlan(userData.plan) === 'pro_infinite' || userData.subscriptionStatus === 'manual_infinite';
-}
-
-async function shouldPreserveManualInfinitePlan(userRef, source = 'webhook') {
-  if (!userRef) return false;
-  const snap = await userRef.get();
-  if (!snap.exists || !isManualInfiniteUserData(snap.data() || {})) return false;
-  console.log(`[${source}] Preserving manual PRO_INFINITE plan for ${userRef.id}; skipping Paddle plan overwrite.`);
-  return true;
-}
-
 /* Legacy Lemon Squeezy webhook kept disabled on purpose.
    MogCheck billing now runs through Paddle only. */
 /* app.post(
@@ -901,8 +876,6 @@ app.post(
     const userRef = firestore.collection('users').doc(userId);
 
     try {
-      const preserveManualInfinite = await shouldPreserveManualInfinitePlan(userRef, 'webhook:paddle');
-
       if (eventName === 'transaction.completed') {
         const isYearlyPurchase = PADDLE_PRICE_PRO_YEARLY && priceIds.includes(PADDLE_PRICE_PRO_YEARLY);
         const purchasePlan = priceIds.includes(PADDLE_PRICE_SINGLE_SCAN)
@@ -924,7 +897,7 @@ app.post(
           status: String(data.status || 'completed'),
         }).catch((purchaseErr) => console.warn('[webhook:paddle] Purchase record failed:', purchaseErr.message));
 
-        if (priceIds.includes(PADDLE_PRICE_SINGLE_SCAN) && !preserveManualInfinite) {
+        if (priceIds.includes(PADDLE_PRICE_SINGLE_SCAN)) {
           await userRef.set(
             {
               plan: 'single_scan',
@@ -937,10 +910,9 @@ app.post(
         }
 
         if (
-          !preserveManualInfinite &&
-          (priceIds.includes(PADDLE_PRICE_PRO) ||
-            (PADDLE_PRICE_PRO_YEARLY && priceIds.includes(PADDLE_PRICE_PRO_YEARLY)) ||
-            data.subscription_id)
+          priceIds.includes(PADDLE_PRICE_PRO) ||
+          (PADDLE_PRICE_PRO_YEARLY && priceIds.includes(PADDLE_PRICE_PRO_YEARLY)) ||
+          data.subscription_id
         ) {
           await userRef.set(
             {
@@ -959,7 +931,6 @@ app.post(
       }
 
       if (
-        !preserveManualInfinite &&
         ['subscription.created', 'subscription.activated', 'subscription.updated', 'subscription.resumed', 'subscription.trialing'].includes(eventName)
       ) {
         const status = String(data.status || 'active').toLowerCase();
@@ -993,7 +964,6 @@ app.post(
       }
 
       if (
-        !preserveManualInfinite &&
         ['subscription.canceled', 'subscription.paused', 'subscription.past_due', 'subscription.expired'].includes(eventName)
       ) {
         const status = String(data.status || eventName.replace('subscription.', '')).toLowerCase();
@@ -1177,7 +1147,7 @@ function getMogBattleNameError(value) {
   const raw = String(value || '').trim();
   if (!raw) return null;
   if (/(https?:\/\/|www\.|[a-z0-9-]+\.(?:com|net|org|gg|io|co|app|xyz|link|site|me)\b)/i.test(raw)) {
-    return 'Face Battle names cannot contain links.';
+    return 'Mog Battle names cannot contain links.';
   }
   const normalized = raw.toLowerCase().replace(/[^a-z0-9]+/g, ' ');
   const compact = raw.toLowerCase().replace(/[^a-z0-9]+/g, '');
@@ -1186,7 +1156,7 @@ function getMogBattleNameError(value) {
     return new RegExp(`(^|\\s)${escaped}(\\s|$)`, 'i').test(normalized) ||
       (MOG_BATTLE_COMPACT_BANNED_NAME_TERMS.has(term) && compact.includes(term));
   });
-  return hasBannedTerm ? 'Face Battle names cannot contain inappropriate words.' : null;
+  return hasBannedTerm ? 'Mog Battle names cannot contain inappropriate words.' : null;
 }
 
 function hashMogBattleSeed(value) {
@@ -1433,7 +1403,7 @@ async function createNotification(uid, payload = {}) {
   const safeUid = String(uid || '').trim();
   if (!safeUid) return null;
   const doc = {
-    title: String(payload.title || 'FaceLab').slice(0, 140),
+    title: String(payload.title || 'MogCheck').slice(0, 140),
     body: String(payload.body || '').slice(0, 1000),
     url: payload.url ? String(payload.url).slice(0, 500) : '',
     type: String(payload.type || 'general').slice(0, 80),
@@ -1456,7 +1426,7 @@ function serializeNotification(doc) {
   const data = typeof doc.data === 'function' ? doc.data() : doc;
   return {
     id: doc.id || data.id || '',
-    title: data.title || 'FaceLab',
+    title: data.title || 'MogCheck',
     body: data.body || '',
     url: data.url || '',
     type: data.type || 'general',
@@ -1869,11 +1839,11 @@ app.delete('/api/admin/mog-battles/:battleId', async (req, res) => {
     if (!deleted) return res.status(404).json({ error: 'Battle not found' });
     return res.json({ ok: true });
   } catch (e) {
-    console.error('[admin] Failed to delete Face Battle:', e);
+    console.error('[admin] Failed to delete Mog Battle:', e);
     if (isQuotaExceededError(e)) {
       return res.status(503).json({ error: 'Firestore quota exceeded. Try again when quota resets.' });
     }
-    return res.status(500).json({ error: e.message || 'Failed to delete Face Battle' });
+    return res.status(500).json({ error: e.message || 'Failed to delete Mog Battle' });
   }
 });
 
@@ -1885,38 +1855,30 @@ app.get('/api/community-scans', requireFirestore, async (req, res) => {
   }
 
   try {
-    const scans = await Promise.race([
-      (async () => {
-        let snap;
-        try {
-          snap = await firestore.collection('communityScans').orderBy('timestamp', 'desc').limit(limit).get();
-        } catch (orderErr) {
-          console.warn('[community-scans] orderBy failed, falling back:', orderErr.message);
-          snap = await firestore.collection('communityScans').limit(limit).get();
-        }
-        const loadedScans = [];
-        snap.forEach((doc) => loadedScans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() })));
-        loadedScans.sort((a, b) => {
-          if (Boolean(a.officialScan || a.official) !== Boolean(b.officialScan || b.official)) {
-            return (a.officialScan || a.official) ? -1 : 1;
-          }
-          const aMs = a?.timestamp?.toMillis?.() || (typeof a?.timestamp?.seconds === 'number' ? a.timestamp.seconds * 1000 : new Date(a?.timestamp || 0).getTime() || 0);
-          const bMs = b?.timestamp?.toMillis?.() || (typeof b?.timestamp?.seconds === 'number' ? b.timestamp.seconds * 1000 : new Date(b?.timestamp || 0).getTime() || 0);
-          return bMs - aMs;
-        });
-        return loadedScans;
-      })(),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timed out loading community scans')), 3500)
-      ),
-    ]);
+    let snap;
+    try {
+      snap = await firestore.collection('communityScans').orderBy('timestamp', 'desc').limit(limit).get();
+    } catch (orderErr) {
+      console.warn('[community-scans] orderBy failed, falling back:', orderErr.message);
+      snap = await firestore.collection('communityScans').limit(limit).get();
+    }
+    const scans = [];
+    snap.forEach((doc) => scans.push(normalizeStoredScanUrls({ id: doc.id, ...doc.data() }, req)));
+    scans.sort((a, b) => {
+      if (Boolean(a.officialScan || a.official) !== Boolean(b.officialScan || b.official)) {
+        return (a.officialScan || a.official) ? -1 : 1;
+      }
+      const aMs = a?.timestamp?.toMillis?.() || (typeof a?.timestamp?.seconds === 'number' ? a.timestamp.seconds * 1000 : new Date(a?.timestamp || 0).getTime() || 0);
+      const bMs = b?.timestamp?.toMillis?.() || (typeof b?.timestamp?.seconds === 'number' ? b.timestamp.seconds * 1000 : new Date(b?.timestamp || 0).getTime() || 0);
+      return bMs - aMs;
+    });
     return res.json({ scans });
   } catch (e) {
     console.error('[community-scans] GET failed', e);
-    const warning = isQuotaExceededError(e)
-      ? 'Firestore quota exhausted; using local fallback.'
-      : 'Could not load Firestore community scans; using local fallback.';
-    return res.json({ scans: localCommunityScans.slice(0, limit), warning });
+    if (isQuotaExceededError(e)) {
+      return res.json({ scans: localCommunityScans.slice(0, limit), warning: 'Firestore quota exhausted; using local fallback.' });
+    }
+    return res.status(500).json({ error: 'Server error' });
   }
 });
 
@@ -2030,7 +1992,7 @@ app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (
          recipients.forEach((recipientUid) => {
            createNotification(recipientUid, {
              type: 'mog_battle_vote',
-             title: 'New Face Battle Vote',
+             title: 'New Mog Battle Vote',
              body: `Someone voted on ${battleName(cb)}.`,
              url: `/mog-battles?battle=${encodeURIComponent(battleId)}`,
            }).catch((notifyErr) => console.warn('[notifications] local vote notification failed:', notifyErr.message));
@@ -2167,7 +2129,7 @@ app.post('/api/mog-battle/vote', mogBattleVoteLimiter, requireFirestore, async (
           [...recipients].map((recipientUid) =>
             createNotification(recipientUid, {
               type: 'mog_battle_vote',
-              title: 'New Face Battle Vote',
+              title: 'New Mog Battle Vote',
               body: `Someone voted on ${battleName(battle)}.`,
               url: `/mog-battles?battle=${encodeURIComponent(battleId)}`,
             }).catch((notifyErr) => {
@@ -2240,7 +2202,6 @@ function healthPayload() {
     ok: true,
     service: 'mogcheck-backend',
     firebaseMode: USE_FIREBASE_EMULATOR ? 'emulator' : 'live',
-    storage: storageStatusPayload(),
     uptimeMs: Date.now() - SERVER_BOOT_AT,
     timestamp: new Date().toISOString(),
   };
@@ -2521,8 +2482,8 @@ app.get('/api/ready', async (req, res) => {
   }
 });
 
-app.get('/api/public-stats', async (req, res) => {
-  res.json({ analysisCount: await adminStore.getFreshPublicAnalysisDisplayNumber() });
+app.get('/api/public-stats', (req, res) => {
+  res.json({ analysisCount: adminStore.getPublicAnalysisDisplayNumber() });
 });
 
 const DEBUG_LOG_PATH = path.join(__dirname, '..', 'debug-cb256d.log');
@@ -2796,14 +2757,11 @@ function extractProviderFailureMessage(output) {
     'Error: All configured Google GenAI/Gemma keys failed or hit quota.',
     'Error: All configured Gemini keys failed or hit quota.',
     'Error: No healthy Google GenAI/Gemma keys are available.',
-    'Error: OpenRouter Qwen testing model is not configured.',
-    'Error: OpenRouter Qwen testing model requires the Python openai package.',
-    'Error: OpenRouter Qwen testing model returned an empty response.',
-    'Error: OpenRouter Qwen testing model failed.',
+    'Error: OpenRouter Gemini 3.1 Pro is not configured.',
+    'Error: OpenRouter Gemini 3.1 Pro requires the Python openai package.',
+    'Error: OpenRouter Gemini 3.1 Pro returned an empty response.',
+    'Error: OpenRouter Gemini 3.1 Pro failed.',
     'Error: OpenRouter experimental model',
-    'Error: OpenRouter Haiiii model failed.',
-    'Error: OpenRouter Haiiii model is not configured.',
-    'Error: OpenRouter Haiiii model returned an empty response.',
   ];
   const marker = markers.find((candidate) => text.includes(candidate));
   if (!marker) return null;
@@ -2816,7 +2774,7 @@ function extractProviderFailureMessage(output) {
 
   if (!line) return null;
 
-  if (/OpenRouter (?:Qwen testing model|experimental model|Haiiii model)/i.test(line)) {
+  if (/OpenRouter (?:Gemini 3\.1 Pro|experimental model)/i.test(line)) {
     return {
       code: 'OPENROUTER_EXPERIMENTAL_MODEL_FAILED',
       error: line.slice(0, 500),
@@ -2858,7 +2816,6 @@ function isAiProviderErrorMessage(message) {
     text.includes('gemini') ||
     text.includes('gemma') ||
     text.includes('openrouter') ||
-    text.includes('qwen') ||
     text.includes('api key') ||
     text.includes('provider timeout') ||
     text.includes('high demand') ||
@@ -2897,221 +2854,6 @@ function extractOpenRouterTextContent(content) {
     })
     .join('\n')
     .trim();
-}
-
-function buildQwenHealthResponseSummary(result = {}) {
-  const textOk = Boolean(result.text?.ok);
-  const visionOk = Boolean(result.vision?.ok);
-  const configured = Boolean(result.configured);
-  return {
-    configured,
-    ok: configured && textOk && visionOk,
-    status: configured
-      ? (textOk && visionOk ? 'healthy' : textOk || visionOk ? 'degraded' : 'failing')
-      : 'not_configured',
-  };
-}
-
-function parseOpenRouterNumeric(value) {
-  if (value == null || value === '') return null;
-  const num = Number(value);
-  return Number.isFinite(num) ? num : null;
-}
-
-async function runOpenRouterKeyBudgetCheck() {
-  if (!OPENROUTER_API_KEY) {
-    return {
-      ok: false,
-      configured: false,
-      hasCap: false,
-      limit: null,
-      limitRemaining: null,
-      usage: null,
-      percentRemaining: null,
-      limitReset: null,
-      label: null,
-      error: 'OpenRouter API key is not configured.',
-    };
-  }
-
-  try {
-    const response = await fetch('https://openrouter.ai/api/v1/key', {
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-      },
-    });
-    const body = await response.json().catch(() => ({}));
-    const data = body?.data && typeof body.data === 'object' ? body.data : {};
-    const limit = parseOpenRouterNumeric(data.limit);
-    const limitRemaining = parseOpenRouterNumeric(data.limit_remaining);
-    const usage = parseOpenRouterNumeric(data.usage);
-    const hasCap = limit != null && limit > 0;
-    const percentRemaining = hasCap && limitRemaining != null
-      ? Math.max(0, Math.min(100, Math.round((limitRemaining / limit) * 1000) / 10))
-      : null;
-
-    return {
-      ok: response.ok,
-      configured: true,
-      hasCap,
-      limit,
-      limitRemaining,
-      usage,
-      percentRemaining,
-      limitReset: typeof data.limit_reset === 'string' ? data.limit_reset : null,
-      label: typeof data.label === 'string' ? data.label : null,
-      error: response.ok ? null : String(body?.error?.message || body?.message || `HTTP ${response.status}`).slice(0, 240),
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      configured: true,
-      hasCap: false,
-      limit: null,
-      limitRemaining: null,
-      usage: null,
-      percentRemaining: null,
-      limitReset: null,
-      label: null,
-      error: String(error?.message || error || 'Unknown OpenRouter key error').slice(0, 240),
-    };
-  }
-}
-
-async function runOpenRouterQwenCheck({ includeImage = false } = {}) {
-  const startedAt = Date.now();
-  const messages = [
-    {
-      role: 'user',
-      content: includeImage
-        ? [
-            { type: 'text', text: 'Reply with exactly VISION_OK.' },
-            { type: 'image_url', image_url: { url: QWEN_HEALTH_TEST_IMAGE_DATA_URL } },
-          ]
-        : 'Reply with exactly OK.',
-    },
-  ];
-
-  const payload = {
-    model: OPENROUTER_QWEN_TEST_MODEL_ID,
-    messages,
-    temperature: 0,
-    max_tokens: 24,
-    reasoning: { effort: 'none', exclude: true },
-  };
-
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 25000);
-  try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      signal: ctrl.signal,
-    });
-    const body = await response.json().catch(() => ({}));
-    const firstChoice = Array.isArray(body?.choices) ? body.choices[0] : null;
-    const message = firstChoice?.message || null;
-    const outputText =
-      extractOpenRouterTextContent(message?.content) ||
-      extractOpenRouterTextContent(firstChoice?.text);
-    const usage = body?.usage || {};
-    return {
-      ok: response.ok && Boolean(outputText),
-      httpStatus: response.status,
-      latencyMs: Date.now() - startedAt,
-      finishReason: firstChoice?.finish_reason || null,
-      preview: outputText ? outputText.slice(0, 120) : '',
-      promptTokens: Number(usage.prompt_tokens) || null,
-      outputTokens: Number(usage.completion_tokens) || null,
-      totalTokens: Number(usage.total_tokens) || null,
-      error:
-        response.ok
-          ? (outputText ? null : 'Provider returned no visible text content.')
-          : String(body?.error?.message || body?.message || `HTTP ${response.status}`).slice(0, 240),
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      httpStatus: null,
-      latencyMs: Date.now() - startedAt,
-      finishReason: null,
-      preview: '',
-      promptTokens: null,
-      outputTokens: null,
-      totalTokens: null,
-      error:
-        error?.name === 'AbortError'
-          ? 'Timed out while waiting for OpenRouter.'
-          : String(error?.message || error || 'Unknown provider error').slice(0, 240),
-    };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function runQwenHealthDiagnostic() {
-  const configured = Boolean(OPENROUTER_API_KEY && OPENROUTER_QWEN_TEST_MODEL_ID);
-  const checkedAt = new Date().toISOString();
-  if (!configured) {
-    return {
-      checkedAt,
-      configured: false,
-      modelId: OPENROUTER_QWEN_TEST_MODEL_ID || null,
-      keyBudget: null,
-      text: null,
-      vision: null,
-      summary: buildQwenHealthResponseSummary({ configured: false }),
-    };
-  }
-
-  const keyBudget = await runOpenRouterKeyBudgetCheck();
-  const text = await runOpenRouterQwenCheck({ includeImage: false });
-  const vision = await runOpenRouterQwenCheck({ includeImage: true });
-  return {
-    checkedAt,
-    configured: true,
-    modelId: OPENROUTER_QWEN_TEST_MODEL_ID,
-    keyBudget,
-    text,
-    vision,
-    summary: buildQwenHealthResponseSummary({ configured: true, text, vision }),
-  };
-}
-
-async function getCachedQwenHealthDiagnostic(forceRefresh = false) {
-  const now = Date.now();
-  if (!forceRefresh && qwenHealthCache.value && now - qwenHealthCache.fetchedAt < QWEN_HEALTH_CACHE_MS) {
-    return {
-      ...qwenHealthCache.value,
-      cached: true,
-      cacheAgeMs: now - qwenHealthCache.fetchedAt,
-      cacheTtlMs: QWEN_HEALTH_CACHE_MS,
-    };
-  }
-
-  if (!qwenHealthCache.promise) {
-    qwenHealthCache.promise = runQwenHealthDiagnostic()
-      .then((value) => {
-        qwenHealthCache.value = value;
-        qwenHealthCache.fetchedAt = Date.now();
-        return value;
-      })
-      .finally(() => {
-        qwenHealthCache.promise = null;
-      });
-  }
-
-  const diagnostic = await qwenHealthCache.promise;
-  return {
-    ...diagnostic,
-    cached: false,
-    cacheAgeMs: 0,
-    cacheTtlMs: QWEN_HEALTH_CACHE_MS,
-  };
 }
 
 function getPublicBackendBase(req) {
@@ -3166,36 +2908,6 @@ function publicUploadUrl(req, value) {
   if (!match) return trimmed;
   const suffix = trimmed.slice(match.index + match[0].length);
   return `${getPublicBackendBase(req)}/uploads/${match[1]}${suffix}`;
-}
-
-function isLocalUploadUrl(value) {
-  return typeof value === 'string' && /\/uploads\//i.test(value);
-}
-
-function isDurableStoredImageUrl(value) {
-  if (typeof value !== 'string') return false;
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  if (/^(data|blob):/i.test(trimmed)) return true;
-  if (!/^https?:\/\//i.test(trimmed)) return !isLocalUploadUrl(trimmed);
-  return !isLocalUploadUrl(trimmed);
-}
-
-function getPersistableImageUrl(...values) {
-  for (const value of values) {
-    if (isDurableStoredImageUrl(value)) return String(value).trim();
-  }
-  return null;
-}
-
-function storageStatusPayload() {
-  return {
-    skipped: shouldSkipFirebaseStorage(),
-    bucket:
-      process.env.FIREBASE_STORAGE_BUCKET ||
-      process.env.FIREBASE_UPLOAD_BUCKET ||
-      `${process.env.FIREBASE_PROJECT_ID || 'mogcheck-net'}-uploads`,
-  };
 }
 
 function copyDebugArtifactToUploads(req, sourceName, label = 'debug') {
@@ -3585,7 +3297,7 @@ function normalizeStoredScanUrls(scan, req = null) {
     debugAnchorsImageUrl,
     debugRatiosImageUrl,
     payload: payload
-        ? {
+      ? {
           ...payload,
           frontImage: publicizeStoredUploadUrl(req, payload.frontImage || frontImageUrl),
           sideImage: publicizeStoredUploadUrl(req, payload.sideImage || sideImageUrl),
@@ -3776,43 +3488,6 @@ async function uploadImageToFirebase(localPath, uid, prefix = 'front', options =
   }
 }
 
-async function getSignedStorageReadUrl(dest) {
-  const safeDest = String(dest || '').trim();
-  if (!safeDest || shouldSkipFirebaseStorage()) return null;
-  try {
-    const [url] = await admin.storage().bucket().file(safeDest).getSignedUrl({
-      action: 'read',
-      expires: Date.now() + 60 * 60 * 1000,
-    });
-    return url;
-  } catch (error) {
-    console.warn(`[storage] Failed to sign ${safeDest}:`, error.message);
-    return null;
-  }
-}
-
-async function addAdminSignedScanImageUrls(scan) {
-  if (!scan || typeof scan !== 'object') return scan;
-  const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : {};
-  const [signedFront, signedSide] = await Promise.all([
-    getSignedStorageReadUrl(scan.frontImageDest),
-    getSignedStorageReadUrl(scan.sideImageDest),
-  ]);
-  if (!signedFront && !signedSide) return scan;
-  return {
-    ...scan,
-    frontImageUrl: signedFront || scan.frontImageUrl,
-    sideImageUrl: signedSide || scan.sideImageUrl,
-    payload: {
-      ...payload,
-      frontImage: signedFront || payload.frontImage || scan.frontImageUrl,
-      frontImageUrl: signedFront || payload.frontImageUrl || scan.frontImageUrl,
-      sideImage: signedSide || payload.sideImage || scan.sideImageUrl,
-      sideImageUrl: signedSide || payload.sideImageUrl || scan.sideImageUrl,
-    },
-  };
-}
-
 /** Optional middleware to extract user ID from token without requiring it */
 async function extractUserOptional(req, res, next) {
   const authHeader = req.headers.authorization || '';
@@ -3831,20 +3506,18 @@ async function extractUserOptional(req, res, next) {
 
 /** Ultra models require Firebase auth + either a premium plan or at least one scan credit. */
 async function verifyUltraAccess(req, res, next) {
-  const rawModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
-  const normalizedModelChoice = normalizeScanModelChoice(rawModelChoice);
-  if (!normalizedModelChoice) {
+  const requestedModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
+  const modelChoice = requestedModelChoice === '1' ? '6' : requestedModelChoice;
+  if (req.body && requestedModelChoice === '1') {
+    req.body.choice = '6';
+    req.body.model = '6';
+  }
+  const allowedModelChoices = new Set(['1', '2', '3', '4', '5', '6', '7', '8', '9', '13']);
+  if (!allowedModelChoices.has(modelChoice)) {
     return res.status(400).json({
       success: false,
-      error: `Invalid AI model selected. Please choose an available scan model: ${describeAvailableScanModels()}.`,
+      error: 'Invalid AI model selected. Please choose an available scan model.',
     });
-  }
-  const modelChoice = normalizedModelChoice === '1' ? '6' : normalizedModelChoice;
-  req.scanModelChoice = modelChoice;
-  req.rawScanModelChoice = rawModelChoice;
-  if (req.body) {
-    req.body.choice = modelChoice;
-    req.body.model = modelChoice;
   }
   const isUltra = PREMIUM_MODEL_CHOICES.has(modelChoice);
   if (!isUltra) {
@@ -3926,7 +3599,7 @@ async function verifyUltraAccess(req, res, next) {
     return res.status(403).json({
       success: false,
       error:
-        'Premium models require FaceLab Pro or at least 1 available scan credit. Open Plans to upgrade.',
+        'Premium models require MogCheck Pro or at least 1 available scan credit. Open Plans to upgrade.',
     });
   } catch (e) {
     if (isQuotaExceededError(e)) {
@@ -3946,7 +3619,7 @@ async function verifyUltraAccess(req, res, next) {
       return res.status(503).json({
         success: false,
         error:
-          'This backend is in Firebase emulator mode. Live premium scans from facelab.online need real Firebase Admin credentials on this machine.',
+          'This backend is in Firebase emulator mode. Live premium scans from mogcheck.net need real Firebase Admin credentials on this machine.',
       });
     }
 
@@ -4007,15 +3680,8 @@ app.post(
     const sideFile = req.files && req.files['sideImage'] && req.files['sideImage'][0];
     const sideImagePath = sideFile ? sideFile.path : '';
     const statsJson = req.body.stats;
-    const rawModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
-    const normalizedModelChoice = req.scanModelChoice || normalizeScanModelChoice(rawModelChoice);
-    if (!normalizedModelChoice) {
-      return res.status(400).json({
-        success: false,
-        error: `Invalid AI model selected. Please choose an available scan model: ${describeAvailableScanModels()}.`,
-      });
-    }
-    const modelChoice = normalizedModelChoice === '1' ? '6' : normalizedModelChoice;
+    const requestedModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
+    const modelChoice = requestedModelChoice === '1' ? '6' : requestedModelChoice;
     const shouldRunSplitReport = PREMIUM_MODEL_CHOICES.has(modelChoice);
     const scanRequestId =
       String(req.body.scanRequestId || '').trim() ||
@@ -4028,7 +3694,7 @@ app.post(
     const sideFallbackUrl = getLocalUploadUrl(req, sideImagePath);
 
     console.log('\n========== PY ENGINE (this same terminal: npm start in /backend) ==========');
-    console.log(`[api/analyze] image=${imagePath} sideImage=${sideImagePath || 'none'} model=${modelChoice} rawModel=${rawModelChoice || req.rawScanModelChoice || 'none'}`);
+    console.log(`[api/analyze] image=${imagePath} sideImage=${sideImagePath || 'none'} model=${modelChoice}`);
     console.log('All Python stdout/stderr from final_engine.py appears below until "Python process closed".\n');
 
     const analysisStartTime = Date.now();
@@ -4444,8 +4110,8 @@ app.post(
         visibility: 'private',
         finalRating,
         sideRating,
-        frontImageUrl: getPersistableImageUrl(payload.frontImage, payload.frontImageUrl),
-        sideImageUrl: getPersistableImageUrl(payload.sideImage, payload.sideImageUrl),
+        frontImageUrl: frontFallbackUrl || payload.frontImage || null,
+        sideImageUrl: sideFallbackUrl || payload.sideImage || null,
         debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
         debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
         frontImageDest: null,
@@ -4454,8 +4120,8 @@ app.post(
         scanRequestId,
         payload: {
           ...payload,
-          frontImage: getPersistableImageUrl(payload.frontImage, payload.frontImageUrl),
-          sideImage: getPersistableImageUrl(payload.sideImage, payload.sideImageUrl),
+          frontImage: frontFallbackUrl || payload.frontImage || null,
+          sideImage: sideFallbackUrl || payload.sideImage || null,
           debugAnchorsImage: debugAnchorsUrl || payload.debugAnchorsImage || null,
           debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
           debugRatiosImage: debugRatiosUrl || payload.debugRatiosImage || null,
@@ -4487,23 +4153,8 @@ app.post(
       if (imagePath) frontUpload = await uploadImageToFirebase(imagePath, req.uid, 'front', { deleteLocal: false });
       if (sideImagePath) sideUpload = await uploadImageToFirebase(sideImagePath, req.uid, 'side', { deleteLocal: false });
 
-      const fallbackFrontImage = publicUploadUrl(req, payload.frontImageUrl || payload.frontImage || frontFallbackUrl || savedScanBase?.frontImageUrl);
-      const fallbackSideImage = publicUploadUrl(req, payload.sideImageUrl || payload.sideImage || sideFallbackUrl || savedScanBase?.sideImageUrl);
-      const persistedFrontImage =
-        frontUpload?.url ||
-        getPersistableImageUrl(payload.frontImageUrl, payload.frontImage, savedScanBase?.frontImageUrl) ||
-        fallbackFrontImage;
-      const persistedSideImage =
-        sideUpload?.url ||
-        getPersistableImageUrl(payload.sideImageUrl, payload.sideImage, savedScanBase?.sideImageUrl) ||
-        fallbackSideImage;
-
-      if (!frontUpload && imagePath && !persistedFrontImage) {
-        console.warn('[storage] No durable front image URL saved for scan history; local /uploads URL is response-only.');
-      }
-      if (!sideUpload && sideImagePath && !persistedSideImage) {
-        console.warn('[storage] No durable side image URL saved for scan history; local /uploads URL is response-only.');
-      }
+      const persistedFrontImage = frontUpload ? frontUpload.url : (payload.frontImage || savedScanBase?.frontImageUrl || frontFallbackUrl || null);
+      const persistedSideImage = sideUpload ? sideUpload.url : (payload.sideImage || savedScanBase?.sideImageUrl || sideFallbackUrl || null);
 
       payload.frontImage = persistedFrontImage || payload.frontImage || null;
       payload.frontImageUrl = persistedFrontImage || payload.frontImageUrl || null;
@@ -4519,10 +4170,10 @@ app.post(
         payload: {
           ...(savedScanBase?.payload || {}),
           ...payload,
-          frontImage: persistedFrontImage || null,
-          sideImage: persistedSideImage || null,
-          frontImageUrl: persistedFrontImage || null,
-          sideImageUrl: persistedSideImage || null,
+          frontImage: persistedFrontImage || payload.frontImage || null,
+          sideImage: persistedSideImage || payload.sideImage || null,
+          frontImageUrl: persistedFrontImage || payload.frontImageUrl || null,
+          sideImageUrl: persistedSideImage || payload.sideImageUrl || null,
           selectedModel: String(modelChoice || payload.selectedModel || '').trim() || '1',
           platform: scanPlatform,
         },
@@ -4552,17 +4203,15 @@ app.post(
       scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
       timestamp: new Date().toISOString(),
       scannedAt: new Date().toISOString(),
-      frontImage: getPersistableImageUrl(savedScanBase?.frontImageUrl, payload.frontImageUrl, payload.frontImage),
-      sideImage: getPersistableImageUrl(savedScanBase?.sideImageUrl, payload.sideImageUrl, payload.sideImage),
-      frontImageUrl: getPersistableImageUrl(savedScanBase?.frontImageUrl, payload.frontImageUrl, payload.frontImage),
-      sideImageUrl: getPersistableImageUrl(savedScanBase?.sideImageUrl, payload.sideImageUrl, payload.sideImage),
+      frontImageUrl: payload.frontImage || frontFallbackUrl || null,
+      sideImageUrl: payload.sideImage || sideFallbackUrl || null,
       debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
       debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
       platform: scanPlatform,
       payload: {
         ...payload,
-        frontImage: getPersistableImageUrl(savedScanBase?.frontImageUrl, payload.frontImageUrl, payload.frontImage),
-        sideImage: getPersistableImageUrl(savedScanBase?.sideImageUrl, payload.sideImageUrl, payload.sideImage),
+        frontImage: payload.frontImage || frontFallbackUrl || null,
+        sideImage: payload.sideImage || sideFallbackUrl || null,
         debugAnchorsImage: debugAnchorsUrl || payload.debugAnchorsImage || null,
         debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
         debugRatiosImage: debugRatiosUrl || payload.debugRatiosImage || null,
@@ -4951,37 +4600,6 @@ app.get('/api/admin/stats', (req, res) => {
   res.json(adminStore.getStats());
 });
 
-app.get('/api/admin/qwen-health', async (req, res) => {
-  const pw = req.headers['x-admin-password'] || req.query.pw || '';
-  if (!adminStore.checkPassword(pw)) {
-    return res.status(401).json({ error: 'Invalid admin password' });
-  }
-  try {
-    const forceRefresh = String(req.query.refresh || '').trim() === '1';
-    const diagnostic = await getCachedQwenHealthDiagnostic(forceRefresh);
-    res.json(diagnostic);
-  } catch (error) {
-    console.error('[admin] Failed to run Qwen health diagnostic:', error);
-    res.status(500).json({
-      checkedAt: new Date().toISOString(),
-      configured: Boolean(OPENROUTER_API_KEY && OPENROUTER_QWEN_TEST_MODEL_ID),
-      modelId: OPENROUTER_QWEN_TEST_MODEL_ID || null,
-      keyBudget: null,
-      text: null,
-      vision: null,
-      summary: {
-        configured: Boolean(OPENROUTER_API_KEY && OPENROUTER_QWEN_TEST_MODEL_ID),
-        ok: false,
-        status: 'error',
-      },
-      cached: false,
-      cacheAgeMs: 0,
-      cacheTtlMs: QWEN_HEALTH_CACHE_MS,
-      error: String(error?.message || error || 'Unknown diagnostic error'),
-    });
-  }
-});
-
 app.get('/api/admin/visitor-stats', async (req, res) => {
   const pw = req.headers['x-admin-password'] || req.query.pw || '';
   if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
@@ -5050,7 +4668,7 @@ app.post('/api/admin/notifications/announcement', async (req, res) => {
   if (!adminStore.checkPassword(pw)) return res.status(401).json({ error: 'Invalid admin password' });
   if (!firestore) return res.status(503).json({ error: 'Firestore not available' });
 
-  const title = String(req.body?.title || 'FaceLab Announcement').trim().slice(0, 140);
+  const title = String(req.body?.title || 'MogCheck Announcement').trim().slice(0, 140);
   const body = String(req.body?.body || '').trim().slice(0, 1000);
   const url = String(req.body?.url || '').trim().slice(0, 500);
   if (!body) return res.status(400).json({ error: 'Announcement body is required' });
@@ -5381,11 +4999,12 @@ app.get('/api/admin/users/:uid/scans', async (req, res) => {
 
   try {
     const snap = await firestore.collection('users').doc(req.params.uid).collection('scans').orderBy('timestamp', 'desc').get();
-    const scans = await Promise.all(snap.docs.map(async (doc) => {
-      const scan = await addAdminSignedScanImageUrls(normalizeStoredScanUrls({ id: doc.id, ...doc.data() }, req));
+    const scans = [];
+    snap.forEach(doc => {
+      const scan = normalizeStoredScanUrls({ id: doc.id, ...doc.data() }, req);
+      scans.push(scan);
       upsertLocalCachedScan(req.params.uid, doc.id, scan);
-      return scan;
-    }));
+    });
     res.json({ scans });
   } catch (e) {
     if (isQuotaExceededError(e)) return res.json({ scans: [], warning: 'Firestore quota exceeded. Scan history is temporarily unavailable.' });
@@ -5427,8 +5046,8 @@ app.get('/api/admin/users/:uid/mog-battles', async (req, res) => {
     res.json({ battles });
   } catch (e) {
     if (isQuotaExceededError(e)) return res.json({ battles: [], warning: 'Firestore quota exceeded.' });
-    console.error('[admin] Failed to read user Face Battles:', e);
-    res.json({ battles: [], warning: e.message || 'Failed to read Face Battles' });
+    console.error('[admin] Failed to read user Mog Battles:', e);
+    res.json({ battles: [], warning: e.message || 'Failed to read Mog Battles' });
   }
 });
 

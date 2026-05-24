@@ -190,10 +190,7 @@ GEMINI_31_PRO_KEYS = [
 GEMINI_31_PRO_KEYS = [(label, key) for label, key in GEMINI_31_PRO_KEYS if key]
 OPENROUTER_API_KEY = (os.getenv("OPENROUTER_API_KEY") or "").strip()
 OPENROUTER_FINAL_BOSS_API_KEY = (os.getenv("OPENROUTER_FINAL_BOSS") or "").strip()
-OPENROUTER_PREMIUM_GEMMA_MODEL_ID = (os.getenv("OPENROUTER_PREMIUM_GEMMA_MODEL_ID") or "google/gemma-4-31b-it").strip()
-OPENROUTER_QWEN_TEST_MODEL_ID = (os.getenv("OPENROUTER_QWEN_TEST_MODEL_ID") or "qwen/qwen2.5-vl-72b-instruct").strip()
 OPENROUTER_HAIIII_API_KEY = (os.getenv("OPENROUTER_HAIIII_API_KEY") or "").strip()
-OPENROUTER_HAIIII_MODEL_ID = (os.getenv("OPENROUTER_HAIIII_MODEL_ID") or "google/gemma-4-31b-it").strip()
 
 
 def build_openrouter_key_pool(*candidates):
@@ -226,37 +223,11 @@ OPENROUTER_DEFAULT_KEY_POOL = build_openrouter_key_pool(
     ("OPENROUTER_HAIIII_API_KEY", OPENROUTER_HAIIII_API_KEY),
 )
 OPENROUTER_EXPERIMENTAL_MODEL_MAP = {
-    "9": {
-        "model_id": OPENROUTER_PREMIUM_GEMMA_MODEL_ID,
-        "friendly_name": "Premium Model",
-        "provider_error_label": "OpenRouter Premium Model",
-    },
-    "10": {
-        "model_id": OPENROUTER_QWEN_TEST_MODEL_ID,
-        "friendly_name": "Qwen model (Testing)",
-        "extra_body": {"reasoning": {"effort": "none", "exclude": True}},
-    },
-    "11": {
-        "model_id": "anthropic/claude-sonnet-4.6",
-        "friendly_name": "anthropic/claude-sonnet-4.6",
-        "key_pool": [
-            ("OPENROUTER_FINAL_BOSS", OPENROUTER_FINAL_BOSS_API_KEY),
-            ("OPENROUTER_API_KEY", OPENROUTER_API_KEY),
-            ("OPENROUTER_HAIIII_API_KEY", OPENROUTER_HAIIII_API_KEY),
-        ],
-    },
-    "12": {"model_id": "openai/gpt-5.4", "friendly_name": "openai/gpt-5.4"},
-    "13": {"model_id": "google/gemini-3.1-pro-preview", "friendly_name": "google/gemini-3.1-pro-preview"},
-    "14": {
-        "model_id": OPENROUTER_HAIIII_MODEL_ID,
-        "model_fallback_ids": ["google/gemma-4-31b-it"],
-        "friendly_name": "Haiiii",
-        "key_pool": [
-            ("OPENROUTER_HAIIII_API_KEY", OPENROUTER_HAIIII_API_KEY),
-            ("OPENROUTER_FINAL_BOSS", OPENROUTER_FINAL_BOSS_API_KEY),
-            ("OPENROUTER_API_KEY", OPENROUTER_API_KEY),
-        ],
-        "provider_error_label": "OpenRouter Haiiii model",
+    "13": {
+        "model_id": "google/gemini-3.1-pro-preview",
+        "friendly_name": "google/gemini-3.1-pro-preview",
+        "extra_body": {"reasoning": {"effort": "low"}},
+        "provider_error_label": "OpenRouter Gemini 3.1 Pro",
     },
 }
 OPENROUTER_EXPERIMENTAL_MODEL_CHOICES = set(OPENROUTER_EXPERIMENTAL_MODEL_MAP.keys())
@@ -516,63 +487,10 @@ def extract_openrouter_text_content(content):
     return str(content).strip()
 
 
-def _compact_model_choice(value):
-    return (
-        str(value or "")
-        .strip()
-        .lower()
-        .replace("models/", "")
-        .replace("gemeni", "gemini")
-        .replace("/", "")
-        .replace("-", "")
-        .replace(".", "")
-        .replace("_", "")
-        .replace(" ", "")
-    )
-
-
-def normalize_model_choice(choice):
-    raw = str(choice or "").strip()
-    if raw in {str(index) for index in range(1, 15)}:
-        return raw
-
-    normalized = _compact_model_choice(raw)
-    if not normalized:
-        return None
-    if "googlegemini31propreview" in normalized:
-        return "13"
-    if "gemini31propreview" in normalized:
-        return "13"
-    if "googlegemini31pro" in normalized:
-        return "13"
-    if "gemini31pro" in normalized:
-        return "7"
-    if "anthropicclaudesonnet46" in normalized or "claude" in normalized:
-        return "11"
-    if "openaigpt54" in normalized or "gpt54" in normalized:
-        return "12"
-    if "qwen" in normalized:
-        return "10"
-    if "haiiii" in normalized or "googlegemma431bitfree" in normalized:
-        return "14"
-    if "premium" in normalized or "ultra" in normalized:
-        return "6"
-    if "backup" in normalized or "fast" in normalized or "fun" in normalized:
-        return "2"
-    if "optic" in normalized or "balance" in normalized or "free" in normalized:
-        return "3"
-    if "core" in normalized or "objective" in normalized:
-        return "4"
-    if "geneva" in normalized or "goldenratio" in normalized:
-        return "5"
-    return None
-
-
 def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=None):
     start_time = time.time()
 
     try:
-        choice = normalize_model_choice(choice)
         # --- MODEL MAPPING ---
         mapping = {
             "1": ("gemma-4-31b-it", "Premium Model"),
@@ -596,7 +514,7 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
         model_id, friendly_name = mapping[choice]
         openrouter_model_config = OPENROUTER_EXPERIMENTAL_MODEL_MAP.get(choice, {})
         model_attempts = [(model_id, friendly_name, None)]
-        if choice == "6":
+        if choice in {"2", "6"}:
             model_attempts = [
                 (model_id, friendly_name, EXPERT_31B_FALLBACK_AFTER_MS),
                 ("gemma-4-26b-a4b-it", f"{friendly_name} fallback", None),
@@ -608,12 +526,10 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
         scan_id = os.getenv("MOGCHECK_SCAN_REQUEST_ID") or None
         include_image = not (choice in PREMIUM_CORE_REPORT_MODEL_CHOICES and analysis_phase == "report")
         max_output_tokens = None
-        if choice == "11":
-            max_output_tokens = 2600 if analysis_phase == "report" else 4096
-        elif choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
-            max_output_tokens = 1800 if analysis_phase == "report" else 2600
-        elif choice in {"2", "6", "9"}:
+        if choice in {"2", "6", "9"}:
             max_output_tokens = 1400 if analysis_phase == "report" else 1500
+        elif choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
+            max_output_tokens = 2400 if analysis_phase == "report" else 4096
         elif choice in {"7", "8"}:
             # Gemini 3.x can spend a large part of maxOutputTokens on hidden thinking.
             # Give it more visible room and cap thinking so the JSON is not truncated.
@@ -627,7 +543,7 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
         if choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
             provider_error_label = (
                 openrouter_model_config.get("provider_error_label")
-                or ("OpenRouter Qwen testing model" if choice == "10" else f"OpenRouter experimental model {friendly_name}")
+                or f"OpenRouter experimental model {friendly_name}"
             )
             openrouter_key_pool = openrouter_model_config.get("key_pool") or OPENROUTER_DEFAULT_KEY_POOL
             openrouter_key_pool = build_openrouter_key_pool(*openrouter_key_pool)
@@ -642,12 +558,12 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
                     0,
                 )
             if not openrouter_key_pool or not openrouter_model_pool:
-                expected_keys = "OPENROUTER_API_KEY, OPENROUTER_FINAL_BOSS, or OPENROUTER_HAIIII_API_KEY"
                 return (
-                    f"Error: {provider_error_label} is not configured. Add {expected_keys} and the model id configuration to backend/.env.",
+                    f"Error: {provider_error_label} is not configured. Add OPENROUTER_API_KEY, OPENROUTER_FINAL_BOSS, or OPENROUTER_HAIIII_API_KEY and the model id configuration to backend/.env.",
                     friendly_name,
                     0,
                 )
+
             content = [{"type": "text", "text": unified_prompt}]
             if include_image:
                 with open(img_path, "rb") as f:
@@ -804,7 +720,7 @@ def consult_ai_with_selection(unified_prompt, img_path, choice, side_img_path=No
             if model_attempt_number > 1:
                 if not provider_error_texts or not all(_is_transient_provider_error(error) for error in provider_error_texts):
                     break
-                print(f"[DEBUG] Premium Model 31B hit transient failures or the {EXPERT_31B_FALLBACK_AFTER_MS / 1000:.0f}s budget; trying {attempt_model_id} fallback.")
+                print(f"[DEBUG] {friendly_name} 31B hit transient failures or the {EXPERT_31B_FALLBACK_AFTER_MS / 1000:.0f}s budget; trying {attempt_model_id} fallback.")
             model_started_at = time.time()
 
             for attempt_number, (key_index, key) in enumerate(key_attempts, start=1):
@@ -950,24 +866,19 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("7. Premium Model")
     print("8. Premium Model")
     print("9. Premium Model")
-    print("10. Qwen model (Testing)")
-    print("11. anthropic/claude-sonnet-4.6")
-    print("12. openai/gpt-5.4")
     print("13. google/gemini-3.1-pro-preview")
-    print("14. Haiiii")
 
     if choice_override is not None and str(choice_override).strip():
-        raw_choice = str(choice_override).strip()
-        choice = normalize_model_choice(raw_choice)
-        print(f"\n[DEBUG] Model selected via API args: {raw_choice} -> {choice or 'invalid'}")
+        choice = str(choice_override).strip()
+        print(f"\n[DEBUG] Model selected via API args: {choice}")
     else:
         try:
-            choice = normalize_model_choice(input("\nSelect Model [1-14]: ").strip())
+            choice = input("\nSelect Model [1-13]: ").strip()
         except KeyboardInterrupt:
             print("\nExiting script...")
             return
 
-    if choice not in {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"}:
+    if choice not in {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"}:
         print(f"[ERROR] Invalid model choice: {choice}")
         return "Error: Model selection failed."
 
@@ -1049,6 +960,13 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
         - Example: if the ratios are mixed but the eye area is clearly the strongest visual trait, then the eye area can be the best feature.
         - Every BEST FEATURE / PRIMARY FLAW entry must contain a short explanation of WHY it helps or hurts the face. Do not say only "flagged in the scan output."
     """
+    presentation_penalty_rules = """
+        PRESENTATION / LOW-APPEAL PENALTY:
+        - Apply a modest but real finalRating deduction when presentation visibly lowers appeal. The combined deduction from this rule is capped at 15 points total.
+        - Eligible cues include unkempt or greasy hairstyle, poor hairstyle fit, sparse or weak brow framing, thin neck/weak neck support, visibly disruptive asymmetry, nostril flare, patchy facial hair, low-vitality grooming, or generally low-appeal presentation.
+        - Use this only when the cue is visible and meaningfully affects the face. Do not double-count the same issue if it is already fully punished as a structural, skin, aging, or facial-fat flaw.
+        - Mention the presentation cap briefly in debugJustification when it materially affects the score; user-facing copy can call it grooming, framing, or low-appeal presentation.
+    """
     anti_diddy_prompt_rules = """
         ANTI DIDDY PROMPT ADD-ON:
         Check for the following:
@@ -1102,6 +1020,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         VISUAL INPUT A: Frontal face image is provided.
         {("VISUAL INPUT B: Side profile image is provided." if has_side_profile else "FRONT-ONLY MODE: no side profile image was provided; set sideRating and side-only fields to null.")}
         {content_safety_rules}
+        {presentation_penalty_rules}
 
         CALIBRATION:
         - Score 1-100 using MogCheck Premium calibration. Do not become more generous because this prompt is shorter.
@@ -1229,7 +1148,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         14. skin texture / skin clarity
         15. facial fat / soft tissue definition
         16. hairline or forehead balance when visible
-        Required visual-only extra: Hairstyle and Grooming (score 0-100) based on hair framing, hairline visibility, beard quality, grooming cleanliness, and style fit.
+        Required visual-only extras: Hairstyle and Grooming (score 0-100) based on hair framing, hairline visibility, beard quality, grooming cleanliness, and style fit; Neck Width (Visual) based on visible frontal neck width/support when visible.
         Optional extras: mouth width, philtrum/lip height, brow compactness, side-profile convexity, neck-jaw transition, hyoid/cervicomental area.
 
         DASHBOARD CONTENT:
@@ -1290,6 +1209,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         {content_safety_rules}
         {feature_selection_rules}
         {anti_diddy_prompt_rules}
+        {presentation_penalty_rules}
 
         CRITICAL CALIBRATION RULES:
         - Preserve old Premium scoring behavior. The shorter prompt must not become more generous, flattering, vague, or comfort-oriented.
@@ -1399,7 +1319,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - finalRating must be calibrated before writing any descriptions. The debugJustification should explain why the exact score is logical, what capped it, and why it is not higher/lower.
         - Return 12-20 keyRatios; prefer exactly 16 for normal frontal images, 18-20 when side profile adds real information. If a metric is visual-only, set value to a concise visual estimate.
         - Every keyRatios item must include name, value, score 0-100, impact, and a short face-specific note. Do not return only 2-5 metrics.
-        - Required metric coverage when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, eye width, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, Hairstyle and Grooming as a visual-only score. Add mouth width, philtrum/lips, brow compactness, side convexity, neck-jaw transition, or hyoid when relevant.
+        - Required metric coverage when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, eye width, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, Hairstyle and Grooming as a visual-only score, and Neck Width (Visual). Add mouth width, philtrum/lips, brow compactness, side convexity, neck-jaw transition, or hyoid when relevant.
         - Return top 3-5 strengths and 3-5 weaknesses. Weaknesses must identify real bottlenecks and not random minor flaws. If uncanny/overbuilt, at least one weakness and mainLimitingFactor must say so.
         - pros/cons should be short scan-specific bullets and not duplicate strengths/flaws verbatim.
         - technicalSummary, appealAssessment, and personalizedInterpretation should be concise but not empty or fake. Keep them dashboard-ready.
@@ -1456,6 +1376,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         {("INPUT C (Side Profile Metadata): " + prompt_side_data if has_side_profile else "FRONT-ONLY MODE: no side profile image was provided; set sideRating and side-only fields to null. Do not infer side-only weaknesses.")}
         {content_safety_rules}
         {feature_selection_rules}
+        {presentation_penalty_rules}
 
         SCORING LOGIC TO PRESERVE:
         STRICT RULE: HAIRLINE OCCLUSION OVERRIDE
@@ -1524,6 +1445,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         {("3. SIDE PROFILE METADATA: " + side_profile_metadata if has_side_profile else "FRONT-ONLY MODE: no side profile image was provided; set sideRating and side-only fields to null. Do not infer side-only weaknesses.")}
         {content_safety_rules}
         {feature_selection_rules}
+        {presentation_penalty_rules}
 
         CALIBRATION BENCHMARKS (1-100 SCALE):
         - 83-88/100: Elite commercial/model-tier or rare leading-man appeal. Requires multiple elite markers, strong harmony, healthy skin/soft tissue, and no severe bottleneck. Does NOT require runway-level cheek hollows if the face is naturally harmonious, masculine/refined, and highly attractive.
@@ -1544,10 +1466,8 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
            - They have at least above-average harmony plus very good features, such as good skin, strong eyebrow thickness/framing, low upper eyelid exposure, deep-set eyes, or similarly strong visible markers.
            If neither condition is met, keep the finalRating at 75 max
         1C. VERTICAL THIRDS + BROW STRICTNESS:
-           - If Upper Third, Middle Third, and Lower Third are not all at least 75/100, the finalRating must not exceed 79.
            - Be only slightly harsher on vertical thirds than the raw ranges alone below that cap. Do not over-penalize small or moderate thirds imperfections once the cap is respected.
            - Do not call facial thirds "near-perfect" unless the upper, middle, and lower thirds look balanced together in the actual image, but do not over-penalize small or moderate thirds imperfections.
-           - If brow compactness is below 75/100, the finalRating must not exceed 75.
            - Strong canthal tilt should not fully rescue weak brow compactness or high UEE; the eye area must look compact and well-framed overall to be considered high-tier.
         2. THE SKIN/TEXTURE TAX: Punish heavily for oily/greasy texture and visible large pores, active acne or significant scarring, nasolabial folds, and deep tear troughs as major age/vitality penalties.
         3. ORBITAL & NASAL REFINEMENT:
@@ -1555,8 +1475,8 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
            - Only punish for obvious droopy eyelid plus upper eyelid exposure. Do not punish just because someone has almond shaped eyes.
            - Deep brow support and low eyebrow setedness should not be required to reach 70/100, especially in faces with good harmony or faces whose appeal leans more toward good harmony than striking dimorphism. Examples: Cha Eun-woo, Haruma Miura.
            - Critique nose shape based on refinement. For African phenotypes, penalize a lack of bridge definition or excessive alar flaring that disrupts harmony.
-        4. GROOMING & STYLING: Hairstyles and beard grooming contribute +/- 5 points. Punish patchy beards, neckbeards, or unkempt, greasy hair.
-        Penalize if hairstyle looks bad, frames the face poorly, has balding signs
+        4. GROOMING & STYLING: Hairstyles and beard grooming can materially change the final read. Punish patchy beards, neckbeards, unkempt/greasy hair, poor hairstyle fit, sparse brows, weak neck presentation, nostril flare, and low-appeal presentation cues when visible. Keep the combined grooming/presentation deduction capped at 15 points.
+        Penalize if hairstyle looks bad, frames the face poorly, has balding signs, or makes the face read less fresh / lower appeal.
         5. PHENOTYPE STANDARDS: For Asian phenotypes, use the "Cha Eun-woo" standard (80) - prioritize extreme skin clarity, orbital compactness, and elegant bone structure.
                    6. Be stricter when judging nose width and punish exponentially the further it is from ideal. People with african noses tend to be severely overrated. ALso punish if there is a lot of nostril show.
         Punish exponentially for facial fat the further it is from ideal. >20% body fat should be seen as quite a big flaw. Jaw definition should be related to facial fat - if jaw definition is clearly bad then facial fat
@@ -1585,7 +1505,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - primaryFlaws should contain exactly 5 entries when possible and should target the biggest visible score limiters. Only target facial fat, nasolabial folds, eyelid/brow issues, skin texture, or unrefined nasal structure when they are actually visible and rating-relevant.
         - Do not invent or overstate "soft tissue fullness" or "lack of sub-zygomatic hollowing" on a lean/defined face. If definition is normal-to-good, keep it neutral and choose a more real limiting factor.
         - keyRatios should list corrected 1-100 ratings from METADATA plus visual reality.
-        - Required metric coverage should match Backup Model when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, eye width, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, Hairstyle and Grooming as a visual-only score, mouth width, philtrum/lips, and brow compactness. Always include Upper Third, Middle Third, and Lower Third as separate keyRatios when the frontal metadata contains them. Add side convexity, neck-jaw transition, and hyoid/cervicomental area when side profile exists.
+        - Required metric coverage should match Backup Model when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, eye width, canthal tilt, eye shape/eye area/eyelid exposure, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, Hairstyle and Grooming as a visual-only score, Neck Width (Visual), mouth width, philtrum/lips, and brow compactness. Always include Upper Third, Middle Third, and Lower Third as separate keyRatios when the frontal metadata contains them. Add side convexity, neck-jaw transition, and hyoid/cervicomental area when side profile exists.
         - Do not stop at only fWHR, midface ratio, bigonial width, IPD index, eye width, canthal tilt, mouth width, and philtrum height. Fill 16-20 metrics unless impossible.
 
         JSON schema:
@@ -1615,7 +1535,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
             if choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
                 active_prompt += """
 
-        QWEN OUTPUT DENSITY RULES:
+        OPENROUTER OUTPUT DENSITY RULES:
         - Do not be terse. Use full, compact explanations rather than clipped fragments.
         - technicalSummary must be 45-75 words across 2-3 sentences.
         - appealAssessment must be 45-75 words.
@@ -1625,10 +1545,10 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - Each keyRatios note should usually be 12-22 words.
         - Each pros/cons item should usually be 5-10 words, not 1-3 words.
 
-        QWEN METRIC NAMING RULES:
+        OPENROUTER METRIC NAMING RULES:
         - Use human dashboard labels, never snake_case labels like Bigonial_Width_Index.
-        - Prefer these exact names when applicable: Bigonial Width, IPD Index, Mouth Width, Upper Third, Middle Third, Lower Third, Brow Compactness, Philtrum Height, Eye Width, Eye Width Index (Horizontal), Canthal Tilt, Nose Width Index, Total Lip Height Index, Chin Support (Visual), Eye Shape/UEE (Visual), Skin Texture (Visual), Facial Fat (Visual), Symmetry (Visual), Maxillary Projection (Visual).
-        - Always include the four Other Ratios metrics when visible: Skin Texture (Visual), Facial Fat (Visual), Symmetry (Visual), Maxillary Projection (Visual).
+        - Prefer these exact names when applicable: Bigonial Width, IPD Index, Mouth Width, Upper Third, Middle Third, Lower Third, Brow Compactness, Philtrum Height, Eye Width, Eye Width Index (Horizontal), Canthal Tilt, Nose Width Index, Total Lip Height Index, Chin Support (Visual), Eye Shape/UEE (Visual), Skin Texture (Visual), Facial Fat (Visual), Symmetry (Visual), Maxillary Projection (Visual), Neck Width (Visual).
+        - Always include the five Other Ratios metrics when visible: Skin Texture (Visual), Facial Fat (Visual), Symmetry (Visual), Maxillary Projection (Visual), Neck Width (Visual).
         """
     elif choice == "1":
         active_prompt = f"""
@@ -1675,6 +1595,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         If a face is extremely masculine, very broad, brutalist, or hyper-dimorphic, treat that as a possible limitation once it disrupts harmony or universal appeal.
         Forbidden wording/logic: "lacks the aggressive dimorphism required for high-tier appeal", "needs more aggressive dimorphism", "more masculine means better", "extreme dimorphism is elite by default".
 {feature_selection_rules}
+{presentation_penalty_rules}
 {anti_diddy_prompt_rules}
 
         SHARED RATING PROTOCOL:
@@ -1728,7 +1649,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
            - GLOBAL BASELINE CURVES FOR OTHER FRONTAL RATIOS:
            Nose_Width_Index: 0.23-0.30 is the broad balanced range, strongest around 0.265; below 0.20 is pinched/narrow, above 0.32-0.34 becomes wide only if visually disruptive.
            fWHR: 1.85-2.00 is the balanced strong range. Around 1.60 is only a minor narrowness flaw and should not be treated as a major standalone issue. Around 1.50 or lower is clearly narrow/weak and should be punished harshly. Above 2.10 is too wide/blocky, and above 2.25 is severe.
-           Midface_Ratio: 0.88-0.98 is strongest, 0.98-1.07 is acceptable, above 1.08 is long, above 1.15 is severe, and below 0.82 is overly compressed.
+           Midface_Ratio: 1.00 is the peak; 0.95-1.05 is strongest/near-ideal and should usually score 90-100. Below 0.95 trends short/compressed, not elongated. Above 1.10 is long, above 1.18 is severe, and below 0.90 is overly compressed.
            Upper_Third_Length: 0.34-0.43 is balanced, above 0.46 is long, above 0.52 is severe, below 0.30 is compressed. If hair, bangs, hats, hood, shadow, or cropping covers the hairline, disregard the MediaPipe Upper_Third_Length number, visually estimate where the hairline would naturally sit from visible forehead shape/temples/hair direction, and rate Upper_Third_Length from that visual estimate instead.
            Middle_Third_Length: 0.40-0.50 is balanced, above 0.54 is elongated, above 0.60 is severe, below 0.36 is compressed.
            Lower_Third_Length: 0.42-0.52 is balanced, below 0.38 is short, above 0.56 is long, above 0.62 is severe.
@@ -1746,7 +1667,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
            Female faces: tolerate softer jaw/bigonial structure, lower fWHR, fuller lips, and less aggressive dimorphism.
            Male faces: tolerate stronger fWHR, lower-third structure, brow, and jaw width, but still penalize blockiness or overbuilt proportions when harmony suffers.
            - MIDFACE: Do NOT treat mildly long midfaces as a major flaw.
-           A Midface_Ratio around 0.98-1.07 is only a light concern and by itself should usually NOT become the #1 WORST FEATURE.
+           A Midface_Ratio around 0.95-1.05 is balanced/near-ideal and should not be called elongated. 1.05-1.10 is only a light concern and by itself should usually NOT become the #1 WORST FEATURE.
            Treat elongated midface as a true structural flaw only when it is clearly long (roughly 1.08+) and make it a high-priority flaw when it is more obvious (roughly 1.15+) or when it combines with other long-face signals like elongated thirds, narrow facial width, or vertically stretched harmony.
            If the overall face reads horse-faced, long, narrow, stretched, or vertically dragged out, punish that harshly even if one or two local ratios are not catastrophic.
            - UPPER THIRD: Penalize strictly for an elongated upper third/forehead relative to the rest of the face.
@@ -1998,7 +1919,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         If the face falls into the UNCANNY / SYNTHETIC / OVERBUILT bucket, at least 2 of the PRIMARY FLAWS must explicitly mention things like Synthetic / Uncanny Look, Over-aggressive Dimorphism, Overbuilt Lower Third, Over-stylized Eye Area, Brutalist Aesthetic, or Artificial Harmony.
         If the face is uncanny / overbuilt, the #1 WORST FEATURE should point to that unnatural / synthetic / over-aggressive trait rather than a random minor flaw.
         ### RATINGS (USE THIS)
-        [Look at the following data from INPUT A (mog_report) and rate them from 1-100 using the global baseline curves above, with ethnicity/sex tolerance adjustments. If hair, bangs, hats, hood, cropping, or shadow covers the hairline, ignore the MediaPipe Upper_Third_Length number and visually estimate the natural hairline position before scoring Upper_Third_Length. For Bigonial_Width_Index, score on a curve: around 0.87 should be in the 80s, the score should approach 100 near 0.98, below 0.75 is a flaw, and above 1.05 deducts for over-width/blockiness. For IPD_Index (Geometric), score around 0.46 closest to 100, keep 0.44-0.48 acceptable-to-good, below 0.44 close-set, and above 0.48 wide-set. For Eye_Width_Index (Horizontal), score around 0.20-0.24 strongest, below about 0.18 short/small, and above about 0.26 only negative if visually disharmonious. For Mouth_Width_Index, score around 0.37 closest to 100, keep 0.36-0.38 acceptable-to-ideal, below 0.36 narrow, and above 0.38 overly wide.]
+        [Look at the following data from INPUT A (mog_report) and rate them from 1-100 using the global baseline curves above, with ethnicity/sex tolerance adjustments. If hair, bangs, hats, hood, cropping, or shadow covers the hairline, ignore the MediaPipe Upper_Third_Length number and visually estimate the natural hairline position before scoring Upper_Third_Length. For Bigonial_Width_Index, score on a curve: around 0.87 should be in the 80s, the score should approach 100 near 0.98, below 0.75 is a flaw, and above 1.05 deducts for over-width/blockiness. For IPD_Index (Geometric), score around 0.46 closest to 100, keep 0.44-0.48 acceptable-to-good, below 0.44 close-set, and above 0.48 wide-set. For Midface_Ratio, score 0.95-1.05 very high with 1.00 as the peak; do not call values in that band elongated. For Eye_Width_Index (Horizontal), score around 0.20-0.24 strongest, below about 0.18 short/small, and above about 0.26 only negative if visually disharmonious. For Mouth_Width_Index, score around 0.37 closest to 100, keep 0.36-0.38 acceptable-to-ideal, below 0.36 narrow, and above 0.38 overly wide.]
         - Bigonial_Width_Index: [Score]/100
         - IPD_Index (Geometric): [Score]/100
         - Mouth_Width_Index: [Score]/100
@@ -2164,7 +2085,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         if choice in OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
             active_prompt += """
 
-        QWEN DELAYED REPORT DENSITY RULES:
+        OPENROUTER DELAYED REPORT DENSITY RULES:
         - Do not be terse or skeletal.
         - Each personalizedFeedback description should usually land around 20-26 words.
         - Each protocol description should usually land around 20-26 words.

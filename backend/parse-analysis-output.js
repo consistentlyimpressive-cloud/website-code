@@ -6,8 +6,9 @@ const fs = require('fs');
 const path = require('path');
 
 const DEFAULT_SUMMARY = 'Could not generate technical summary.';
-const SCORE_OFFSET_100 = -2;
-const SCORE_OFFSET_10 = -0.2;
+const SCORE_OFFSET_100 = 0;
+const SCORE_OFFSET_10 = 0;
+const MAX_TOPLINE_RATING = 95;
 const BENCHMARK_FEATURE_KEYS = [
   'Bigonial',
   'IPD',
@@ -108,6 +109,11 @@ function applyOffset10(value) {
   return clamp(Number(value) + SCORE_OFFSET_10, 0, 10);
 }
 
+function capToplineRating(value) {
+  if (value == null || value === 'N/A' || Number.isNaN(Number(value))) return value;
+  return clamp(Number(value), 0, MAX_TOPLINE_RATING);
+}
+
 function offsetScoreMap(map, scale = 100) {
   if (!map || typeof map !== 'object') return map;
   const apply = scale === 10 ? applyOffset10 : applyOffset100;
@@ -175,6 +181,90 @@ function extractJsonObjects(raw) {
   return objects;
 }
 
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function parseJsonValueAfterKey(raw, key) {
+  const text = String(raw || '');
+  const pattern = new RegExp(`"${escapeRegExp(key)}"\\s*:`, 'i');
+  const match = pattern.exec(text);
+  if (!match) return undefined;
+
+  let start = match.index + match[0].length;
+  while (start < text.length && /\s/.test(text[start])) start += 1;
+  const first = text[start];
+
+  if (first === '{' || first === '[') {
+    const closer = first === '{' ? '}' : ']';
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = start; i < text.length; i += 1) {
+      const ch = text[i];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (ch === '\\') {
+          escaped = true;
+        } else if (ch === '"') {
+          inString = false;
+        }
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === first) depth += 1;
+      else if (ch === closer) {
+        depth -= 1;
+        if (depth === 0) {
+          try {
+            return JSON.parse(text.slice(start, i + 1));
+          } catch (_) {
+            return undefined;
+          }
+        }
+      }
+    }
+    return undefined;
+  }
+
+  if (first === '"') {
+    let escaped = false;
+    for (let i = start + 1; i < text.length; i += 1) {
+      const ch = text[i];
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === '"') {
+        try {
+          return JSON.parse(text.slice(start, i + 1));
+        } catch (_) {
+          return undefined;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  const scalarMatch = text.slice(start).match(/^(null|true|false|-?\d+(?:\.\d+)?)/i);
+  if (!scalarMatch) return undefined;
+  try {
+    return JSON.parse(scalarMatch[1].toLowerCase());
+  } catch (_) {
+    const numberValue = Number(scalarMatch[1]);
+    return Number.isFinite(numberValue) ? numberValue : undefined;
+  }
+}
+
+function parseJsonValueByAliases(raw, aliases = []) {
+  for (const alias of aliases) {
+    const value = parseJsonValueAfterKey(raw, alias);
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
 function compactString(value, fallback = '') {
   return String(value ?? fallback).replace(/\s+/g, ' ').trim();
 }
@@ -210,10 +300,11 @@ function jsonBiometricArray(items, limit = 20, rawOutput = '') {
       const label = compactString(item.label || item.name || item.metric);
       if (!label) return null;
       const value = item.value ?? item.rawValue ?? item.val;
+      const explicitScore = normalizeMetricScore(item.score ?? item.rating);
       const deterministicScore = value != null && value !== ''
         ? deterministicBiometricScore(label, value, rawOutput)
         : null;
-      const score = deterministicScore ?? normalizeMetricScore(item.score ?? item.rating);
+      const score = deterministicScore ?? explicitScore;
       const displayValue = Number.isFinite(score)
         ? `${Math.round(score)}/100`
         : compactString(value || '');
@@ -229,11 +320,11 @@ function jsonBiometricArray(items, limit = 20, rawOutput = '') {
     .slice(0, limit);
 }
 
-function isQwenTestingOutput(rawOutput) {
+function isOpenRouterGeminiOutput(rawOutput) {
   const text = String(rawOutput || '');
   return (
-    /\[Using:\s*(?:Qwen model \(Testing\)|anthropic\/claude-sonnet-4\.6|openai\/gpt-5\.4|google\/gemini-3\.1-pro-preview|Haiiii)/i.test(text) ||
-    /(?:qwen\/qwen(?:2\.5-vl-72b-instruct|3\.6-27b)|anthropic\/claude-sonnet-4\.6|openai\/gpt-5\.4|google\/gemini-3\.1-pro-preview|google\/gemma-4-31b-it:free|Haiiii)/i.test(text)
+    /\[Using:\s*(?:google\/gemini-3\.1-pro-preview)(?=\s|\|)/i.test(text) ||
+    /\[DEBUG\]\s*Model selected via API args:\s*13\b/i.test(text)
   );
 }
 
@@ -244,6 +335,37 @@ function firstFiniteNumber(...values) {
     if (Number.isFinite(numeric)) return numeric;
   }
   return null;
+}
+
+function softenVisualMetricScore(label, score, note, categoryScore = null) {
+  const numeric = Number(score);
+  if (!Number.isFinite(numeric)) return score;
+
+  const normalized = normalizeMetricName(label);
+  const text = `${label || ''} ${note || ''}`.toLowerCase();
+  const category = Number(categoryScore);
+  const hasCategory = Number.isFinite(category);
+  const reassuringNegation = /\b(no|not|without|minimal|minor|little)\s+(?:(?:severe|major|visible|noticeable|glaring|active)\s+){0,3}(?:asymmetry|acne|blemish|texture|scarring|recession|flatness|weakness|issue|flaw|liability)\b/i;
+  const reassuring =
+    reassuringNegation.test(text) ||
+    /\b(clear|smooth|healthy|balanced|good|solid|adequate|average|normal|decent|moderate|acceptable|not flat|not recessed|no glaring|no major)\b/i.test(text);
+  const stronglyNegative =
+    /\b(severe|severely|very|extremely|major|clearly|markedly|significant(?:ly)?|poor|bad|weak|recessed|flat|acne|scarred|asymmetric|thin neck|narrow neck|liability|detractor)\b/i.test(text) &&
+    !reassuringNegation.test(text);
+
+  if (stronglyNegative && !reassuring) return numeric;
+
+  let floor = null;
+  if (normalized.includes('skintexture')) floor = 70;
+  else if (normalized.includes('symmetry')) floor = 72;
+  else if (normalized.includes('maxillaryprojection')) floor = 68;
+  else if (normalized.includes('neckwidth')) floor = 65;
+
+  if (reassuring && hasCategory) floor = Math.max(floor ?? 0, Math.min(82, category - 4));
+  if (reassuring) floor = Math.max(floor ?? 0, 68);
+  if (/\b(strong|excellent|high|clear strength|standout)\b/i.test(text)) floor = Math.max(floor ?? 0, 76);
+
+  return floor == null ? numeric : Math.round(clamp(Math.max(numeric, floor), 0, 100));
 }
 
 function findRawMetricEntry(rawValues, aliases = []) {
@@ -279,7 +401,7 @@ function metricDisplayValueFromScore(score, fallback = '') {
   return Number.isFinite(Number(score)) ? `${Math.round(Number(score))}/100` : compactString(fallback || '');
 }
 
-const QWEN_CANONICAL_FRONT_METRIC_SPECS = [
+const OPENROUTER_CANONICAL_FRONT_METRIC_SPECS = [
   { label: 'fWHR', rawAliases: ['fwhr'] },
   { label: 'Bigonial Width', rawAliases: ['bigonial width index', 'bigonial width'] },
   { label: 'Upper Third', rawAliases: ['upper third length'] },
@@ -301,21 +423,30 @@ const QWEN_CANONICAL_FRONT_METRIC_SPECS = [
   { label: 'Facial Fat (Visual)', aliases: ['facial fat', 'soft tissue definition', 'soft tissue fullness', 'soft tissue'], categoryKey: 'Facial Fat', includeRawValue: false, preferExistingScore: true },
   { label: 'Symmetry (Visual)', aliases: ['facial symmetry', 'symmetry'], categoryKey: 'Symmetry', includeRawValue: false, preferExistingScore: true },
   { label: 'Maxillary Projection (Visual)', aliases: ['maxillary projection', 'cheekbone projection', 'cheekbone prominence', 'maxillary', 'cheekbone'], categoryKey: 'Maxillary/Cheekbone Projection', includeRawValue: false, preferExistingScore: true },
+  { label: 'Neck Width (Visual)', aliases: ['neck width', 'neck thickness', 'thin neck'], categoryKey: 'Dimorphism', includeRawValue: false, preferExistingScore: true },
 ];
 
-function buildCanonicalQwenFrontBiometrics({ biometrics, rawValues, categories, rawOutput }) {
+function buildCanonicalOpenRouterFrontBiometrics({ biometrics, rawValues, categories, rawOutput }) {
   const canonical = [];
-  for (const spec of QWEN_CANONICAL_FRONT_METRIC_SPECS) {
-    const existing = findBiometricEntryByAliases(biometrics, spec.aliases || spec.rawAliases || [spec.label], spec.excludeAliases || []);
+  for (const spec of OPENROUTER_CANONICAL_FRONT_METRIC_SPECS) {
+    const lookupAliases = [
+      ...(Array.isArray(spec.aliases) ? spec.aliases : []),
+      ...(Array.isArray(spec.rawAliases) ? spec.rawAliases : []),
+      spec.label,
+    ];
+    const existing = findBiometricEntryByAliases(biometrics, lookupAliases, spec.excludeAliases || []);
     const { rawLabel, rawValue } = findRawMetricEntry(rawValues, spec.rawAliases || []);
     const deterministicScore = rawLabel && rawValue !== undefined
       ? deterministicBiometricScore(rawLabel, rawValue, rawOutput)
       : null;
     const existingScore = Number(existing?.score);
     const categoryScore = spec.categoryKey ? Number(categories?.[spec.categoryKey]) : null;
-    const score = spec.preferExistingScore
+    let score = spec.preferExistingScore
       ? firstFiniteNumber(existingScore, categoryScore, deterministicScore)
       : firstFiniteNumber(deterministicScore, existingScore, categoryScore);
+    if (spec.includeRawValue === false) {
+      score = softenVisualMetricScore(spec.label, score, existing?.note || existing?.description || '', categoryScore);
+    }
     const label = buildCanonicalMetricLabel(
       spec.label,
       rawValue,
@@ -446,6 +577,76 @@ function normalizeLegacyJsonDashboard(data) {
   };
 }
 
+function firstAliasValue(data, aliases = []) {
+  if (!data || typeof data !== 'object') return undefined;
+  for (const alias of aliases) {
+    if (Object.prototype.hasOwnProperty.call(data, alias) && data[alias] !== undefined && data[alias] !== null && data[alias] !== '') {
+      return data[alias];
+    }
+  }
+  return undefined;
+}
+
+const FLEXIBLE_JSON_ALIAS_MAP = {
+  finalRating: ['finalRating', 'final_rating', 'finalScore', 'final_score', 'overallScore', 'overall_score', 'frontalRating', 'frontal_rating', 'frontRating', 'front_rating', 'rating'],
+  sideRating: ['sideRating', 'side_rating', 'profileRating', 'profile_rating'],
+  maxNaturalPotential: ['maxNaturalPotential', 'max_natural_potential', 'naturalPotential', 'natural_potential'],
+  maxPotentialWithSurgery: ['maxPotentialWithSurgery', 'max_potential_with_surgery', 'surgeryPotential', 'surgery_potential'],
+  technicalSummary: ['technicalSummary', 'technical_summary', 'structuralOverview', 'structural_overview', 'summary'],
+  appealAssessment: ['appealAssessment', 'appeal_assessment', 'personalizedInterpretation', 'personalized_interpretation', 'interpretation'],
+  debugJustification: ['debugJustification', 'debug_justification', 'reportDebugJustification', 'report_debug_justification', 'justification'],
+  bestFeatures: ['bestFeatures', 'best_features', 'strongestFeatures', 'strongest_features', 'pros'],
+  primaryFlaws: ['primaryFlaws', 'primary_flaws', 'weakestFeatures', 'weakest_features', 'cons'],
+  sideBestFeatures: ['sideBestFeatures', 'side_best_features'],
+  sidePrimaryFlaws: ['sidePrimaryFlaws', 'side_primary_flaws'],
+  personalizedFeedback: ['personalizedFeedback', 'personalized_feedback', 'personalisedFeedback', 'personalised_feedback'],
+  keyRatios: ['keyRatios', 'key_ratios', 'metrics', 'facialMetrics', 'facial_metrics', 'ratios', 'biometrics'],
+  sideKeyRatios: ['sideKeyRatios', 'side_key_ratios', 'sideMetrics', 'side_metrics', 'sideBiometrics', 'side_biometrics'],
+  categories: ['categories', 'categorySignalRatings', 'category_signal_ratings', 'coreCategoryScores', 'core_category_scores'],
+  sideCategories: ['sideCategories', 'side_categories', 'sideCategorySignalRatings', 'side_category_signal_ratings'],
+  hexagonFront: ['hexagonFront', 'hexagon_front', 'hexagonChartFront', 'hexagon_chart_front'],
+  hexagonSide: ['hexagonSide', 'hexagon_side', 'hexagonChartSide', 'hexagon_chart_side'],
+  authenticityFlag: ['authenticityFlag', 'authenticity_flag'],
+  uncannyFlag: ['uncannyFlag', 'uncanny_flag'],
+};
+
+function extractPartialFlexibleJsonDashboard(rawOutput) {
+  const partial = {};
+  for (const [target, aliases] of Object.entries(FLEXIBLE_JSON_ALIAS_MAP)) {
+    const safeAliases = target === 'finalRating'
+      ? aliases.filter((alias) => alias !== 'rating')
+      : aliases;
+    const value = parseJsonValueByAliases(rawOutput, safeAliases);
+    if (value !== undefined) partial[target] = value;
+  }
+  for (const key of ['sex', 'tier', 'visualBucket', 'facialFatDefinitionRead']) {
+    const value = parseJsonValueAfterKey(rawOutput, key);
+    if (value !== undefined) partial[key] = value;
+  }
+
+  const hasUsefulField =
+    partial.finalRating !== undefined ||
+    partial.technicalSummary !== undefined ||
+    partial.appealAssessment !== undefined ||
+    Array.isArray(partial.keyRatios) ||
+    Array.isArray(partial.bestFeatures) ||
+    Array.isArray(partial.primaryFlaws);
+  return hasUsefulField ? partial : null;
+}
+
+function normalizeFlexibleJsonDashboard(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return data;
+  const out = { ...data };
+
+  for (const [target, aliases] of Object.entries(FLEXIBLE_JSON_ALIAS_MAP)) {
+    if (out[target] !== undefined && out[target] !== null && out[target] !== '') continue;
+    const value = firstAliasValue(data, aliases);
+    if (value !== undefined) out[target] = value;
+  }
+
+  return out;
+}
+
 function isGemini31ProOutput(rawOutput) {
   return /\[Using:\s*(?:Gemini\s+3\.1\s+Pro|Expert\s+Mode\s*\(Very\s+Accurate\)|penis\s+goat|PENIS\s+GOAT\s+2|PENIS\s+GOAT\s+3)(?=\s|\|)/i.test(String(rawOutput || ''));
 }
@@ -477,7 +678,11 @@ function buildGeminiJsonScoreCalibration(rawOutput, backendDir, rawFinalRating) 
 function parseExperimentalJsonOutput(rawOutput, backendDir) {
   const candidates = extractJsonObjects(rawOutput)
     .filter((obj) => obj && typeof obj === 'object')
-    .map(normalizeLegacyJsonDashboard);
+    .map((obj) => normalizeFlexibleJsonDashboard(normalizeLegacyJsonDashboard(obj)));
+  const partialJson = extractPartialFlexibleJsonDashboard(rawOutput);
+  if (partialJson) {
+    candidates.push(normalizeFlexibleJsonDashboard(partialJson));
+  }
   const data = candidates.find((obj) =>
     Object.prototype.hasOwnProperty.call(obj, 'finalRating') ||
     Array.isArray(obj.personalizedFeedback) ||
@@ -492,16 +697,16 @@ function parseExperimentalJsonOutput(rawOutput, backendDir) {
   const calibratedRawFinalRating = geminiScoreCalibration?.adjustedRating ?? rawFinalRating;
   const finalRating = calibratedRawFinalRating == null || Number.isNaN(Number(calibratedRawFinalRating))
     ? null
-    : applyOffset100(Number(calibratedRawFinalRating));
+    : capToplineRating(applyOffset100(Number(calibratedRawFinalRating)));
   const sideRating = data.sideRating == null || data.sideRating === 'N/A' || Number.isNaN(Number(data.sideRating))
     ? null
-    : applyOffset100(Number(data.sideRating));
+    : capToplineRating(applyOffset100(Number(data.sideRating)));
   const maxNaturalPotential = data.maxNaturalPotential == null || Number.isNaN(Number(data.maxNaturalPotential))
     ? null
-    : applyOffset100(Number(data.maxNaturalPotential));
+    : capToplineRating(applyOffset100(Number(data.maxNaturalPotential)));
   const maxPotentialWithSurgery = data.maxPotentialWithSurgery == null || Number.isNaN(Number(data.maxPotentialWithSurgery))
     ? null
-    : applyOffset100(Number(data.maxPotentialWithSurgery));
+    : capToplineRating(applyOffset100(Number(data.maxPotentialWithSurgery)));
   const personalizedFeedback = jsonFeatureArray(data.personalizedFeedback, 5);
   const protocols = Array.isArray(data.protocols)
     ? data.protocols.map((item, index) => {
@@ -537,8 +742,8 @@ function parseExperimentalJsonOutput(rawOutput, backendDir) {
       note: '',
     });
   }
-  if (isQwenTestingOutput(rawOutput)) {
-    biometrics = buildCanonicalQwenFrontBiometrics({
+  if (isOpenRouterGeminiOutput(rawOutput)) {
+    biometrics = buildCanonicalOpenRouterFrontBiometrics({
       biometrics,
       rawValues,
       categories: normalizedCategories,
@@ -1572,7 +1777,8 @@ function parseFinalRating(raw) {
   const frontalPatterns = [
     /\*\*Final Frontal Rating:\s*(\d+(?:\.\d+)?)\s*\/\s*100\*\*/i,
     /\*\*Final Frontal Rating:\*\*\s*(\d+(?:\.\d+)?)\s*\/\s*100/i,
-    /Final Frontal Rating:\s*\*?\*?\s*(\d+(?:\.\d+)?)\s*\/\s*100/i
+    /Final Frontal Rating:\s*\*?\*?\s*(\d+(?:\.\d+)?)\s*\/\s*100/i,
+    /"(?:finalRating|final_rating|finalScore|final_score|overallScore|overall_score|frontalRating|frontal_rating|frontRating|front_rating)"\s*:\s*(\d+(?:\.\d+)?)/i
   ];
   for (const re of frontalPatterns) {
     const m = raw.match(re);
@@ -1787,59 +1993,6 @@ function parsePersonalizedFeedback(raw) {
   return feedback;
 }
 
-function parseJsonFeatureFragments(raw) {
-  const feedback = [];
-  const entryRegex = /"title"\s*:\s*"((?:\\.|[^"\\])*)"\s*,\s*"description"\s*:\s*"((?:\\.|[^"\\])*)"/gi;
-  let match;
-  while ((match = entryRegex.exec(String(raw || ''))) !== null) {
-    let title = '';
-    let description = '';
-    try {
-      title = JSON.parse(`"${match[1]}"`);
-      description = JSON.parse(`"${match[2]}"`);
-    } catch (_) {
-      title = match[1];
-      description = match[2];
-    }
-    title = compactString(title).slice(0, 90);
-    description = compactString(description).slice(0, 320);
-    if (!title || !description) continue;
-    feedback.push({ id: feedback.length + 1, title, description });
-  }
-  return feedback;
-}
-
-function parseJsonProtocolFragments(raw) {
-  const protocols = [];
-  const entryRegex = /"name"\s*:\s*"((?:\\.|[^"\\])*)"\s*,\s*"description"\s*:\s*"((?:\\.|[^"\\])*)"(?:\s*,\s*"impact"\s*:\s*"((?:\\.|[^"\\])*)")?/gi;
-  let match;
-  while ((match = entryRegex.exec(String(raw || ''))) !== null) {
-    let name = '';
-    let description = '';
-    let impact = '';
-    try {
-      name = JSON.parse(`"${match[1]}"`);
-      description = JSON.parse(`"${match[2]}"`);
-      impact = match[3] ? JSON.parse(`"${match[3]}"`) : '';
-    } catch (_) {
-      name = match[1];
-      description = match[2];
-      impact = match[3] || '';
-    }
-    name = compactString(name).slice(0, 90);
-    description = compactString(description).slice(0, 320);
-    if (!name || !description) continue;
-    protocols.push({
-      id: protocols.length + 1,
-      name,
-      description,
-      impact: normalizeImpactLabel(impact),
-      research: null,
-    });
-  }
-  return protocols;
-}
-
 function parseRatingsUseThis(raw, rawValues) {
   const biometrics = [];
   const ratingsMatch = raw.match(
@@ -1851,18 +2004,24 @@ function parseRatingsUseThis(raw, rawValues) {
     const match = line.match(/[-*]*\s*([^:]+):\s*(\d+(?:\.\d+)?)\s*\/\s*100/i);
     if (!match) continue;
     const baseLabel = titleCaseKey(match[1]);
+    const noteMatch = line.match(/\/\s*100\s*(?:[-–—:]\s*)?(.+)?$/i);
+    const note = trimFeatureDescription(noteMatch?.[1] || '');
     let score = applyOffset100(parseFloat(match[2], 10));
     let finalLabel = baseLabel;
-    if (rawValues[baseLabel] !== undefined) {
-      const rawValue = rawValues[baseLabel];
-      score = deterministicBiometricScore(baseLabel, rawValue, raw) ?? score;
+    const rawMetric = findRawMetricEntry(rawValues, [baseLabel]);
+    if (rawMetric.rawValue !== undefined) {
+      const rawValue = rawMetric.rawValue;
+      const deterministicScore = deterministicBiometricScore(baseLabel, rawValue, raw);
+      if (Number.isFinite(deterministicScore)) score = deterministicScore;
       if (/Degree|Angle|Tilt/i.test(baseLabel)) finalLabel = `${baseLabel} (${rawValue}°)`;
       else finalLabel = `${baseLabel} (${rawValue})`;
     }
+    score = softenVisualMetricScore(baseLabel, score, note);
     biometrics.push({
       label: finalLabel,
       displayValue: `${Math.round(score)}/100`,
-      score
+      score,
+      ...(note ? { note } : {})
     });
   }
 
@@ -2021,10 +2180,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
   const hexagonSide = offsetScoreMap(parseHexagonChart(rawOutput, 'side'), 10);
 
   // Parse Personalized Feedback
-  let personalizedFeedback = parsePersonalizedFeedback(rawOutput);
-  if (personalizedFeedback.length === 0 && /"personalizedFeedback"\s*:/i.test(rawOutput)) {
-    personalizedFeedback = parseJsonFeatureFragments(rawOutput).slice(0, 5);
-  }
+  const personalizedFeedback = parsePersonalizedFeedback(rawOutput);
 
   const sideBiometrics = [];
   const sideRawMatch = rawOutput.match(/### SIDE_BIOMETRICS_RAW\r?\n([\s\S]*?)\r?\n### END_SIDE_BIOMETRICS_RAW/);
@@ -2073,9 +2229,11 @@ function parseAnalysisOutput(rawOutput, backendDir) {
       if (score < 2) continue;
       score = applyOffset100(score);
       let finalLabel = baseLabel;
-      if (rawValues[baseLabel] !== undefined) {
-        const val = rawValues[baseLabel];
-        score = deterministicBiometricScore(baseLabel, val, rawOutput) ?? score;
+      const rawMetric = findRawMetricEntry(rawValues, [baseLabel]);
+      if (rawMetric.rawValue !== undefined) {
+        const val = rawMetric.rawValue;
+        const deterministicScore = deterministicBiometricScore(baseLabel, val, rawOutput);
+        if (Number.isFinite(deterministicScore)) score = deterministicScore;
         if (/Degree|Angle|Tilt/i.test(baseLabel)) finalLabel = `${baseLabel} (${val}°)`;
         else finalLabel = `${baseLabel} (${val})`;
       }
@@ -2174,6 +2332,11 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     sidePrimaryFlaws.splice(0, sidePrimaryFlaws.length, ...filteredSidePrimary);
   }
 
+  finalRating = capToplineRating(finalRating);
+  sideRating = capToplineRating(sideRating);
+  maxNaturalPotential = capToplineRating(maxNaturalPotential);
+  maxPotentialWithSurgery = capToplineRating(maxPotentialWithSurgery);
+
   const protocols = [];
   const protoMatch = rawOutput.match(/###\s*ACTIONABLE PROTOCOLS\s*\r?\n([\s\S]*?)(?=###\s*MOG_REPORT_REVISION|$)/i);
   if (protoMatch) {
@@ -2198,9 +2361,6 @@ function parseAnalysisOutput(rawOutput, backendDir) {
       });
     }
   }
-  if (protocols.length === 0 && /"protocols"\s*:/i.test(rawOutput)) {
-    protocols.push(...parseJsonProtocolFragments(rawOutput).slice(0, 25));
-  }
 
   debugJustification = syncDebugJustificationRatings(debugJustification, finalRating, sideRating);
 
@@ -2213,8 +2373,7 @@ function parseAnalysisOutput(rawOutput, backendDir) {
     (finalRating != null && !Number.isNaN(finalRating)) ||
     categories != null ||
     hexagonFront != null ||
-    personalizedFeedback.length > 0 ||
-    protocols.length > 0;
+    personalizedFeedback.length > 0;
 
   return {
     sex,
