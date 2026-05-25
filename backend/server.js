@@ -43,14 +43,21 @@ function isRemoteBrowserRequest(req) {
   return !/(localhost|127\.0\.0\.1)/i.test(haystack);
 }
 
+function getFirebaseStorageBucketName(projectId = process.env.FIREBASE_PROJECT_ID || 'mogcheck-net') {
+  const configured =
+    process.env.FIREBASE_STORAGE_BUCKET ||
+    process.env.FIREBASE_UPLOAD_BUCKET ||
+    '';
+  const trimmed = String(configured || '').trim();
+  const legacyFirebaseBucket = `${projectId}.firebasestorage.app`;
+  if (!trimmed || trimmed === legacyFirebaseBucket) return `${projectId}-uploads`;
+  return trimmed;
+}
 
 function initFirebaseAdmin() {
   if (admin.apps.length) return;
   const projectId = process.env.FIREBASE_PROJECT_ID || 'mogcheck-net';
-  const bucket =
-    process.env.FIREBASE_STORAGE_BUCKET ||
-    process.env.FIREBASE_UPLOAD_BUCKET ||
-    `${projectId}-uploads`;
+  const bucket = getFirebaseStorageBucketName(projectId);
   const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   const firestoreEmulator = USE_FIREBASE_EMULATOR && !!process.env.FIRESTORE_EMULATOR_HOST;
 
@@ -3302,10 +3309,7 @@ function getPersistableImageUrl(...values) {
 function storageStatusPayload() {
   return {
     skipped: shouldSkipFirebaseStorage(),
-    bucket:
-      process.env.FIREBASE_STORAGE_BUCKET ||
-      process.env.FIREBASE_UPLOAD_BUCKET ||
-      `${process.env.FIREBASE_PROJECT_ID || 'mogcheck-net'}-uploads`,
+    bucket: getFirebaseStorageBucketName(),
   };
 }
 
