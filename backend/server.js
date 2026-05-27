@@ -167,6 +167,13 @@ const FREE_MODEL_CHOICES = new Set(['3', '4', '5']);
 const PREMIUM_MODEL_CHOICES = new Set(['1', '2', '6', '7', '8', '9', '13', '14']);
 const ALLOWED_MODEL_CHOICES = new Set([...FREE_MODEL_CHOICES, ...PREMIUM_MODEL_CHOICES]);
 const ADMIN_ONLY_MODEL_CHOICES = new Set(['13']);
+const CURRENT_PREMIUM_MODEL_CHOICE = '14';
+
+function normalizeRequestedModelChoice(requestedModelChoice) {
+  const choice = String(requestedModelChoice || '3').trim() || '3';
+  if (choice === '1' || choice === '6' || choice === '9') return CURRENT_PREMIUM_MODEL_CHOICE;
+  return choice;
+}
 
 // Stale local scan fallbacks caused old parsed scores to reappear in dashboards.
 // Keep real Firestore persistence, but never read/write local cached scans.
@@ -3509,10 +3516,10 @@ async function extractUserOptional(req, res, next) {
 /** Ultra models require Firebase auth + either a premium plan or at least one scan credit. */
 async function verifyUltraAccess(req, res, next) {
   const requestedModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
-  const modelChoice = requestedModelChoice === '1' ? '6' : requestedModelChoice;
-  if (req.body && requestedModelChoice === '1') {
-    req.body.choice = '6';
-    req.body.model = '6';
+  const modelChoice = normalizeRequestedModelChoice(requestedModelChoice);
+  if (req.body && modelChoice !== requestedModelChoice) {
+    req.body.choice = modelChoice;
+    req.body.model = modelChoice;
   }
   if (!ALLOWED_MODEL_CHOICES.has(modelChoice)) {
     return res.status(400).json({
@@ -3682,7 +3689,7 @@ app.post(
     const sideImagePath = sideFile ? sideFile.path : '';
     const statsJson = req.body.stats;
     const requestedModelChoice = String((req.body && (req.body.choice ?? req.body.model)) || '3').trim();
-    const modelChoice = requestedModelChoice === '1' ? '6' : requestedModelChoice;
+    const modelChoice = normalizeRequestedModelChoice(requestedModelChoice);
     const shouldRunSplitReport = PREMIUM_MODEL_CHOICES.has(modelChoice);
     const scanRequestId =
       String(req.body.scanRequestId || '').trim() ||

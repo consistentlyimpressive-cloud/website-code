@@ -1143,9 +1143,9 @@ const ANALYSIS_MODEL_LABELS = {
   '6': 'Premium Model',
   '7': 'Premium Model',
   '8': 'Premium Model',
-  '9': 'Premium Model',
+  '9': 'Legacy Premium Model',
   '13': 'google/gemini-3.1-pro-preview',
-  '14': 'Premium 2',
+  '14': 'Premium Model',
   [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo',
   '3': 'Free Optic',
   '4': 'Free Core',
@@ -1153,6 +1153,7 @@ const ANALYSIS_MODEL_LABELS = {
   official: 'Official Scan',
 };
 
+const CURRENT_PREMIUM_MODEL_ID = '14';
 const PREMIUM_MODEL_IDS = new Set(['1', '2', '6', '7', '8', '9', '13', '14']);
 const ADMIN_EXPERIMENTAL_MODEL_IDS = new Set(['13']);
 
@@ -6040,7 +6041,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
   const [useSideProfile, setUseSideProfile] = useState(true);
   const normalizeSelectableModel = (model) => {
     const normalized = String(model || '3').trim();
-    return normalized === '1' || normalized === '6' ? '9' : normalized;
+    return ['1', '6', '9'].includes(normalized) ? CURRENT_PREMIUM_MODEL_ID : normalized;
   };
   const [selectedModel, setSelectedModel] = useState(normalizeSelectableModel(initialModel));
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
@@ -6182,20 +6183,13 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       Icon: Zap
     },
     {
-      id: "9",
+      id: CURRENT_PREMIUM_MODEL_ID,
       name: "Premium Model",
       description:
-        "Primary premium analysis with the full high-detail dashboard and premium reporting flow.",
+        "Now powered by Premium 2 calibration with the full high-detail dashboard and premium reporting flow.",
       tier: "ultra",
-      Icon: Crown
-    },
-    {
-      id: "14",
-      name: "Premium 2",
-      description:
-        "OpenRouter Gemini premium scan using Backup-calibrated scoring with the full premium dashboard format.",
-      tier: "ultra",
-      Icon: Crown
+      Icon: Crown,
+      isCurrentPremium: true,
     },
     ...(isAdmin ? [
       { id: "separator-experimental", kind: "separator", label: "Experimental Models" },
@@ -6858,6 +6852,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                 const ActiveIcon = active?.Icon;
                 const isUltra = active?.tier === 'ultra';
                 const isDemo = active?.tier === 'demo';
+                const isCurrentPremium = Boolean(active?.isCurrentPremium);
                 return (
                   <button
                     type="button"
@@ -6868,6 +6863,8 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                       "border bg-zinc-900/50 hover:bg-zinc-900/80 focus:border-zinc-500",
                       isDemo
                         ? "border-cyan-400/45 shadow-[0_0_34px_rgba(34,211,238,0.20)]"
+                        : isCurrentPremium
+                        ? "border-blue-400/80 shadow-[0_0_0_1px_rgba(96,165,250,0.45),0_0_34px_rgba(59,130,246,0.42),0_0_70px_rgba(14,165,233,0.18)]"
                         : isUltra ? "border-yellow-500/40 shadow-[0_0_28px_rgba(234,179,8,0.14)]" : "border-zinc-800"
                     ].join(' ')}
                     aria-haspopup={isLockedToUltra ? undefined : "listbox"}
@@ -6877,13 +6874,13 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                       <span
                         className={[
                           "relative inline-flex items-center justify-center w-8 h-8 rounded-lg border shrink-0",
-                          isDemo ? "border-cyan-400/35 bg-cyan-400/10" : isUltra ? "border-yellow-500/30 bg-yellow-500/10" : "border-zinc-800 bg-zinc-900/50"
+                          isDemo ? "border-cyan-400/35 bg-cyan-400/10" : isCurrentPremium ? "border-blue-300/70 bg-blue-500/15" : isUltra ? "border-yellow-500/30 bg-yellow-500/10" : "border-zinc-800 bg-zinc-900/50"
                         ].join(' ')}
                       >
                         {ActiveIcon ? (
                           <ActiveIcon
                             size={16}
-                            className={isDemo ? "text-cyan-200 drop-shadow-[0_0_12px_rgba(34,211,238,0.70)]" : isUltra ? "text-yellow-300 drop-shadow-[0_0_10px_rgba(250,204,21,0.35)]" : "text-zinc-300"}
+                            className={isDemo ? "text-cyan-200 drop-shadow-[0_0_12px_rgba(34,211,238,0.70)]" : isCurrentPremium ? "text-blue-100 drop-shadow-[0_0_14px_rgba(96,165,250,0.85)]" : isUltra ? "text-yellow-300 drop-shadow-[0_0_10px_rgba(250,204,21,0.35)]" : "text-zinc-300"}
                           />
                         ) : (
                           <MogCheckLogoIcon size={16} className="opacity-90" />
@@ -6906,6 +6903,8 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                             "font-black uppercase tracking-widest truncate",
                             isDemo
                               ? "text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-white to-cyan-300 drop-shadow-[0_0_16px_rgba(34,211,238,0.24)]"
+                              : isCurrentPremium
+                              ? "text-transparent bg-clip-text bg-gradient-to-r from-blue-200 via-white to-cyan-300 drop-shadow-[0_0_18px_rgba(96,165,250,0.32)]"
                               : isUltra
                               ? "text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-yellow-100 to-amber-300 drop-shadow-[0_0_16px_rgba(250,204,21,0.12)]"
                               : "text-white"
@@ -6914,7 +6913,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                           {active?.name ?? "Select a model"}
                         </span>
                         <span className="text-[10px] font-sans uppercase tracking-[0.22em] text-zinc-500 truncate">
-                          {isDemo ? "Fixed demo scan" : isUltra ? "Premium model" : "Free model"}
+                          {isDemo ? "Fixed demo scan" : isCurrentPremium ? "Premium 2 live" : isUltra ? "Premium model" : "Free model"}
                         </span>
                       </span>
                     </span>
@@ -6951,6 +6950,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                       const isActive = m.id === selectedModel;
                       const isUltra = m.tier === 'ultra';
                       const isDemo = m.tier === 'demo';
+                      const isCurrentPremium = Boolean(m.isCurrentPremium);
                       const Icon = m.Icon ?? MogCheckLogoIcon;
 
                       const ultraLocked = isUltra && !ultraAccessPending && !canUseUltra;
@@ -6979,6 +6979,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                             "mogcheck-model-option w-full text-left rounded-xl px-3 py-3 flex items-start gap-3 relative group",
                             ultraLocked ? "opacity-50 cursor-pointer" : "",
                             isDemo ? "border border-cyan-400/20 bg-cyan-400/[0.045]" : "",
+                            isCurrentPremium ? "border border-blue-400/65 bg-blue-500/[0.075] shadow-[0_0_0_1px_rgba(96,165,250,0.25),0_0_32px_rgba(59,130,246,0.28)]" : "",
                             isDemo && shouldDemoGlowFlicker ? "animate-[cyanPreviewFlicker_2.2s_ease-in-out_infinite]" : "",
                             isActive
                               ? "bg-white/5 shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
@@ -6988,12 +6989,12 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                           <span
                             className={[
                               "relative mt-0.5 inline-flex items-center justify-center w-9 h-9 rounded-xl border shrink-0 overflow-hidden",
-                              isDemo ? "border-cyan-400/35 bg-cyan-400/10" : isUltra ? "border-yellow-500/30 bg-yellow-500/10" : "border-zinc-800 bg-zinc-900/40"
+                              isDemo ? "border-cyan-400/35 bg-cyan-400/10" : isCurrentPremium ? "border-blue-300/70 bg-blue-500/15" : isUltra ? "border-yellow-500/30 bg-yellow-500/10" : "border-zinc-800 bg-zinc-900/40"
                             ].join(' ')}
                           >
                             <Icon
                               size={16}
-                              className={isDemo ? "text-cyan-200 drop-shadow-[0_0_12px_rgba(34,211,238,0.7)]" : isUltra ? "text-yellow-300 drop-shadow-[0_0_10px_rgba(250,204,21,0.35)]" : "text-zinc-300"}
+                              className={isDemo ? "text-cyan-200 drop-shadow-[0_0_12px_rgba(34,211,238,0.7)]" : isCurrentPremium ? "text-blue-100 drop-shadow-[0_0_14px_rgba(96,165,250,0.85)]" : isUltra ? "text-yellow-300 drop-shadow-[0_0_10px_rgba(250,204,21,0.35)]" : "text-zinc-300"}
                             />
                             {isUltra && (
                               <span
@@ -7020,6 +7021,8 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                                   "text-[11px] font-black uppercase tracking-widest truncate",
                                   isDemo
                                     ? "text-transparent bg-clip-text bg-gradient-to-r from-cyan-200 via-white to-cyan-300"
+                                    : isCurrentPremium
+                                    ? "text-transparent bg-clip-text bg-gradient-to-r from-blue-200 via-white to-cyan-300"
                                     : isUltra
                                     ? "text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-yellow-50 to-amber-300"
                                     : "text-zinc-100"
@@ -7028,8 +7031,13 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
                                 {m.name}
                               </span>
                               {isUltra && (
-                                <span className="text-[9px] font-sans uppercase tracking-[0.3em] text-yellow-300/80 border border-yellow-500/20 bg-yellow-500/10 px-2 py-1 rounded-full">
-                                  {ultraAccessPending ? 'Checking...' : ultraLocked ? 'Pro / 1 scan' : 'Premium'}
+                                <span className={[
+                                  "text-[9px] font-sans uppercase tracking-[0.3em] px-2 py-1 rounded-full",
+                                  isCurrentPremium
+                                    ? "text-blue-100 border border-blue-300/45 bg-blue-500/15 shadow-[0_0_16px_rgba(59,130,246,0.24)]"
+                                    : "text-yellow-300/80 border border-yellow-500/20 bg-yellow-500/10",
+                                ].join(' ')}>
+                                  {ultraAccessPending ? 'Checking...' : ultraLocked ? 'Pro / 1 scan' : isCurrentPremium ? 'Premium 2 live' : 'Premium'}
                                 </span>
                               )}
                               {isDemo && (
@@ -10666,7 +10674,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
     return ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(0)}s`;
   };
 
-  const modelLabel = (m) => ({ '1': 'Premium Model', '2': 'Backup Model', '6': 'Premium Model', '7': 'Premium Model', '8': 'Premium Model', '9': 'Premium Model', '13': 'google/gemini-3.1-pro-preview', '14': 'Premium 2', [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo', '3': 'Free' }[m] || m);
+  const modelLabel = (m) => ({ '1': 'Premium Model', '2': 'Backup Model', '6': 'Premium Model', '7': 'Premium Model', '8': 'Premium Model', '9': 'Legacy Premium Model', '13': 'google/gemini-3.1-pro-preview', '14': 'Premium Model', [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo', '3': 'Free' }[m] || m);
   const adminUserSections = useMemo(() => {
     const newUsers = [];
     const goatUsers = [];
@@ -12471,7 +12479,7 @@ const App = () => {
     isAdminEmail(user?.email) ||
     isProPlan(userPlan) ||
     Number(userPlan?.scanCredits || 0) > 0
-  ) ? '9' : '3';
+  ) ? CURRENT_PREMIUM_MODEL_ID : '3';
   const startScanFromNav = useCallback(() => {
     setPendingUploadModel(defaultNewScanModel);
     setPendingUploadProfileId(null);
@@ -12895,7 +12903,7 @@ const App = () => {
             setSelectedCelebrity={setSelectedCelebrity}
             user={user}
             userPlan={userPlan}
-            initialModel={pendingUploadModel ?? (currentPage === 'upload-ultra' ? '6' : '3')}
+            initialModel={pendingUploadModel ?? (currentPage === 'upload-ultra' ? CURRENT_PREMIUM_MODEL_ID : '3')}
             isLockedToUltra={false}
             initialProfileId={pendingUploadProfileId}
             queueAnalysisJob={queueAnalysisJob}
