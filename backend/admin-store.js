@@ -267,7 +267,7 @@ function getStats() {
 
   const modelCounts = { ultra: 0, free: 0 };
   store.analyses.forEach((a) => {
-    if (['1', '2', '6', '7', '8', '9', '10', '11', '12', '13'].includes(a.model)) modelCounts.ultra++;
+    if (['1', '2', '6', '7', '8', '9', '10', '11', '12', '13', '14'].includes(a.model)) modelCounts.ultra++;
     else modelCounts.free++;
   });
 
@@ -315,25 +315,6 @@ function getPublicAnalysisDisplayNumber() {
   return PUBLIC_ANALYSIS_BASE + successCount;
 }
 
-async function getFreshPublicAnalysisDisplayNumber() {
-  if (!firestore) return getPublicAnalysisDisplayNumber();
-
-  try {
-    const snap = await withTimeout(
-      firestore.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOC).get(),
-      Number(process.env.ADMIN_STORE_FIRESTORE_TIMEOUT_MS || 2500),
-      'admin-store public stats Firestore load'
-    );
-    const raw = snap.exists ? snap.data() || {} : {};
-    const analyses = Array.isArray(raw.analyses) ? raw.analyses : [];
-    const successCount = analyses.filter((a) => a && a.success).length;
-    return PUBLIC_ANALYSIS_BASE + successCount;
-  } catch (e) {
-    console.warn('[admin-store] Fresh public stats read failed, using memory:', e.message);
-    return getPublicAnalysisDisplayNumber();
-  }
-}
-
 module.exports = {
   init,
   setFirestore,
@@ -342,5 +323,4 @@ module.exports = {
   getStats,
   checkPassword,
   getPublicAnalysisDisplayNumber,
-  getFreshPublicAnalysisDisplayNumber,
 };

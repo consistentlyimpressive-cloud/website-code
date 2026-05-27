@@ -2,11 +2,11 @@
  * Base URL for API requests (no trailing slash).
  *
  * Local dev: always talk to the Express API on 127.0.0.1:3001 (no reliance on Vite /api proxy).
- * Set VITE_API_URL=https://backend-production-2ba2a.up.railway.app in .env.local only when you want the local UI to hit the public API.
+ * Set VITE_API_URL=https://api.mogcheck.net in .env.local only when you want the local UI to hit the public API.
  * Production (Vercel): set VITE_API_URL to your public https API URL.
  */
 const LOCAL_API = 'http://127.0.0.1:3001';
-const PUBLIC_API = 'https://backend-production-2ba2a.up.railway.app';
+const MOGCHECK_PROD_API = 'https://api.mogcheck.net';
 
 function normalizeApiBase(raw) {
   if (typeof raw !== 'string') return '';
@@ -15,9 +15,6 @@ function normalizeApiBase(raw) {
 
   try {
     const url = new URL(trimmed);
-    if (url.hostname.toLowerCase() === 'api.mogcheck.net') {
-      return PUBLIC_API;
-    }
 
     // Guard against accidentally pasting health/ready endpoints into Vercel env vars.
     url.pathname = url.pathname
@@ -50,13 +47,8 @@ export function getApiBase() {
 
   if (typeof window !== 'undefined') {
     const host = String(window.location.hostname || '').toLowerCase();
-    if (
-      host === 'facelab.online' ||
-      host === 'www.facelab.online' ||
-      host === 'mogcheck.net' ||
-      host === 'www.mogcheck.net'
-    ) {
-      return PUBLIC_API;
+    if (host === 'mogcheck.net' || host === 'www.mogcheck.net') {
+      return MOGCHECK_PROD_API;
     }
   }
 

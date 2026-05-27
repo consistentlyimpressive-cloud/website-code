@@ -2,16 +2,6 @@ import { CURRENT_MOGBATTLE_ID } from '../data/mogBattles';
 import { getApiBase } from '../utils/apiBase';
 
 const API_BASE = getApiBase();
-const PUBLIC_FETCH_TIMEOUT_MS = 3500;
-
-function fetchWithTimeout(url, options = {}, timeoutMs = PUBLIC_FETCH_TIMEOUT_MS) {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, {
-    ...options,
-    signal: controller.signal,
-  }).finally(() => window.clearTimeout(timeoutId));
-}
 
 /** Vote totals for each featured battle id (for rotating the main slot). */
 export async function fetchFeaturedVoteRankings(battleIds) {
@@ -63,13 +53,13 @@ export async function postMogBattleVote(idToken, side, battleId = CURRENT_MOGBAT
 }
 
 export async function fetchCommunityBattles() {
-  const r = await fetchWithTimeout(`${API_BASE}/api/mog-battle/community`, { cache: 'no-store' });
+  const r = await fetch(`${API_BASE}/api/mog-battle/community`);
   if (!r.ok) throw new Error('Could not load community battles');
   return r.json();
 }
 
 export async function fetchCommunityScans(limit = 40) {
-  const r = await fetchWithTimeout(`${API_BASE}/api/community-scans?limit=${encodeURIComponent(limit)}`, {
+  const r = await fetch(`${API_BASE}/api/community-scans?limit=${encodeURIComponent(limit)}`, {
     cache: 'no-store',
   });
   if (!r.ok) throw new Error('Could not load community scans');

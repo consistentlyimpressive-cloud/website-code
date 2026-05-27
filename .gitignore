@@ -15,7 +15,11 @@ dist-ssr
 backend/.env
 backend/venv/
 backend/uploads/
+backend/tmp-analysis/
 backend/admin-data.json
+backend/key-health-state.json
+backend/local-user-store.json
+backend/token-usage-log.jsonl
 backend/loading_scan.mp4
 backend/__pycache__/
 backend/*.pyc

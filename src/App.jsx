@@ -1145,6 +1145,7 @@ const ANALYSIS_MODEL_LABELS = {
   '8': 'Premium Model',
   '9': 'Premium Model',
   '13': 'google/gemini-3.1-pro-preview',
+  '14': 'Premium 2',
   [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo',
   '3': 'Free Optic',
   '4': 'Free Core',
@@ -1152,8 +1153,16 @@ const ANALYSIS_MODEL_LABELS = {
   official: 'Official Scan',
 };
 
-const PREMIUM_MODEL_IDS = new Set(['1', '2', '6', '7', '8', '9', '13']);
+const PREMIUM_MODEL_IDS = new Set(['1', '2', '6', '7', '8', '9', '13', '14']);
 const ADMIN_EXPERIMENTAL_MODEL_IDS = new Set(['13']);
+
+function isPremiumScanModelId(model) {
+  return PREMIUM_MODEL_IDS.has(String(model || '').trim());
+}
+
+function isFastPremiumScanModelId(model) {
+  return ['6', '7', '8', '9', '10', '14'].includes(String(model || '').trim());
+}
 
 function getAnalysisModelLabel(model) {
   const key = String(model || '').trim();
@@ -3816,8 +3825,9 @@ const getMetricAnimationAxis = (label = '') => {
     { test: /upper.*third/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.34, 0.43], domain: [0.24, 0.52] },
     { test: /middle.*third/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.4, 0.5], domain: [0.3, 0.6] },
     { test: /lower.*third/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.42, 0.52], domain: [0.3, 0.62] },
+    { test: /eye.*shape|eye.*area|\buee\b|upper eyelid exposure|eyelid exposure|scleral/, left: 'Poor shape', center: 'Best', right: 'Best', ideal: [72, 100], domain: [0, 100], useScore: true, rangeMode: 'quality' },
     { test: /eye.*width/, left: 'Too narrow', center: 'Ideal', right: 'Too wide', ideal: [0.2, 0.24], domain: [0.16, 0.3] },
-    { test: /eye.*height/, left: 'Too small', center: 'Ideal', right: 'Too tall', ideal: [0.055, 0.075], domain: [0.035, 0.1] },
+    { test: /eye.*height/, left: 'Very compact', center: 'Balanced', right: 'Too round', ideal: [0.055, 0.075], domain: [0.035, 0.1] },
     { test: /brow.*compact/, left: 'Too compact', center: 'Ideal', right: 'Too tall', ideal: [0.08, 0.12], domain: [0.04, 0.18] },
     { test: /philtrum/, left: 'Too short', center: 'Ideal', right: 'Too tall', ideal: [0.08, 0.11], domain: [0.055, 0.17] },
     { test: /lip.*height|total.*lip/, left: 'Too thin', center: 'Ideal', right: 'Too full', ideal: [0.12, 0.18], domain: [0.06, 0.26] },
@@ -4000,7 +4010,7 @@ const normalizeMetricArtLabel = (label = '') => String(label || '')
 const metricGuideKind = (label = '') => {
   const low = normalizeMetricArtLabel(label);
   if (/gonial angle|jaw angle|nasofrontal|naso frontal|nasofacial|naso facial|nasolabial|naso labial|mentolabial|mento labial|convexity|subnasale|mandibular plane|projection|profile|hyoid|cervicomental/.test(low)) return 'side';
-  if (/canthal|eye|brow/.test(low)) return 'eye';
+  if (/uee|canthal|eye|brow/.test(low)) return 'eye';
   if (/philtrum/.test(low)) return 'philtrum';
   if (/facial.*fat|soft.*tissue/.test(low)) return 'fat';
   if (/symmetry/.test(low)) return 'symmetry';
@@ -4032,6 +4042,7 @@ const getMetricGuideCustomImageSrc = (label = '') => {
     [/bigonial width|bigonial|jaw width|mandibular width|lower face width|gonion width/, '/metrics/bigonial.png'],
     [/brow compactness|brow support|brow framing|brow ridge|low set brow|brow height|eyebrow/, '/metrics/browcompactness.png'],
     [/canthal tilt|eye tilt|tilt degrees|canthal/, '/metrics/canthaltilt.png'],
+    [/eye shape|eye area|\buee\b|upper eyelid exposure|eyelid exposure|scleral/, '/metrics/eyes.png'],
     [/eye width|eye width index|horizontal eye|palpebral width|eye length/, '/metrics/eyewidth.png'],
     [/fwhr|facial width.*height|face width.*height|width.*height/, '/metrics/fwhr.png'],
     [/ipd|interpupillary|eye spacing|interocular|pupil spacing/, '/metrics/ipd.png'],
@@ -4652,7 +4663,7 @@ const SCAN_PROGRESS_MESSAGES = [
 
 const getEstimatedScanTotalMs = (choice, fairUsageState) => {
   if (fairUsageState?.lowPriority) return 5 * 60 * 1000;
-  if (choice === '6' || choice === '7' || choice === '8' || choice === '9') return 55 * 1000;
+  if (isFastPremiumScanModelId(choice)) return 55 * 1000;
   if (choice === '1') return 3.5 * 60 * 1000;
   if (choice === '2') return 2.5 * 60 * 1000;
   return 90 * 1000;
@@ -4778,7 +4789,7 @@ const ScanningView = ({
   const [fairUsageState, setFairUsageState] = useState(null);
   const isAdmin = isAdminEmail(user?.email);
   const isUltra31 = choice === "1";
-  const isGemini31Pro = choice === "6" || choice === "7" || choice === "8" || choice === "9" || choice === "10";
+  const isGemini31Pro = isFastPremiumScanModelId(choice);
   const isCompactViewport = typeof window !== 'undefined' && window.innerWidth < 768;
   const overlayRevealSeconds = isUltra31 ? 34 : isGemini31Pro ? 18 : choice === "2" ? 24 : 36;
   const overlayScanLoopSeconds = isUltra31 ? 4 : isGemini31Pro ? 3.5 : choice === "2" ? 4.5 : 4;
@@ -5015,7 +5026,7 @@ const ScanningView = ({
           return;
         }
 
-        const isUltra = choice === "1" || choice === "2" || choice === "6" || choice === "7" || choice === "8" || choice === "9" || choice === "10";
+        const isUltra = isPremiumScanModelId(choice) || choice === "10";
         activeUser = userRef.current;
         if (activeUser) {
           try {
@@ -5183,7 +5194,7 @@ const ScanningView = ({
       /** So the UI never sits on "Consulting AI" forever if Python/API hangs */
         const analyzeAbort = new AbortController();
         cancelAnalyzeRequest = () => analyzeAbort.abort();
-        const ANALYZE_CLIENT_MAX_MS = (choice === "6" || choice === "7" || choice === "8" || choice === "9" || choice === "10") ? 8 * 60 * 1000 : 14 * 60 * 1000;
+        const ANALYZE_CLIENT_MAX_MS = isFastPremiumScanModelId(choice) ? 8 * 60 * 1000 : 14 * 60 * 1000;
         const analyzeHardStop = setTimeout(() => analyzeAbort.abort(), ANALYZE_CLIENT_MAX_MS);
 
         const buildProgressMessage = () => {
@@ -5203,7 +5214,7 @@ const ScanningView = ({
           setElapsedScanMs(Date.now() - scanStartedAt);
           setStatusText(buildProgressMessage());
         }, 1000);
-        const recoveryProbeDelayMs = (choice === "6" || choice === "7" || choice === "8" || choice === "9" || choice === "10") ? 25000 : isUltra ? 45000 : 30000;
+        const recoveryProbeDelayMs = isFastPremiumScanModelId(choice) ? 25000 : isUltra ? 45000 : 30000;
         let recoveryProbeRunning = false;
         const recoveryTick = activeUser ? setInterval(async () => {
           if (!active || scanSucceeded || recoveryProbeRunning) return;
@@ -5892,7 +5903,7 @@ const ConsultingStatusPage = ({ job, setCurrentPage, user, isRestoringActiveScan
   }
 
   const isUltra31 = job.choice === "1";
-  const isGemini31Pro = job.choice === "6" || job.choice === "7" || job.choice === "8" || job.choice === "9";
+  const isGemini31Pro = isFastPremiumScanModelId(job.choice);
   const overlayRevealSeconds = job.overlayRevealSeconds || (isUltra31 ? 34 : isGemini31Pro ? 18 : job.choice === "2" ? 24 : 36);
   const overlayScanLoopSeconds = job.overlayScanLoopSeconds || (isUltra31 ? 4 : isGemini31Pro ? 3.5 : job.choice === "2" ? 4.5 : 4);
   const lowPriorityBadge = job.fairUsageState?.lowPriority
@@ -6178,6 +6189,14 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
       tier: "ultra",
       Icon: Crown
     },
+    {
+      id: "14",
+      name: "Premium 2",
+      description:
+        "OpenRouter Gemini premium scan using Backup-calibrated scoring with the full premium dashboard format.",
+      tier: "ultra",
+      Icon: Crown
+    },
     ...(isAdmin ? [
       { id: "separator-experimental", kind: "separator", label: "Experimental Models" },
       {
@@ -6292,7 +6311,7 @@ const UploadPhotoPage = ({ setCurrentPage, setDashboardData, setSelectedCelebrit
         const geminiHealthy = enabledKeys.filter((key) => !key?.quarantined && key?.status !== 'quota' && key?.status !== 'errors').length;
         const geminiProblemCount = enabledKeys.filter((key) => key?.quarantined || key?.status === 'quota' || key?.status === 'errors').length;
         const recentAnalyses = Array.isArray(statsBody?.recentAnalyses) ? statsBody.recentAnalyses : [];
-        const geminiRecent = summarizeRecentProviderSuccess(recentAnalyses, new Set(['1', '2', '6', '7', '8', '9', '13']));
+        const geminiRecent = summarizeRecentProviderSuccess(recentAnalyses, new Set(['1', '2', '6', '7', '8', '9', '13', '14']));
 
         setAdminApiHealth({
           configured: true,
@@ -10647,7 +10666,7 @@ const AdminDashboardPage = ({ setCurrentPage, user, authResolved }) => {
     return ms >= 60000 ? `${(ms / 60000).toFixed(1)}m` : `${(ms / 1000).toFixed(0)}s`;
   };
 
-  const modelLabel = (m) => ({ '1': 'Premium Model', '2': 'Backup Model', '6': 'Premium Model', '7': 'Premium Model', '8': 'Premium Model', '9': 'Premium Model', '13': 'google/gemini-3.1-pro-preview', [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo', '3': 'Free' }[m] || m);
+  const modelLabel = (m) => ({ '1': 'Premium Model', '2': 'Backup Model', '6': 'Premium Model', '7': 'Premium Model', '8': 'Premium Model', '9': 'Premium Model', '13': 'google/gemini-3.1-pro-preview', '14': 'Premium 2', [PREMIUM_DEMO_MODEL_ID]: 'Premium Demo', '3': 'Free' }[m] || m);
   const adminUserSections = useMemo(() => {
     const newUsers = [];
     const goatUsers = [];

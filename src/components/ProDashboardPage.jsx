@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { CommunityScansSection } from './CommunityScansSection';
 import { Target, Newspaper, Swords, Users, Crown, ChevronRight, ChevronLeft, Plus, Trash2, Edit2, Activity, Flame, Sparkles, Lock, ArrowLeft, TrendingUp, Share2, Check } from 'lucide-react';
 import { getApiBase } from '../utils/apiBase';
 import { COMMUNITY_SCANS } from '../data/communityScans';
@@ -14,41 +13,6 @@ const API_BASE = getApiBase();
 const PROFILE_SCAN_HISTORY_LIMIT = 10;
 const DEMO_PROFILE_SCAN_LIMIT = 2;
 
-function SafeScanImage({
-  src,
-  alt,
-  className = 'h-full w-full object-cover object-top',
-  fallbackClassName = 'flex h-full w-full items-center justify-center bg-zinc-950 text-zinc-700',
-  iconSize = 18,
-  ...props
-}) {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [src]);
-
-  if (!src || failed) {
-    return (
-      <div className={fallbackClassName} aria-label={alt || 'Image unavailable'}>
-        <Users size={iconSize} />
-      </div>
-    );
-  }
-
-  return (
-    <img
-      {...props}
-      loading="lazy"
-      decoding="async"
-      src={src}
-      alt={alt}
-      className={className}
-      onError={() => setFailed(true)}
-    />
-  );
-}
-
 const clampTextStyle = {
   display: '-webkit-box',
   WebkitBoxOrient: 'vertical',
@@ -62,7 +26,7 @@ const modelLabel = (model) => ({
   '7': 'Premium Model',
   '8': 'Premium Model',
   '9': 'Premium Model',
-  '10': '3.1 Pro Test',
+  '14': 'Premium 2',
   'premium-demo': 'Premium Demo',
   '3': 'Free Optic',
   '4': 'Free Core',
@@ -145,13 +109,17 @@ function DashboardCommunityScanCard({
         }}
       >
         <div className="relative overflow-hidden rounded-[30px] bg-zinc-950">
-          <SafeScanImage
-            src={dd?.frontImage}
-            alt="Community Scan"
-            className="w-full aspect-[3/4] object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.065]"
-            fallbackClassName="flex aspect-[3/4] w-full items-center justify-center bg-zinc-950 text-zinc-700 opacity-50"
-            iconSize={48}
-          />
+          {dd?.frontImage ? (
+            <img loading="lazy" decoding="async"
+              src={dd.frontImage}
+              className="w-full aspect-[3/4] object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.065]"
+              alt="Community Scan"
+            />
+          ) : (
+            <div className="flex aspect-[3/4] w-full items-center justify-center text-zinc-700 opacity-50">
+              <Users size={48} />
+            </div>
+          )}
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent opacity-95" />
           <div
             className="pointer-events-none absolute inset-0 opacity-0 mix-blend-screen transition-opacity duration-300 group-hover:opacity-100"
@@ -222,18 +190,18 @@ function DashboardCommunityScanCard({
 }
 
 const FreeScanShiftingScore = ({ className = '' }) => {
-  const [score, setScore] = useState(40);
+  const [score, setScore] = useState(70);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setScore(Math.floor(40 + Math.random() * 60));
+      setScore(Math.floor(70 + Math.random() * 30));
     }, 120);
     return () => clearInterval(interval);
   }, []);
 
   return (
     <span
-      className={`animate-free-rating-bg inline-block select-none font-black italic tabular-nums blur-[4.625px] ${className}`}
+      className={`inline-block select-none font-black italic tabular-nums text-emerald-300 blur-[4.625px] drop-shadow-[0_0_18px_rgba(16,185,129,0.8)] ${className}`}
       aria-label="Free scan score hidden"
     >
       {score.toFixed(1)}
@@ -312,45 +280,28 @@ const formatDashboardDate = (value, fallback = '-') => {
 
 const modelUsesProDashboard = (model) => {
   const normalized = String(model || '').trim();
-  return normalized === '1' || normalized === '2' || normalized === '6' || normalized === '7' || normalized === '8' || normalized === '9' || normalized === '10' || normalized === '11' || normalized === '12' || normalized === '13' || normalized === '14' || normalized === 'premium-demo';
+  return normalized === '1' || normalized === '2' || normalized === '6' || normalized === '9' || normalized === '14' || normalized === 'premium-demo';
 };
 
 const isFreeScanModel = (model) => ['3', '4', '5'].includes(String(model || '').trim());
 
-const getSavedScanModel = (scan, fallback = '') => {
-  const payload = scan?.payload && typeof scan.payload === 'object' ? scan.payload : {};
-  const raw = String(
-    scan?.selectedModel ||
-    scan?.modelChoice ||
-    scan?.model ||
-    payload.selectedModel ||
-    payload.modelChoice ||
-    payload.model ||
-    fallback ||
-    ''
-  ).trim();
-  if (/free|optic|core|geneva/i.test(raw)) return '3';
-  return raw;
-};
-
 const hydrateScanForDashboard = (scan) => {
   if (!scan) return null;
   const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : {};
-  const selectedModel = getSavedScanModel(scan);
   return {
     ...payload,
-    scanId: scan.scanId || scan.id || payload.scanId || null,
+    scanId: scan.id,
     profileId: scan.profileId || payload.profileId || null,
     visibility: scan.visibility || payload.visibility || 'private',
-    frontImage: resolveMediaUrl(scan.frontImageUrl || scan.frontImage || payload.frontImage || payload.frontImageUrl || null),
-    sideImage: resolveMediaUrl(scan.sideImageUrl || scan.sideImage || payload.sideImage || payload.sideImageUrl || null),
+    frontImage: resolveMediaUrl(scan.frontImageUrl || payload.frontImage || null),
+    sideImage: resolveMediaUrl(scan.sideImageUrl || payload.sideImage || null),
     debugAnchorsImage: resolveMediaUrl(scan.debugAnchorsImageUrl || payload.debugAnchorsImage || payload.debugAnchorsImageUrl || null),
     debugAnchorsImageUrl: resolveMediaUrl(scan.debugAnchorsImageUrl || payload.debugAnchorsImageUrl || payload.debugAnchorsImage || null),
     debugRatiosImage: resolveMediaUrl(scan.debugRatiosImageUrl || payload.debugRatiosImage || payload.debugRatiosImageUrl || null),
     debugRatiosImageUrl: resolveMediaUrl(scan.debugRatiosImageUrl || payload.debugRatiosImageUrl || payload.debugRatiosImage || null),
     finalRating: typeof scan.finalRating === 'number' ? scan.finalRating : payload.finalRating,
     sideRating: typeof scan.sideRating === 'number' ? scan.sideRating : payload.sideRating,
-    selectedModel,
+    selectedModel: String(scan.model || payload.selectedModel || '').trim(),
     scannedAt: timestampToIso(scan.timestamp || scan.scannedAt),
   };
 };
@@ -593,7 +544,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     if (setPendingUploadProfileId) {
       setPendingUploadProfileId(dashboardData?.profileId || null);
     }
-    if (model === '1' || model === '2' || model === '6' || model === '7' || model === '8' || model === '9' || model === '10') {
+    if (model === '1' || model === '2' || model === '6' || model === '7' || model === '8' || model === '9' || model === '14') {
       setCurrentPage('upload-ultra');
     } else {
       setCurrentPage('upload-photo');
@@ -1010,7 +961,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
     return [...allScans]
       .sort((a, b) => timestampToMillis(b.timestamp || b.scannedAt) - timestampToMillis(a.timestamp || a.scannedAt))[0] || null;
   }, [allScans]);
-  const latestScanIsFree = isFreeScanModel(getSavedScanModel(latestScanAcrossProfiles));
+  const latestScanIsFree = isFreeScanModel(latestScanAcrossProfiles?.model || latestScanAcrossProfiles?.payload?.selectedModel);
 
   const latestScanProfile = useMemo(() => {
     if (!latestScanAcrossProfiles) return null;
@@ -1022,6 +973,12 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       id: '6',
       label: 'Premium Model',
       description: 'Very accurate premium scan with fast calibrated scoring.',
+      buttonClass: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20',
+    },
+    {
+      id: '14',
+      label: 'Premium 2',
+      description: 'OpenRouter Gemini scan with Backup-calibrated premium scoring.',
       buttonClass: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20',
     },
     {
@@ -1057,7 +1014,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
   const handleSelectScan = (scan) => {
     if (!scan || !setDashboardData) return;
-    const selectedScanModel = getSavedScanModel(scan, dashboardData?.selectedModel || '3');
+    const selectedScanModel = String(scan.selectedModel || scan.model || scan.payload?.selectedModel || '').trim();
     const nextScanHistory = historyCards.slice().reverse();
     setDashboardData({
       ...scan,
@@ -1103,7 +1060,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
       ...selected,
       profileId,
       profileName: scan.profileName || scan.payload?.profileName || selected.profileName || 'Saved Scan',
-      selectedModel: getSavedScanModel(selected, getSavedScanModel(scan, '3')),
       scanHistory: history,
       ratingHistory: history
         .map((item) => Number(item?.finalRating))
@@ -1156,7 +1112,6 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
         ...latestScan,
         profileId: profile.id,
         profileName: profile.name,
-        selectedModel: getSavedScanModel(latestScan, '3'),
         scanHistory: history,
         ratingHistory,
       });
@@ -1347,7 +1302,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
         {showAnalysisShell && (
           <div className="mb-6 flex items-center justify-between md:hidden">
-            <span className="text-2xl font-black italic tracking-tighter text-white">FaceLab</span>
+            <span className="text-2xl font-black italic tracking-tighter text-white">MogCheck</span>
             <button
               type="button"
               onClick={() => handleCreateProfileAndScan(mobileNewScanModel)}
@@ -1377,7 +1332,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                     onClick={() => handleSelectScan(scan)}
                     className={`relative flex-shrink-0 w-20 aspect-[4/5.5] rounded-xl overflow-hidden border transition-all duration-300 ${isActive ? 'border-cyan-400 ring-2 ring-cyan-400/20 scale-[1.05] z-10' : 'border-zinc-800 opacity-70 hover:opacity-100'}`}
                   >
-                    <SafeScanImage src={scan.frontImage} className="w-full h-full object-cover" alt="" />
+                    <img loading="lazy" decoding="async" src={scan.frontImage} className="w-full h-full object-cover" alt="" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
                     <div className={`absolute bottom-1.5 left-0 right-0 text-center text-[11px] font-black italic ${ratingTone.text}`}>
                       {rating.toFixed(1)}
@@ -1532,10 +1487,10 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                         </span>
                       )}
                       <div className="relative flex-1 border-r border-zinc-900">
-                        <SafeScanImage src={scan.frontImage} alt="Front profile" className="h-full w-full object-cover" />
+                        <img loading="lazy" decoding="async" src={scan.frontImage || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'} alt="Front profile" className="h-full w-full object-cover" />
                       </div>
                       <div className="relative flex-1">
-                        <SafeScanImage src={scan.sideImage || scan.frontImage} alt="Side profile" className="h-full w-full object-cover object-top" />
+                        <img loading="lazy" decoding="async" src={scan.sideImage || scan.frontImage || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'} alt="Side profile" className="h-full w-full object-cover object-top" />
                       </div>
                     </button>
                   );
@@ -1691,14 +1646,39 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
 
 
 
-            <div className="mt-10 border-t border-zinc-900/50 pt-10">
-              <CommunityScansSection
-                user={user}
-                setCurrentPage={setCurrentPage}
-                onOpenScan={openCommunityScan}
-                filterMode="all"
-              />
-            </div>
+            <section ref={communityRef} className="scroll-mt-28 border-t border-zinc-900 pt-8">
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h2 className="text-2xl font-black uppercase tracking-tighter italic text-white mb-2">Community Scans</h2>
+                    <p className="text-zinc-400 font-sans text-sm uppercase tracking-widest">Official scans are pinned first. Add your own public scan from history or start fresh.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCommunityAddOpen(true)}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-500/35 bg-cyan-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-300 transition-colors hover:bg-cyan-500/20"
+                  >
+                    <Plus size={16} /> Add Scan
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {communityGallery.map((scan) => {
+                    return (
+                      <DashboardCommunityScanCard
+                        key={scan.id}
+                        scan={scan}
+                        isAdminUser={isAdminUser}
+                        communityMenuId={communityMenuId}
+                        onOpen={() => openCommunityScan(scan)}
+                        onToggleMenu={() => setCommunityMenuId((prev) => (prev === scan.id ? null : scan.id))}
+                        onToggleOfficial={(official) => markCommunityScanOfficial(scan, official)}
+                        onRemove={() => removeAdminCommunityScan(scan)}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
 
           </div>
         )}
@@ -1719,7 +1699,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-black/30">
-                      <SafeScanImage
+                      <img loading="lazy" decoding="async"
                         src={resolveMediaUrl(latestScanAcrossProfiles.frontImageUrl || latestScanAcrossProfiles.payload?.frontImage) || 'https://upload.wikimedia.org/wikipedia/commons/8/89/Portrait_Placeholder.png'}
                         alt=""
                         className="h-24 w-24 object-cover"
@@ -1782,7 +1762,9 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                         <div className="grid h-24 grid-cols-3 divide-x divide-cyan-400/20 sm:h-28">
                           {p.previewScans.map((scan) => (
                             <div key={scan.id} className="relative overflow-hidden bg-zinc-900">
-                              <SafeScanImage
+                              <img
+                                loading="lazy"
+                                decoding="async"
                                 src={scan.frontImage}
                                 alt=""
                                 className="h-full w-full object-cover object-top grayscale-[0.15] transition-transform duration-500 group-hover:scale-105"
@@ -1875,7 +1857,7 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
               <p className="text-xs text-zinc-500 mt-4">The correct AI model is pre-selected on the upload page. You can still change it there before analyzing.</p>
             </div>
 
-            <DashboardHubPreviewsCompact setCurrentPage={setCurrentPage} hideCommunity={false} onOpenCommunityScan={openCommunityScan} />
+            <DashboardHubPreviewsCompact setCurrentPage={setCurrentPage} onOpenCommunityScan={openCommunityScan} />
           </div>
         )}
 
@@ -1999,7 +1981,11 @@ const ProDashboardPage = ({ dashboardData, setCurrentPage, userPlan, user, onSig
                     return (
                       <div key={scanId || scan.frontImageUrl} className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/70 p-3">
                         <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-zinc-900">
-                          <SafeScanImage src={resolveMediaUrl(scan.frontImageUrl || scan.payload?.frontImage)} alt="" />
+                          {resolveMediaUrl(scan.frontImageUrl || scan.payload?.frontImage) ? (
+                            <img loading="lazy" decoding="async" src={resolveMediaUrl(scan.frontImageUrl || scan.payload?.frontImage)} alt="" className="h-full w-full object-cover object-top" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-zinc-700"><Users size={18} /></div>
+                          )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-black uppercase tracking-[0.14em] text-white">{scan.profileName || scan.profileId || 'Saved scan'}</p>

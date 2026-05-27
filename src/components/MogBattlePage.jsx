@@ -48,7 +48,7 @@ const getMogBattleNameError = (value) => {
   const raw = String(value || '').trim();
   if (!raw) return null;
   if (/(https?:\/\/|www\.|[a-z0-9-]+\.(?:com|net|org|gg|io|co|app|xyz|link|site|me)\b)/i.test(raw)) {
-    return 'Face Battle names cannot contain links.';
+    return 'Mog Battle names cannot contain links.';
   }
   const normalized = raw.toLowerCase().replace(/[^a-z0-9]+/g, ' ');
   const compact = raw.toLowerCase().replace(/[^a-z0-9]+/g, '');
@@ -57,7 +57,7 @@ const getMogBattleNameError = (value) => {
     return new RegExp(`(^|\\s)${escaped}(\\s|$)`, 'i').test(normalized) ||
       (MOG_BATTLE_COMPACT_BANNED_NAME_TERMS.has(term) && compact.includes(term));
   });
-  return hasBannedTerm ? 'Face Battle names cannot contain inappropriate words.' : null;
+  return hasBannedTerm ? 'Mog Battle names cannot contain inappropriate words.' : null;
 };
 
 const timestampToMillis = (value) => {
@@ -588,7 +588,7 @@ const VoteBattleModal = ({ battle, user, onClose, onVoteComplete }) => {
 
   const handleVote = async (side) => {
     if (!user) {
-      setError('Sign in to vote on Face Battles.');
+      setError('Sign in to vote on Mog Battles.');
       return;
     }
     if (hasLockedVote) {
@@ -882,7 +882,7 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
         body: JSON.stringify({ visibility: 'unlisted' }),
       });
       const data = await scanRes.json().catch(() => ({}));
-      if (!scanRes.ok) throw new Error(data.error || 'Could not make scan unlisted for Face Battle.');
+      if (!scanRes.ok) throw new Error(data.error || 'Could not make scan unlisted for Mog Battle.');
       nextVisibility = data.scan?.visibility || 'unlisted';
     }
 
@@ -896,7 +896,7 @@ const NewBattleModal = ({ user, dashboardData, setCurrentPage, onClose, onCreate
         body: JSON.stringify({ visibility: 'unlisted' }),
       });
       const profileData = await profileRes.json().catch(() => ({}));
-      if (!profileRes.ok) throw new Error(profileData.error || 'Could not make profile unlisted for Face Battle.');
+      if (!profileRes.ok) throw new Error(profileData.error || 'Could not make profile unlisted for Mog Battle.');
     }
 
     return { ...fighter, visibility: nextVisibility || 'unlisted' };
@@ -1480,7 +1480,7 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
 
   const deleteBattle = useCallback(async (battle) => {
     if (!canDeleteBattle(battle)) return;
-    const confirmed = window.confirm('Delete this Face Battle? This removes it from public Face Battles.');
+    const confirmed = window.confirm('Delete this Mog Battle? This removes it from public Mog Battles.');
     if (!confirmed) return;
 
     try {
@@ -1497,7 +1497,7 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
       setCommunityBattles((prev) => prev.filter((item) => String(item.id) !== String(battle.id)));
       setFollowedBattleIds((prev) => prev.filter((item) => String(item) !== String(battle.id)));
       setVoteModalBattle((current) => (String(current?.id) === String(battle.id) ? null : current));
-      setShareStatus('Face Battle deleted.');
+      setShareStatus('Mog Battle deleted.');
     } catch (e) {
       setShareStatus(e.message || 'Could not delete this battle.');
     }
@@ -1765,10 +1765,10 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
                   Ranked Matchups
                 </div>
                 <h1 className="bg-[linear-gradient(180deg,#33ddff_0%,#14a9ff_42%,#0d6dc4_74%,#06325f_100%)] bg-clip-text text-[56px] font-black italic uppercase tracking-[-0.06em] text-transparent drop-shadow-[0_12px_34px_rgba(0,240,255,0.12)] md:text-[86px]">
-                  FACE BATTLES
+                  MOG BATTLES
                 </h1>
                 <p className="mt-5 max-w-[760px] text-[15px] leading-relaxed text-zinc-400">
-                  Vote on matchups, track winners, and compare scan performance inside the same FaceLab visual system.
+                  Vote on matchups, track winners, and compare scan performance inside the same MogCheck visual system.
                 </p>
               </div>
 
@@ -1964,7 +1964,7 @@ const MogBattlePage = ({ user, setCurrentPage, dashboardData }) => {
         <LeaderboardProfileModal row={leaderboardProfile} onClose={() => setLeaderboardProfile(null)} />
       ) : null}
       {showFollowing ? (
-        <ModalShell title="Following" subtitle="Face Battles you are tracking" onClose={() => setShowFollowing(false)} maxWidth="max-w-4xl">
+        <ModalShell title="Following" subtitle="Mog Battles you are tracking" onClose={() => setShowFollowing(false)} maxWidth="max-w-4xl">
           <div className="space-y-3">
             {followedBattles.length ? (
               followedBattles.map((battle) => (

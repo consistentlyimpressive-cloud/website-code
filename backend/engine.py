@@ -155,6 +155,74 @@ def refine_hairline(lms, img_bgr):
     estimated[0] = float(face_center_x)
     return estimated.astype(np.float32)
 
+
+def create_leveled_face_image(img_path, output_path, crop=True):
+    """Create an eye-leveled face image for AI review without changing measurements."""
+    if not os.path.exists(img_path):
+        return False
+
+    img_bgr = cv2.imread(img_path)
+    if img_bgr is None:
+        return False
+
+    with vision.FaceLandmarker.create_from_options(options) as landmarker:
+        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        image_mp = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
+        res = landmarker.detect(image_mp)
+        if not res.face_landmarks:
+            return False
+
+        h, w = image_mp.height, image_mp.width
+        lms = np.array([(lm.x * w, lm.y * h) for lm in res.face_landmarks[0]], dtype=np.float32)
+
+        p_r, p_l = 468, 473
+        d_x = lms[p_l][0] - lms[p_r][0]
+        d_y = lms[p_l][1] - lms[p_r][1]
+        angle = float(np.degrees(np.arctan2(d_y, d_x)))
+        eye_center = ((float(lms[p_r][0] + lms[p_l][0]) / 2.0), (float(lms[p_r][1] + lms[p_l][1]) / 2.0))
+
+        rotation = cv2.getRotationMatrix2D(eye_center, angle, 1.0)
+        cos = abs(rotation[0, 0])
+        sin = abs(rotation[0, 1])
+        new_w = int((h * sin) + (w * cos))
+        new_h = int((h * cos) + (w * sin))
+        rotation[0, 2] += (new_w / 2.0) - eye_center[0]
+        rotation[1, 2] += (new_h / 2.0) - eye_center[1]
+
+        leveled = cv2.warpAffine(
+            img_bgr,
+            rotation,
+            (new_w, new_h),
+            flags=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_REPLICATE,
+        )
+
+        ones = np.ones(shape=(len(lms), 1), dtype=np.float32)
+        lms_rotated = (rotation @ np.hstack([lms, ones]).T).T
+
+        if crop:
+            x_min, y_min = np.min(lms_rotated, axis=0)
+            x_max, y_max = np.max(lms_rotated, axis=0)
+            face_w = max(1.0, float(x_max - x_min))
+            face_h = max(1.0, float(y_max - y_min))
+
+            # Keep hair, jaw, and neck context while removing empty rotated canvas.
+            pad_x = face_w * 0.55
+            pad_top = face_h * 0.85
+            pad_bottom = face_h * 0.45
+
+            crop_x0 = int(np.clip(x_min - pad_x, 0, new_w - 1))
+            crop_y0 = int(np.clip(y_min - pad_top, 0, new_h - 1))
+            crop_x1 = int(np.clip(x_max + pad_x, crop_x0 + 1, new_w))
+            crop_y1 = int(np.clip(y_max + pad_bottom, crop_y0 + 1, new_h))
+            leveled = leveled[crop_y0:crop_y1, crop_x0:crop_x1]
+
+        output_dir = os.path.dirname(os.path.abspath(output_path))
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+        return bool(cv2.imwrite(output_path, leveled, [int(cv2.IMWRITE_JPEG_QUALITY), 95]))
+
+
 def get_clinical_biometrics(img_path):
     if not os.path.exists(img_path): return
     with vision.FaceLandmarker.create_from_options(options) as landmarker:
@@ -266,6 +334,9 @@ def get_clinical_biometrics(img_path):
         philtrum_h_px = abs(lms[p["subnasale"]][1] - lms[p["top_lip"]][1])
         lip_h_px = abs(lms[p["top_lip"]][1] - lms[p["bot_lip"]][1])
         eye_h_px = get_dist("eye_r_top", "eye_r_bot")
+        eye_width_r_px = abs(lms[p["eye_r_out"]][0] - lms[p["eye_r_in"]][0])
+        eye_width_l_px = abs(lms[p["eye_l_out"]][0] - lms[p["eye_l_in"]][0])
+        eye_width_px = (eye_width_r_px + eye_width_l_px) / 2.0
         brow_comp_px = abs(lms[p["pupil_r"]][1] - lms[p["brow_r_low"]][1])
 
         eye_dx = lms[p["eye_r_out"]][0] - lms[p["eye_r_in"]][0]
@@ -311,6 +382,10 @@ def get_clinical_biometrics(img_path):
         
         cv2.line(img_r, tuple(lms[p["eye_r_top"]].astype(int)), tuple(lms[p["eye_r_bot"]].astype(int)), (255, 0, 255), t)
         cv2.line(img_r, tuple(lms[p["pupil_r"]].astype(int)), (int(lms[p["pupil_r"]][0]), int(lms[p["brow_r_low"]][1])), (255, 255, 0), t)
+        eye_r_y = int((lms[p["eye_r_in"]][1] + lms[p["eye_r_out"]][1]) / 2.0)
+        eye_l_y = int((lms[p["eye_l_in"]][1] + lms[p["eye_l_out"]][1]) / 2.0)
+        cv2.line(img_r, (int(lms[p["eye_r_in"]][0]), eye_r_y), (int(lms[p["eye_r_out"]][0]), eye_r_y), (255, 150, 0), t)
+        cv2.line(img_r, (int(lms[p["eye_l_out"]][0]), eye_l_y), (int(lms[p["eye_l_in"]][0]), eye_l_y), (255, 150, 0), t)
 
         x_start, x_end = int(lms[p["zygo_r"]][0]), int(lms[p["zygo_l"]][0])
         cv2.line(img_r, (x_start, int(lms[p["hairline"]][1])), (x_end, int(lms[p["hairline"]][1])), (255, 255, 255), 1)
@@ -352,6 +427,7 @@ METADATA:
 
 [3] NORMALIZED VERTICAL INDICES (Length / Zygo Width)
 ------------------------------------------------------------
+- Eye_Width_Index (Horizontal): {round(eye_width_px/zygo_w, 3)}
 - Eye_Height_Index:         {round(eye_h_px/zygo_w, 3)}
 - Brow_Compactness_Index (distance from center of eye to bottom of brow): {round(brow_comp_px/zygo_w, 3)}
 - Philtrum_Height_Index:    {round(philtrum_h_px/zygo_w, 3)}

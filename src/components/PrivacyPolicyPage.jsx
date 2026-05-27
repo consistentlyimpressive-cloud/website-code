@@ -13,20 +13,20 @@ const PrivacyPolicyPage = ({ setCurrentPage }) => {
       </button>
 
       <h1 className="text-3xl md:text-5xl font-black italic uppercase tracking-tight text-white mb-2">Privacy Policy</h1>
-      <p className="text-zinc-500 font-sans text-xs uppercase tracking-widest mb-10">Last Updated: May 23, 2026</p>
+      <p className="text-zinc-500 font-sans text-xs uppercase tracking-widest mb-10">Last Updated: April 5, 2026</p>
 
       <div className="space-y-10">
         <section>
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">1. Introduction</h2>
           <p className="leading-relaxed text-sm">
-            At FaceLab ("we," "our," or "us"), we value your privacy. This Privacy Policy explains how we collect, use, and protect your information when you use our aesthetic analysis tool. By using FaceLab, you agree to the practices described in this policy.
+            At mogcheck ("we," "our," or "us"), we value your privacy. This Privacy Policy explains how we collect, use, and protect your information when you use our aesthetic analysis tool. By using mogcheck, you agree to the practices described in this policy.
           </p>
         </section>
 
         <section>
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">2. Relationship with Paddle</h2>
           <p className="leading-relaxed text-sm mb-4">
-            FaceLab uses Paddle.com Market Limited as our Merchant of Record. Paddle is the data controller for your payment information (e.g., credit card details, billing address).
+            mogcheck uses Paddle.com Market Limited as our Merchant of Record. Paddle is the data controller for your payment information (e.g., credit card details, billing address).
           </p>
           <ul className="list-disc pl-5 space-y-3 text-sm">
             <li>When you make a purchase, you provide your payment data directly to Paddle.</li>
@@ -50,7 +50,7 @@ const PrivacyPolicyPage = ({ setCurrentPage }) => {
         <section>
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">4. How We Process Facial Data (Biometric Disclaimer)</h2>
           <p className="leading-relaxed text-sm mb-4">
-            FaceLab uses Artificial Intelligence to perform Facial Landmark Detection.
+            mogcheck uses Artificial Intelligence to perform Facial Landmark Detection.
           </p>
           <ul className="list-disc pl-5 space-y-3 text-sm">
             <li><strong className="text-zinc-100">Nature of Processing:</strong> We extract mathematical coordinates (ratios and distances) to provide symmetry and proportion scores.</li>
@@ -101,7 +101,7 @@ const PrivacyPolicyPage = ({ setCurrentPage }) => {
             <li><strong className="text-zinc-100">Correction:</strong> Update your email or account details.</li>
           </ul>
           <p className="leading-relaxed text-sm">
-            To exercise these rights, email us at <a href="mailto:support@facelab.online" className="text-cyan-400 hover:text-cyan-300 transition-colors">support@facelab.online</a>.
+            To exercise these rights, email us at <a href="mailto:support@mogcheck.net" className="text-cyan-400 hover:text-cyan-300 transition-colors">support@mogcheck.net</a>.
           </p>
         </section>
 

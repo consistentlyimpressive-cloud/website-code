@@ -157,9 +157,10 @@ except ImportError:
 
 # Internal Module Imports
 try:
-    from engine import get_clinical_biometrics
+    from engine import get_clinical_biometrics, create_leveled_face_image
     print("[DEBUG] Engine.py Linked Successfully.")
 except ImportError:
+    create_leveled_face_image = None
     print("[DEBUG] CRITICAL: Ensure your measurement script is named 'engine.py' in this folder!")
 
 try:
@@ -229,7 +230,14 @@ OPENROUTER_EXPERIMENTAL_MODEL_MAP = {
         "extra_body": {"reasoning": {"effort": "low"}},
         "provider_error_label": "OpenRouter Gemini 3.1 Pro",
     },
+    "14": {
+        "model_id": "google/gemini-3.1-pro-preview",
+        "friendly_name": "Premium 2",
+        "extra_body": {"reasoning": {"effort": "low"}},
+        "provider_error_label": "OpenRouter Premium 2",
+    },
 }
+PREMIUM_2_MODEL_CHOICES = {"14"}
 OPENROUTER_EXPERIMENTAL_MODEL_CHOICES = set(OPENROUTER_EXPERIMENTAL_MODEL_MAP.keys())
 PREMIUM_MODEL_CHOICES = {"1", "2", "6", "7", "8", "9"} | OPENROUTER_EXPERIMENTAL_MODEL_CHOICES
 PREMIUM_CORE_REPORT_MODEL_CHOICES = {"2", "6", "7", "8", "9"} | OPENROUTER_EXPERIMENTAL_MODEL_CHOICES
@@ -867,18 +875,19 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     print("8. Premium Model")
     print("9. Premium Model")
     print("13. google/gemini-3.1-pro-preview")
+    print("14. Premium 2")
 
     if choice_override is not None and str(choice_override).strip():
         choice = str(choice_override).strip()
         print(f"\n[DEBUG] Model selected via API args: {choice}")
     else:
         try:
-            choice = input("\nSelect Model [1-13]: ").strip()
+            choice = input("\nSelect Model [1-14]: ").strip()
         except KeyboardInterrupt:
             print("\nExiting script...")
             return
 
-    if choice not in {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"}:
+    if choice not in {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"}:
         print(f"[ERROR] Invalid model choice: {choice}")
         return "Error: Model selection failed."
 
@@ -935,6 +944,16 @@ def run_final_stack(img_path, clinical_data_json_str=None, choice_override=None,
     img = cv2.imread(img_path)
     temp_analysis_path = run_output_path("temp_analysis.jpg")
     cv2.imwrite(temp_analysis_path, img, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+    if choice in PREMIUM_2_MODEL_CHOICES and create_leveled_face_image is not None:
+        aligned_analysis_path = run_output_path("temp_analysis_aligned.jpg")
+        try:
+            if create_leveled_face_image(img_path, aligned_analysis_path, crop=True):
+                temp_analysis_path = aligned_analysis_path
+                print(f"[DEBUG] Premium 2 using MediaPipe-leveled image: {aligned_analysis_path}")
+            else:
+                print("[DEBUG] Premium 2 image leveling skipped: no usable face landmarks.")
+        except Exception as error:
+            print(f"[DEBUG] Premium 2 image leveling failed; using original image: {error}")
 
     print("[3/3] Consulting AI...")
 
@@ -1094,6 +1113,9 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         A face with one severe flaw plus many decent metrics should usually land lower than a face with no severe flaws and many modest positives.
         Strengths should be things that actually lift the rating: strong symmetry, sharp jaw, compact midface, good eye area, clear skin, strong cheekbones, good harmony, attractive thirds, or clean side profile.
         Weaknesses should be the real bottlenecks: soft tissue, weak chin, long midface, poor eye area, visible aging, poor skin, asymmetry, weak jaw, nose imbalance, flat cheekbones, poor harmony, or image unreliability.
+        Do not use "tired eyes" as a generic limiter. Only call the eyes tired or use them as a score suppressor when there is clear visible evidence such as obvious under-eye bags, dark hollowness, high upper eyelid exposure, droopiness/ptosis, lower scleral show, or weak orbital support. If the eye area is merely not elite but not visibly bad, call it neutral-to-mildly limiting rather than a major flaw.
+        Do not treat "lack of sharp definition" as an automatic bottleneck. Only penalize definition strongly when visible facial fat, submental fullness, blurry jaw borders, weak cheek/jaw reveal, or soft-tissue masking clearly hides structure. Healthy normal softness or lighting-related softness should be neutral or only mildly limiting.
+        Avoid stock summary phrasing like "tired eye presentation" or "lack of sharp definition" unless the output also names the exact visible evidence. If the evidence is weak, pick a more concrete limiting factor or mark uncertainty.
         If you are unsure whether a flaw is real because of lighting/angle, keep it as a quality/confidence flag and avoid over-penalizing.
         If image quality is good, do not hide behind uncertainty flags; make a clear judgment.
 
@@ -1363,7 +1385,110 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         - Return exactly 5 primaryFlaws when possible.
         - Do not return only 3 unless the image is unusable or content-rejected.
         """
-        if choice == "7":
+        if choice in PREMIUM_2_MODEL_CHOICES:
+            active_prompt += """
+
+        PREMIUM 2 HYBRID OVERRIDE:
+        - You are Premium 2. Run on OpenRouter Gemini, but score like the Backup Model.
+        - The Backup/old Premium calibration above is the source of truth for finalRating, sideRating, category scores, hexagon scores, and every keyRatios.score.
+        - Do NOT use Premium Model generosity, fame/appeal lift, angularity lift, or single-feature lift to move above the Backup band.
+        - Premium rules below are diagnostic detail rules only. They must not create extra score ceilings, hard caps, or one-way harsher overrides beyond Backup calibration.
+        - If a Premium detail rule conflicts with Backup calibration, preserve the Backup-calibrated score and explain the visible trait proportionally.
+        - Keep the exact Premium Model dashboard format, field names, ratio coverage, category coverage, and JSON compactness.
+        - Descriptions must explain the Backup-calibrated score, not rationalize a higher Premium-style score after the fact.
+
+        PREMIUM DETAIL RULES TO KEEP:
+        - SKIN/TEXTURE DETAIL: Account for oily/greasy texture, visible large pores, active acne, significant scarring, nasolabial folds, deep tear troughs, skin laxity, wrinkles, crow's feet, saggy skin, saggy neck, balding, recession, and worn/low-freshness presentation only to the extent they are clearly visible and already justified by Backup calibration.
+        - ORBITAL & NASAL DETAIL: Account for droopy eyelids, significant scleral show, lack of brow support, weak orbital compactness, weak nose bridge definition, excessive alar flaring, nostril show, and unrefined nasal shape when they visibly disrupt harmony.
+        - EYE EVIDENCE GATE: Do not describe the eye area as tired, sleepy, or a major limiter unless there is clear visible evidence such as obvious under-eye bags, dark hollowness, high UEE, droopiness/ptosis, lower scleral show, or weak orbital support. Normal eyes that are simply not elite should be neutral or mildly limiting, not a repeated primary flaw.
+        - EXPOSED EYE-SHAPE BOTTLENECK: Obvious lower scleral show, significant upper eyelid exposure, or a round/vertically tall startled eye shape is a major eye-area flaw even when canthal tilt is positive. If this is visible and supported by a high Eye_Height_Index, lower Eye Depth, Harmony, and finalRating proportionally; strong bone, symmetry, leanness, or jaw width must not carry that face into the mid/high 70s by themselves. A severe measured exposed/round eye-shape bottleneck with lower scleral show should usually sit in the low 60s; similar but slightly less severe measured exposure should usually stay in the mid 60s. Do not apply this to merely narrow, compact, or phenotype-typical East Asian eyes without high measured eye height or obvious scleral show.
+        - DEFINITION EVIDENCE GATE: Do not over-focus on sharpness. Normal healthy softness is not a major flaw. Penalize definition only when visible facial fat, submental fullness, blurred jaw borders, weak cheek/jaw reveal, or soft tissue clearly masks structure.
+        - GROOMING & STYLING: Account for patchy beards, neckbeards, unkempt/greasy hair, poor hairstyle fit, sparse brows, weak neck presentation, nostril flare, balding signs, and low-appeal presentation cues. Keep grooming/presentation effects proportional and do not use them as an automatic cap.
+        - PHENOTYPE / VISIBLE-TRAIT CONTEXT: Describe phenotype only as visible morphology and presentation context. Do not apply an automatic score cap just because of ethnicity, but preserve the strict African-phenotype scrutiny from Premium: when African phenotype is visually present, be especially critical of nasal width, brow compactness, eyebrow shape/sparseness, nostril show, weak brow ridge, flat maxilla, facial fat, and visible eye bags when they visibly hurt harmony. For African male phenotypes only, be slightly harsher on nasal width than the global baseline and pay much closer attention to nose bridge definition: a strong, pronounced, clearly structured nasal bridge is an important masculine/refinement marker. A flat, low, undefined, or weak bridge should reduce Nose Projection/Nose Bridge, Harmony, and Dimorphism, especially when combined with wide alar base, bulbous tip, nostril show, or flat maxilla. Do not apply this bridge requirement to non-African phenotypes. Do not penalize those traits when they are balanced, refined, or not clearly present.
+        - AFRICAN MALE NOSE/BRIDGE CONSISTENCY: If African/Sub-Saharan male phenotype is visually present, you must explicitly judge Nose Bridge Definition (Visual). Do not call Nose Width Index strongly positive or score it above 70 when the nasal bridge is not visibly strong/pronounced or when alar width, bulbousness, nostril show, or a flatter bridge reduces refinement. Positive canthal tilt, compact midface, lean facial fat, cheekbones, or hairstyle must not rescue the score into the high 60s/70s if the nasal bridge/width/refinement stack is a clear masculine bottleneck.
+        - AGEING DETAIL: Do not rate age-relatively. Judge attractiveness as perceived by 18-30 year olds, but apply ageing signs proportionally; they should not automatically cap a Backup-calibrated score unless the shared Backup rules already justify that range.
+        - PHILTRUM CONSISTENCY: 0.090-0.100 is ideal; 0.080-0.110 balanced; 0.111-0.120 mildly long; 0.121-0.140 clearly long; above 0.140 severe. Values 0.11+ are flaws and should not receive strong metric scores.
+        - MIDFACE SAFETY RULE: Midface_Ratio values from 0.95-1.05 are balanced/near-ideal and must not be called elongated. A value like 0.973 is inside the strongest band and should be treated as neutral-to-positive unless the image itself clearly reads long for other reasons.
+        - STACKED LOW-50S PROPORTION RULE: If the same face has a very long measured upper third, long philtrum, elongated midface, narrower mouth or low fWHR, visible skin texture issues, and some exposed/round eye shape, do not protect it in the low 60s just because it has positive canthal tilt, decent jaw width, or good eye spacing. That stacked pattern should usually fall around the low-to-mid 50s. Do not apply this to faces with normal upper-third/philtrum proportions or only one mild vertical issue.
+        - EYE SHAPE LABELING: Use "Eye Shape" for the dashboard metric, not "Eye Shape/UEE" and not a standalone "UEE" metric. Low upper eyelid exposure is not a flaw. Discuss eyelid exposure only when high exposure, scleral show, roundness, droopiness, or poor orbital support makes the overall eye shape worse.
+
+        PREMIUM 2 LOW-80S GATE:
+        - This gate applies only to Premium 2. It should not change Backup or other model calibration.
+        - This is an elite-band gate, not a harshness penalty. Its intended effect is to move borderline low-80s faces into the low/mid/high 70s, not into the 60s.
+        - Do not use 81+ unless the face is clearly exceptional across multiple independent regions: eye area, facial harmony, lower-third/jaw-chin support, skin/soft tissue, symmetry, and image reliability.
+        - Before using the 70s protection below, first check for genuine 60s-level bottlenecks: weak harmony, weak eye area, weak lower third/jaw-chin support, poor skin/soft tissue, visible aging, major asymmetry, poor definition from actual soft tissue, or an overall merely average/common read. If those are present, keep the face in the 60s or lower as appropriate.
+        - A face that is attractive mainly because of youth, styling, clear skin, hair, soft harmony, or one standout feature should usually stay in 72-79 only when it still has an actually attractive overall read and no 60s-level bottleneck. Otherwise score it normally in the 60s/50s band.
+        - Use 73-79 for clearly attractive / strong-base faces with good harmony or youth/freshness but incomplete elite structure, camera uncertainty, or one meaningful limitation. This is not a score floor; do not upgrade merely average or visibly limited faces into the 70s.
+        - Use 80-84 only for borderline elite faces with very strong visible evidence across eyes, harmony, lower third, skin/soft tissue, and symmetry. Do not use this band for faces carried mainly by styling, youth, clear skin, or photo vibe.
+        - If the scan is a mirror selfie, phone-obstructed, angled, low-light, low-resolution, flash-hazy, hair-obscured, cropped, or otherwise unreliable enough that jaw, forehead, eye area, or lower-third structure cannot be confidently judged, finalRating should usually not exceed 78-80. This is a ceiling only, not a floor: real 60s-level facial limitations should still score in the 60s.
+        - MediaPipe leveling may correct roll/tilt before you see the image. Do not keep punishing the original camera angle as a facial flaw if the aligned image gives enough usable facial evidence.
+        - Image reliability issues belong in qualityFlags or confidenceFlags. Do not make "extreme angle/presentation", mirror angle, phone obstruction, crop, or lighting one of the primaryFlaws unless the image is so unusable that real facial bottlenecks cannot be identified.
+
+        PREMIUM 2 SCORE CONSISTENCY CHECK:
+        - The visualBucket, finalRating, categories, keyRatios, and primaryFlaws must agree. Do not output a NATURAL/COHERENT HIGH-TIER visualBucket with a low-60s finalRating unless you identify at least one severe real facial bottleneck, not just grooming, angle, lighting, or mild non-elite traits.
+        - A finalRating of 60-64 requires clear 60s-level evidence: genuinely weak harmony, weak eye area, weak lower third/jaw-chin support, poor skin/soft tissue, visible aging, major asymmetry, actual puffy/high-fat definition loss, or an overall merely average/common read. If those are not present, choose the 70s band instead.
+        - Do not require elite markers for the 70s. The 70-74 band means attractive / solid base with limitations; the 75-79 band means clearly strong but not elite. Elite markers are only required for 80+.
+        - Forbidden reasoning: "not enough elite markers for the 70s." Correct reasoning is: not enough elite markers blocks 80+, while real average/common read or clear 60s-level bottlenecks are what block the 70s.
+        - Weak brow compactness, mildly narrow eye width around 0.19, moderate maxillary projection, softer/non-aggressive bone mass, or unrefined grooming may stop an otherwise attractive face from reaching 80+, but they should not force a low-60s score unless the full-face read is actually average/common or visibly weak.
+        - If the result has multiple positive structural metrics plus no severe flaw, do not average several mild/neutral 55-65 metric scores into a low-60s finalRating. Decide the band from the strongest visible positives and strongest real negatives.
+        - If you classify facial fat/definition as "normal", "lean", or "unclear", do not score Facial Fat below 65 and do not list soft facial definition as a primary flaw. If lighting affects the definition read, put that in confidenceFlags instead of treating it as a confirmed flaw.
+        - Eye_Width_Index around 0.18-0.20 is mild-to-neutral, not a severe flaw, unless the actual image clearly shows very small/weak eyes. A value like 0.19 should usually score about 65-75 and should not be a primary flaw by itself.
+        - Generally clear or average skin without obvious acne, heavy texture, scarring, or aging should not be scored as a major limiter. Use roughly 65-75 for average/clear skin rather than suppressing the whole result.
+        - Grooming, hair obstruction, mirror/phone obstruction, angle, and lighting can limit confidence or cap elite placement, but they should not be the main reason an otherwise attractive face falls from the 70s into the low 60s.
+
+        PREMIUM 2 OUTPUT CONTRACT:
+        - Return JSON only. No markdown. No prose outside JSON.
+        - finalRating must be decided using Backup rating logic before writing descriptions.
+        - appealAssessment should provide the requested ~50-word phenotype, dimorphism, and vibe analysis.
+        - technicalSummary should correspond to Premium's structural overview: bone-to-soft-tissue ratio, visible skin/aging/presentation read, and whether grooming/hair helps or hurts.
+        - bestFeatures must contain exactly 5 entries when possible.
+        - primaryFlaws must contain exactly 5 entries when possible and target the biggest visible facial score limiters. Prefer morphology/skin/soft-tissue/harmony issues over camera-quality issues; put angle, obstruction, blur, crop, or lighting in qualityFlags/confidenceFlags unless they are the only reason the scan is unreliable.
+        - keyRatios must list Backup-calibrated 1-100 ratings from METADATA plus visual reality.
+        - Required metric coverage must match Premium Model when visible: fWHR, jaw/bigonial width, chin support/projection, jaw angle/definition, facial thirds, midface ratio, eye spacing/IPD, eye width, canthal tilt, eye shape, nose width, nose length/projection, cheekbone/maxillary prominence, facial symmetry, skin texture/clarity, facial fat/soft-tissue definition, hairline/forehead balance, Hairstyle and Grooming as a visual-only score, Neck Width (Visual), mouth width, philtrum/lips, and brow compactness. For African male phenotypes, also include Nose Bridge Definition (Visual) when the bridge is visible enough to judge.
+        - Always include Upper Third, Middle Third, and Lower Third as separate keyRatios when frontal metadata contains them. Add side convexity, neck-jaw transition, and hyoid/cervicomental area when side profile exists.
+        - Do not stop at only fWHR, midface ratio, bigonial width, IPD index, eye width, canthal tilt, mouth width, and philtrum height. Fill 16-20 metrics unless impossible.
+        - debugJustification must explicitly say the result used Backup rating logic plus proportional phenotype/aging/presentation handling.
+
+        PREMIUM 2 JSON SCHEMA OVERRIDE:
+        {
+          "sex":"male|female|unknown",
+          "finalRating":0,
+          "sideRating":null,
+          "tier":"short tier label",
+          "technicalSummary":"Backup-calibrated bone-to-soft-tissue overview with proportional Premium detail applied.",
+          "appealAssessment":"~50-word phenotype, dimorphism, and vibe analysis",
+          "personalizedInterpretation":"1-2 concise sentences summarizing the Backup-calibrated modern modeling-standard read",
+          "categories":{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Maxillary/Cheekbone Projection":0,"Nose Projection":0,"Facial Fat":0,"Eye Depth":0,"Ear Shape":0,"Hairstyle and Grooming":0},
+          "hexagonFront":{"Harmony":0,"Bone":0,"Symmetry":0,"Skin":0,"Dimorphism":0,"Facial Fat":0},
+          "hexagonSide":null,
+          "keyRatios":[{"name":"fWHR","value":"1.92","score":81,"impact":"positive|neutral|negative","note":"Backup-calibrated visual-reality note."}],
+          "bestFeatures":[{"title":"", "description":""}],
+          "primaryFlaws":[{"title":"", "description":""}],
+          "pros":[""],
+          "cons":[""],
+          "mainLimitingFactor":"",
+          "qualityFlags":[""],
+          "confidenceFlags":[""],
+          "debugJustification":"admin-only reason for the Backup-calibrated score; mention Premium 2, Backup rating logic, proportional phenotype/aging/presentation handling, and any Backup-calibrated limiting factors"
+        }
+        Limits: bestFeatures exactly 5 when possible. primaryFlaws exactly 5 when possible. keyRatios 16-20 unless impossible. pros 3-5. cons 3-5. Keep text concise.
+
+        OPENROUTER PREMIUM 2 OUTPUT DENSITY RULES:
+        - Do not be terse. Use full, compact explanations rather than clipped fragments.
+        - technicalSummary must be 45-75 words across 2-3 sentences.
+        - appealAssessment must be 45-75 words.
+        - personalizedInterpretation must be 24-45 words.
+        - Each bestFeatures description must be about 18-28 words.
+        - Each primaryFlaws description must be about 18-28 words.
+        - Each keyRatios note should usually be 12-22 words.
+        - Each pros/cons item should usually be 5-10 words, not 1-3 words.
+
+        OPENROUTER PREMIUM 2 METRIC NAMING RULES:
+        - Use human dashboard labels, never snake_case labels like Bigonial_Width_Index.
+        - Prefer these exact names when applicable: Bigonial Width, IPD Index, Mouth Width, Upper Third, Middle Third, Lower Third, Brow Compactness, Philtrum Height, Eye Width, Eye Width Index (Horizontal), Canthal Tilt, Eye Shape, Nose Width Index, Nose Bridge Definition (Visual), Total Lip Height Index, Chin Support (Visual), Skin Texture (Visual), Facial Fat (Visual), Symmetry (Visual), Maxillary Projection (Visual), Neck Width (Visual).
+        - Always include the five Other Ratios metrics when visible: Skin Texture (Visual), Facial Fat (Visual), Symmetry (Visual), Maxillary Projection (Visual), Neck Width (Visual).
+        """
+        elif choice == "7":
             active_prompt = remove_score_cap_rules_for_premium_model(calibration_preserving_prompt)
         elif choice == "8":
             active_prompt = f"""
@@ -1426,7 +1551,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
         }}
         Limits: bestFeatures exactly 5 when possible. primaryFlaws exactly 5 when possible. keyRatios 12-20. pros 3-5. cons 3-5. Keep text concise.
         """
-        elif choice in {"9"} | OPENROUTER_EXPERIMENTAL_MODEL_CHOICES:
+        elif choice in {"9"} | (OPENROUTER_EXPERIMENTAL_MODEL_CHOICES - PREMIUM_2_MODEL_CHOICES):
             side_profile_metadata = (
                 str(prompt_side_data).strip()
                 if has_side_profile and prompt_side_data
@@ -1547,7 +1672,7 @@ INSTRUCTIONS: Make a final rating PURELY based on the image provided first, with
 
         OPENROUTER METRIC NAMING RULES:
         - Use human dashboard labels, never snake_case labels like Bigonial_Width_Index.
-        - Prefer these exact names when applicable: Bigonial Width, IPD Index, Mouth Width, Upper Third, Middle Third, Lower Third, Brow Compactness, Philtrum Height, Eye Width, Eye Width Index (Horizontal), Canthal Tilt, Nose Width Index, Total Lip Height Index, Chin Support (Visual), Eye Shape/UEE (Visual), Skin Texture (Visual), Facial Fat (Visual), Symmetry (Visual), Maxillary Projection (Visual), Neck Width (Visual).
+        - Prefer these exact names when applicable: Bigonial Width, IPD Index, Mouth Width, Upper Third, Middle Third, Lower Third, Brow Compactness, Philtrum Height, Eye Width, Eye Width Index (Horizontal), Canthal Tilt, Nose Width Index, Total Lip Height Index, Chin Support (Visual), Eye Shape (Visual), Skin Texture (Visual), Facial Fat (Visual), Symmetry (Visual), Maxillary Projection (Visual), Neck Width (Visual).
         - Always include the five Other Ratios metrics when visible: Skin Texture (Visual), Facial Fat (Visual), Symmetry (Visual), Maxillary Projection (Visual), Neck Width (Visual).
         """
     elif choice == "1":

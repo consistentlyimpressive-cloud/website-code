@@ -72,41 +72,6 @@
   background: linear-gradient(180deg, rgba(103, 232, 249, 0.95), rgba(8, 145, 178, 0.95));
 }
 
-.mog-hero-face-wrap {
-  mix-blend-mode: plus-lighter;
-}
-
-.mog-hero-face-video {
-  filter: contrast(1.08) brightness(1.05);
-  mix-blend-mode: plus-lighter;
-}
-
-.mog-hero-face-canvas {
-  display: none;
-}
-
-@media (max-width: 768px), (pointer: coarse) {
-  .mog-hero-face-wrap {
-    height: min(46vh, 430px) !important;
-    mix-blend-mode: normal !important;
-    overflow: visible;
-    top: 15vh !important;
-    width: min(130vw, 560px) !important;
-  }
-
-  .mog-hero-face-video {
-    filter: none;
-    mix-blend-mode: normal !important;
-    opacity: 0 !important;
-  }
-
-  .mog-hero-face-canvas {
-    display: block;
-    filter: contrast(1.08) brightness(1.08) drop-shadow(0 0 34px rgba(255, 255, 255, 0.16));
-    opacity: 0.9;
-  }
-}
-
 @media (max-width: 768px) {
   .mog-mobile-compact [class*=" p-8"],
   .mog-mobile-compact [class^="p-8"],
@@ -721,29 +686,15 @@
 }
 
 @keyframes freeRatingBackgroundCycle {
-  0% {
-    color: #ef4444;
-    text-shadow: 0 0 22px rgba(239, 68, 68, 0.72);
-  }
-  25% {
-    color: #f97316;
-    text-shadow: 0 0 22px rgba(249, 115, 22, 0.72);
-  }
-  50% {
-    color: #eab308;
-    text-shadow: 0 0 22px rgba(234, 179, 8, 0.72);
-  }
-  75% {
-    color: #22c55e;
-    text-shadow: 0 0 22px rgba(34, 197, 94, 0.72);
-  }
-  100% {
-    color: #ef4444;
-    text-shadow: 0 0 22px rgba(239, 68, 68, 0.72);
-  }
+  0% { background-color: #ef4444; }
+  25% { background-color: #f97316; }
+  50% { background-color: #eab308; }
+  75% { background-color: #22c55e; }
+  100% { background-color: #ef4444; }
 }
 
 .animate-free-rating-bg {
-  animation: freeRatingBackgroundCycle 1.4s steps(1, end) infinite !important;
-  -webkit-text-fill-color: currentColor !important;
+  animation: freeRatingBackgroundCycle 6s linear infinite !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
 }

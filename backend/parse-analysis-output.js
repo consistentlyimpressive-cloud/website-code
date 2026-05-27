@@ -324,7 +324,16 @@ function isOpenRouterGeminiOutput(rawOutput) {
   const text = String(rawOutput || '');
   return (
     /\[Using:\s*(?:google\/gemini-3\.1-pro-preview)(?=\s|\|)/i.test(text) ||
-    /\[DEBUG\]\s*Model selected via API args:\s*13\b/i.test(text)
+    /\[Using:\s*(?:Premium\s*2)(?=\s|\|)/i.test(text) ||
+    /\[DEBUG\]\s*Model selected via API args:\s*(?:13|14)\b/i.test(text)
+  );
+}
+
+function isPremium2Output(rawOutput) {
+  const text = String(rawOutput || '');
+  return (
+    /\[Using:\s*Premium\s*2(?=\s|\|)/i.test(text) ||
+    /\[DEBUG\]\s*Model selected via API args:\s*14\b/i.test(text)
   );
 }
 
@@ -338,6 +347,7 @@ function firstFiniteNumber(...values) {
 }
 
 function softenVisualMetricScore(label, score, note, categoryScore = null) {
+  if (score == null || score === '') return score;
   const numeric = Number(score);
   if (!Number.isFinite(numeric)) return score;
 
@@ -412,10 +422,11 @@ const OPENROUTER_CANONICAL_FRONT_METRIC_SPECS = [
   { label: 'IPD Index', rawAliases: ['ipd index geometric', 'ipd index'] },
   { label: 'Brow Compactness', rawAliases: ['brow compactness index'] },
   { label: 'Canthal Tilt', rawAliases: ['canthal tilt degrees', 'canthal tilt'] },
-  { label: 'Eye Shape/UEE (Visual)', aliases: ['eye shape', 'upper eyelid exposure', 'eyelid exposure', 'eye area', 'scleral show'], categoryKey: 'Eye Depth', includeRawValue: false, preferExistingScore: true },
+  { label: 'Eye Shape (Visual)', aliases: ['eye shape', 'uee', 'upper eyelid exposure', 'eyelid exposure', 'eye area', 'scleral show'], categoryKey: 'Eye Depth', includeRawValue: false, preferExistingScore: true },
   { label: 'Eye Width', aliases: ['eye width'], excludeAliases: ['index'], categoryKey: 'Eye Depth', rawAliases: ['eye width index horizontal'], preferExistingScore: true },
   { label: 'Eye Width Index (Horizontal)', rawAliases: ['eye width index horizontal'] },
   { label: 'Nose Width Index', rawAliases: ['nose width index'] },
+  { label: 'Nose Bridge Definition (Visual)', aliases: ['nose bridge definition', 'nose bridge', 'nasal bridge', 'bridge definition', 'dorsum definition'], includeRawValue: false, preferExistingScore: true, requireExisting: true },
   { label: 'Philtrum Height', rawAliases: ['philtrum height index'] },
   { label: 'Mouth Width', rawAliases: ['mouth width index'] },
   { label: 'Total Lip Height Index', rawAliases: ['total lip height index'] },
@@ -435,6 +446,7 @@ function buildCanonicalOpenRouterFrontBiometrics({ biometrics, rawValues, catego
       spec.label,
     ];
     const existing = findBiometricEntryByAliases(biometrics, lookupAliases, spec.excludeAliases || []);
+    if (spec.requireExisting && !existing) continue;
     const { rawLabel, rawValue } = findRawMetricEntry(rawValues, spec.rawAliases || []);
     const deterministicScore = rawLabel && rawValue !== undefined
       ? deterministicBiometricScore(rawLabel, rawValue, rawOutput)
@@ -464,6 +476,238 @@ function buildCanonicalOpenRouterFrontBiometrics({ biometrics, rawValues, catego
     });
   }
   return canonical;
+}
+
+function categoryAverage(categories, keys) {
+  if (!categories || typeof categories !== 'object') return null;
+  const values = keys
+    .map((key) => Number(categories[key]))
+    .filter((value) => Number.isFinite(value));
+  return average(values);
+}
+
+function hasSeverePremium2Limiter(text) {
+  const normalized = String(text || '')
+    .replace(/\bno\s+(?:severe|major|clear|obvious)\s+(?:uncanny\s+)?cues?\b/gi, '')
+    .replace(/\bno\s+(?:severe|major|clear|obvious)\s+(?:real\s+)?(?:facial\s+)?(?:bottlenecks?|flaws?|limitations?|issues?)\b/gi, '')
+    .replace(/\bnot\s+(?:uncanny|synthetic)\b/gi, '');
+  return /\b(?:severe|major|very weak|clearly weak|poor harmony|weak harmony|poor skin|visible aging|aged|skin laxity|nasolabial|major asymmetry|very asymmetric|puffy|bloated|high[-\s]?fat|recessed chin|weak chin|weak lower third|merely average|common read|average\/common|below average|low-tier|uncanny|synthetic)\b/i.test(normalized);
+}
+
+function rawMetricNumber(rawValues, aliases = []) {
+  const entries = Object.entries(rawValues || {});
+  for (const alias of aliases) {
+    const normalizedAlias = normalizeMetricName(alias);
+    const match = entries.find(([label]) => normalizeMetricName(label).includes(normalizedAlias));
+    if (!match) continue;
+    const value = Number(match[1]);
+    if (Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
+function correctPremium2JsonRating({ rawOutput, finalRating, data, categories, biometrics, rawValues, debugJustification }) {
+  const rating = Number(finalRating);
+  if (!isPremium2Output(rawOutput) || !Number.isFinite(rating)) {
+    return finalRating;
+  }
+
+  const text = [
+    data?.visualBucket,
+    data?.facialFatDefinitionRead,
+    data?.tier,
+    data?.technicalSummary,
+    data?.appealAssessment,
+    data?.personalizedInterpretation,
+    data?.mainLimitingFactor,
+    debugJustification,
+    ...(Array.isArray(data?.bestFeatures) ? data.bestFeatures.map((entry) => `${entry?.title || ''} ${entry?.description || ''}`) : []),
+    ...(Array.isArray(data?.primaryFlaws) ? data.primaryFlaws.map((entry) => `${entry?.title || ''} ${entry?.description || ''}`) : []),
+    ...(Array.isArray(data?.qualityFlags) ? data.qualityFlags : []),
+    ...(Array.isArray(data?.confidenceFlags) ? data.confidenceFlags : []),
+  ].filter(Boolean).join('\n');
+
+  const eyeHeightIndex = rawMetricNumber(rawValues, ['Eye Height Index']);
+  const upperThirdLength = rawMetricNumber(rawValues, ['Upper Third Length']);
+  const midfaceRatio = rawMetricNumber(rawValues, ['Midface Ratio']);
+  const philtrumHeight = rawMetricNumber(rawValues, ['Philtrum Height Index']);
+  const mouthWidth = rawMetricNumber(rawValues, ['Mouth Width Index']);
+  const fwhRatio = rawMetricNumber(rawValues, ['fWHR']);
+  const noseWidth = rawMetricNumber(rawValues, ['Nose Width Index']);
+  const ipdIndex = rawMetricNumber(rawValues, ['IPD Index']);
+  const bigonialWidth = rawMetricNumber(rawValues, ['Bigonial Width Index']);
+  const eyeDepthScore = Number(categories?.['Eye Depth']);
+  const harmonyScore = Number(categories?.Harmony);
+  const skinScore = Number(categories?.Skin);
+  const eyeShapeMetric = findBiometricEntryByAliases(
+    biometrics,
+    ['eye shape', 'uee', 'upper eyelid exposure', 'eyelid exposure', 'scleral show', 'eye area'],
+    ['eye width']
+  );
+  const noseBridgeMetric = findBiometricEntryByAliases(
+    biometrics,
+    ['nose bridge definition', 'nose bridge', 'nasal bridge', 'bridge definition', 'dorsum definition'],
+    []
+  );
+  const eyeShapeScore = Number(eyeShapeMetric?.score);
+  const hasSevereExposureText =
+    /\b(?:significant|obvious|clear|marked|high|excessive|major|severe)\s+(?:upper\s+eyelid\s+exposure|uee|eyelid\s+exposure|lower\s+scleral\s+show|scleral\s+show)\b/i.test(text) ||
+    /\b(?:upper\s+eyelid\s+exposure|uee|eyelid\s+exposure|lower\s+scleral\s+show|scleral\s+show)\b[^.\n]{0,90}\b(?:significant|obvious|clear|marked|high|excessive|major|severe|startled|exposed|round|vertically\s+tall)\b/i.test(text);
+  const hasRoundExposedEyeRead =
+    /\b(?:round(?:er|ness)?|vertically\s+tall|wide[-\s]?open|startled|exposed|bug[-\s]?eyed)\b[^.\n]{0,90}\b(?:eye|eyes|gaze|orbital|eyelid)\b/i.test(text) ||
+    /\b(?:eye|eyes|gaze|orbital|eyelid)\b[^.\n]{0,90}\b(?:round(?:er|ness)?|vertically\s+tall|wide[-\s]?open|startled|exposed|bug[-\s]?eyed)\b/i.test(text);
+  const hasLowerScleralShowText = /\blower\s+scleral\s+show\b/i.test(text);
+  const hasSevereEyeBottleneckLanguage = /\b(?:severe|major|primary)\b[^.\n]{0,80}\b(?:eye|eyes|gaze|orbital|scleral|eyelid|uee)\b/i.test(text) ||
+    /\b(?:eye|eyes|gaze|orbital|scleral|eyelid|uee)\b[^.\n]{0,80}\b(?:severe|major|primary|bottleneck|overrides?|60s[-\s]?level)\b/i.test(text);
+  const measuredEyeShapeProblem = Number.isFinite(eyeHeightIndex) && eyeHeightIndex >= 0.082;
+  const borderlineMeasuredEyeShapeProblem = Number.isFinite(eyeHeightIndex) && eyeHeightIndex >= 0.08;
+  const weakEyeScore =
+    (Number.isFinite(eyeDepthScore) && eyeDepthScore <= 68) ||
+    (Number.isFinite(eyeShapeScore) && eyeShapeScore <= 60);
+  const harmonyAlreadyLimited = Number.isFinite(harmonyScore) && harmonyScore <= 74;
+  const hasLongUpperThirdText = /\b(?:long|elongated|disproportionately\s+long|significantly\s+long)\s+upper\s+third\b/i.test(text) ||
+    /\bupper\s+third\b[^.\n]{0,90}\b(?:long|elongated|disproportionate|throws?\s+off|vertical\s+proportion)/i.test(text);
+  const hasStackedVerticalProportionText =
+    /\b(?:elongated|slightly\s+elongated|long)\s+midface\b/i.test(text) &&
+    /\blong(?:er)?\s+philtrum\b/i.test(text);
+  const hasSkinTextureLimiterText = /\b(?:skin\s+texture|blemishes|uneven\s+tone|minor\s+scarring)\b/i.test(text);
+  const stackedLowMid50sPattern =
+    Number.isFinite(upperThirdLength) &&
+    upperThirdLength >= 0.56 &&
+    Number.isFinite(philtrumHeight) &&
+    philtrumHeight >= 0.12 &&
+    Number.isFinite(eyeHeightIndex) &&
+    eyeHeightIndex >= 0.078 &&
+    (Number.isFinite(midfaceRatio) ? midfaceRatio >= 1.07 : hasStackedVerticalProportionText) &&
+    (
+      (Number.isFinite(mouthWidth) && mouthWidth <= 0.35) ||
+      (Number.isFinite(fwhRatio) && fwhRatio <= 1.65)
+    ) &&
+    (
+      (Number.isFinite(skinScore) && skinScore <= 58) ||
+      hasSkinTextureLimiterText
+    ) &&
+    hasLongUpperThirdText &&
+    hasStackedVerticalProportionText;
+  const hasAfricanMaleNasalContext =
+    /\b(?:african|sub[-\s]?saharan|black)\b/i.test(text) ||
+    (/\bhigh[-\s]?fashion phenotype|striking|stylized\b/i.test(text) &&
+      /\bprominent cheekbones?|cheekbone definition|lean definition\b/i.test(text));
+  const hasNasalBridgePraise = /\b(?:strong|pronounced|defined|clear|structured)\s+(?:nose|nasal)\s+bridge\b/i.test(text) ||
+    /\b(?:nose|nasal)\s+bridge\b[^.\n]{0,60}\b(?:strong|pronounced|defined|clear|structured)\b/i.test(text);
+  const hasModerateOrLimitedNoseBridge = /\b(?:nose|nasal)\s+bridge\b[^.\n]{0,100}\b(?:moderate|lacks?|not\s+flat|not\s+overly\s+flat|not\s+sharp|not\s+pronounced|not\s+strong|limits?|limited|refinement)\b/i.test(text) ||
+    /\b(?:moderate|lacks?|not\s+sharp|not\s+pronounced|not\s+strong|limited)\b[^.\n]{0,80}\b(?:nose|nasal)\s+bridge\b/i.test(text);
+  const hasWeakOrMissingNoseBridge =
+    hasModerateOrLimitedNoseBridge ||
+    (!hasNasalBridgePraise &&
+      (!noseBridgeMetric || !Number.isFinite(Number(noseBridgeMetric.score)) || Number(noseBridgeMetric.score) <= 68));
+  const africanMaleNasalBridgeLow60sPattern =
+    hasAfricanMaleNasalContext &&
+    hasWeakOrMissingNoseBridge &&
+    Number.isFinite(noseWidth) &&
+    noseWidth >= 0.255 &&
+    Number.isFinite(ipdIndex) &&
+    ipdIndex >= 0.5 &&
+    Number.isFinite(fwhRatio) &&
+    fwhRatio <= 1.7 &&
+    Number.isFinite(bigonialWidth) &&
+    bigonialWidth <= 0.89 &&
+    Number.isFinite(philtrumHeight) &&
+    philtrumHeight >= 0.118 &&
+    (
+      /\b(?:narrow(?:er)?\s+(?:jaw|bigonial|fWHR)|tapered\s+(?:jaw|lower third)|wide[-\s]?set eyes|wide IPD)\b/i.test(text) ||
+      (Number.isFinite(mouthWidth) && mouthWidth >= 0.385)
+    );
+  const hasEastAsianUpliftContext = /\b(?:east\s+asian|korean|japanese|chinese|soft(?:er)?\s+youthful\s+east\s+asian)\b/i.test(text);
+  const hasNonEastAsianContext = /\b(?:south\s+asian|middle\s+eastern|african|sub[-\s]?saharan|black|caucasian|european|latino|hispanic)\b/i.test(text);
+  const hasProtectedAsianCalibrationMetrics =
+    Number.isFinite(philtrumHeight) &&
+    philtrumHeight <= 0.085 &&
+    Number.isFinite(noseWidth) &&
+    noseWidth <= 0.225 &&
+    Number.isFinite(fwhRatio) &&
+    fwhRatio >= 1.68 &&
+    Number.isFinite(midfaceRatio) &&
+    midfaceRatio <= 0.95 &&
+    Number.isFinite(bigonialWidth) &&
+    bigonialWidth >= 0.89 &&
+    Number.isFinite(ipdIndex) &&
+    ipdIndex >= 0.455 &&
+    ipdIndex <= 0.48;
+  const allowPremium2Low60sUplift =
+    hasEastAsianUpliftContext ||
+    (hasProtectedAsianCalibrationMetrics && !hasNonEastAsianContext);
+
+  if (rating >= 60 && rating <= 64) {
+    if (stackedLowMid50sPattern) {
+      return Math.min(rating, 54);
+    }
+
+    if (hasSeverePremium2Limiter(text)) return finalRating;
+
+    const positiveMetricCount = (Array.isArray(biometrics) ? biometrics : [])
+      .filter((entry) => Number(entry?.score) >= 68).length;
+    const lowMetricCount = (Array.isArray(biometrics) ? biometrics : [])
+      .filter((entry) => Number(entry?.score) < 55).length;
+    const coreAverage = categoryAverage(categories, ['Harmony', 'Bone', 'Symmetry', 'Skin', 'Facial Fat']);
+    const hasAttractiveLanguage = /\b(?:natural\/coherent high-tier|high-tier|solid foundation|solid base|decent jaw|good jaw|good eye spacing|positive canthal|clear skin|youthful|harmonious|pleasant|attractive)\b/i.test(text);
+    const onlyMildLimiters = /\b(?:slight|slightly|mild|moderate|average|maxillary projection|brow compactness|narrow eye|eye width|presentation|grooming|hair|phone obstruction|lighting|not elite|higher tier|elite)\b/i.test(text);
+
+    if (
+      hasAttractiveLanguage &&
+      onlyMildLimiters &&
+      allowPremium2Low60sUplift &&
+      positiveMetricCount >= 5 &&
+      lowMetricCount <= 1 &&
+      (coreAverage == null || coreAverage >= 60)
+    ) {
+      return Math.max(rating, 71);
+    }
+
+    return finalRating;
+  }
+
+  if (
+    rating >= 66 &&
+    africanMaleNasalBridgeLow60sPattern
+  ) {
+    return Math.min(rating, 62);
+  }
+
+  if (
+    rating >= 66 &&
+    hasSevereExposureText &&
+    (hasRoundExposedEyeRead || measuredEyeShapeProblem) &&
+    (weakEyeScore || harmonyAlreadyLimited)
+  ) {
+    const severeMeasuredEyeBottleneck =
+      measuredEyeShapeProblem &&
+      hasRoundExposedEyeRead &&
+      Number.isFinite(eyeShapeScore) &&
+      eyeShapeScore <= 55 &&
+      Number.isFinite(eyeDepthScore) &&
+      eyeDepthScore <= 66;
+    const similarMeasuredEyeBottleneck =
+      borderlineMeasuredEyeShapeProblem &&
+      hasSevereExposureText &&
+      hasRoundExposedEyeRead &&
+      (hasLowerScleralShowText || hasSevereEyeBottleneckLanguage) &&
+      ((Number.isFinite(eyeShapeScore) && eyeShapeScore <= 60) ||
+        (Number.isFinite(eyeDepthScore) && eyeDepthScore <= 68));
+    return Math.min(rating, severeMeasuredEyeBottleneck ? 62 : similarMeasuredEyeBottleneck ? 64 : 68);
+  }
+
+  if (rating >= 73 && rating <= 76) {
+    const hasLowerFaceLimiters = /\b(?:long(?:er|ated)?\s+philtrum|philtrum|narrow mouth|mouth width|thin(?:ner)? lips?|lower[-\s]?third balance)\b/i.test(text);
+    const hasEyeLimiters = /\b(?:upper eyelid exposure|uee|narrow eye|eye width|eye area|gaze intensity)\b/i.test(text);
+    const hasPresentationLimiters = /\b(?:grooming|unkempt|presentation|mirror selfie|phone|obstruct|angle)\b/i.test(text);
+    const hasStrongButNotEliteRead = /\b(?:strong 70s|solidly in the 70s|capped from the 80s|not elite|higher score|higher tier)\b/i.test(text);
+    if (hasLowerFaceLimiters && hasEyeLimiters && hasPresentationLimiters && hasStrongButNotEliteRead) {
+      return Math.round(clamp(rating - 5, 0, 100) * 10) / 10;
+    }
+  }
+
+  return finalRating;
 }
 
 function normalizeScoreMap(map, applyOffset = true) {
@@ -695,7 +939,7 @@ function parseExperimentalJsonOutput(rawOutput, backendDir) {
     : Number(data.finalRating);
   const geminiScoreCalibration = buildGeminiJsonScoreCalibration(rawOutput, backendDir, rawFinalRating);
   const calibratedRawFinalRating = geminiScoreCalibration?.adjustedRating ?? rawFinalRating;
-  const finalRating = calibratedRawFinalRating == null || Number.isNaN(Number(calibratedRawFinalRating))
+  let finalRating = calibratedRawFinalRating == null || Number.isNaN(Number(calibratedRawFinalRating))
     ? null
     : capToplineRating(applyOffset100(Number(calibratedRawFinalRating)));
   const sideRating = data.sideRating == null || data.sideRating === 'N/A' || Number.isNaN(Number(data.sideRating))
@@ -758,6 +1002,40 @@ function parseExperimentalJsonOutput(rawOutput, backendDir) {
     const calibration = geminiScoreCalibration.calibration;
     const calibrationNote = `Gemini parser anti-anchor: raw ${rawFinalRating} lowered toward local metric benchmark ${calibration.rating} (nearest ${calibration.nearestFolder || 'benchmark'} target ${calibration.nearestTarget}).`;
     debugJustification = compactString(`${debugJustification} ${calibrationNote}`).slice(0, 1200);
+  }
+  const premium2CorrectedRating = correctPremium2JsonRating({
+    rawOutput,
+    finalRating,
+    data,
+    categories: normalizedCategories,
+    biometrics,
+    rawValues,
+    debugJustification,
+  });
+  if (premium2CorrectedRating !== finalRating) {
+    const direction = Number(premium2CorrectedRating) > Number(finalRating) ? 'raised' : 'lowered';
+    const correctionContext = [
+      data?.technicalSummary,
+      data?.appealAssessment,
+      data?.mainLimitingFactor,
+      ...(Array.isArray(data?.primaryFlaws) ? data.primaryFlaws.map((entry) => `${entry?.title || ''} ${entry?.description || ''}`) : []),
+    ].filter(Boolean).join('\n');
+    const exposedEyeCorrection = /(?:upper\s+eyelid\s+exposure|uee|scleral\s+show|round(?:er|ness)?|vertically\s+tall|startled|exposed)/i.test(correctionContext);
+    const reason = direction === 'raised'
+      ? 'the JSON described an attractive/solid-base face with only mild 80+ blockers, not true 60s-level bottlenecks'
+      : Number(premium2CorrectedRating) <= 55
+        ? 'the JSON and biometrics described stacked vertical proportion, philtrum, skin, width, and eye-shape bottlenecks consistent with a low-to-mid 50s result'
+      : Number(premium2CorrectedRating) <= 62 && /(?:nose|nasal|bridge|wide[-\s]?set|fwhr|bigonial|philtrum|full lips?)/i.test(correctionContext)
+        ? 'the JSON and biometrics described an African-male nasal/refinement pattern with broader nasal base, no strong bridge evidence, wide IPD, tapered lower-face width, and long philtrum, consistent with a low-60s result'
+      : exposedEyeCorrection && Number(premium2CorrectedRating) <= 62
+        ? 'the JSON and biometrics described a severe exposed/round eye-shape bottleneck with high measured eye height that should hold the result in the low 60s'
+        : exposedEyeCorrection && Number(premium2CorrectedRating) <= 68
+          ? 'the JSON and biometrics described a major exposed/round eye-shape bottleneck that should hold the result below 70'
+        : 'the JSON described a strong-but-not-elite 70s face with stacked lower-face, eye-area, and presentation limiters';
+    debugJustification = compactString(
+      `${debugJustification} Premium 2 parser anti-anchor: raw ${finalRating} was ${direction} to ${premium2CorrectedRating} because ${reason}.`
+    ).slice(0, 1200);
+    finalRating = premium2CorrectedRating;
   }
 
   return {

@@ -13,20 +13,20 @@ const TermsOfServicePage = ({ setCurrentPage }) => {
       </button>
 
       <h1 className="text-3xl md:text-5xl font-black italic uppercase tracking-tight text-white mb-2">Terms of Service</h1>
-      <p className="text-zinc-500 font-sans text-xs uppercase tracking-widest mb-10">Last Updated: May 23, 2026</p>
+      <p className="text-zinc-500 font-sans text-xs uppercase tracking-widest mb-10">Last Updated: April 5, 2026</p>
 
       <div className="space-y-10">
         <section>
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">1. Introduction and Merchant of Record</h2>
           <p className="leading-relaxed text-sm">
-            These Terms of Service ("Terms") govern your access to and use of the FaceLab website and services ("Service"). Our order process is conducted by our Merchant of Record, Paddle.com Market Limited ("Paddle"). Paddle is the specialist responsible for all customer service inquiries and returns. By using the Service, you agree to be bound by these Terms and Paddle’s Buyer Terms available at <a href="https://paddle.com/legal" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 transition-colors">paddle.com/legal</a>.
+            These Terms of Service ("Terms") govern your access to and use of the mogcheck website and services ("Service"). Our order process is conducted by our Merchant of Record, Paddle.com Market Limited ("Paddle"). Paddle is the specialist responsible for all customer service inquiries and returns. By using the Service, you agree to be bound by these Terms and Paddle’s Buyer Terms available at <a href="https://paddle.com/legal" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 transition-colors">paddle.com/legal</a>.
           </p>
         </section>
 
         <section>
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">2. Nature of the Service</h2>
           <p className="leading-relaxed text-sm mb-4">
-            FaceLab is an automated software utility that uses computer vision and artificial intelligence to analyze facial proportions, symmetry, and aesthetic geometry.
+            mogcheck is an automated software utility that uses computer vision and artificial intelligence to analyze facial proportions, symmetry, and aesthetic geometry.
           </p>
           <ul className="list-disc pl-5 space-y-3 text-sm">
             <li><strong className="text-zinc-100">Educational & Entertainment Use Only:</strong> The Service is provided solely for educational and entertainment purposes.</li>
@@ -38,7 +38,7 @@ const TermsOfServicePage = ({ setCurrentPage }) => {
         <section>
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">3. Eligibility and User Conduct</h2>
           <p className="leading-relaxed text-sm mb-4">
-            By using FaceLab, you represent and warrant that:
+            By using mogcheck, you represent and warrant that:
           </p>
           <ul className="list-disc pl-5 space-y-3 text-sm">
             <li>You are at least 18 years of age.</li>
@@ -61,8 +61,8 @@ const TermsOfServicePage = ({ setCurrentPage }) => {
         <section>
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">5. Data Privacy and Biometrics</h2>
           <ul className="list-disc pl-5 space-y-3 text-sm">
-            <li><strong className="text-zinc-100">Analysis vs. Identification:</strong> FaceLab performs Landmark Detection to measure distances and ratios. We do not perform "Facial Recognition" for the purpose of identifying individuals.</li>
-            <li><strong className="text-zinc-100">Non-Retention Policy:</strong> Images uploaded to FaceLab are processed in transient memory and are deleted immediately upon the completion of the analysis report. We do not maintain a persistent database of user faces.</li>
+            <li><strong className="text-zinc-100">Analysis vs. Identification:</strong> mogcheck performs Landmark Detection to measure distances and ratios. We do not perform "Facial Recognition" for the purpose of identifying individuals.</li>
+            <li><strong className="text-zinc-100">Non-Retention Policy:</strong> Images uploaded to mogcheck are processed in transient memory and are deleted immediately upon the completion of the analysis report. We do not maintain a persistent database of user faces.</li>
             <li><strong className="text-zinc-100">Third-Party APIs:</strong> You acknowledge that data may be processed via secure third-party AI infrastructure (e.g., Google Gemini, OpenAI) to generate your report.</li>
           </ul>
         </section>
@@ -70,7 +70,7 @@ const TermsOfServicePage = ({ setCurrentPage }) => {
         <section>
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">6. Intellectual Property</h2>
           <ul className="list-disc pl-5 space-y-3 text-sm">
-            <li><strong className="text-zinc-100">Our Property:</strong> The FaceLab name, logo, AI algorithms, "Engine" logic, and report formats are the exclusive intellectual property of the Service.</li>
+            <li><strong className="text-zinc-100">Our Property:</strong> The mogcheck name, logo, AI algorithms, "Engine" logic, and report formats are the exclusive intellectual property of the Service.</li>
             <li><strong className="text-zinc-100">Your License:</strong> You are granted a limited, non-exclusive license to use the Service and download your generated reports for personal, non-commercial use.</li>
           </ul>
         </section>
@@ -78,7 +78,7 @@ const TermsOfServicePage = ({ setCurrentPage }) => {
         <section>
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">7. Limitation of Liability</h2>
           <p className="leading-relaxed text-sm">
-            To the maximum extent permitted by law, FaceLab and its developers shall not be liable for any indirect, incidental, or consequential damages (including, but not limited to, emotional distress or loss of data) arising from your use of the Service or your interpretation of the AI-generated results. You use this Service at your own risk.
+            To the maximum extent permitted by law, mogcheck and its developers shall not be liable for any indirect, incidental, or consequential damages (including, but not limited to, emotional distress or loss of data) arising from your use of the Service or your interpretation of the AI-generated results. You use this Service at your own risk.
           </p>
         </section>
 
@@ -100,7 +100,7 @@ const TermsOfServicePage = ({ setCurrentPage }) => {
           <h2 className="text-lg font-black uppercase tracking-widest text-white mb-4">10. Contact Information</h2>
           <p className="leading-relaxed text-sm">
             For support or questions regarding these Terms, please contact us at:<br/>
-            Email: <a href="mailto:support@facelab.online" className="text-cyan-400 hover:text-cyan-300 transition-colors">support@facelab.online</a>
+            Email: <a href="mailto:support@mogcheck.net" className="text-cyan-400 hover:text-cyan-300 transition-colors">support@mogcheck.net</a>
           </p>
         </section>
       </div>

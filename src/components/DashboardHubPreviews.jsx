@@ -173,6 +173,7 @@ const modelLabel = (model) => ({
   '7': 'Premium Model',
   '8': 'Premium Model',
   '9': 'Premium Model',
+  '14': 'Premium 2',
   '3': 'Free Optic',
   '4': 'Free Core',
   '5': 'Free Geneva',
@@ -285,6 +286,9 @@ function DashboardHubCommunityScanCard({ scan, compact = false, onOpen }) {
               </span>
               <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">/100</span>
             </div>
+            <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+              Community Scan - {modelLabel(dd?.selectedModel || scan?.model)}
+            </span>
           </div>
         </div>
       </div>
@@ -356,7 +360,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
         setLatestScans(officialCelebrityCommunityScans);
       }
       if (battlesResult.status === 'fulfilled') {
-        setLatestBattles(Array.isArray(battlesResult.value?.battles) ? battlesResult.value.battles.slice(0, 1) : []);
+        setLatestBattles(Array.isArray(battlesResult.value?.battles) ? battlesResult.value.battles.slice(0, 2) : []);
       }
     };
 
@@ -376,7 +380,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
     [latestScans, variant]
   );
   const previewBattles = useMemo(
-    () => latestBattles.slice(0, 1),
+    () => latestBattles.slice(0, 3),
     [latestBattles]
   );
 
@@ -418,35 +422,34 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
 
   return (
     <div className="mt-12 pt-10 border-t border-zinc-800/80">
-      <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-6">Explore FaceLab</h3>
-      <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
-        {!hideCommunity && (
-          <div className="rounded-2xl border border-zinc-800 bg-[#070809]/40 p-4 md:p-5 flex flex-col gap-4">
-            <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em]">
-              <Users size={14} /> Community Scans
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {previewScans.slice(0, 3).map((scan) => (
-                <DashboardHubCommunityScanCard
-                  key={scan.id}
-                  scan={scan}
-                  compact={true}
-                  onOpen={() => (onOpenCommunityScan ? onOpenCommunityScan(scan) : setCurrentPage('celebrity'))}
-                />
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setCurrentPage('celebrity')}
-              className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-emerald-500/20 transition-all group mt-auto"
-            >
-              Go to Community Scans <ChevronRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
-            </button>
+      <h3 className="text-sm font-black uppercase tracking-widest text-zinc-500 mb-6">Explore MogCheck</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Community Scans */}
+        <div className="rounded-2xl border border-zinc-800 bg-[#070809]/40 p-4 md:p-5 flex flex-col gap-4">
+          <div className="flex items-center gap-2 text-emerald-400 text-[10px] font-black uppercase tracking-[0.2em]">
+            <Users size={14} /> Community Scans
           </div>
-        )}
+          <div className="grid grid-cols-3 gap-2">
+            {previewScans.slice(0, 3).map((scan) => (
+              <DashboardHubCommunityScanCard
+                key={scan.id}
+                scan={scan}
+                compact={true}
+                onOpen={() => (onOpenCommunityScan ? onOpenCommunityScan(scan) : setCurrentPage('celebrity'))}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setCurrentPage('celebrity')}
+            className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-[0.2em] hover:bg-emerald-500/20 transition-all group mt-auto"
+          >
+            Go to Community Scans <ChevronRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
 
-        {/* Face Battles */}
-        <div className="rounded-2xl border border-cyan-500/10 bg-[#070809]/40 p-4 md:p-5 flex flex-col relative overflow-hidden group/battle">
+        {/* Mog Battles */}
+        <div className="rounded-2xl border border-cyan-500/10 bg-[#070809]/40 p-5 md:p-6 flex flex-col relative overflow-hidden group/battle">
           <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 blur-3xl rounded-full -mr-16 -mt-16 group-hover/battle:bg-cyan-500/10 transition-colors" />
           
           <div className="relative z-10 flex flex-col gap-5 h-full">
@@ -458,7 +461,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
             </div>
 
             <div className="flex flex-col gap-2">
-              <h4 className="text-2xl font-black uppercase tracking-tighter italic text-white leading-none">Face Battles</h4>
+              <h4 className="text-2xl font-black uppercase tracking-tighter italic text-white leading-none">Mog Battles</h4>
               <p className="text-[10px] font-sans leading-relaxed text-zinc-500">
                 Vote in live community matchups.
               </p>
@@ -474,7 +477,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
                   />
                 ))
               ) : (
-                <div className="h-24 rounded-2xl border border-zinc-800/50 bg-zinc-900/20 flex items-center justify-center">
+                <div className="aspect-[2.2/1] rounded-2xl border border-zinc-800/50 bg-zinc-900/20 flex items-center justify-center">
                    <Swords size={20} className="text-zinc-800" />
                 </div>
               )}
@@ -485,7 +488,7 @@ export function DashboardHubPreviewsCompact({ setCurrentPage, hideCommunity = fa
               onClick={() => setCurrentPage('mog-battles')}
               className="mt-auto flex items-center justify-center gap-2 py-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-black uppercase tracking-[0.25em] hover:bg-cyan-500/20 transition-all group"
             >
-              Open Face Battles <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+              Open Mog Battles <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
         </div>

@@ -43,21 +43,12 @@ function isRemoteBrowserRequest(req) {
   return !/(localhost|127\.0\.0\.1)/i.test(haystack);
 }
 
-function getFirebaseStorageBucketName(projectId = process.env.FIREBASE_PROJECT_ID || 'mogcheck-net') {
-  const configured =
-    process.env.FIREBASE_STORAGE_BUCKET ||
-    process.env.FIREBASE_UPLOAD_BUCKET ||
-    '';
-  const trimmed = String(configured || '').trim();
-  const legacyFirebaseBucket = `${projectId}.firebasestorage.app`;
-  if (!trimmed || trimmed === legacyFirebaseBucket) return `${projectId}-uploads`;
-  return trimmed;
-}
 
 function initFirebaseAdmin() {
   if (admin.apps.length) return;
+  const bucket =
+    process.env.FIREBASE_STORAGE_BUCKET || 'mogcheck-net.firebasestorage.app';
   const projectId = process.env.FIREBASE_PROJECT_ID || 'mogcheck-net';
-  const bucket = getFirebaseStorageBucketName(projectId);
   const json = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   const firestoreEmulator = USE_FIREBASE_EMULATOR && !!process.env.FIRESTORE_EMULATOR_HOST;
 
@@ -172,7 +163,9 @@ const activeScanRecordsByUser = new Map();
 const ACTIVE_SCAN_JOB_COLLECTION = 'activeScans';
 const ACTIVE_SCAN_RECORD_TTL_MS = Number(process.env.ACTIVE_SCAN_RECORD_TTL_MS || 2 * 60 * 60 * 1000);
 const ACTIVE_RUNNING_SCAN_STALE_MS = Number(process.env.ACTIVE_RUNNING_SCAN_STALE_MS || 30 * 60 * 1000);
-const PREMIUM_MODEL_CHOICES = new Set(['1', '2', '6', '7', '8', '9', '13']);
+const FREE_MODEL_CHOICES = new Set(['3', '4', '5']);
+const PREMIUM_MODEL_CHOICES = new Set(['1', '2', '6', '7', '8', '9', '13', '14']);
+const ALLOWED_MODEL_CHOICES = new Set([...FREE_MODEL_CHOICES, ...PREMIUM_MODEL_CHOICES]);
 const ADMIN_ONLY_MODEL_CHOICES = new Set(['13']);
 
 // Stale local scan fallbacks caused old parsed scores to reappear in dashboards.
@@ -2211,7 +2204,6 @@ function healthPayload() {
     ok: true,
     service: 'mogcheck-backend',
     firebaseMode: USE_FIREBASE_EMULATOR ? 'emulator' : 'live',
-    storage: storageStatusPayload(),
     uptimeMs: Date.now() - SERVER_BOOT_AT,
     timestamp: new Date().toISOString(),
   };
@@ -3286,33 +3278,6 @@ function publicizeStoredUploadUrl(req, value) {
   return publicUploadUrl(req, value);
 }
 
-function isLocalUploadUrl(value) {
-  return typeof value === 'string' && /\/uploads\//i.test(value);
-}
-
-function isDurableStoredImageUrl(value) {
-  if (typeof value !== 'string') return false;
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  if (/^(data|blob):/i.test(trimmed)) return true;
-  if (!/^https?:\/\//i.test(trimmed)) return !isLocalUploadUrl(trimmed);
-  return !isLocalUploadUrl(trimmed);
-}
-
-function getPersistableImageUrl(...values) {
-  for (const value of values) {
-    if (isDurableStoredImageUrl(value)) return String(value).trim();
-  }
-  return null;
-}
-
-function storageStatusPayload() {
-  return {
-    skipped: shouldSkipFirebaseStorage(),
-    bucket: getFirebaseStorageBucketName(),
-  };
-}
-
 function normalizeStoredScanUrls(scan, req = null) {
   if (!scan || typeof scan !== 'object') return scan;
   const payload = scan.payload && typeof scan.payload === 'object' ? scan.payload : null;
@@ -3549,8 +3514,7 @@ async function verifyUltraAccess(req, res, next) {
     req.body.choice = '6';
     req.body.model = '6';
   }
-  const allowedModelChoices = new Set(['1', '2', '3', '4', '5', '6', '7', '8', '9', '13']);
-  if (!allowedModelChoices.has(modelChoice)) {
+  if (!ALLOWED_MODEL_CHOICES.has(modelChoice)) {
     return res.status(400).json({
       success: false,
       error: 'Invalid AI model selected. Please choose an available scan model.',
@@ -4147,8 +4111,8 @@ app.post(
         visibility: 'private',
         finalRating,
         sideRating,
-        frontImageUrl: getPersistableImageUrl(payload.frontImage, payload.frontImageUrl),
-        sideImageUrl: getPersistableImageUrl(payload.sideImage, payload.sideImageUrl),
+        frontImageUrl: frontFallbackUrl || payload.frontImage || null,
+        sideImageUrl: sideFallbackUrl || payload.sideImage || null,
         debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
         debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
         frontImageDest: null,
@@ -4157,8 +4121,8 @@ app.post(
         scanRequestId,
         payload: {
           ...payload,
-          frontImage: getPersistableImageUrl(payload.frontImage, payload.frontImageUrl),
-          sideImage: getPersistableImageUrl(payload.sideImage, payload.sideImageUrl),
+          frontImage: frontFallbackUrl || payload.frontImage || null,
+          sideImage: sideFallbackUrl || payload.sideImage || null,
           debugAnchorsImage: debugAnchorsUrl || payload.debugAnchorsImage || null,
           debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
           debugRatiosImage: debugRatiosUrl || payload.debugRatiosImage || null,
@@ -4190,24 +4154,13 @@ app.post(
       if (imagePath) frontUpload = await uploadImageToFirebase(imagePath, req.uid, 'front', { deleteLocal: false });
       if (sideImagePath) sideUpload = await uploadImageToFirebase(sideImagePath, req.uid, 'side', { deleteLocal: false });
 
-      const persistedFrontImage =
-        frontUpload?.url ||
-        getPersistableImageUrl(payload.frontImageUrl, payload.frontImage, savedScanBase?.frontImageUrl);
-      const persistedSideImage =
-        sideUpload?.url ||
-        getPersistableImageUrl(payload.sideImageUrl, payload.sideImage, savedScanBase?.sideImageUrl);
+      const persistedFrontImage = frontUpload ? frontUpload.url : (payload.frontImage || savedScanBase?.frontImageUrl || frontFallbackUrl || null);
+      const persistedSideImage = sideUpload ? sideUpload.url : (payload.sideImage || savedScanBase?.sideImageUrl || sideFallbackUrl || null);
 
-      if (!frontUpload && imagePath && !persistedFrontImage) {
-        console.warn('[storage] No durable front image URL saved for scan history; local /uploads URL is response-only.');
-      }
-      if (!sideUpload && sideImagePath && !persistedSideImage) {
-        console.warn('[storage] No durable side image URL saved for scan history; local /uploads URL is response-only.');
-      }
-
-      payload.frontImage = persistedFrontImage || null;
-      payload.frontImageUrl = persistedFrontImage || null;
-      payload.sideImage = persistedSideImage || null;
-      payload.sideImageUrl = persistedSideImage || null;
+      payload.frontImage = persistedFrontImage || payload.frontImage || null;
+      payload.frontImageUrl = persistedFrontImage || payload.frontImageUrl || null;
+      payload.sideImage = persistedSideImage || payload.sideImage || null;
+      payload.sideImageUrl = persistedSideImage || payload.sideImageUrl || null;
 
       savedScanBase = {
         ...(savedScanBase || {}),
@@ -4218,10 +4171,10 @@ app.post(
         payload: {
           ...(savedScanBase?.payload || {}),
           ...payload,
-          frontImage: persistedFrontImage || null,
-          sideImage: persistedSideImage || null,
-          frontImageUrl: persistedFrontImage || null,
-          sideImageUrl: persistedSideImage || null,
+          frontImage: persistedFrontImage || payload.frontImage || null,
+          sideImage: persistedSideImage || payload.sideImage || null,
+          frontImageUrl: persistedFrontImage || payload.frontImageUrl || null,
+          sideImageUrl: persistedSideImage || payload.sideImageUrl || null,
           selectedModel: String(modelChoice || payload.selectedModel || '').trim() || '1',
           platform: scanPlatform,
         },
@@ -4251,15 +4204,15 @@ app.post(
       scanRequestId: payload.scanRequestId || savedScanBase?.scanRequestId || null,
       timestamp: new Date().toISOString(),
       scannedAt: new Date().toISOString(),
-      frontImageUrl: getPersistableImageUrl(savedScanBase?.frontImageUrl, payload.frontImageUrl, payload.frontImage),
-      sideImageUrl: getPersistableImageUrl(savedScanBase?.sideImageUrl, payload.sideImageUrl, payload.sideImage),
+      frontImageUrl: payload.frontImage || frontFallbackUrl || null,
+      sideImageUrl: payload.sideImage || sideFallbackUrl || null,
       debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
       debugRatiosImageUrl: debugRatiosUrl || payload.debugRatiosImage || null,
       platform: scanPlatform,
       payload: {
         ...payload,
-        frontImage: getPersistableImageUrl(savedScanBase?.frontImageUrl, payload.frontImageUrl, payload.frontImage),
-        sideImage: getPersistableImageUrl(savedScanBase?.sideImageUrl, payload.sideImageUrl, payload.sideImage),
+        frontImage: payload.frontImage || frontFallbackUrl || null,
+        sideImage: payload.sideImage || sideFallbackUrl || null,
         debugAnchorsImage: debugAnchorsUrl || payload.debugAnchorsImage || null,
         debugAnchorsImageUrl: debugAnchorsUrl || payload.debugAnchorsImage || null,
         debugRatiosImage: debugRatiosUrl || payload.debugRatiosImage || null,
