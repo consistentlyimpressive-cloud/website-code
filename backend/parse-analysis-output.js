@@ -536,6 +536,7 @@ function correctPremium2JsonRating({ rawOutput, finalRating, data, categories, b
   const noseWidth = rawMetricNumber(rawValues, ['Nose Width Index']);
   const ipdIndex = rawMetricNumber(rawValues, ['IPD Index']);
   const bigonialWidth = rawMetricNumber(rawValues, ['Bigonial Width Index']);
+  const eyeWidthIndex = rawMetricNumber(rawValues, ['Eye Width Index']);
   const eyeDepthScore = Number(categories?.['Eye Depth']);
   const harmonyScore = Number(categories?.Harmony);
   const skinScore = Number(categories?.Skin);
@@ -716,9 +717,12 @@ function correctPremium2JsonRating({ rawOutput, finalRating, data, categories, b
   }
 
   if (rating >= 80) {
+    const compactEyeWidthLimiter =
+      /\b(?:compact|narrow(?:er)?|small(?:er)?|short(?:er)?)\s+(?:eye|eyes|eye\s+width)\b/i.test(text) ||
+      /\b(?:eye|eyes|eye\s+width)\b[^.\n]{0,90}\b(?:compact|narrow(?:er)?|small(?:er)?|short(?:er)?|relative\s+to\s+(?:the\s+)?(?:broad|wide|breadth))\b/i.test(text);
     const highScoreEyeLimiters = [
       /\b(?:upper\s+eyelid\s+exposure|uee|eyelid\s+exposure)\b/i.test(text),
-      /\b(?:narrow(?:er)?\s+eye|eye\s+width|horizontally\s+narrow|smaller\s+eyes?)\b/i.test(text),
+      compactEyeWidthLimiter,
       Number.isFinite(eyeShapeScore) && eyeShapeScore <= 72,
       Number.isFinite(eyeWidthScore) && eyeWidthScore <= 70,
       Number.isFinite(canthalTiltScore) && canthalTiltScore <= 76,
@@ -733,6 +737,9 @@ function correctPremium2JsonRating({ rawOutput, finalRating, data, categories, b
     ].filter(Boolean).length;
     const hasEliteOverreachLanguage =
       /\b(?:elite natural|elite placement|elite score|absolute elite|top tier|top-tier)\b/i.test(text);
+    const hasExaggeratedWidthLimiter =
+      /\b(?:borderline\s+uncanny|exaggerated|extreme\s+flare|aggressive|hyper[-\s]?masculine)\b[^.\n]{0,120}\b(?:width|cheekbone|jaw|jawline|lower third|flare|breadth)\b/i.test(text) ||
+      /\b(?:width|cheekbone|jaw|jawline|lower third|flare|breadth)\b[^.\n]{0,120}\b(?:borderline\s+uncanny|exaggerated|extreme|aggressive|hyper[-\s]?masculine)\b/i.test(text);
     const lacksEliteEyeArea =
       highScoreEyeLimiters >= 3 &&
       (
@@ -740,11 +747,31 @@ function correctPremium2JsonRating({ rawOutput, finalRating, data, categories, b
         (Number.isFinite(eyeWidthScore) && eyeWidthScore <= 70) ||
         (Number.isFinite(eyeDepthScore) && eyeDepthScore <= 75)
       );
+    const repeatedMetricOverreachPattern =
+      Number.isFinite(eyeWidthIndex) &&
+      eyeWidthIndex <= 0.195 &&
+      Number.isFinite(philtrumHeight) &&
+      philtrumHeight >= 0.108 &&
+      Number.isFinite(fwhRatio) &&
+      fwhRatio >= 1.72 &&
+      fwhRatio <= 1.84 &&
+      Number.isFinite(bigonialWidth) &&
+      bigonialWidth >= 0.89 &&
+      bigonialWidth <= 0.94 &&
+      Number.isFinite(midfaceRatio) &&
+      midfaceRatio >= 0.98 &&
+      midfaceRatio <= 1.01 &&
+      compactEyeWidthLimiter &&
+      hasExaggeratedWidthLimiter &&
+      highScoreSecondaryLimiters >= 2 &&
+      (Number.isFinite(skinScore) ? skinScore <= 82 : /\b(?:skin\s+texture|freckling|minor\s+texture)\b/i.test(text));
 
     if (
       hasEliteOverreachLanguage &&
-      lacksEliteEyeArea &&
-      highScoreSecondaryLimiters >= 3
+      (
+        (lacksEliteEyeArea && highScoreSecondaryLimiters >= 3) ||
+        repeatedMetricOverreachPattern
+      )
     ) {
       return Math.min(rating, 73);
     }
