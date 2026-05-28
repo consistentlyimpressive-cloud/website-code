@@ -737,9 +737,6 @@ function correctPremium2JsonRating({ rawOutput, finalRating, data, categories, b
     ].filter(Boolean).length;
     const hasEliteOverreachLanguage =
       /\b(?:elite natural|elite placement|elite score|absolute elite|top tier|top-tier)\b/i.test(text);
-    const hasExaggeratedWidthLimiter =
-      /\b(?:borderline\s+uncanny|exaggerated|extreme\s+flare|aggressive|hyper[-\s]?masculine)\b[^.\n]{0,120}\b(?:width|cheekbone|jaw|jawline|lower third|flare|breadth)\b/i.test(text) ||
-      /\b(?:width|cheekbone|jaw|jawline|lower third|flare|breadth)\b[^.\n]{0,120}\b(?:borderline\s+uncanny|exaggerated|extreme|aggressive|hyper[-\s]?masculine)\b/i.test(text);
     const lacksEliteEyeArea =
       highScoreEyeLimiters >= 3 &&
       (
@@ -762,7 +759,6 @@ function correctPremium2JsonRating({ rawOutput, finalRating, data, categories, b
       midfaceRatio >= 0.98 &&
       midfaceRatio <= 1.01 &&
       compactEyeWidthLimiter &&
-      hasExaggeratedWidthLimiter &&
       highScoreSecondaryLimiters >= 2 &&
       (Number.isFinite(skinScore) ? skinScore <= 82 : /\b(?:skin\s+texture|freckling|minor\s+texture)\b/i.test(text));
 
