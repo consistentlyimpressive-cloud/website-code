@@ -544,12 +544,30 @@ function correctPremium2JsonRating({ rawOutput, finalRating, data, categories, b
     ['eye shape', 'uee', 'upper eyelid exposure', 'eyelid exposure', 'scleral show', 'eye area'],
     ['eye width']
   );
+  const eyeWidthMetric = findBiometricEntryByAliases(
+    biometrics,
+    ['eye width', 'horizontal eye width'],
+    ['index']
+  );
+  const canthalTiltMetric = findBiometricEntryByAliases(
+    biometrics,
+    ['canthal tilt', 'canthal tilt degrees'],
+    []
+  );
+  const philtrumMetric = findBiometricEntryByAliases(
+    biometrics,
+    ['philtrum height', 'philtrum height index', 'philtrum'],
+    []
+  );
   const noseBridgeMetric = findBiometricEntryByAliases(
     biometrics,
     ['nose bridge definition', 'nose bridge', 'nasal bridge', 'bridge definition', 'dorsum definition'],
     []
   );
   const eyeShapeScore = Number(eyeShapeMetric?.score);
+  const eyeWidthScore = Number(eyeWidthMetric?.score);
+  const canthalTiltScore = Number(canthalTiltMetric?.score);
+  const philtrumScore = Number(philtrumMetric?.score);
   const hasSevereExposureText =
     /\b(?:significant|obvious|clear|marked|high|excessive|major|severe)\s+(?:upper\s+eyelid\s+exposure|uee|eyelid\s+exposure|lower\s+scleral\s+show|scleral\s+show)\b/i.test(text) ||
     /\b(?:upper\s+eyelid\s+exposure|uee|eyelid\s+exposure|lower\s+scleral\s+show|scleral\s+show)\b[^.\n]{0,90}\b(?:significant|obvious|clear|marked|high|excessive|major|severe|startled|exposed|round|vertically\s+tall)\b/i.test(text);
@@ -695,6 +713,41 @@ function correctPremium2JsonRating({ rawOutput, finalRating, data, categories, b
       ((Number.isFinite(eyeShapeScore) && eyeShapeScore <= 60) ||
         (Number.isFinite(eyeDepthScore) && eyeDepthScore <= 68));
     return Math.min(rating, severeMeasuredEyeBottleneck ? 62 : similarMeasuredEyeBottleneck ? 64 : 68);
+  }
+
+  if (rating >= 80) {
+    const highScoreEyeLimiters = [
+      /\b(?:upper\s+eyelid\s+exposure|uee|eyelid\s+exposure)\b/i.test(text),
+      /\b(?:narrow(?:er)?\s+eye|eye\s+width|horizontally\s+narrow|smaller\s+eyes?)\b/i.test(text),
+      Number.isFinite(eyeShapeScore) && eyeShapeScore <= 72,
+      Number.isFinite(eyeWidthScore) && eyeWidthScore <= 70,
+      Number.isFinite(canthalTiltScore) && canthalTiltScore <= 76,
+      Number.isFinite(eyeDepthScore) && eyeDepthScore <= 75,
+    ].filter(Boolean).length;
+    const highScoreSecondaryLimiters = [
+      /\b(?:long(?:er)?\s+philtrum|philtrum\b[^.\n]{0,80}\b(?:long|slightly|mild|limiting|deviation))\b/i.test(text),
+      /\b(?:skin\s+texture|freckling|minor\s+texture|blemish|uneven\s+tone)\b/i.test(text) || (Number.isFinite(skinScore) && skinScore <= 80),
+      /\b(?:neck\s+framing|moderate\s+neck|neck\s+width)\b/i.test(text),
+      /\b(?:minor|slight|slightly|mild)\b[^.\n]{0,80}\b(?:flaw|limitation|deviation|texture|exposure|narrow|philtrum)\b/i.test(text),
+      Number.isFinite(philtrumScore) && philtrumScore <= 74,
+    ].filter(Boolean).length;
+    const hasEliteOverreachLanguage =
+      /\b(?:elite natural|elite placement|elite score|absolute elite|top tier|top-tier)\b/i.test(text);
+    const lacksEliteEyeArea =
+      highScoreEyeLimiters >= 3 &&
+      (
+        (Number.isFinite(eyeShapeScore) && eyeShapeScore <= 72) ||
+        (Number.isFinite(eyeWidthScore) && eyeWidthScore <= 70) ||
+        (Number.isFinite(eyeDepthScore) && eyeDepthScore <= 75)
+      );
+
+    if (
+      hasEliteOverreachLanguage &&
+      lacksEliteEyeArea &&
+      highScoreSecondaryLimiters >= 3
+    ) {
+      return Math.min(rating, 73);
+    }
   }
 
   if (rating >= 73 && rating <= 76) {
